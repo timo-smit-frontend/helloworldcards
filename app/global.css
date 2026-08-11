@@ -3,11 +3,7 @@
 @import 'tw-animate-css';
 
 @utility container-full {
-  @apply mx-auto w-full max-w-site px-5 sm:px-7 lg:px-8;
-}
-
-@utility button-base {
-  @apply inline-flex min-h-11 items-center justify-center rounded-full border-2 px-6.5 py-2 text-base leading-7 smooth lg:text-lg;
+  @apply mx-auto w-full max-w-500 px-5 sm:px-7 lg:px-8;
 }
 
 @utility button-deep-green {
@@ -18,16 +14,80 @@
   @apply button-base border-site-malibu bg-site-malibu text-black [&:not([disabled])]:hover:border-site-malibu [&:not([disabled])]:hover:bg-site-malibu;
 }
 
+@utility button-base {
+  @apply inline-flex items-center justify-center sm:w-fit w-full rounded-full border-2 px-6 py-2 smooth lg:text-lg text-base;
+}
+
+@utility title-xl {
+  @apply lg:text-6xl sm:text-5xl text-4xl title-base;
+}
+
+@utility title-l {
+  @apply lg:text-5xl sm:text-4xl text-3xl title-base;
+}
+
+@utility title-m {
+  @apply lg:text-4xl sm:text-3xl text-2xl title-base;
+}
+
+@utility title-s {
+  @apply lg:text-3xl sm:text-2xl text-xl title-base;
+}
+
+@utility title-xs {
+  @apply lg:text-2xl sm:text-xl text-lg title-base;
+}
+
 @utility title-base {
-  @apply font-site-cleanvertising font-light;
+  @apply font-site-cleanvertising font-bold;
+}
+
+@utility content-xl {
+  @apply lg:text-2xl sm:text-xl text-lg content-base;
+}
+
+@utility content-l {
+  @apply lg:text-xl sm:text-lg text-base content-base;
 }
 
 @utility content-m {
+  @apply lg:text-lg text-base content-base;
+}
+
+@utility content-s {
+  @apply text-base content-base;
+}
+
+@utility content-xs {
+  @apply text-sm content-base;
+}
+
+@utility content-base {
   @apply space-y-4 text-base leading-7 lg:space-y-6;
 }
 
 @utility section-top {
-  @apply mt-20 sm:mt-36 lg:mt-52;
+  @apply mt-16 sm:mt-24 lg:mt-32;
+}
+
+@utility section-bottom {
+  @apply mb-16 sm:mb-24 lg:mb-32;
+}
+
+@utility section {
+  @apply section-top section-bottom;
+}
+
+@utility section-top-bg {
+  @apply pt-16 sm:pt-24 lg:pt-32;
+}
+
+@utility section-bottom-bg {
+  @apply pb-16 sm:pb-24 lg:pb-32;
+}
+
+@utility section-bg {
+  @apply section-top-bg section-bottom-bg;
 }
 
 @utility smooth {
