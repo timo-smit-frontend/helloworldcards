@@ -1,0 +1,66 @@
+@config "../tailwind.config.js";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@utility container-full {
+  @apply mx-auto w-full max-w-site px-5 sm:px-7 lg:px-8;
+}
+
+@utility button-base {
+  @apply inline-flex min-h-11 items-center justify-center rounded-full border-2 px-6.5 py-2 text-base leading-7 smooth lg:text-lg;
+}
+
+@utility button-deep-green {
+  @apply button-base border-site-deep-green bg-site-deep-green text-white [&:not([disabled])]:hover:border-site-deep-green [&:not([disabled])]:hover:bg-site-deep-green;
+}
+
+@utility button-malibu {
+  @apply button-base border-site-malibu bg-site-malibu text-black [&:not([disabled])]:hover:border-site-malibu [&:not([disabled])]:hover:bg-site-malibu;
+}
+
+@utility title-base {
+  @apply font-site-cleanvertising font-light;
+}
+
+@utility content-m {
+  @apply space-y-4 text-base leading-7 lg:space-y-6;
+}
+
+@utility section-top {
+  @apply mt-20 sm:mt-36 lg:mt-52;
+}
+
+@utility smooth {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+@utility mobile-menu-hover {
+  @apply relative text-neutral-900 transition-all duration-300 ease-out;
+
+  &::after {
+    content: '';
+    @apply absolute bottom-0 left-0 h-px w-0 bg-site-deep-green transition-all duration-300 ease-out;
+  }
+
+  @media (width >= 40rem) {
+    &:hover {
+      @apply text-site-deep-green;
+    }
+
+    &:hover::after {
+      @apply w-full;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body {
+    @apply min-h-screen max-w-full scroll-smooth font-site-raleway antialiased;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    @apply outline-3 outline-offset-2 outline-site-gold;
+  }
+}
