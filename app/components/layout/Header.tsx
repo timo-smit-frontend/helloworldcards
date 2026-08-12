@@ -5,8 +5,10 @@ import Logo from '~/components/elements/Logo'
 import { cn } from '~/services/utils'
 
 const SITE_NAME = 'Hello World Cards'
+const PRODUCTS_URL = '/products'
+const PRODUCTS_TITLE = 'Products'
 const CONTACT_URL = '/contact'
-const CONTACT_TITLE = 'Contact'
+const CONTACT_TITLE = 'Contact us'
 
 function ContactArrow() {
   return (
@@ -71,6 +73,13 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
             <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:justify-between">
               <nav aria-label="Mobile">
                 <Link
+                  to={PRODUCTS_URL}
+                  className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {PRODUCTS_TITLE}
+                </Link>
+                <Link
                   to={CONTACT_URL}
                   className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
                   onClick={() => onOpenChange(false)}
@@ -124,11 +133,14 @@ export default function Header() {
             <Logo className="h-20 w-auto" />
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 xl:gap-12">
             <Link
-              to={CONTACT_URL}
-              className="button-malibu hidden h-14 w-39 items-center justify-center gap-2.5 rounded-[92px] px-7 text-lg font-medium xl:inline-flex"
+              to={PRODUCTS_URL}
+              className="title-base hidden text-lg font-medium transition-colors hover:text-site-deep-green xl:inline-flex"
             >
+              {PRODUCTS_TITLE}
+            </Link>
+            <Link to={CONTACT_URL} className="button-malibu hidden items-center justify-center gap-2.5 xl:inline-flex">
               {CONTACT_TITLE}
               <ContactArrow />
             </Link>

@@ -1,7 +1,10 @@
 import { Link } from 'react-router'
 import Logo from '~/components/elements/Logo'
 
-const FOOTER_MENU = [{ title: 'Contact', to: '/contact' }]
+const FOOTER_MENU = [
+  { title: 'Products', to: '/products' },
+  { title: 'Contact', to: '/contact' }
+]
 
 const DISCLAIMER_MENU = [
   { title: 'Privacy', to: '#' },
