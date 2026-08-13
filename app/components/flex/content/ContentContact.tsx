@@ -9,7 +9,7 @@ export default function ContentContact({ title, description }: { title?: string;
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16 xl:gap-24">
           <div className="flex flex-col gap-12">
             {(title || description) && (
-              <div className="flex flex-col gap-4 max-w-xl">
+              <div className="flex max-w-xl flex-col gap-3 lg:gap-6">
                 {title && (
                   <Animated delay={100}>
                     <h1 className="title-l">{title}</h1>

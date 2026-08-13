@@ -1,5 +1,4 @@
 import { Animated } from '~/components/elements/Animated'
-import ActionLink from '~/components/elements/ActionLink'
 
 export default function BannerImageFull({
   title,
@@ -13,10 +12,10 @@ export default function BannerImageFull({
   link?: { url?: string; target?: string; title?: string }
 }) {
   return (
-    <section id="banner-image-full" className="border-b border-line bg-paper">
-      <div className="container-full py-12 lg:py-20">
+    <section id="banner-image-full" className="lg:border-b border-line bg-paper">
+      <div className="container-full pt-12 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3 lg:gap-6">
             {title && (
               <Animated delay={200}>
                 <h1 className="title-xl text-balance">{title}</h1>
@@ -29,9 +28,9 @@ export default function BannerImageFull({
             )}
             {link?.url && link?.title && (
               <Animated delay={400}>
-                <ActionLink url={link.url} className="button-leaf">
+                <a href={link.url} className="button-leaf">
                   {link.title}
-                </ActionLink>
+                </a>
               </Animated>
             )}
           </div>

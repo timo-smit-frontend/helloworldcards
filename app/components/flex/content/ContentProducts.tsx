@@ -26,7 +26,7 @@ export default function ContentProducts({
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-3 lg:gap-6">
               {title && (
                 <Animated delay={100}>
                   <h2 className="title-l">{title}</h2>
@@ -50,7 +50,7 @@ export default function ContentProducts({
                         to={`/products/${product.slug}`}
                         className="group flex h-full flex-col overflow-hidden rounded-panel bg-cream shadow-card ring-1 ring-line smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-leaf"
                       >
-                        <div className="relative aspect-4/5 bg-white p-5">
+                        <div className="relative aspect-4/5 max-lg:h-100 bg-white p-5">
                           {product.images[0] && (
                             <img
                               src={product.images[0]}

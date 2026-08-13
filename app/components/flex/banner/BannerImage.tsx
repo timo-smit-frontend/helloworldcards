@@ -30,7 +30,7 @@ export default function BannerImage({
               <div className="flex h-full flex-col gap-4 py-20">
                 {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="lg:hidden" />
-                <div className="flex flex-1 flex-col justify-center gap-4">
+                <div className="flex flex-1 flex-col justify-center gap-3 lg:gap-6">
                   {title && <h1 className="title-xl">{title}</h1>}
                   {description && (
                     <Animated delay={200}>

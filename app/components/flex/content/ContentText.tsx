@@ -1,5 +1,4 @@
 import { Animated } from '~/components/elements/Animated'
-import ActionLink from '~/components/elements/ActionLink'
 
 export default function ContentText({
   title,
@@ -13,7 +12,7 @@ export default function ContentText({
   return (
     <section id="content-text" className="section">
       <div className="container-full">
-        <div className="max-w-3xl">
+        <div className="flex max-w-3xl flex-col gap-3 lg:gap-6">
           {title && (
             <Animated delay={100}>
               <h2 className="title-l">{title}</h2>
@@ -21,14 +20,14 @@ export default function ContentText({
           )}
           {description && (
             <Animated delay={200}>
-              <p className="content-l mt-6 text-muted">{description}</p>
+              <p className="content-l text-muted">{description}</p>
             </Animated>
           )}
           {link && (
             <Animated delay={300}>
-              <ActionLink url={link.url} className="button-leaf mt-6">
+              <a href={link.url} className="button-leaf">
                 {link.title}
-              </ActionLink>
+              </a>
             </Animated>
           )}
         </div>

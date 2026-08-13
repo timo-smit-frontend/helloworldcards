@@ -17,7 +17,7 @@ export default function ContentCta({
       <div className="container-full">
         <div className="grid items-center overflow-hidden rounded-panel bg-cream shadow-card ring-1 ring-line sm:grid-cols-2">
           {(title || description || link) && (
-            <div className={cn('flex flex-col gap-5 px-6 py-10 sm:px-8 lg:px-12 lg:py-16', !image && 'items-center text-center')}>
+            <div className={cn('flex flex-col gap-3 px-6 py-10 sm:px-8 lg:gap-6 lg:px-12 lg:py-16', !image && 'items-center text-center')}>
               {title && (
                 <Animated delay={100}>
                   <h2 className="title-l">{title}</h2>

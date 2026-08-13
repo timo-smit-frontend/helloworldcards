@@ -2,6 +2,14 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@custom-variant hover {
+  @variant lg {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 @utility container-full {
   @apply mx-auto w-full max-w-500 px-5 sm:px-7 lg:px-8;
 }
@@ -114,12 +122,10 @@
     @apply absolute bottom-0 left-0 h-px w-0 bg-leaf transition-all duration-300 ease-out;
   }
 
-  @media (width >= 40rem) {
-    &:hover {
-      @apply text-leaf;
-    }
+  @variant hover {
+    @apply text-leaf;
 
-    &:hover::after {
+    &::after {
       @apply w-full;
     }
   }

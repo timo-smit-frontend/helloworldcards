@@ -14,7 +14,7 @@ const DISCLAIMER_MENU = [
 
 export default function Footer() {
   return (
-    <footer data-component="Footer" className="section-top pb-16 text-ink lg:pb-20">
+    <footer data-component="Footer" className="max-lg:border-t border-line max-lg:pt-8 pb-16 text-ink lg:pb-20">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
           <Link to="/" className="block w-fit" aria-label="Hello World Cards">
