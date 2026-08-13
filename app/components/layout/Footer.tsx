@@ -3,6 +3,7 @@ import Logo from '~/components/elements/Logo'
 
 const FOOTER_MENU = [
   { title: 'Products', to: '/products' },
+  { title: 'Agenda', to: '/agenda' },
   { title: 'Contact', to: '/contact' }
 ]
 

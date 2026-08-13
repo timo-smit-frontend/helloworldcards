@@ -7,6 +7,8 @@ import { cn } from '~/services/utils'
 const SITE_NAME = 'Hello World Cards'
 const PRODUCTS_URL = '/products'
 const PRODUCTS_TITLE = 'Products'
+const AGENDA_URL = '/agenda'
+const AGENDA_TITLE = 'Agenda'
 const CONTACT_URL = '/contact'
 const CONTACT_TITLE = 'Contact us'
 
@@ -80,6 +82,13 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
                   {PRODUCTS_TITLE}
                 </Link>
                 <Link
+                  to={AGENDA_URL}
+                  className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {AGENDA_TITLE}
+                </Link>
+                <Link
                   to={CONTACT_URL}
                   className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
                   onClick={() => onOpenChange(false)}
@@ -139,6 +148,12 @@ export default function Header() {
               className="title-base hidden text-lg font-medium transition-colors hover:text-site-deep-green xl:inline-flex"
             >
               {PRODUCTS_TITLE}
+            </Link>
+            <Link
+              to={AGENDA_URL}
+              className="title-base hidden text-lg font-medium transition-colors hover:text-site-deep-green xl:inline-flex"
+            >
+              {AGENDA_TITLE}
             </Link>
             <Link to={CONTACT_URL} className="button-malibu hidden items-center justify-center gap-2.5 xl:inline-flex">
               {CONTACT_TITLE}

@@ -1,7 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import ScrollToTop from '~/components/layout/ScrollToTop'
 import Root from '~/root'
+import Agenda from '~/routes/agenda'
 import Contact from '~/routes/contact'
 import ErrorPage from '~/routes/error'
 import Home from '~/routes/home'
@@ -18,10 +20,12 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<Root />}>
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
+          <Route path="agenda" element={<Agenda />} />
           <Route path="contact" element={<Contact />} />
         </Route>
         <Route path="products/:slug" element={<Product />} />

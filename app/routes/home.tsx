@@ -9,11 +9,11 @@ export default function Home() {
       <BannerImageFull
         title="Welcome to Hello World Cards"
         image="https://picsum.photos/seed/banner/1600/900"
-        link={{ url: '/products', title: 'Shop all cards' }}
+        link={{ url: '/products', title: 'Visit our shop' }}
       />
       <ContentText
         title="Hey, we're Hello World Cards"
-        description="We're Samantha and Timo, two Pokémon-loving nerds who turned a hobby into this little corner of the internet. This is where we share what's in stock — Pokémon cards, Pokémon art, and whatever else we pick up along the way. Whenever we head to a Pokémon event, we'll post about it here so you can follow along, see what we find, and maybe grab something for your own collection. If you love the games, the cards, or just the world around them as much as we do, you're in the right place."
+        description="We're Sam & Timo, two Pokémon-loving nerds who turned a hobby into this little corner of the internet. This is where we share what's in stock Pokémon cards, Pokémon art, and whatever else we pick up along the way. Whenever we head to a Pokémon event, we'll post about it here so you can follow along, see what we find, and maybe grab something for your own collection. If you love the games, the cards, or just the world around them as much as we do, you're in the right place."
       />
       <ContentProducts title="Our bestselling products" description="A few picks from the shop." id={[1, 2, 3, 4]} />
       <ContentCta
