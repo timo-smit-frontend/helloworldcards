@@ -1,7 +1,10 @@
+import ContentContact from '~/components/flex/content/ContentContact'
+
 export default function Contact() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-5">
-      <h1 className="text-4xl font-semibold tracking-tight text-white">Hello World - Contact</h1>
-    </div>
+    <ContentContact
+      title="Get in touch"
+      description="Questions about a card, an event, or something in the shop? Send us a message — we'd love to hear from you."
+    />
   )
 }

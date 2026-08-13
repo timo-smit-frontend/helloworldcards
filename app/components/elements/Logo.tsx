@@ -35,11 +35,11 @@ export default function Logo({ className }: { className?: string }) {
         <circle cx="260" cy="260" r="18" fill="#68C7E8" stroke="#171717" strokeWidth="7" />
       </g>
 
-      <g id="wordmark" fontFamily="Arial, Helvetica, sans-serif" fill="#171717">
+      <g id="wordmark" fontFamily="Outfit, Arial, Helvetica, sans-serif" fill="#3A322C">
         <text x="510" y="230" fontSize="96" fontWeight="800" letterSpacing="-3">
           Hello World
         </text>
-        <text x="515" y="320" fontSize="64" fontWeight="700" letterSpacing="8" fill="#2A7F9B">
+        <text x="515" y="320" fontSize="64" fontWeight="700" letterSpacing="8" fill="#5AAFCB">
           CARDS
         </text>
       </g>

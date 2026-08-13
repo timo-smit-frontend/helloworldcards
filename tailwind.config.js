@@ -8,10 +8,23 @@ export default {
   content: ['./index.html', './app/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      borderRadius: {
+        panel: '1.25rem',
+        button: '1.25rem'
+      },
+      boxShadow: {
+        button: '0 2px 0 rgb(61 138 158 / 0.2)',
+        card: '0 10px 28px rgb(58 50 44 / 0.08)'
+      },
       colors: {
-        'site-malibu': '#68C7E8',
-        'site-deep-green': '#005F19',
-        'site-gold': '#FFD700'
+        paper: '#f8efe4',
+        ink: '#3a322c',
+        muted: '#73685f',
+        surface: '#fff8f0',
+        cream: '#fffdf9',
+        line: '#e6d5c4',
+        leaf: '#5aafcb',
+        moss: '#3d8a9e'
       },
       container: {
         center: true,
@@ -25,8 +38,9 @@ export default {
         }
       },
       fontFamily: {
-        'site-raleway': ['Raleway', 'sans-serif'],
-        'site-cleanvertising': ['Raleway', 'sans-serif']
+        sans: ['Outfit', ...defaultTheme.fontFamily.sans],
+        display: ['Outfit', ...defaultTheme.fontFamily.sans],
+        mono: ['Outfit', ...defaultTheme.fontFamily.sans]
       },
       maxWidth: {
         site: '84.25rem'

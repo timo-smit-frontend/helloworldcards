@@ -7,19 +7,20 @@ export default function Home() {
   return (
     <>
       <BannerImageFull
-        title="Welcome to Hello World Cards"
-        image="https://picsum.photos/seed/banner/1600/900"
-        link={{ url: '/products', title: 'Visit our shop' }}
+        title="Cards, art, and a place to linger"
+        description="Pokémon cards and more, a little shop that still feels like two friends sharing a hobby."
+        image="https://substackcdn.com/image/fetch/$s_!Np1Z!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F1b5566fa-e0ab-4039-a54b-c1f78dbb59e3_1280x960.jpeg"
+        link={{ url: '/products', title: 'Visit the shop' }}
       />
       <ContentText
         title="Hey, we're Hello World Cards"
         description="We're Sam & Timo, two Pokémon-loving nerds who turned a hobby into this little corner of the internet. This is where we share what's in stock Pokémon cards, Pokémon art, and whatever else we pick up along the way. Whenever we head to a Pokémon event, we'll post about it here so you can follow along, see what we find, and maybe grab something for your own collection. If you love the games, the cards, or just the world around them as much as we do, you're in the right place."
       />
-      <ContentProducts title="Our bestselling products" description="A few picks from the shop." id={[1, 2, 3, 4]} />
+      <ContentProducts title="A few favorites" description="Cards and art we love having around." id={[1, 2, 3, 4]} />
       <ContentCta
         title="Want to get in touch?"
         description="Questions about a card, an event, or something in the shop? Send us an email — we'd love to hear from you."
-        image="https://picsum.photos/seed/cta/800/700"
+        image="https://substackcdn.com/image/fetch/$s_!Np1Z!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F1b5566fa-e0ab-4039-a54b-c1f78dbb59e3_1280x960.jpeg"
         link={{
           url: `mailto:helloworldcards@outlook.com?subject=${encodeURIComponent('Question from Hello World Cards')}`,
           title: 'Email us'

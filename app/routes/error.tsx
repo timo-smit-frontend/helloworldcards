@@ -19,7 +19,7 @@ export default function ErrorPage({
       <div className="container-full">
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
           <Animated delay={100}>
-            <p className="title-xl text-site-deep-green">{code}</p>
+            <p className="title-xl text-leaf">{code}</p>
           </Animated>
           <Animated delay={200}>
             <h1 id="error-title" className="title-l">
@@ -27,10 +27,10 @@ export default function ErrorPage({
             </h1>
           </Animated>
           <Animated delay={300}>
-            <p className="content-l text-site-deep-green">{description}</p>
+            <p className="content-l text-muted">{description}</p>
           </Animated>
           <Animated delay={400}>
-            <Link to={link.url} className="button-deep-green mt-2">
+            <Link to={link.url} className="button-leaf mt-2">
               {link.title}
             </Link>
           </Animated>

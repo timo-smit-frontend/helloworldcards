@@ -6,68 +6,72 @@
   @apply mx-auto w-full max-w-500 px-5 sm:px-7 lg:px-8;
 }
 
-@utility button-deep-green {
-  @apply button-base border-site-deep-green bg-site-deep-green text-white [&:not([disabled])]:hover:border-site-deep-green [&:not([disabled])]:hover:bg-site-deep-green;
-}
-
-@utility button-white-outline {
-  @apply button-base border-white bg-transparent text-white [&:not([disabled])]:hover:border-white [&:not([disabled])]:hover:bg-transparent;
-}
-
-@utility button-malibu {
-  @apply button-base border-site-malibu bg-site-malibu text-black [&:not([disabled])]:hover:border-site-malibu [&:not([disabled])]:hover:bg-site-malibu;
-}
-
 @utility button-base {
-  @apply inline-flex items-center justify-center sm:w-fit w-full rounded-full border-2 px-6 py-2 smooth lg:text-lg text-base;
+  @apply inline-flex w-full items-center justify-center rounded-button border-2 px-6 py-2 text-base tracking-[0.02em] shadow-button smooth lg:text-lg sm:w-fit;
+}
+
+@utility button-leaf {
+  @apply button-base border-leaf bg-leaf text-cream [&:not([disabled])]:hover:border-moss [&:not([disabled])]:hover:bg-leaf;
+}
+
+@utility button-ink {
+  @apply button-base border-ink bg-ink text-cream [&:not([disabled])]:hover:border-leaf [&:not([disabled])]:hover:bg-ink;
+}
+
+@utility button-outline {
+  @apply button-base border-ink bg-transparent text-ink [&:not([disabled])]:hover:border-ink [&:not([disabled])]:hover:bg-transparent;
 }
 
 @utility title-xl {
-  @apply lg:text-6xl sm:text-5xl text-4xl title-base;
+  @apply title-base text-4xl sm:text-5xl lg:text-6xl;
 }
 
 @utility title-l {
-  @apply lg:text-5xl sm:text-4xl text-3xl title-base;
+  @apply title-base text-3xl sm:text-4xl lg:text-5xl;
 }
 
 @utility title-m {
-  @apply lg:text-4xl sm:text-3xl text-2xl title-base;
+  @apply title-base text-2xl sm:text-3xl lg:text-4xl;
 }
 
 @utility title-s {
-  @apply lg:text-3xl sm:text-2xl text-xl title-base;
+  @apply title-base text-xl sm:text-2xl lg:text-3xl;
 }
 
 @utility title-xs {
-  @apply lg:text-2xl sm:text-xl text-lg title-base;
+  @apply title-base text-lg sm:text-xl lg:text-2xl;
 }
 
 @utility title-base {
-  @apply font-site-cleanvertising font-bold;
+  @apply font-display font-semibold tracking-[-0.03em] leading-[1.1];
 }
 
 @utility content-xl {
-  @apply lg:text-2xl sm:text-xl text-lg content-base;
+  @apply content-base text-lg sm:text-xl lg:text-2xl;
 }
 
 @utility content-l {
-  @apply lg:text-xl sm:text-lg text-base content-base;
+  @apply content-base text-base sm:text-lg lg:text-xl;
 }
 
 @utility content-m {
-  @apply lg:text-lg text-base content-base;
+  @apply content-base text-base lg:text-lg;
 }
 
 @utility content-s {
-  @apply text-base content-base;
+  @apply content-base text-base;
 }
 
 @utility content-xs {
-  @apply text-sm content-base;
+  @apply content-base text-sm;
 }
 
 @utility content-base {
   @apply space-y-4 text-base leading-7 lg:space-y-6;
+}
+
+@utility mat {
+  @apply rounded-panel bg-cream p-3 shadow-card ring-1 ring-line;
 }
 
 @utility section-top {
@@ -94,21 +98,25 @@
   @apply section-top-bg section-bottom-bg;
 }
 
+@utility field {
+  @apply w-full rounded-button border-2 border-line bg-paper px-4 py-3 text-base text-ink placeholder:text-muted/70 smooth;
+}
+
 @utility smooth {
   @apply transition-all duration-200 ease-in-out;
 }
 
 @utility mobile-menu-hover {
-  @apply relative text-neutral-900 transition-all duration-300 ease-out;
+  @apply relative text-ink transition-all duration-300 ease-out;
 
   &::after {
     content: '';
-    @apply absolute bottom-0 left-0 h-px w-0 bg-site-deep-green transition-all duration-300 ease-out;
+    @apply absolute bottom-0 left-0 h-px w-0 bg-leaf transition-all duration-300 ease-out;
   }
 
   @media (width >= 40rem) {
     &:hover {
-      @apply text-site-deep-green;
+      @apply text-leaf;
     }
 
     &:hover::after {
@@ -120,12 +128,19 @@
 @layer base {
   html,
   body {
-    @apply min-h-screen max-w-full scroll-smooth font-site-raleway antialiased;
+    @apply min-h-screen max-w-full scroll-smooth bg-paper font-sans text-ink antialiased;
+    color-scheme: light;
+  }
+
+  ::selection {
+    @apply bg-leaf text-cream;
   }
 
   button:focus-visible,
-  a:focus-visible {
-    @apply outline-3 outline-offset-2 outline-site-gold;
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    @apply outline-3 outline-offset-2 outline-leaf;
   }
 }
 

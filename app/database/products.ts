@@ -16,7 +16,7 @@ const products: ProductRecord[] = [
   {
     id: 1,
     title: 'Charizard Holo',
-    description: 'A classic holographic Charizard card from the Base Set era.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
@@ -27,7 +27,7 @@ const products: ProductRecord[] = [
   {
     id: 2,
     title: 'Blastoise Holo',
-    description: 'Powerful Water-type evolution with a deep blue holographic finish.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
@@ -38,7 +38,7 @@ const products: ProductRecord[] = [
   {
     id: 3,
     title: 'Venusaur Holo',
-    description: 'Grass-type powerhouse with a rich green holographic pattern.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
@@ -49,7 +49,7 @@ const products: ProductRecord[] = [
   {
     id: 4,
     title: 'Pikachu Illustrator',
-    description: 'An ultra-rare promotional Pikachu card for serious collectors.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
@@ -60,7 +60,7 @@ const products: ProductRecord[] = [
   {
     id: 5,
     title: 'Mewtwo GX',
-    description: 'Psychic-type GX card with striking artwork and playability.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
@@ -71,7 +71,7 @@ const products: ProductRecord[] = [
   {
     id: 6,
     title: 'Eevee Promo',
-    description: 'Cute promo Eevee — a friendly starter for any collection.',
+    description: 'Base Set - 10/102',
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'

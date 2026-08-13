@@ -34,13 +34,13 @@ export default function BannerImage({
                   {title && <h1 className="title-xl">{title}</h1>}
                   {description && (
                     <Animated delay={200}>
-                      <p className="content-xl text-site-deep-green">{description}</p>
+                      <p className="content-xl text-muted">{description}</p>
                     </Animated>
                   )}
                 </div>
                 {link?.url && link?.title && (
                   <Animated delay={300}>
-                    <a href={link.url} target={link.target} className="button-deep-green mt-auto">
+                    <a href={link.url} target={link.target} className="button-leaf mt-auto">
                       {link.title}
                     </a>
                   </Animated>
@@ -75,7 +75,11 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
 
   return (
     <div className={className}>
-      <Carousel opts={{ loop: images.length > 1 }} plugins={images.length > 1 ? [autoplay] : undefined} className="flex flex-col">
+      <Carousel
+        opts={{ loop: images.length > 1 }}
+        plugins={images.length > 1 ? [autoplay] : undefined}
+        className="flex flex-col overflow-hidden rounded-panel bg-cream"
+      >
         <CarouselContent>
           {images.map((src, index) => (
             <CarouselItem key={`${src}-${index}`} className="basis-full">

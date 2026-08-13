@@ -11,6 +11,8 @@ const AGENDA_URL = '/agenda'
 const AGENDA_TITLE = 'Agenda'
 const CONTACT_URL = '/contact'
 const CONTACT_TITLE = 'Contact us'
+const navLinkClass =
+  'hidden font-sans text-base font-semibold transition-colors hover:text-moss xl:inline-flex'
 
 function ContactArrow() {
   return (
@@ -27,7 +29,7 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
   return (
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <SheetPrimitive.Trigger
-        className="relative inline-flex size-11 items-center justify-center text-neutral-900 xl:hidden"
+        className="relative inline-flex size-11 items-center justify-center text-ink xl:hidden"
         aria-label="Open menu"
       >
         <svg
@@ -46,8 +48,8 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
         </svg>
       </SheetPrimitive.Trigger>
       <SheetPrimitive.Portal>
-        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-deep-green/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
-        <SheetPrimitive.Content className="fixed inset-x-0 top-0 z-50 flex h-full flex-col border-b border-neutral-200 bg-white p-6 shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top">
+        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-paper/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
+        <SheetPrimitive.Content className="fixed inset-x-0 top-0 z-50 flex h-full flex-col border-b border-line bg-surface p-6 text-ink shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top">
           <SheetPrimitive.Title className="sr-only">Menu</SheetPrimitive.Title>
           <div className="mx-auto flex w-full flex-col sm:w-9/12 max-sm:min-h-0 max-sm:flex-1">
             <div className="mb-10 flex shrink-0 items-center justify-between sm:mb-12">
@@ -55,7 +57,7 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
                 <span className="sr-only">{SITE_NAME}</span>
                 <Logo className="h-20 w-auto" />
               </Link>
-              <SheetPrimitive.Close className="inline-flex size-11 items-center justify-center rounded-sm text-neutral-900 opacity-70 transition-opacity focus:outline-hidden focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-site-gold sm:hover:opacity-100">
+              <SheetPrimitive.Close className="inline-flex size-11 items-center justify-center rounded-sm text-ink opacity-70 transition-opacity focus:outline-hidden focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf sm:hover:opacity-100">
                 <svg
                   width="24"
                   height="24"
@@ -98,7 +100,7 @@ function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
               </nav>
               <Link
                 to={CONTACT_URL}
-                className="button-deep-green mt-8 flex h-14 w-full shrink-0 items-center justify-center gap-2.5 rounded-[92px] px-7 text-lg font-medium sm:w-fit"
+                className="button-leaf mt-8 flex h-14 w-full shrink-0 items-center justify-center gap-2.5 px-7 text-lg font-medium sm:w-fit"
                 onClick={() => onOpenChange(false)}
               >
                 {CONTACT_TITLE}
@@ -129,9 +131,8 @@ export default function Header() {
   return (
     <header
       className={cn(
-        'smooth sticky top-0 z-50 bg-white',
-        !menuOpen && 'drop-shadow-[0px_1px_2.5px_rgba(0,0,0,0.15)]',
-        isSticky && !menuOpen && 'shadow',
+        'smooth sticky top-0 z-50 border-b border-line bg-paper/90 text-ink backdrop-blur-md',
+        isSticky && !menuOpen && 'shadow-sm',
         menuOpen && 'z-60'
       )}
     >
@@ -143,21 +144,14 @@ export default function Header() {
           </Link>
 
           <div className="flex items-center gap-3 xl:gap-12">
-            <Link
-              to={PRODUCTS_URL}
-              className="title-base hidden text-lg font-medium transition-colors hover:text-site-deep-green xl:inline-flex"
-            >
+            <Link to={PRODUCTS_URL} className={navLinkClass}>
               {PRODUCTS_TITLE}
             </Link>
-            <Link
-              to={AGENDA_URL}
-              className="title-base hidden text-lg font-medium transition-colors hover:text-site-deep-green xl:inline-flex"
-            >
+            <Link to={AGENDA_URL} className={navLinkClass}>
               {AGENDA_TITLE}
             </Link>
-            <Link to={CONTACT_URL} className="button-malibu hidden items-center justify-center gap-2.5 xl:inline-flex">
-              {CONTACT_TITLE}
-              <ContactArrow />
+            <Link to={CONTACT_URL} className={navLinkClass}>
+              Contact
             </Link>
 
             <MobileMenuSheet key={location.key} open={menuOpen} onOpenChange={setMenuOpen} />
