@@ -1,24 +1,38 @@
-import { Link, useParams } from 'react-router'
+import { useMemo } from 'react'
+import { useParams } from 'react-router'
 import BannerImage from '~/components/flex/banner/BannerImage'
-import { getProductBySlug } from '~/database/products'
+import ContentProducts from '~/components/flex/content/ContentProducts'
+import ContentText from '~/components/flex/content/ContentText'
+import Layout from '~/components/layout/Layout'
+import { getProductBySlug, getSimilarProducts } from '~/database/products'
 
 export default function Product() {
   const { slug } = useParams()
   const product = slug ? getProductBySlug(slug) : undefined
+  const similarIds = useMemo(() => (product ? getSimilarProducts(product.id, 4).map((item) => item.id) : []), [product])
 
   if (!product) {
     return (
-      <section className="section">
-        <div className="container-full flex flex-col gap-4 max-w-3xl">
-          <h1 className="title-l">Product not found</h1>
-          <p className="content-l text-site-deep-green">We could not find a product at this address.</p>
-          <Link to="/products" className="button-deep-green w-fit">
-            Back to products
-          </Link>
-        </div>
-      </section>
+      <Layout className="justify-center">
+        <ContentText
+          title={'Product not found'}
+          description="This product does not exist or has been moved."
+          link={{ url: '/products', title: 'Back to all products', target: '_self' }}
+        />
+      </Layout>
     )
   }
 
-  return <BannerImage title={product.title} description={product.description} image={product.image} />
+  return (
+    <Layout>
+      <BannerImage
+        title={product.title}
+        description={product.description}
+        link={{ url: 'mailto:helloworldcards@outlook.com', title: `Buy the ${product.title}` }}
+        images={product.images}
+        breadcrumbs={[{ title: 'Home', url: '/' }, { title: 'Products', url: '/products' }, { title: product.title }]}
+      />
+      <ContentProducts title="Other similar products" id={similarIds} />
+    </Layout>
+  )
 }

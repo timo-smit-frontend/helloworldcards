@@ -10,6 +10,10 @@
   @apply button-base border-site-deep-green bg-site-deep-green text-white [&:not([disabled])]:hover:border-site-deep-green [&:not([disabled])]:hover:bg-site-deep-green;
 }
 
+@utility button-white-outline {
+  @apply button-base border-white bg-transparent text-white [&:not([disabled])]:hover:border-white [&:not([disabled])]:hover:bg-transparent;
+}
+
 @utility button-malibu {
   @apply button-base border-site-malibu bg-site-malibu text-black [&:not([disabled])]:hover:border-site-malibu [&:not([disabled])]:hover:bg-site-malibu;
 }
@@ -123,4 +127,8 @@
   a:focus-visible {
     @apply outline-3 outline-offset-2 outline-site-gold;
   }
+}
+
+.section + .section {
+  @apply mt-0!;
 }

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import Root from '~/root'
 import Contact from '~/routes/contact'
+import ErrorPage from '~/routes/error'
 import Home from '~/routes/home'
 import Product from '~/routes/product'
 import Products from '~/routes/products'
@@ -21,9 +22,10 @@ createRoot(rootElement).render(
         <Route element={<Root />}>
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
-          <Route path="products/:slug" element={<Product />} />
           <Route path="contact" element={<Contact />} />
         </Route>
+        <Route path="products/:slug" element={<Product />} />
+        <Route path="*" element={<ErrorPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

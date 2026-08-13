@@ -1,86 +1,115 @@
+import { slugify } from '~/services/utils'
+
 export type Product = {
   id: number
-  slug: string
   title: string
   description: string
-  image: string
-  imageHover: string
+  images: string[]
   price?: string | number
   category?: string
+  slug: string
 }
 
-const products: Product[] = [
+type ProductRecord = Omit<Product, 'slug'>
+
+const products: ProductRecord[] = [
   {
     id: 1,
-    slug: 'charizard-holo',
     title: 'Charizard Holo',
     description: 'A classic holographic Charizard card from the Base Set era.',
-    image: 'https://picsum.photos/seed/charizard/600/800',
-    imageHover: 'https://picsum.photos/seed/charizard-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     price: '€249',
     category: 'Pokemon'
   },
   {
     id: 2,
-    slug: 'blastoise-holo',
     title: 'Blastoise Holo',
     description: 'Powerful Water-type evolution with a deep blue holographic finish.',
-    image: 'https://picsum.photos/seed/blastoise/600/800',
-    imageHover: 'https://picsum.photos/seed/blastoise-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     price: '€189',
     category: 'Pokemon'
   },
   {
     id: 3,
-    slug: 'venusaur-holo',
     title: 'Venusaur Holo',
     description: 'Grass-type powerhouse with a rich green holographic pattern.',
-    image: 'https://picsum.photos/seed/venusaur/600/800',
-    imageHover: 'https://picsum.photos/seed/venusaur-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     price: '€159',
     category: 'Pokemon'
   },
   {
     id: 4,
-    slug: 'pikachu-illustrator',
     title: 'Pikachu Illustrator',
     description: 'An ultra-rare promotional Pikachu card for serious collectors.',
-    image: 'https://picsum.photos/seed/pikachu/600/800',
-    imageHover: 'https://picsum.photos/seed/pikachu-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     price: '€1.200',
     category: 'Pokemon'
   },
   {
     id: 5,
-    slug: 'mewtwo-gx',
     title: 'Mewtwo GX',
     description: 'Psychic-type GX card with striking artwork and playability.',
-    image: 'https://picsum.photos/seed/mewtwo/600/800',
-    imageHover: 'https://picsum.photos/seed/mewtwo-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     price: '€79',
     category: 'Pokemon'
   },
   {
     id: 6,
-    slug: 'eevee-promo',
     title: 'Eevee Promo',
     description: 'Cute promo Eevee — a friendly starter for any collection.',
-    image: 'https://picsum.photos/seed/eevee/600/800',
-    imageHover: 'https://picsum.photos/seed/eevee-hover/600/800',
+    images: [
+      'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
+      'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
+    ],
     category: 'Pokemon'
   }
 ]
 
+function withSlug(product: ProductRecord): Product {
+  return { ...product, slug: slugify(product.title) }
+}
+
 export function getAllProducts(): Product[] {
-  return [...products]
+  return products.map(withSlug)
 }
 
 export function getProductsByIds(ids: Array<string | number>): Product[] {
   const byId = new Map(products.map((product) => [String(product.id), product]))
 
-  return ids.map((id) => byId.get(String(id))).filter((product): product is Product => product != null)
+  return ids
+    .map((id) => byId.get(String(id)))
+    .filter((product): product is ProductRecord => product != null)
+    .map(withSlug)
 }
 
 export function getProductBySlug(slug: string): Product | undefined {
-  return products.find((product) => product.slug === slug)
+  const product = products.find((item) => slugify(item.title) === slug)
+  return product ? withSlug(product) : undefined
+}
+
+export function getSimilarProducts(excludeId: number, count = 4): Product[] {
+  const pool = products.filter((product) => product.id !== excludeId)
+  const shuffled = [...pool]
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+
+  return shuffled.slice(0, count).map(withSlug)
 }

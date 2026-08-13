@@ -41,23 +41,27 @@ export default function ContentProducts({
           )}
 
           {products.length > 0 && (
-            <ul className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 list-none p-0 m-0">
+            <ul className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 list-none p-0 m-0">
               {products.map((product, index) => (
                 <li key={product.id}>
                   <Animated delay={productDelays[index % productDelays.length]}>
                     <Link to={`/products/${product.slug}`} className="group flex flex-col gap-3">
-                      <div className="relative aspect-3/4 overflow-hidden bg-neutral-100">
-                        <img
-                          src={product.image}
-                          alt={product.title}
-                          className="absolute inset-0 size-full object-cover transition-opacity duration-300 group-hover:opacity-0"
-                        />
-                        <img
-                          src={product.imageHover}
-                          alt=""
-                          aria-hidden
-                          className="absolute inset-0 size-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                        />
+                      <div className="relative aspect-4/5 overflow-hidden">
+                        {product.images[0] && (
+                          <img
+                            src={product.images[0]}
+                            alt={product.title}
+                            className={`absolute inset-0 size-full object-contain ${product.images[1] ? 'transition-opacity duration-300 group-hover:opacity-0' : ''}`}
+                          />
+                        )}
+                        {product.images[1] && (
+                          <img
+                            src={product.images[1]}
+                            alt=""
+                            aria-hidden
+                            className="absolute inset-0 size-full object-contain opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                          />
+                        )}
                       </div>
                       <span className="title-xs">{product.title}</span>
                       {product.price != null && <span className="content-s text-site-deep-green">{product.price}</span>}
