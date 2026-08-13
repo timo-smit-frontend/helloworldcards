@@ -40,9 +40,11 @@ export default function BannerImage({
                 </div>
                 {link?.url && link?.title && (
                   <Animated delay={300}>
-                    <a href={link.url} target={link.target} className="button-leaf mt-auto">
-                      {link.title}
-                    </a>
+                    <div>
+                      <a href={link.url} target={link.target} className="button-leaf mt-auto">
+                        {link.title}
+                      </a>
+                    </div>
                   </Animated>
                 )}
               </div>

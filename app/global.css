@@ -15,15 +15,15 @@
 }
 
 @utility button-base {
-  @apply inline-flex w-full items-center justify-center rounded-button border-2 px-6 py-2 text-base tracking-[0.02em] shadow-button smooth lg:text-lg sm:w-fit;
+  @apply inline-flex w-full items-center justify-center rounded-full border-2 px-6 py-2 text-base smooth lg:text-lg sm:w-fit;
 }
 
 @utility button-leaf {
-  @apply button-base border-leaf bg-leaf text-cream [&:not([disabled])]:hover:border-moss [&:not([disabled])]:hover:bg-leaf;
+  @apply button-base border-leaf bg-leaf text-cream [&:not([disabled])]:hover:border-moss [&:not([disabled])]:hover:bg-moss;
 }
 
 @utility button-ink {
-  @apply button-base border-ink bg-ink text-cream [&:not([disabled])]:hover:border-leaf [&:not([disabled])]:hover:bg-ink;
+  @apply button-base border-ink bg-ink text-cream [&:not([disabled])]:hover:border-leaf [&:not([disabled])]:hover:bg-leaf;
 }
 
 @utility button-outline {

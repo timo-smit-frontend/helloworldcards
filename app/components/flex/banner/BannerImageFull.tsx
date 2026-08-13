@@ -28,9 +28,11 @@ export default function BannerImageFull({
             )}
             {link?.url && link?.title && (
               <Animated delay={400}>
-                <a href={link.url} className="button-leaf">
-                  {link.title}
-                </a>
+                <div>
+                  <a href={link.url} className="button-leaf">
+                    {link.title}
+                  </a>
+                </div>
               </Animated>
             )}
           </div>

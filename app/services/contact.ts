@@ -1,9 +1,15 @@
+import { isValidEmail } from './utils'
+
 export const CONTACT_EMAIL = 'helloworldcards@outlook.com'
 export const INSTAGRAM_URL = 'https://www.instagram.com/helloworldcards/'
 
 const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${CONTACT_EMAIL}`
 
 export async function sendContactMessage({ name, email, message }: { name: string; email: string; message: string }) {
+  if (!isValidEmail(email)) {
+    throw new Error('Invalid email address')
+  }
+
   const response = await fetch(FORMSUBMIT_ENDPOINT, {
     method: 'POST',
     headers: {

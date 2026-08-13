@@ -131,7 +131,7 @@ export default function Header() {
   return (
     <header
       className={cn(
-        'smooth sticky top-0 z-50 border-b border-line bg-paper/90 text-ink backdrop-blur-md',
+        'smooth sticky top-0 z-50 border-b border-line bg-cream/90 text-ink backdrop-blur-md',
         isSticky && !menuOpen && 'shadow-sm',
         menuOpen && 'z-60'
       )}

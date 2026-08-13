@@ -30,9 +30,11 @@ export default function ContentCta({
               )}
               {link?.url && link?.title && (
                 <Animated delay={300}>
-                  <a href={link.url} className="button-leaf gap-2.5">
-                    {link.title}
-                  </a>
+                  <div>
+                    <a href={link.url} className="button-leaf gap-2.5">
+                      {link.title}
+                    </a>
+                  </div>
                 </Animated>
               )}
             </div>

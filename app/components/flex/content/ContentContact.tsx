@@ -1,5 +1,5 @@
 import { Animated } from '~/components/elements/Animated'
-import ContactForm from '~/components/elements/ContactForm'
+import FormContact from '~/components/flex/form/FormContact'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '~/services/contact'
 
 export default function ContentContact({ title, description }: { title?: string; description?: string }) {
@@ -79,7 +79,7 @@ export default function ContentContact({ title, description }: { title?: string;
 
           <Animated delay={400}>
             <div>
-              <ContactForm />
+              <FormContact />
             </div>
           </Animated>
         </div>
