@@ -1,4 +1,5 @@
 import { Animated } from '~/components/elements/Animated'
+import Image from '~/components/elements/Image'
 
 export default function BannerImageFull({
   title,
@@ -39,7 +40,13 @@ export default function BannerImageFull({
           {image && (
             <Animated delay={500}>
               <figure className="mat">
-                <img src={image} alt={title ?? ''} className="aspect-3/2 w-full rounded-[0.9rem] object-cover" />
+                <Image
+                  src={image}
+                  alt={title ?? ''}
+                  width={1280}
+                  height={960}
+                  className="aspect-3/2 w-full rounded-[0.9rem] object-cover"
+                />
                 <figcaption className="mt-3 px-1 text-sm text-muted">Cards and art, from our corner of the hobby</figcaption>
               </figure>
             </Animated>

@@ -1,4 +1,4 @@
-import { slugify } from '~/services/utils'
+import { slugify } from '../services/utils'
 
 export type Product = {
   id: number
@@ -6,7 +6,6 @@ export type Product = {
   description: string
   images: string[]
   price?: string | number
-  category?: string
   slug: string
 }
 
@@ -21,8 +20,7 @@ const products: ProductRecord[] = [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
     ],
-    price: '€249',
-    category: 'Pokemon'
+    price: '€249'
   },
   {
     id: 2,
@@ -32,8 +30,7 @@ const products: ProductRecord[] = [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
     ],
-    price: '€189',
-    category: 'Pokemon'
+    price: '€189'
   },
   {
     id: 3,
@@ -43,8 +40,7 @@ const products: ProductRecord[] = [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
     ],
-    price: '€159',
-    category: 'Pokemon'
+    price: '€159'
   },
   {
     id: 4,
@@ -54,8 +50,7 @@ const products: ProductRecord[] = [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
     ],
-    price: '€1.200',
-    category: 'Pokemon'
+    price: '€1.200'
   },
   {
     id: 5,
@@ -65,8 +60,7 @@ const products: ProductRecord[] = [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
     ],
-    price: '€79',
-    category: 'Pokemon'
+    price: '€79'
   },
   {
     id: 6,
@@ -75,8 +69,7 @@ const products: ProductRecord[] = [
     images: [
       'https://storage.googleapis.com/images.pricecharting.com/0374cd52bb22be6591b9807241107c22c6f72b2f071869c6e6342a156be99e10/1600.jpg',
       'https://i.ebayimg.com/images/g/cx4AAOSwStVkIPDY/s-l400.jpg'
-    ],
-    category: 'Pokemon'
+    ]
   }
 ]
 

@@ -3,23 +3,22 @@ import { useMemo } from 'react'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs, { type BreadcrumbItem } from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
+import Image from '~/components/elements/Image'
 
 export default function BannerImage({
   title,
   description,
-  image,
   images,
   link,
   breadcrumbs
 }: {
   title?: string
   description?: string
-  image?: string
   images?: string[]
   link?: { url?: string; target?: string; title?: string }
   breadcrumbs?: BreadcrumbItem[]
 }) {
-  const slides = (images?.length ? images : image ? [image] : []).filter(Boolean)
+  const slides = images?.filter(Boolean) ?? []
 
   return (
     <section id="banner-image" className="my-16">
@@ -85,9 +84,11 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
         <CarouselContent>
           {images.map((src, index) => (
             <CarouselItem key={`${src}-${index}`} className="basis-full">
-              <img
+              <Image
                 src={src}
                 alt={index === 0 ? alt : ''}
+                width={600}
+                height={800}
                 aria-hidden={index === 0 ? undefined : true}
                 className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
               />

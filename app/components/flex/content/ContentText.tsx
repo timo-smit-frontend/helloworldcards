@@ -7,7 +7,7 @@ export default function ContentText({
 }: {
   title?: string
   description?: string
-  link?: { url: string; title: string; target?: string }
+  link?: { url: string; title: string }
 }) {
   return (
     <section id="content-text" className="section">

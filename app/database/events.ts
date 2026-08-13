@@ -47,7 +47,7 @@ function parseEventDate(date: string): Date {
   return new Date(year, month - 1, day)
 }
 
-export function getAllEvents(): Event[] {
+function getAllEvents(): Event[] {
   return [...events].sort((a, b) => a.date.localeCompare(b.date))
 }
 

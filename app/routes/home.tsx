@@ -2,6 +2,7 @@ import BannerImageFull from '~/components/flex/banner/BannerImageFull'
 import ContentCta from '~/components/flex/content/ContentCta'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
+import { CONTACT_EMAIL } from '~/services/contact'
 
 export default function Home() {
   return (
@@ -22,7 +23,7 @@ export default function Home() {
         description="Questions about a card, an event, or something in the shop? Send us an email — we'd love to hear from you."
         image="https://substackcdn.com/image/fetch/$s_!Np1Z!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F1b5566fa-e0ab-4039-a54b-c1f78dbb59e3_1280x960.jpeg"
         link={{
-          url: `mailto:helloworldcards@outlook.com?subject=${encodeURIComponent('Question from Hello World Cards')}`,
+          url: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Question from Hello World Cards')}`,
           title: 'Email us'
         }}
       />

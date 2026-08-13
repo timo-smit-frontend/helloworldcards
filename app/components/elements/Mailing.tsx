@@ -16,7 +16,7 @@ function getMailContent(pathname: string): { subject: string; body: string } | u
   }
 }
 
-export function composeMailto(href: string, pathname: string): string | undefined {
+function composeMailto(href: string, pathname: string): string | undefined {
   const content = getMailContent(pathname)
   if (!content) {
     return undefined

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import Seo from '~/components/elements/Seo'
 import ScrollToTop from '~/components/layout/ScrollToTop'
 import Root from '~/root'
 import Agenda from '~/routes/agenda'
@@ -21,6 +22,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
       <ScrollToTop />
+      <Seo />
       <Routes>
         <Route element={<Root />}>
           <Route index element={<Home />} />

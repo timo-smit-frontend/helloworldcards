@@ -22,28 +22,12 @@
   @apply button-base border-leaf bg-leaf text-cream [&:not([disabled])]:hover:border-moss [&:not([disabled])]:hover:bg-moss;
 }
 
-@utility button-ink {
-  @apply button-base border-ink bg-ink text-cream [&:not([disabled])]:hover:border-leaf [&:not([disabled])]:hover:bg-leaf;
-}
-
-@utility button-outline {
-  @apply button-base border-ink bg-transparent text-ink [&:not([disabled])]:hover:border-ink [&:not([disabled])]:hover:bg-transparent;
-}
-
 @utility title-xl {
   @apply title-base text-4xl sm:text-5xl lg:text-6xl;
 }
 
 @utility title-l {
   @apply title-base text-3xl sm:text-4xl lg:text-5xl;
-}
-
-@utility title-m {
-  @apply title-base text-2xl sm:text-3xl lg:text-4xl;
-}
-
-@utility title-s {
-  @apply title-base text-xl sm:text-2xl lg:text-3xl;
 }
 
 @utility title-xs {
@@ -70,10 +54,6 @@
   @apply content-base text-base;
 }
 
-@utility content-xs {
-  @apply content-base text-sm;
-}
-
 @utility content-base {
   @apply space-y-4 text-base leading-7 lg:space-y-6;
 }
@@ -92,18 +72,6 @@
 
 @utility section {
   @apply section-top section-bottom;
-}
-
-@utility section-top-bg {
-  @apply pt-16 sm:pt-24 lg:pt-32;
-}
-
-@utility section-bottom-bg {
-  @apply pb-16 sm:pb-24 lg:pb-32;
-}
-
-@utility section-bg {
-  @apply section-top-bg section-bottom-bg;
 }
 
 @utility field {

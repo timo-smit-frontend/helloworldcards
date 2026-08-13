@@ -37,14 +37,11 @@ export default [
         rules: {
           '@typescript-eslint/no-explicit-any': 'off',
           '@typescript-eslint/ban-ts-comment': 'off',
-          'prettier/prettier': [
+          'no-restricted-syntax': [
             'error',
             {
-              semi: false,
-              tabWidth: 2,
-              printWidth: 140,
-              singleQuote: true,
-              trailingComma: 'none'
+              selector: "JSXOpeningElement[name.name='img']",
+              message: 'Use Image from ~/components/elements/Image with required width and height attributes.'
             }
           ]
         },
@@ -84,7 +81,7 @@ export default [
         extends: ['plugin:@typescript-eslint/recommended']
       },
       {
-        files: ['eslint.config.js', 'vite.config.ts'],
+        files: ['eslint.config.js', 'vite.config.ts', 'seo-prerender.ts'],
         env: {
           node: true
         }

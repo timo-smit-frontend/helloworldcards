@@ -1,4 +1,5 @@
 import { Animated } from '~/components/elements/Animated'
+import Image from '~/components/elements/Image'
 import { cn } from '~/services/utils'
 
 export default function ContentCta({
@@ -10,7 +11,7 @@ export default function ContentCta({
   title?: string
   description?: string
   image?: string
-  link?: { url?: string; target?: string; title?: string }
+  link?: { url?: string; title?: string }
 }) {
   return (
     <section id="content-cta" className="section">
@@ -41,7 +42,7 @@ export default function ContentCta({
           )}
           {image && (
             <Animated delay={400}>
-              <img src={image} alt="" className="aspect-7/6 h-full w-full object-cover" />
+              <Image src={image} alt="" width={1280} height={960} className="aspect-7/6 h-full w-full object-cover" />
             </Animated>
           )}
         </div>

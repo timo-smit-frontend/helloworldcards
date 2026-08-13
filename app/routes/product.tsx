@@ -5,6 +5,7 @@ import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
 import { getProductBySlug, getSimilarProducts } from '~/database/products'
+import { CONTACT_EMAIL } from '~/services/contact'
 
 export default function Product() {
   const { slug } = useParams()
@@ -15,9 +16,9 @@ export default function Product() {
     return (
       <Layout className="justify-center">
         <ContentText
-          title={'Product not found'}
+          title="Product not found"
           description="This product does not exist or has been moved."
-          link={{ url: '/products', title: 'Back to all products', target: '_self' }}
+          link={{ url: '/products', title: 'Back to all products' }}
         />
       </Layout>
     )
@@ -28,7 +29,7 @@ export default function Product() {
       <BannerImage
         title={product.title}
         description={product.description}
-        link={{ url: 'mailto:helloworldcards@outlook.com', title: `Buy the ${product.title}` }}
+        link={{ url: `mailto:${CONTACT_EMAIL}`, title: `Buy the ${product.title}` }}
         images={product.images}
         breadcrumbs={[{ title: 'Home', url: '/' }, { title: 'Products', url: '/products' }, { title: product.title }]}
       />

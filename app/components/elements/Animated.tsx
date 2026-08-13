@@ -2,7 +2,7 @@ import { cloneElement, isValidElement, ReactElement, useRef } from 'react'
 import { useInView } from '~/hooks/useInView'
 import { cn } from '~/services/utils'
 
-export const DelayToClass = {
+const DelayToClass = {
   0: 'delay-0',
   100: 'delay-100',
   150: 'delay-150',
@@ -27,7 +27,7 @@ export const DelayToClass = {
   2000: 'delay-2000'
 }
 
-export const AnimationToClass = {
+const AnimationToClass = {
   fade: 'fade-in',
   'fade-up': 'fade-in slide-in-from-bottom-10',
   'fade-down': 'fade-in slide-in-from-top-10',
@@ -35,14 +35,14 @@ export const AnimationToClass = {
   'fade-right': 'fade-in slide-in-from-bottom-10'
 }
 
-export const EaseToClass = {
+const EaseToClass = {
   linear: 'ease-linear',
   in: 'ease-in',
   out: 'ease-out',
   'ease-in-out': 'ease-in-out'
 }
 
-export const DurationToClass = {
+const DurationToClass = {
   0: 'duration-0',
   75: 'duration-75',
   100: 'duration-100',
@@ -55,12 +55,12 @@ export const DurationToClass = {
   1000: 'duration-1000'
 }
 
-export type Animation = keyof typeof AnimationToClass
-export type Delay = keyof typeof DelayToClass
-export type Easing = keyof typeof EaseToClass
-export type Duration = keyof typeof DurationToClass
+type Animation = keyof typeof AnimationToClass
+type Delay = keyof typeof DelayToClass
+type Easing = keyof typeof EaseToClass
+type Duration = keyof typeof DurationToClass
 
-export interface AnimatedProps {
+interface AnimatedProps {
   children: ReactElement<HTMLElement>
   animation?: Animation
   direction?: 'in' | 'out'

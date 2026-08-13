@@ -2,17 +2,16 @@ import * as SheetPrimitive from '@radix-ui/react-dialog'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import Logo from '~/components/elements/Logo'
+import { SITE_NAME } from '~/seo/site'
 import { cn } from '~/services/utils'
 
-const SITE_NAME = 'Hello World Cards'
 const PRODUCTS_URL = '/products'
 const PRODUCTS_TITLE = 'Products'
 const AGENDA_URL = '/agenda'
 const AGENDA_TITLE = 'Agenda'
 const CONTACT_URL = '/contact'
 const CONTACT_TITLE = 'Contact us'
-const navLinkClass =
-  'hidden font-sans text-base font-semibold transition-colors hover:text-moss xl:inline-flex'
+const navLinkClass = 'hidden font-sans text-base font-semibold transition-colors hover:text-moss xl:inline-flex'
 
 function ContactArrow() {
   return (

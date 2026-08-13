@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import Logo from '~/components/elements/Logo'
+import { CONTACT_EMAIL, INSTAGRAM_URL } from '~/services/contact'
 
 const FOOTER_MENU = [
   { title: 'Products', to: '/products' },
@@ -7,14 +8,9 @@ const FOOTER_MENU = [
   { title: 'Contact', to: '/contact' }
 ]
 
-const DISCLAIMER_MENU = [
-  { title: 'Privacy', to: '#' },
-  { title: 'Algemene voorwaarden', to: '#' }
-]
-
 export default function Footer() {
   return (
-    <footer data-component="Footer" className="max-lg:border-t border-line max-lg:pt-8 pb-16 text-ink lg:pb-20">
+    <footer className="max-lg:border-t border-line max-lg:pt-8 pb-16 text-ink lg:pb-20">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
           <Link to="/" className="block w-fit" aria-label="Hello World Cards">
@@ -40,7 +36,7 @@ export default function Footer() {
               <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                 <li>
                   <a
-                    href="mailto:helloworldcards@outlook.com"
+                    href={`mailto:${CONTACT_EMAIL}`}
                     className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
                   >
                     <svg
@@ -56,7 +52,7 @@ export default function Footer() {
                       <rect width="20" height="16" x="2" y="4" rx="2" />
                       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
-                    <span>helloworldcards@outlook.com</span>
+                    <span>{CONTACT_EMAIL}</span>
                   </a>
                 </li>
               </ul>
@@ -67,7 +63,7 @@ export default function Footer() {
               <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                 <li>
                   <a
-                    href="https://www.instagram.com/helloworldcards/"
+                    href={INSTAGRAM_URL}
                     target="_blank"
                     rel="noreferrer"
                     className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
@@ -95,20 +91,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-16 border-t border-line pt-10">
-          <div className="flex flex-col gap-6 text-base font-medium leading-7 lg:flex-row lg:items-start lg:justify-between">
-            <p>© {new Date().getFullYear()} Hello World Cards. All rights reserved.</p>
-            <nav aria-label="Disclaimer menu">
-              <ul className="flex flex-col gap-x-6 gap-y-2 sm:flex-row sm:flex-wrap lg:justify-end">
-                {DISCLAIMER_MENU.map((item) => (
-                  <li key={item.title}>
-                    <Link to={item.to} className="transition-colors hover:text-leaf hover:underline">
-                      {item.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
+          <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All rights reserved.</p>
         </div>
       </div>
     </footer>

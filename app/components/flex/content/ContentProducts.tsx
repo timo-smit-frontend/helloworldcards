@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
+import Image from '~/components/elements/Image'
 import { getAllProducts, getProductsByIds } from '~/database/products'
 
 const productDelays = [100, 200, 300, 400, 500, 600] as const
@@ -52,16 +53,20 @@ export default function ContentProducts({
                       >
                         <div className="relative aspect-4/5 max-lg:h-100 bg-white p-5">
                           {product.images[0] && (
-                            <img
+                            <Image
                               src={product.images[0]}
                               alt={product.title}
+                              width={400}
+                              height={500}
                               className={`size-full object-contain ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
                             />
                           )}
                           {product.images[1] && (
-                            <img
+                            <Image
                               src={product.images[1]}
                               alt=""
+                              width={400}
+                              height={500}
                               aria-hidden
                               className="absolute inset-5 size-[calc(100%-2.5rem)] object-contain opacity-0 smooth group-hover:opacity-100"
                             />
