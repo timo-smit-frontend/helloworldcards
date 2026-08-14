@@ -17,7 +17,7 @@ export default function BannerFigcaption({
   alt?: string
 }) {
   return (
-    <section id="banner-figcaption" className="lg:border-b border-site-mulled-wine bg-site-dark">
+    <section id="banner-figcaption" className="bg-site-dark">
       <div className="container-full pt-12 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div className="flex flex-col gap-4 lg:gap-8">
@@ -53,8 +53,8 @@ export default function BannerFigcaption({
                   alt={alt}
                   width={1280}
                   height={960}
+                  priority
                   className="aspect-3/2 w-full rounded-[0.9rem] object-cover"
-                  maxwidth={1200}
                 />
                 {figcaption && <figcaption className="mt-3 px-1 text-sm text-site-mantle">{figcaption}</figcaption>}
               </figure>

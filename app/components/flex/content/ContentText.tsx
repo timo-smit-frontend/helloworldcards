@@ -39,9 +39,11 @@ export default function ContentText({
             )}
             {link && (
               <Animated delay={300}>
-                <a href={link.url} className="button-green">
-                  {link.title}
-                </a>
+                <div>
+                  <a href={link.url} className="button-green">
+                    {link.title}
+                  </a>
+                </div>
               </Animated>
             )}
           </div>
@@ -53,7 +55,6 @@ export default function ContentText({
                   alt={alt}
                   width={1280}
                   height={960}
-                  maxwidth={1000}
                   className="h-auto w-full lg:absolute lg:inset-0 lg:h-full lg:w-full object-contain max-h-100"
                 />
               </div>

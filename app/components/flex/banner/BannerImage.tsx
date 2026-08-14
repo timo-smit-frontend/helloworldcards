@@ -121,8 +121,8 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                   width={600}
                   height={800}
                   aria-hidden
+                  priority
                   className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
-                  maxwidth={1200}
                 />
               </button>
             </CarouselItem>

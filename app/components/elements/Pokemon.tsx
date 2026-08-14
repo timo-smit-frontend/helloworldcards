@@ -20,7 +20,6 @@ export default function Pokemon({ id: idProp, className }: { id?: string | numbe
       width={SPRITE_SIZE}
       height={SPRITE_SIZE}
       className={className}
-      maxwidth={SPRITE_SIZE * 2}
     />
   )
 }

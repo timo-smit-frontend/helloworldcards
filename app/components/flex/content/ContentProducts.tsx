@@ -61,7 +61,6 @@ export default function ContentProducts({
                               height={500}
                               aria-hidden
                               className={`size-full object-contain ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
-                              maxwidth={1000}
                             />
                           )}
                           {product.images[1] && (
@@ -72,7 +71,6 @@ export default function ContentProducts({
                               height={500}
                               aria-hidden
                               className="absolute inset-5 size-[calc(100%-2.5rem)] object-contain opacity-0 smooth group-hover:opacity-100"
-                              maxwidth={1000}
                             />
                           )}
                         </div>

@@ -1,7 +1,7 @@
 import { getUpcomingEvents } from '../database/events'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '../services/contact'
-import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL } from './site'
+import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, toAbsoluteUrl } from './site'
 
 export type SeoPage = {
   path: string
@@ -47,7 +47,7 @@ function organizationNode(): Record<string, unknown> {
     name: SITE_NAME,
     url: SITE_URL,
     email: CONTACT_EMAIL,
-    image: SITE_IMAGE,
+    image: toAbsoluteUrl(SITE_IMAGE),
     sameAs: [INSTAGRAM_URL]
   }
 }
@@ -229,7 +229,7 @@ function page({
     path,
     title,
     description,
-    image,
+    image: toAbsoluteUrl(image),
     type,
     robots,
     canonical: robots.includes('noindex') ? null : canonicalUrl(path),

@@ -22,14 +22,26 @@ export function variantWidthsFor(): number[] {
   return [...widths]
 }
 
-function snapWidth(desired: number, available: number[]): number {
-  const sorted = [...available].sort((a, b) => a - b)
-  return sorted.find((width) => width >= desired) ?? sorted[sorted.length - 1]
+export const DEFAULT_SRCSET_MAX_WIDTH = BUILD_MAXWIDTHS[BUILD_MAXWIDTHS.length - 1]
+const FALLBACK_SRC_WIDTH = 800
+
+export function srcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
+  const widths = variantWidthsFor()
+    .filter((width) => width <= maxWidth)
+    .sort((a, b) => a - b)
+  return widths.length > 0 ? widths : [maxWidth]
 }
 
-export function pictureSourceWidths(maxWidth: number): [number, number, number] {
-  const available = variantWidthsFor()
-  return getFluidWidths(maxWidth).map((width) => snapWidth(width, available)) as [number, number, number]
+export function rasterSrcSet(src: string, maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): string {
+  return srcSetWidths(maxWidth)
+    .map((width) => `${rasterVariantSrc(src, width)} ${width}w`)
+    .join(', ')
+}
+
+export function rasterFallbackSrc(src: string, maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): string {
+  const widths = srcSetWidths(maxWidth)
+  const fallback = widths.find((candidate) => candidate >= FALLBACK_SRC_WIDTH) ?? widths[widths.length - 1]
+  return rasterVariantSrc(src, fallback)
 }
 
 export function isLocalRasterSrc(src: string): boolean {

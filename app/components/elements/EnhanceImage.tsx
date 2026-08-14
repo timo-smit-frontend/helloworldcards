@@ -50,13 +50,9 @@ export default function EnhanceImage({
                 alt={alt}
                 width={1200}
                 height={1600}
-                maxwidth={1600}
               />
             )}
-            <div
-              role="toolbar"
-              className="flex items-center gap-1 rounded-full bg-site-envy px-2 py-1.5 text-site-dark shadow-card"
-            >
+            <div role="toolbar" className="flex items-center gap-1 rounded-full bg-site-envy px-2 py-1.5 text-site-dark shadow-card">
               {length > 1 && (
                 <>
                   <button

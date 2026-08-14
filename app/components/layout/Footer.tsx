@@ -99,7 +99,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-16 border-t border-site-mulled-wine pt-10">
-          <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All rights reserved.</p>
+          <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All cards reserved.</p>
         </div>
       </div>
     </footer>
