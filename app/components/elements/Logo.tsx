@@ -1,6 +1,6 @@
 export default function Logo({ className }: { className?: string }) {
   return (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" aria-hidden>
       <defs>
         <clipPath id="ballClip">
           <circle cx="260" cy="260" r="190" />
@@ -35,7 +35,7 @@ export default function Logo({ className }: { className?: string }) {
         <circle cx="260" cy="260" r="18" fill="#68C7E8" stroke="#171717" strokeWidth="7" />
       </g>
 
-      <g id="wordmark" fontFamily="Outfit, Arial, Helvetica, sans-serif" fill="#3A322C">
+      <g id="wordmark" fontFamily="'Outfit Variable', Arial, Helvetica, sans-serif" fill="#3A322C">
         <text x="510" y="230" fontSize="96" fontWeight="800" letterSpacing="-3" className="fill-site-gray-nurse">
           Hello World
         </text>

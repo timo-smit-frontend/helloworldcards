@@ -2,20 +2,9 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 import type { Plugin } from 'vite'
-import { getFluidWidths, parseRasterVariant, rasterVariantSrc } from './app/services/responsiveImage'
+import { parseRasterVariant, rasterVariantSrc, variantWidthsFor } from './app/services/responsiveImage'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
-const BUILD_MAXWIDTHS = [400, 600, 800, 1280, 1600, 1920, 2000]
-
-function variantWidthsFor(intrinsicWidth: number): number[] {
-  const widths = new Set<number>()
-  for (const maxWidth of [...BUILD_MAXWIDTHS, intrinsicWidth]) {
-    for (const width of getFluidWidths(maxWidth)) {
-      widths.add(Math.min(width, intrinsicWidth))
-    }
-  }
-  return [...widths]
-}
 
 async function findOriginal(publicDir: string, stem: string): Promise<string | undefined> {
   const relativeStem = stem.replace(/^\//, '')
@@ -100,12 +89,8 @@ export function responsiveImagesPlugin(): Plugin {
         }
 
         const originalPath = path.join(imagesDir, entry)
-        const metadata = await sharp(originalPath).metadata()
-        const intrinsicWidth = metadata.width
-        if (!intrinsicWidth) continue
-
         const stem = path.posix.join('/images', entry.replace(/\.(png|jpe?g|webp)$/i, ''))
-        for (const width of variantWidthsFor(intrinsicWidth)) {
+        for (const width of variantWidthsFor()) {
           const body = await variantBuffer(originalPath, width)
           const fileName = path.basename(rasterVariantSrc(`${stem}.png`, width))
           await fs.writeFile(path.join(outDir, 'images', fileName), body)

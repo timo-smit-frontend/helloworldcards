@@ -25,7 +25,7 @@ export default {
         'site-gray-nurse': '#E0E6E1'
       },
       fontFamily: {
-        'site-outfit': ['Outfit', ...defaultTheme.fontFamily.sans]
+        'site-outfit': ['Outfit Variable', ...defaultTheme.fontFamily.sans]
       }
     }
   }

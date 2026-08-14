@@ -1,8 +1,9 @@
 import Autoplay from 'embla-carousel-autoplay'
-import { useMemo, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs, { type BreadcrumbItem } from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
+import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
 
 export default function BannerImage({
@@ -26,7 +27,7 @@ export default function BannerImage({
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
           {(title || description || link || breadcrumbs?.length) && (
             <Animated delay={100}>
-              <div className="flex h-full flex-col gap-4 py-20">
+              <div className="flex h-full flex-col lg:gap-0 gap-8 lg:py-20">
                 {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
                 <div className="flex flex-1 flex-col justify-center gap-4 lg:gap-8">
@@ -80,10 +81,11 @@ function getReducedMotionSnapshot() {
 
 function BannerSlider({ images, alt, className }: { images: string[]; alt: string; className?: string }) {
   const prefersReducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, () => true)
+  const [controller, setController] = useState({ toggler: false, slide: 1 })
   const autoplay = useMemo(
     () =>
       Autoplay({
-        delay: 7000,
+        delay: 5000,
         stopOnInteraction: true,
         stopOnMouseEnter: true,
         stopOnFocusIn: true
@@ -107,20 +109,28 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
         <CarouselContent>
           {images.map((src, index) => (
             <CarouselItem key={`${src}-${index}`} className="basis-full">
-              <Image
-                src={src}
-                alt=""
-                width={600}
-                height={800}
-                aria-hidden
-                className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
-                maxwidth={1200}
-              />
+              <button
+                type="button"
+                className="block w-full cursor-pointer"
+                aria-label={`Enlarge ${alt}`}
+                onClick={() => setController({ toggler: true, slide: index + 1 })}
+              >
+                <Image
+                  src={src}
+                  alt=""
+                  width={600}
+                  height={800}
+                  aria-hidden
+                  className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
+                  maxwidth={1200}
+                />
+              </button>
             </CarouselItem>
           ))}
         </CarouselContent>
         <CarouselDots className="pb-6" />
       </Carousel>
+      <EnhanceImage controller={controller} setController={setController} sources={images} alt={alt} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { forwardRef, type ImgHTMLAttributes } from 'react'
-import { getFluidWidths, isLocalRasterSrc, rasterVariantSrc } from '~/services/responsiveImage'
+import { isLocalRasterSrc, pictureSourceWidths, rasterVariantSrc } from '~/services/responsiveImage'
 
 type ImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'width' | 'height'> & {
   src: string
@@ -24,7 +24,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image({ src, alt
     return img
   }
 
-  const [large, medium, small] = getFluidWidths(maxwidth ?? width)
+  const [large, medium, small] = pictureSourceWidths(maxwidth ?? width)
 
   return (
     <picture className="contents">
