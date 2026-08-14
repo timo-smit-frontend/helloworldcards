@@ -28,7 +28,7 @@ export default function ContentProducts({
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (
-            <div className="flex flex-col gap-3 lg:gap-6 max-w-4xl">
+            <div className="flex flex-col gap-2 lg:gap-4 max-w-4xl">
               {title && (
                 <Animated delay={100}>
                   <Heading className="title-l">{title}</Heading>
@@ -45,14 +45,14 @@ export default function ContentProducts({
           {products.length > 0 && (
             <ul className="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
               {products.map((product, index) => (
-                <li key={product.id}>
+                <li key={product.id} className="flex">
                   <Animated delay={productDelays[index % productDelays.length]}>
-                    <div className="h-full">
+                    <div className="flex flex-1 flex-col">
                       <Link
                         to={`/products/${product.slug}`}
-                        className="group flex h-full flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
+                        className="group flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
-                        <div className="relative aspect-4/5 max-lg:h-100 p-5">
+                        <div className="relative aspect-4/5 max-lg:h-100 w-full shrink-0 p-5">
                           {product.images[0] && (
                             <Image
                               src={product.images[0]}
@@ -61,6 +61,7 @@ export default function ContentProducts({
                               height={500}
                               aria-hidden
                               className={`size-full object-contain ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
+                              maxwidth={1000}
                             />
                           )}
                           {product.images[1] && (
@@ -71,6 +72,7 @@ export default function ContentProducts({
                               height={500}
                               aria-hidden
                               className="absolute inset-5 size-[calc(100%-2.5rem)] object-contain opacity-0 smooth group-hover:opacity-100"
+                              maxwidth={1000}
                             />
                           )}
                         </div>

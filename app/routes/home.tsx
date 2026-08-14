@@ -26,7 +26,7 @@ export default function Home() {
         image="https://substackcdn.com/image/fetch/$s_!Np1Z!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F1b5566fa-e0ab-4039-a54b-c1f78dbb59e3_1280x960.jpeg"
         link={{
           url: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Question from Hello World Cards')}`,
-          title: 'Email us'
+          title: 'Get in touch'
         }}
       />
     </>

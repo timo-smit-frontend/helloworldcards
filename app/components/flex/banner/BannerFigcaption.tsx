@@ -20,21 +20,25 @@ export default function BannerFigcaption({
     <section id="banner-figcaption" className="lg:border-b border-site-mulled-wine bg-site-dark">
       <div className="container-full pt-12 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="flex flex-col gap-3 lg:gap-6">
-            {title && (
-              <Animated delay={200}>
-                <h1 className="title-xl text-balance">{title}</h1>
-              </Animated>
-            )}
-            {description && (
-              <Animated delay={300}>
-                <p className="content-l max-w-xl text-site-mantle">{description}</p>
-              </Animated>
+          <div className="flex flex-col gap-4 lg:gap-8">
+            {(title || description) && (
+              <div className="flex flex-col gap-2 lg:gap-4">
+                {title && (
+                  <Animated delay={200}>
+                    <h1 className="title-xl text-balance">{title}</h1>
+                  </Animated>
+                )}
+                {description && (
+                  <Animated delay={300}>
+                    <p className="content-l max-w-xl text-site-mantle">{description}</p>
+                  </Animated>
+                )}
+              </div>
             )}
             {link?.url && link?.title && (
               <Animated delay={400}>
                 <div>
-                  <a href={link.url} className="button-leaf">
+                  <a href={link.url} className="button-green">
                     {link.title}
                   </a>
                 </div>
@@ -44,7 +48,14 @@ export default function BannerFigcaption({
           {image && (
             <Animated delay={500}>
               <figure className="mat">
-                <Image src={image} alt={alt} width={1280} height={960} className="aspect-3/2 w-full rounded-[0.9rem] object-cover" />
+                <Image
+                  src={image}
+                  alt={alt}
+                  width={1280}
+                  height={960}
+                  className="aspect-3/2 w-full rounded-[0.9rem] object-cover"
+                  maxwidth={1200}
+                />
                 {figcaption && <figcaption className="mt-3 px-1 text-sm text-site-mantle">{figcaption}</figcaption>}
               </figure>
             </Animated>

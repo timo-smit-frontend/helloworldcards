@@ -35,7 +35,7 @@ export default function ContentAgenda({
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (
-            <div className="flex max-w-3xl flex-col gap-3 lg:gap-6">
+            <div className="flex max-w-3xl flex-col gap-2 lg:gap-4">
               {title && (
                 <Animated delay={100}>
                   <h2 className="title-l">{title}</h2>

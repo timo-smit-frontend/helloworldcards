@@ -28,24 +28,28 @@ export default function BannerImage({
             <Animated delay={100}>
               <div className="flex h-full flex-col gap-4 py-20">
                 {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
-                <BannerSlider images={slides} alt={title ?? 'Banner'} className="lg:hidden" />
-                <div className="flex flex-1 flex-col justify-center gap-3 lg:gap-6">
-                  {title && <h1 className="title-xl">{title}</h1>}
-                  {description && (
-                    <Animated delay={200}>
-                      <p className="content-xl text-site-mantle">{description}</p>
+                <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
+                <div className="flex flex-1 flex-col justify-center gap-4 lg:gap-8">
+                  {(title || description) && (
+                    <div className="flex flex-col gap-2 lg:gap-4">
+                      {title && <h1 className="title-xl">{title}</h1>}
+                      {description && (
+                        <Animated delay={200}>
+                          <p className="content-xl text-site-mantle">{description}</p>
+                        </Animated>
+                      )}
+                    </div>
+                  )}
+                  {link?.url && link?.title && (
+                    <Animated delay={300}>
+                      <div>
+                        <a href={link.url} target={link.target} className="button-green mt-auto">
+                          {link.title}
+                        </a>
+                      </div>
                     </Animated>
                   )}
                 </div>
-                {link?.url && link?.title && (
-                  <Animated delay={300}>
-                    <div>
-                      <a href={link.url} target={link.target} className="button-leaf mt-auto">
-                        {link.title}
-                      </a>
-                    </div>
-                  </Animated>
-                )}
               </div>
             </Animated>
           )}
@@ -110,6 +114,7 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                 height={800}
                 aria-hidden
                 className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
+                maxwidth={1200}
               />
             </CarouselItem>
           ))}

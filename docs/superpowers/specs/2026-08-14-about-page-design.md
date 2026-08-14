@@ -57,7 +57,10 @@ The page `h1` lives on the banner. `ContentAbout` uses `h2` / `h3` only.
   people: Array<{ name: string }>
   peopleCaption: string
   howItWorks: Array<{ title: string; description: string }>
-  link: { url: string; title: string }
+  link: {
+    url: string
+    title: string
+  }
 }
 ```
 
@@ -65,7 +68,7 @@ The page `h1` lives on the banner. `ContentAbout` uses `h2` / `h3` only.
 - `people` — exactly two names (Sam, Timo). Cards are not links or buttons.
 - `peopleCaption` — one shared line under the pair. No per-person bios.
 - `howItWorks` — three items, in order, rendered as an `<ol>` (sequence matters). Each item: `h3` + paragraph.
-- `link` — shop CTA, `button-leaf`, `url: '/products'`.
+- `link` — shop CTA, `button-green`, `url: '/products'`.
 
 Use `Animated` delays in the same spirit as `ContentText` / `ContentCta`.
 

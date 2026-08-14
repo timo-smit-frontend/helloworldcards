@@ -198,7 +198,7 @@ export default function FormContact() {
 
       <button
         type="submit"
-        className="button-leaf cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        className="button-green cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         disabled={status === 'submitting'}
       >
         {status === 'submitting' ? 'Sending…' : 'Send message'}

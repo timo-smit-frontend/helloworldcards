@@ -12,7 +12,7 @@ export default function SkipToMainContent() {
     event.preventDefault()
     main.focus({ preventScroll: true })
     main.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
     })
   }
 
@@ -20,7 +20,7 @@ export default function SkipToMainContent() {
     <a
       href={`#${MAIN_ID}`}
       onClick={handleClick}
-      className="button-leaf sr-only focus:not-sr-only focus:fixed focus:inset-auto focus:top-4 focus:left-4 focus:z-100 focus:w-auto focus:px-7! focus:py-3.5!"
+      className="button-green sr-only focus:not-sr-only focus:fixed focus:inset-auto focus:top-4 focus:left-4 focus:z-100 focus:w-auto focus:px-7! focus:py-3.5!"
     >
       Skip to main content
     </a>

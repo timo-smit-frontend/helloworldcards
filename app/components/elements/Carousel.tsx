@@ -1,5 +1,7 @@
 import * as React from 'react'
 import useEmblaCarousel, { type UseEmblaCarouselType } from 'embla-carousel-react'
+import { Pause, Play } from 'lucide'
+import { MorphIcon } from 'morphicons/react'
 import { cn } from '~/services/utils'
 
 type CarouselApi = UseEmblaCarouselType[1]
@@ -88,7 +90,7 @@ function CarouselDots({ className }: { className?: string }) {
   const { api } = useCarousel()
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const [scrollSnaps, setScrollSnaps] = React.useState<number[]>([])
-  const [playing, setPlaying] = React.useState(false)
+  const [paused, setPaused] = React.useState(false)
 
   React.useEffect(() => {
     if (!api) return
@@ -103,27 +105,16 @@ function CarouselDots({ className }: { className?: string }) {
       setSelectedIndex(emblaApi.selectedScrollSnap())
     }
 
-    const syncAutoplay = () => {
-      setPlaying(Boolean(api.plugins()?.autoplay?.isPlaying()))
-    }
-
     onInit(api)
     onSelect(api)
-    syncAutoplay()
     api.on('reInit', onInit)
     api.on('reInit', onSelect)
-    api.on('reInit', syncAutoplay)
     api.on('select', onSelect)
-    api.on('autoplay:play', syncAutoplay)
-    api.on('autoplay:stop', syncAutoplay)
 
     return () => {
       api.off('reInit', onInit)
       api.off('reInit', onSelect)
-      api.off('reInit', syncAutoplay)
       api.off('select', onSelect)
-      api.off('autoplay:play', syncAutoplay)
-      api.off('autoplay:stop', syncAutoplay)
     }
   }, [api])
 
@@ -158,30 +149,21 @@ function CarouselDots({ className }: { className?: string }) {
         <button
           type="button"
           className="flex size-6 cursor-pointer items-center justify-center rounded-full text-site-envy"
-          aria-label={playing ? 'Pause slideshow' : 'Play slideshow'}
-          onClick={() => (playing ? autoplay.stop() : autoplay.play())}
+          aria-label={paused ? 'Play slideshow' : 'Pause slideshow'}
+          onClick={() => {
+            if (paused) {
+              autoplay.play()
+              setPaused(false)
+            } else {
+              autoplay.stop()
+              setPaused(true)
+            }
+          }}
         >
-          {playing ? <PauseIcon /> : <PlayIcon />}
+          <MorphIcon icon={paused ? Play : Pause} size={16} strokeWidth={2} spring="smooth" />
         </button>
       )}
     </div>
-  )
-}
-
-function PauseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
-      <rect x="6" y="5" width="4" height="14" rx="1" />
-      <rect x="14" y="5" width="4" height="14" rx="1" />
-    </svg>
-  )
-}
-
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
-      <path d="M8 5.5v13l11-6.5-11-6.5Z" />
-    </svg>
   )
 }
 

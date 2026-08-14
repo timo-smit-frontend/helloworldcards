@@ -29,6 +29,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
         <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
         <SheetPrimitive.Content
           aria-modal="true"
+          onCloseAutoFocus={(event) => event.preventDefault()}
           className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-gray-nurse shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top"
         >
           <SheetPrimitive.Title className="sr-only">Menu</SheetPrimitive.Title>
@@ -93,6 +94,10 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
     const onScroll = () => setIsSticky(window.scrollY > 10)
 
     onScroll()
@@ -132,7 +137,7 @@ export default function Header() {
               </Link>
             </nav>
 
-            <MobileMenuSheet key={location.key} open={menuOpen} onOpenChange={setMenuOpen} pathname={location.pathname} />
+            <MobileMenuSheet open={menuOpen} onOpenChange={setMenuOpen} pathname={location.pathname} />
           </div>
         </div>
       </div>

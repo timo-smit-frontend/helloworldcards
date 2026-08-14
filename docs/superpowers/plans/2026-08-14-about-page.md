@@ -14,7 +14,7 @@
 
 - Voice is a couple, not two friends; no split bios; stand-in image is a shop photo, never described as Sam and Timo.
 - One `h1` on the page (banner). `ContentAbout` uses `h2`/`h3` only. Named cards are not links or buttons.
-- Follow existing flex patterns (`section`, `container-full`, `button-leaf`, `rounded-panel`, `Animated`). Do not invent a second layout system.
+- Follow existing flex patterns (`section`, `container-full`, `button-green`, `rounded-panel`, `Animated`). Do not invent a second layout system.
 - No new test runner. Verify with `npx eslint` on touched files, then `npm run lint` and `npm run build`.
 - Do not change homepage body copy. Do not add founders to the global `organizationNode()`.
 - Do not extract a shared nav config. Add About in Header desktop, Header mobile, and Footer separately.
@@ -37,9 +37,11 @@
 ### Task 1: Optional image alt on BannerFigcaption
 
 **Files:**
+
 - Modify: `app/components/flex/banner/BannerFigcaption.tsx`
 
 **Interfaces:**
+
 - Consumes: existing `Image` (`alt: string` required)
 - Produces: `BannerFigcaption` accepts optional `alt?: string`; default `""` so Home stays decorative
 
@@ -70,7 +72,7 @@ export default function BannerFigcaption({
     <section id="banner-figcaption" className="lg:border-b border-site-mulled-wine bg-site-dark">
       <div className="container-full pt-12 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="flex flex-col gap-3 lg:gap-6">
+          <div className="flex flex-col gap-2 lg:gap-4">
             {title && (
               <Animated delay={200}>
                 <h1 className="title-xl text-balance">{title}</h1>
@@ -84,7 +86,7 @@ export default function BannerFigcaption({
             {link?.url && link?.title && (
               <Animated delay={400}>
                 <div>
-                  <a href={link.url} className="button-leaf">
+                  <a href={link.url} className="button-green">
                     {link.title}
                   </a>
                 </div>
@@ -124,15 +126,17 @@ git commit -m "Allow BannerFigcaption images to take an accessible alt."
 ### Task 2: ContentAbout block
 
 **Files:**
+
 - Create: `app/components/flex/content/ContentAbout.tsx`
 
 **Interfaces:**
+
 - Consumes: `Animated` from `~/components/elements/Animated`
 - Produces: `ContentAbout` with props `{ title, description, people, peopleCaption, howItWorks, link }` as specified below
 
 - [ ] **Step 1: Create `ContentAbout`**
 
-`people` cards are static (no `<a>`, no `<button>`). How-it-works is an `<ol>` with `list-none` so titles carry the meaning; order is still in the DOM. Shop link is `<a href>` + `button-leaf`, same as `ContentText`.
+`people` cards are static (no `<a>`, no `<button>`). How-it-works is an `<ol>` with `list-none` so titles carry the meaning; order is still in the DOM. Shop link is `<a href>` + `button-green`, same as `ContentText`.
 
 ```tsx
 import { Animated } from '~/components/elements/Animated'
@@ -156,7 +160,7 @@ export default function ContentAbout({
     <section id="content-about" className="section">
       <div className="container-full">
         <div className="flex flex-col gap-12 lg:gap-16">
-          <div className="flex max-w-4xl flex-col gap-3 lg:gap-6">
+          <div className="flex max-w-4xl flex-col gap-2 lg:gap-4">
             <Animated delay={100}>
               <h2 className="title-l">{title}</h2>
             </Animated>
@@ -203,7 +207,7 @@ export default function ContentAbout({
 
           <Animated delay={400}>
             <div>
-              <a href={link.url} className="button-leaf">
+              <a href={link.url} className="button-green">
                 {link.title}
               </a>
             </div>
@@ -235,10 +239,12 @@ git commit -m "Add ContentAbout for the couple story, names, and how the shop wo
 ### Task 3: About route and router
 
 **Files:**
+
 - Create: `app/routes/about.tsx`
 - Modify: `app/main.tsx`
 
 **Interfaces:**
+
 - Consumes: `BannerFigcaption` with `alt`, `ContentAbout` from Task 2, `ContentCta`, `SITE_IMAGE`
 - Produces: `/about` renders under `Root` / `Layout` (skip-to-main and `#main` already exist)
 
@@ -328,10 +334,12 @@ git commit -m "Add the About route and register it under the site layout."
 ### Task 4: Header and footer nav with current-page state
 
 **Files:**
+
 - Modify: `app/components/layout/Header.tsx`
 - Modify: `app/components/layout/Footer.tsx`
 
 **Interfaces:**
+
 - Consumes: existing `Link`, `useLocation`
 - Produces: Products → Agenda → About → Contact; `aria-current="page"` when `pathname` equals the link `to`
 
@@ -479,10 +487,12 @@ git commit -m "Add About to site nav and mark the current page for assistive tec
 ### Task 5: About SEO, JSON-LD, and sitemap
 
 **Files:**
+
 - Modify: `app/seo/pages.ts`
 - Modify: `public/sitemap.xml`
 
 **Interfaces:**
+
 - Consumes: existing `page()`, `webPageNode()`, `canonicalUrl()`, `ORGANIZATION_ID`, `titleWithBrand()`
 - Produces: `getSeoForPath('/about')` is indexable; `webPageType: 'AboutPage'`; extra graph is breadcrumbs + Sam/Timo `Person` nodes; `getIndexableSeoPages()` includes `/about`
 

@@ -15,7 +15,7 @@ export default function ContentAbout({
     <section id="content-about" className="section">
       <div className="container-full">
         <div className="flex flex-col gap-12 lg:gap-16">
-          <div className="flex max-w-4xl flex-col gap-3 lg:gap-6">
+          <div className="flex max-w-4xl flex-col gap-2 lg:gap-4">
             <Animated delay={100}>
               <h2 className="title-l">{title}</h2>
             </Animated>

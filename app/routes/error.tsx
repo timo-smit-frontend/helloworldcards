@@ -24,7 +24,7 @@ export default function ErrorPage() {
             <p className="content-l text-site-mantle">This page does not exist or has been moved.</p>
           </Animated>
           <Animated delay={500}>
-            <Link to="/" className="button-leaf mt-2">
+            <Link to="/" className="button-green mt-2">
               Back to home
             </Link>
           </Animated>

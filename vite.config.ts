@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { buildSitemapXml, writeSeoBuild, writeSitemap } from './seo-prerender'
+import { responsiveImagesPlugin } from './vite-responsive-images'
 
 function seoPlugin(): Plugin {
   let publicDir = ''
@@ -38,7 +39,7 @@ function seoPlugin(): Plugin {
 
 export default defineConfig({
   base: '/',
-  plugins: [react(), tailwindcss(), seoPlugin()],
+  plugins: [react(), tailwindcss(), responsiveImagesPlugin(), seoPlugin()],
   resolve: {
     alias: {
       '~': path.resolve(__dirname, 'app')

@@ -16,42 +16,42 @@ const products: ProductRecord[] = [
     id: 1,
     title: 'Charizard Holo',
     description: 'Base Set - Holo - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png'],
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€249'
   },
   {
     id: 2,
     title: 'Blastoise Holo',
     description: 'Base Set - Reverse Holo - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png'],
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€189'
   },
   {
     id: 3,
     title: 'Venusaur Holo',
     description: 'Base Set - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png'],
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€159'
   },
   {
     id: 4,
     title: 'Pikachu Illustrator',
     description: 'Base Set - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png'],
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€1.200'
   },
   {
     id: 5,
     title: 'Mewtwo GX',
     description: 'Base Set - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png'],
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€79'
   },
   {
     id: 6,
     title: 'Eevee Promo',
     description: 'Base Set - 10/102',
-    images: ['/public/images/pokemon-card-front.png', '/public/images/pokemon-card-back.png']
+    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png']
   }
 ]
 
