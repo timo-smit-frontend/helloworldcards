@@ -17,6 +17,8 @@ export default function Home() {
       <ContentText
         title="Hey, we're Hello World Cards"
         description="We're Sam & Timo, two Pokémon-loving nerds who turned a hobby into this little corner of the internet. This is where we share what's in stock Pokémon cards, Pokémon art, and whatever else we pick up along the way. Whenever we head to a Pokémon event, we'll post about it here so you can follow along, see what we find, and maybe grab something for your own collection. If you love the games, the cards, or just the world around them as much as we do, you're in the right place."
+        image="https://www.serebii.net/scarletviolet/pokemon/new/194-f.png"
+        alt="Pokémon card back"
         link={{ url: '/about', title: 'Learn more about us' }}
       />
       <ContentProducts title="A few favorites" description="Cards and art we love having around." id={[1, 2, 3, 4]} />
