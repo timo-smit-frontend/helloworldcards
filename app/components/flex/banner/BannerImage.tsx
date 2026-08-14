@@ -33,7 +33,7 @@ export default function BannerImage({
                   {title && <h1 className="title-xl">{title}</h1>}
                   {description && (
                     <Animated delay={200}>
-                      <p className="content-xl text-site-lemon-grass">{description}</p>
+                      <p className="content-xl text-site-mantle">{description}</p>
                     </Animated>
                   )}
                 </div>

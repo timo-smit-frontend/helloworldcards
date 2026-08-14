@@ -17,7 +17,7 @@ export default function ContentContact({ title, description }: { title?: string;
                 )}
                 {description && (
                   <Animated delay={200}>
-                    <p className="content-l text-site-lemon-grass">{description}</p>
+                    <p className="content-l text-site-mantle">{description}</p>
                   </Animated>
                 )}
               </div>
@@ -30,7 +30,7 @@ export default function ContentContact({ title, description }: { title?: string;
                   <li>
                     <a
                       href={`mailto:${CONTACT_EMAIL}`}
-                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
+                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -53,7 +53,7 @@ export default function ContentContact({ title, description }: { title?: string;
                       href={INSTAGRAM_URL}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
+                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
                     >
                       <svg
                         viewBox="0 0 24 24"

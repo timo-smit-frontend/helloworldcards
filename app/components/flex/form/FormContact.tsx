@@ -124,7 +124,7 @@ export default function FormContact() {
           className="field"
         />
         {showNameError && (
-          <p id="contact-name-error" className="content-s text-site-lemon-grass">
+          <p id="contact-name-error" className="content-s text-site-mantle">
             {NAME_HINT}
           </p>
         )}
@@ -160,7 +160,7 @@ export default function FormContact() {
           className="field"
         />
         {showEmailError && (
-          <p id="contact-email-error" className="content-s text-site-lemon-grass">
+          <p id="contact-email-error" className="content-s text-site-mantle">
             {emailHint(email)}
           </p>
         )}
@@ -190,7 +190,7 @@ export default function FormContact() {
           className="field min-h-40"
         />
         {showMessageError && (
-          <p id="contact-message-error" className="content-s text-site-lemon-grass">
+          <p id="contact-message-error" className="content-s text-site-mantle">
             {MESSAGE_HINT}
           </p>
         )}
@@ -205,11 +205,11 @@ export default function FormContact() {
       </button>
 
       <div aria-live="polite">
-        {status === 'success' && <p className="content-s text-site-winter-hazel">Thanks! We will get back to you soon.</p>}
+        {status === 'success' && <p className="content-s text-site-summer-green">Thanks! We will get back to you soon.</p>}
         {status === 'error' && (
-          <p className="content-s text-site-lemon-grass">
+          <p className="content-s text-site-mantle">
             Something went wrong. You can also email us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-site-ginger-brown">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-site-envy">
               {CONTACT_EMAIL}
             </a>
             .

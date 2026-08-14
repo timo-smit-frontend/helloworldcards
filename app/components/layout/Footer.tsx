@@ -13,7 +13,7 @@ export default function Footer() {
   const location = useLocation()
 
   return (
-    <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 pb-16 text-site-pearl-bush lg:pb-24">
+    <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 pb-16 text-site-gray-nurse lg:pb-24">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
           <Link to="/" className="block w-fit" aria-label="Hello World Cards">
@@ -28,7 +28,7 @@ export default function Footer() {
                   <li key={item.to} className="min-w-60">
                     <Link
                       to={item.to}
-                      className="transition-colors hover:text-site-ginger-brown hover:underline"
+                      className="transition-colors hover:text-site-envy hover:underline"
                       aria-current={location.pathname === item.to ? 'page' : undefined}
                     >
                       {item.title}
@@ -44,7 +44,7 @@ export default function Footer() {
                 <li>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
+                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -73,7 +73,7 @@ export default function Footer() {
                     href={INSTAGRAM_URL}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
+                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
                   >
                     <svg
                       viewBox="0 0 24 24"

@@ -36,7 +36,7 @@ export default function ContentProducts({
               )}
               {description && (
                 <Animated delay={200}>
-                  <p className="content-s text-site-lemon-grass">{description}</p>
+                  <p className="content-s text-site-mantle">{description}</p>
                 </Animated>
               )}
             </div>
@@ -50,7 +50,7 @@ export default function ContentProducts({
                     <div className="h-full">
                       <Link
                         to={`/products/${product.slug}`}
-                        className="group flex h-full flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-ginger-brown"
+                        className="group flex h-full flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
                         <div className="relative aspect-4/5 max-lg:h-100 p-5">
                           {product.images[0] && (
@@ -75,9 +75,9 @@ export default function ContentProducts({
                           )}
                         </div>
                         <div className="flex flex-col gap-1 border-t border-site-mulled-wine px-4 py-3">
-                          <span className="text-sm leading-snug text-site-lemon-grass">{product.description}</span>
-                          <span className="text-lg font-semibold text-site-pearl-bush">{product.title}</span>
-                          {product.price != null && <span className="text-sm font-semibold text-site-winter-hazel">{product.price}</span>}
+                          <span className="text-sm leading-snug text-site-mantle">{product.description}</span>
+                          <span className="text-lg font-semibold text-site-gray-nurse">{product.title}</span>
+                          {product.price != null && <span className="text-sm font-semibold text-site-summer-green">{product.price}</span>}
                         </div>
                       </Link>
                     </div>

@@ -13,7 +13,7 @@ export default function ErrorPage() {
             </div>
           </Animated>
           <Animated delay={200}>
-            <p className="title-xl text-site-ginger-brown">404</p>
+            <p className="title-xl text-site-envy">404</p>
           </Animated>
           <Animated delay={300}>
             <h1 id="error-title" className="title-l">
@@ -21,7 +21,7 @@ export default function ErrorPage() {
             </h1>
           </Animated>
           <Animated delay={400}>
-            <p className="content-l text-site-lemon-grass">This page does not exist or has been moved.</p>
+            <p className="content-l text-site-mantle">This page does not exist or has been moved.</p>
           </Animated>
           <Animated delay={500}>
             <Link to="/" className="button-leaf mt-2">

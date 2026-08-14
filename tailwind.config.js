@@ -15,14 +15,14 @@ export default {
         card: '0 10px 28px rgb(0 0 0 / 0.4)'
       },
       colors: {
+        'site-mirage': '#1A1C28',
         'site-dark': '#1C2030',
-        'site-pearl-bush': '#e8e2d0',
-        'site-lemon-grass': '#a39c88',
-        'site-gunmetal': '#2a2f42',
-        'site-mulled-wine': '#4a5168',
-        'site-ginger-brown': '#d1be6a',
-        'site-winter-hazel': '#e2d28a',
-        'site-mirage': '#1a1c28'
+        'site-gunmetal': '#2A2F42',
+        'site-mulled-wine': '#4A5168',
+        'site-envy': '#84A38C',
+        'site-mantle': '#92A196',
+        'site-summer-green': '#9CB8A4',
+        'site-gray-nurse': '#E0E6E1'
       },
       fontFamily: {
         'site-outfit': ['Outfit', ...defaultTheme.fontFamily.sans]

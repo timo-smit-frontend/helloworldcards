@@ -26,7 +26,7 @@ export default function ContentCta({
               )}
               {description && (
                 <Animated delay={200}>
-                  <p className="content-l text-site-lemon-grass">{description}</p>
+                  <p className="content-l text-site-mantle">{description}</p>
                 </Animated>
               )}
               {link?.url && link?.title && (

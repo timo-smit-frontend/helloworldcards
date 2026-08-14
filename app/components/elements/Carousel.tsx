@@ -147,7 +147,7 @@ function CarouselDots({ className }: { className?: string }) {
             <span
               className={cn(
                 'size-2.5 rounded-full',
-                index === selectedIndex ? 'bg-site-ginger-brown' : 'border-2 border-site-ginger-brown bg-transparent'
+                index === selectedIndex ? 'bg-site-envy' : 'border-2 border-site-envy bg-transparent'
               )}
               aria-hidden
             />
@@ -157,7 +157,7 @@ function CarouselDots({ className }: { className?: string }) {
       {autoplay && (
         <button
           type="button"
-          className="flex size-6 cursor-pointer items-center justify-center rounded-full text-site-ginger-brown"
+          className="flex size-6 cursor-pointer items-center justify-center rounded-full text-site-envy"
           aria-label={playing ? 'Pause slideshow' : 'Play slideshow'}
           onClick={() => (playing ? autoplay.stop() : autoplay.play())}
         >

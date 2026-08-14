@@ -36,10 +36,10 @@ export default function Logo({ className }: { className?: string }) {
       </g>
 
       <g id="wordmark" fontFamily="Outfit, Arial, Helvetica, sans-serif" fill="#3A322C">
-        <text x="510" y="230" fontSize="96" fontWeight="800" letterSpacing="-3" className="fill-site-pearl-bush">
+        <text x="510" y="230" fontSize="96" fontWeight="800" letterSpacing="-3" className="fill-site-gray-nurse">
           Hello World
         </text>
-        <text x="515" y="320" fontSize="64" fontWeight="700" letterSpacing="8" className="fill-site-lemon-grass">
+        <text x="515" y="320" fontSize="64" fontWeight="700" letterSpacing="8" className="fill-site-mantle">
           CARDS
         </text>
       </g>

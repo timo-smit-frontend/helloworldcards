@@ -2,14 +2,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant hover {
-  @variant lg {
-    &:hover {
-      @slot;
-    }
-  }
-}
-
 @utility container-full {
   @apply mx-auto w-full max-w-500 px-5 sm:px-7 lg:px-8;
 }
@@ -19,7 +11,7 @@
 }
 
 @utility button-leaf {
-  @apply button-base border-site-ginger-brown bg-site-ginger-brown text-site-mirage [&:not([disabled])]:hover:border-site-winter-hazel [&:not([disabled])]:hover:bg-site-winter-hazel;
+  @apply button-base border-site-envy bg-site-envy text-site-mirage [&:not([disabled])]:hover:border-site-summer-green [&:not([disabled])]:hover:bg-site-summer-green;
 }
 
 @utility title-xl {
@@ -75,7 +67,7 @@
 }
 
 @utility field {
-  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 py-3 text-base text-site-pearl-bush placeholder:text-site-lemon-grass smooth;
+  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 py-3 text-base text-site-gray-nurse placeholder:text-site-mantle smooth;
 }
 
 @utility smooth {
@@ -83,15 +75,15 @@
 }
 
 @utility mobile-menu-hover {
-  @apply relative text-site-pearl-bush transition-all duration-300 ease-out;
+  @apply relative text-site-gray-nurse transition-all duration-300 ease-out;
 
   &::after {
     content: '';
-    @apply absolute bottom-0 left-0 h-px w-0 bg-site-ginger-brown transition-all duration-300 ease-out;
+    @apply absolute bottom-0 left-0 h-px w-0 bg-site-envy transition-all duration-300 ease-out;
   }
 
   @variant hover {
-    @apply text-site-ginger-brown;
+    @apply text-site-envy;
 
     &::after {
       @apply w-full;
@@ -102,7 +94,7 @@
 @layer base {
   html,
   body {
-    @apply min-h-screen max-w-full scroll-smooth bg-site-dark font-site-outfit text-site-pearl-bush antialiased;
+    @apply min-h-screen max-w-full scroll-smooth bg-site-dark font-site-outfit text-site-gray-nurse antialiased;
     color-scheme: dark;
     scroll-padding-top: 7.5rem;
     scroll-padding-bottom: 6rem;
@@ -115,7 +107,7 @@
   }
 
   ::selection {
-    @apply bg-site-ginger-brown text-site-mirage;
+    @apply bg-site-envy text-site-mirage;
   }
 
   button:focus-visible,
@@ -123,7 +115,7 @@
   input:focus-visible,
   textarea:focus-visible,
   [role='option']:focus-visible {
-    @apply outline-3 outline-offset-2 outline-site-ginger-brown;
+    @apply outline-3 outline-offset-2 outline-site-envy;
   }
 
   #main:focus,
@@ -134,4 +126,12 @@
 
 .section + .section {
   @apply mt-0!;
+}
+
+@custom-variant hover {
+  @variant lg {
+    &:hover {
+      @slot;
+    }
+  }
 }

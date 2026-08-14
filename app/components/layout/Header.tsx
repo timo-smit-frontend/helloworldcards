@@ -14,13 +14,13 @@ const ABOUT_URL = '/about'
 const ABOUT_TITLE = 'About'
 const CONTACT_URL = '/contact'
 const CONTACT_TITLE = 'Contact us'
-const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-winter-hazel'
+const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-summer-green'
 
 function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenChange: (open: boolean) => void; pathname: string }) {
   return (
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <SheetPrimitive.Trigger
-        className="relative z-10 inline-flex size-11 items-center justify-center text-site-pearl-bush xl:hidden"
+        className="relative z-10 inline-flex size-11 items-center justify-center text-site-gray-nurse xl:hidden"
         aria-label={open ? 'Close menu' : 'Open menu'}
       >
         <BurgerMenu className="cursor-pointer" open={open} />
@@ -29,7 +29,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
         <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
         <SheetPrimitive.Content
           aria-modal="true"
-          className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-pearl-bush shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top"
+          className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-gray-nurse shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top"
         >
           <SheetPrimitive.Title className="sr-only">Menu</SheetPrimitive.Title>
           <SheetPrimitive.Description className="sr-only">Site navigation</SheetPrimitive.Description>
@@ -40,7 +40,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
                 <Logo className="h-20 w-auto" />
               </Link>
               <SheetPrimitive.Close
-                className="inline-flex size-11 items-center justify-center text-site-pearl-bush"
+                className="inline-flex size-11 items-center justify-center text-site-gray-nurse"
                 aria-label="Close menu"
               >
                 <BurgerMenu className="cursor-pointer" open />
@@ -104,7 +104,7 @@ export default function Header() {
   return (
     <header
       className={cn(
-        'smooth sticky top-0 z-50 border-b border-site-mulled-wine bg-site-dark/90 text-site-pearl-bush backdrop-blur-md',
+        'smooth sticky top-0 z-50 border-b border-site-mulled-wine bg-site-dark/90 text-site-gray-nurse backdrop-blur-md',
         isSticky && !menuOpen && 'shadow-sm',
         menuOpen && 'invisible pointer-events-none'
       )}

@@ -20,7 +20,7 @@ export default function ContentAbout({
               <h2 className="title-l">{title}</h2>
             </Animated>
             <Animated delay={200}>
-              <p className="content-l text-site-lemon-grass">{description}</p>
+              <p className="content-l text-site-mantle">{description}</p>
             </Animated>
           </div>
 
@@ -33,13 +33,13 @@ export default function ContentAbout({
                     className="flex h-full flex-col gap-3 rounded-panel bg-site-gunmetal px-6 py-8 shadow-card ring-1 ring-site-mulled-wine sm:px-8 sm:py-10"
                   >
                     <h3 className="title-l">{person.name}</h3>
-                    <p className="content-m text-site-lemon-grass">{person.description}</p>
+                    <p className="content-m text-site-mantle">{person.description}</p>
                   </li>
                 ))}
               </ul>
             </Animated>
             <Animated delay={300}>
-              <p className="content-s text-site-lemon-grass">{peopleCaption}</p>
+              <p className="content-s text-site-mantle">{peopleCaption}</p>
             </Animated>
           </div>
         </div>

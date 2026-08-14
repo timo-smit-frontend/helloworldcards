@@ -28,7 +28,7 @@ export default function BannerFigcaption({
             )}
             {description && (
               <Animated delay={300}>
-                <p className="content-l max-w-xl text-site-lemon-grass">{description}</p>
+                <p className="content-l max-w-xl text-site-mantle">{description}</p>
               </Animated>
             )}
             {link?.url && link?.title && (
@@ -45,7 +45,7 @@ export default function BannerFigcaption({
             <Animated delay={500}>
               <figure className="mat">
                 <Image src={image} alt={alt} width={1280} height={960} className="aspect-3/2 w-full rounded-[0.9rem] object-cover" />
-                {figcaption && <figcaption className="mt-3 px-1 text-sm text-site-lemon-grass">{figcaption}</figcaption>}
+                {figcaption && <figcaption className="mt-3 px-1 text-sm text-site-mantle">{figcaption}</figcaption>}
               </figure>
             </Animated>
           )}

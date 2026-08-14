@@ -43,7 +43,7 @@ export default function ContentAgenda({
               )}
               {description && (
                 <Animated delay={200}>
-                  <p className="content-l text-site-lemon-grass">{description}</p>
+                  <p className="content-l text-site-mantle">{description}</p>
                 </Animated>
               )}
             </div>
@@ -55,11 +55,11 @@ export default function ContentAgenda({
                 <li key={event.id}>
                   <Animated delay={eventDelays[index % eventDelays.length]}>
                     <article className="grid gap-1 py-6 sm:grid-cols-[10rem_1fr_1fr] sm:items-baseline sm:gap-8">
-                      <time dateTime={event.date} className="title-xs text-site-winter-hazel">
+                      <time dateTime={event.date} className="title-xs text-site-summer-green">
                         {formatEventDate(event.date)}
                       </time>
                       <h3 className="title-xs">{event.title}</h3>
-                      <p className="content-m text-site-lemon-grass sm:text-right">{event.location}</p>
+                      <p className="content-m text-site-mantle sm:text-right">{event.location}</p>
                     </article>
                   </Animated>
                 </li>
@@ -67,7 +67,7 @@ export default function ContentAgenda({
             </ul>
           ) : (
             <Animated delay={200}>
-              <p className="content-l text-site-lemon-grass">No upcoming events right now. Check back soon.</p>
+              <p className="content-l text-site-mantle">No upcoming events right now. Check back soon.</p>
             </Animated>
           )}
         </div>
