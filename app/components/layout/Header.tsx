@@ -1,6 +1,7 @@
 import * as SheetPrimitive from '@radix-ui/react-dialog'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
+import BurgerMenu from '~/components/elements/BurgerMenu'
 import Logo from '~/components/elements/Logo'
 import { SITE_NAME } from '~/seo/site'
 import { cn } from '~/services/utils'
@@ -9,103 +10,76 @@ const PRODUCTS_URL = '/products'
 const PRODUCTS_TITLE = 'Products'
 const AGENDA_URL = '/agenda'
 const AGENDA_TITLE = 'Agenda'
+const ABOUT_URL = '/about'
+const ABOUT_TITLE = 'About'
 const CONTACT_URL = '/contact'
 const CONTACT_TITLE = 'Contact us'
-const navLinkClass = 'hidden font-sans text-base font-semibold transition-colors hover:text-moss xl:inline-flex'
+const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-winter-hazel'
 
-function ContactArrow() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="12" viewBox="0 0 14 12" fill="none" aria-hidden>
-      <path
-        d="M14 5.99012C13.9951 5.46407 13.7832 4.96113 13.41 4.59027L9.12 0.29076C8.93264 0.10453 8.67919 0 8.415 0C8.15081 0 7.89736 0.10453 7.71 0.29076C7.61627 0.383713 7.54188 0.494301 7.49111 0.616147C7.44034 0.737992 7.4142 0.868683 7.4142 1.00068C7.4142 1.13268 7.44034 1.26337 7.49111 1.38521C7.54188 1.50706 7.61627 1.61765 7.71 1.7106L11 4.99023H1C0.734784 4.99023 0.48043 5.09557 0.292893 5.28309C0.105357 5.4706 0 5.72493 0 5.99012C0 6.2553 0.105357 6.50963 0.292893 6.69714C0.48043 6.88466 0.734784 6.99 1 6.99H11L7.71 10.2796C7.5217 10.4666 7.41538 10.7207 7.41444 10.986C7.41351 11.2513 7.51802 11.5062 7.705 11.6945C7.89198 11.8828 8.1461 11.9891 8.41146 11.99C8.67683 11.9909 8.9317 11.8864 9.12 11.6995L13.41 7.39996C13.7856 7.02665 13.9978 6.51963 14 5.99012Z"
-        fill="currentColor"
-      />
-    </svg>
-  )
-}
-
-function MobileMenuSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenChange: (open: boolean) => void; pathname: string }) {
   return (
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <SheetPrimitive.Trigger
-        className="relative inline-flex size-11 items-center justify-center text-ink xl:hidden"
-        aria-label="Open menu"
+        className="relative z-10 inline-flex size-11 items-center justify-center text-site-pearl-bush xl:hidden"
+        aria-label={open ? 'Close menu' : 'Open menu'}
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 12h16" />
-          <path d="M4 18h16" />
-          <path d="M4 6h16" />
-        </svg>
+        <BurgerMenu className="cursor-pointer" open={open} />
       </SheetPrimitive.Trigger>
       <SheetPrimitive.Portal>
-        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-paper/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
-        <SheetPrimitive.Content className="fixed inset-x-0 top-0 z-50 flex h-full flex-col border-b border-line bg-surface p-6 text-ink shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top">
+        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
+        <SheetPrimitive.Content
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-pearl-bush shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top"
+        >
           <SheetPrimitive.Title className="sr-only">Menu</SheetPrimitive.Title>
-          <div className="mx-auto flex w-full flex-col sm:w-9/12 max-sm:min-h-0 max-sm:flex-1">
-            <div className="mb-10 flex shrink-0 items-center justify-between sm:mb-12">
+          <SheetPrimitive.Description className="sr-only">Site navigation</SheetPrimitive.Description>
+          <div className="container-full">
+            <div className="flex items-center justify-between py-2">
               <Link to="/" className="shrink-0" onClick={() => onOpenChange(false)}>
                 <span className="sr-only">{SITE_NAME}</span>
                 <Logo className="h-20 w-auto" />
               </Link>
-              <SheetPrimitive.Close className="inline-flex size-11 items-center justify-center rounded-sm text-ink opacity-70 transition-opacity focus:outline-hidden focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf sm:hover:opacity-100">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-                <span className="sr-only">Close</span>
+              <SheetPrimitive.Close
+                className="inline-flex size-11 items-center justify-center text-site-pearl-bush"
+                aria-label="Close menu"
+              >
+                <BurgerMenu className="cursor-pointer" open />
               </SheetPrimitive.Close>
             </div>
-            <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:justify-between">
-              <nav aria-label="Mobile">
-                <Link
-                  to={PRODUCTS_URL}
-                  className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {PRODUCTS_TITLE}
-                </Link>
-                <Link
-                  to={AGENDA_URL}
-                  className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {AGENDA_TITLE}
-                </Link>
-                <Link
-                  to={CONTACT_URL}
-                  className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-xl sm:text-2xl lg:text-3xl"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {CONTACT_TITLE}
-                </Link>
-              </nav>
+            <nav aria-label="Primary" className="flex flex-col gap-6 py-10 sm:gap-8">
+              <Link
+                to={PRODUCTS_URL}
+                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
+                aria-current={pathname === PRODUCTS_URL ? 'page' : undefined}
+                onClick={() => onOpenChange(false)}
+              >
+                {PRODUCTS_TITLE}
+              </Link>
+              <Link
+                to={AGENDA_URL}
+                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
+                aria-current={pathname === AGENDA_URL ? 'page' : undefined}
+                onClick={() => onOpenChange(false)}
+              >
+                {AGENDA_TITLE}
+              </Link>
+              <Link
+                to={ABOUT_URL}
+                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
+                aria-current={pathname === ABOUT_URL ? 'page' : undefined}
+                onClick={() => onOpenChange(false)}
+              >
+                {ABOUT_TITLE}
+              </Link>
               <Link
                 to={CONTACT_URL}
-                className="button-leaf mt-8 flex h-14 w-full shrink-0 items-center justify-center gap-2.5 px-7 text-lg font-medium sm:w-fit"
+                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
+                aria-current={pathname === CONTACT_URL ? 'page' : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {CONTACT_TITLE}
-                <ContactArrow />
               </Link>
-            </div>
+            </nav>
           </div>
         </SheetPrimitive.Content>
       </SheetPrimitive.Portal>
@@ -130,9 +104,9 @@ export default function Header() {
   return (
     <header
       className={cn(
-        'smooth sticky top-0 z-50 border-b border-line bg-cream/90 text-ink backdrop-blur-md',
+        'smooth sticky top-0 z-50 border-b border-site-mulled-wine bg-site-dark/90 text-site-pearl-bush backdrop-blur-md',
         isSticky && !menuOpen && 'shadow-sm',
-        menuOpen && 'z-60'
+        menuOpen && 'invisible pointer-events-none'
       )}
     >
       <div className="container-full">
@@ -143,17 +117,22 @@ export default function Header() {
           </Link>
 
           <div className="flex items-center gap-3 xl:gap-12">
-            <Link to={PRODUCTS_URL} className={navLinkClass}>
-              {PRODUCTS_TITLE}
-            </Link>
-            <Link to={AGENDA_URL} className={navLinkClass}>
-              {AGENDA_TITLE}
-            </Link>
-            <Link to={CONTACT_URL} className={navLinkClass}>
-              Contact
-            </Link>
+            <nav aria-label="Primary" className="hidden items-center gap-12 xl:flex">
+              <Link to={PRODUCTS_URL} className={navLinkClass} aria-current={location.pathname === PRODUCTS_URL ? 'page' : undefined}>
+                {PRODUCTS_TITLE}
+              </Link>
+              <Link to={AGENDA_URL} className={navLinkClass} aria-current={location.pathname === AGENDA_URL ? 'page' : undefined}>
+                {AGENDA_TITLE}
+              </Link>
+              <Link to={ABOUT_URL} className={navLinkClass} aria-current={location.pathname === ABOUT_URL ? 'page' : undefined}>
+                {ABOUT_TITLE}
+              </Link>
+              <Link to={CONTACT_URL} className={navLinkClass} aria-current={location.pathname === CONTACT_URL ? 'page' : undefined}>
+                Contact
+              </Link>
+            </nav>
 
-            <MobileMenuSheet key={location.key} open={menuOpen} onOpenChange={setMenuOpen} />
+            <MobileMenuSheet key={location.key} open={menuOpen} onOpenChange={setMenuOpen} pathname={location.pathname} />
           </div>
         </div>
       </div>

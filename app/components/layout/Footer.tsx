@@ -1,16 +1,19 @@
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import Logo from '~/components/elements/Logo'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '~/services/contact'
 
 const FOOTER_MENU = [
   { title: 'Products', to: '/products' },
   { title: 'Agenda', to: '/agenda' },
+  { title: 'About', to: '/about' },
   { title: 'Contact', to: '/contact' }
 ]
 
 export default function Footer() {
+  const location = useLocation()
+
   return (
-    <footer className="max-lg:border-t border-line max-lg:pt-8 pb-16 text-ink lg:pb-20">
+    <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 pb-16 text-site-pearl-bush lg:pb-24">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
           <Link to="/" className="block w-fit" aria-label="Hello World Cards">
@@ -19,11 +22,15 @@ export default function Footer() {
 
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(150px,211px)_minmax(200px,320px)_auto] lg:gap-8 xl:gap-16">
             <nav aria-label="Footer menu" className="hidden lg:block">
-              <h2 className="font-display text-lg font-bold leading-7">Menu</h2>
+              <h2 className="text-lg font-bold leading-7">Menu</h2>
               <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                 {FOOTER_MENU.map((item) => (
                   <li key={item.to} className="min-w-60">
-                    <Link to={item.to} className="transition-colors hover:text-leaf hover:underline">
+                    <Link
+                      to={item.to}
+                      className="transition-colors hover:text-site-ginger-brown hover:underline"
+                      aria-current={location.pathname === item.to ? 'page' : undefined}
+                    >
                       {item.title}
                     </Link>
                   </li>
@@ -32,12 +39,12 @@ export default function Footer() {
             </nav>
 
             <div className="min-w-60">
-              <h2 className="font-display text-lg font-bold leading-7">Contact</h2>
+              <h2 className="text-lg font-bold leading-7">Contact</h2>
               <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                 <li>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
+                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -59,14 +66,14 @@ export default function Footer() {
             </div>
 
             <div className="min-w-60">
-              <h2 className="font-display text-lg font-bold leading-7">Follow us</h2>
+              <h2 className="text-lg font-bold leading-7">Follow us</h2>
               <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                 <li>
                   <a
                     href={INSTAGRAM_URL}
                     target="_blank"
-                    rel="noreferrer"
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
+                    rel="noreferrer noopener"
+                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -83,6 +90,7 @@ export default function Footer() {
                       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                     </svg>
                     <span>Instagram</span>
+                    <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                 </li>
               </ul>
@@ -90,7 +98,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 border-t border-line pt-10">
+        <div className="mt-16 border-t border-site-mulled-wine pt-10">
           <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All rights reserved.</p>
         </div>
       </div>

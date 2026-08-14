@@ -19,7 +19,7 @@
 }
 
 @utility button-leaf {
-  @apply button-base border-leaf bg-leaf text-cream [&:not([disabled])]:hover:border-moss [&:not([disabled])]:hover:bg-moss;
+  @apply button-base border-site-ginger-brown bg-site-ginger-brown text-site-mirage [&:not([disabled])]:hover:border-site-winter-hazel [&:not([disabled])]:hover:bg-site-winter-hazel;
 }
 
 @utility title-xl {
@@ -35,7 +35,7 @@
 }
 
 @utility title-base {
-  @apply font-display font-semibold tracking-[-0.03em] leading-[1.1];
+  @apply font-semibold tracking-[-0.03em] leading-[1.1];
 }
 
 @utility content-xl {
@@ -59,7 +59,7 @@
 }
 
 @utility mat {
-  @apply rounded-panel bg-cream p-3 shadow-card ring-1 ring-line;
+  @apply rounded-panel bg-site-gunmetal p-3 shadow-card ring-1 ring-site-mulled-wine;
 }
 
 @utility section-top {
@@ -75,7 +75,7 @@
 }
 
 @utility field {
-  @apply w-full rounded-button border-2 border-line bg-paper px-4 py-3 text-base text-ink placeholder:text-muted/70 smooth;
+  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 py-3 text-base text-site-pearl-bush placeholder:text-site-lemon-grass smooth;
 }
 
 @utility smooth {
@@ -83,15 +83,15 @@
 }
 
 @utility mobile-menu-hover {
-  @apply relative text-ink transition-all duration-300 ease-out;
+  @apply relative text-site-pearl-bush transition-all duration-300 ease-out;
 
   &::after {
     content: '';
-    @apply absolute bottom-0 left-0 h-px w-0 bg-leaf transition-all duration-300 ease-out;
+    @apply absolute bottom-0 left-0 h-px w-0 bg-site-ginger-brown transition-all duration-300 ease-out;
   }
 
   @variant hover {
-    @apply text-leaf;
+    @apply text-site-ginger-brown;
 
     &::after {
       @apply w-full;
@@ -102,19 +102,33 @@
 @layer base {
   html,
   body {
-    @apply min-h-screen max-w-full scroll-smooth bg-paper font-sans text-ink antialiased;
-    color-scheme: light;
+    @apply min-h-screen max-w-full scroll-smooth bg-site-dark font-site-outfit text-site-pearl-bush antialiased;
+    color-scheme: dark;
+    scroll-padding-top: 7.5rem;
+    scroll-padding-bottom: 6rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   ::selection {
-    @apply bg-leaf text-cream;
+    @apply bg-site-ginger-brown text-site-mirage;
   }
 
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
-  textarea:focus-visible {
-    @apply outline-3 outline-offset-2 outline-leaf;
+  textarea:focus-visible,
+  [role='option']:focus-visible {
+    @apply outline-3 outline-offset-2 outline-site-ginger-brown;
+  }
+
+  #main:focus,
+  #main:focus-visible {
+    outline: none;
   }
 }
 

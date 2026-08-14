@@ -21,21 +21,22 @@ export default function ContentProducts({
 }) {
   const ids = normalizeIds(id)
   const products = ids ? getProductsByIds(ids) : getAllProducts()
+  const Heading = ids ? 'h2' : 'h1'
 
   return (
     <section id="content-products" className="section">
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (
-            <div className="flex flex-col gap-3 lg:gap-6">
+            <div className="flex flex-col gap-3 lg:gap-6 max-w-4xl">
               {title && (
                 <Animated delay={100}>
-                  <h2 className="title-l">{title}</h2>
+                  <Heading className="title-l">{title}</Heading>
                 </Animated>
               )}
               {description && (
                 <Animated delay={200}>
-                  <p className="content-s text-muted">{description}</p>
+                  <p className="content-s text-site-lemon-grass">{description}</p>
                 </Animated>
               )}
             </div>
@@ -49,15 +50,16 @@ export default function ContentProducts({
                     <div className="h-full">
                       <Link
                         to={`/products/${product.slug}`}
-                        className="group flex h-full flex-col overflow-hidden rounded-panel bg-cream shadow-card ring-1 ring-line smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-leaf"
+                        className="group flex h-full flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-ginger-brown"
                       >
-                        <div className="relative aspect-4/5 max-lg:h-100 bg-white p-5">
+                        <div className="relative aspect-4/5 max-lg:h-100 p-5">
                           {product.images[0] && (
                             <Image
                               src={product.images[0]}
-                              alt={product.title}
+                              alt=""
                               width={400}
                               height={500}
+                              aria-hidden
                               className={`size-full object-contain ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
                             />
                           )}
@@ -72,10 +74,10 @@ export default function ContentProducts({
                             />
                           )}
                         </div>
-                        <div className="flex flex-col gap-1 border-t border-line px-4 py-3">
-                          <span className="text-sm leading-snug text-muted">{product.description}</span>
-                          <span className="font-display text-lg font-semibold text-ink">{product.title}</span>
-                          {product.price != null && <span className="text-sm font-semibold text-moss">{product.price}</span>}
+                        <div className="flex flex-col gap-1 border-t border-site-mulled-wine px-4 py-3">
+                          <span className="text-sm leading-snug text-site-lemon-grass">{product.description}</span>
+                          <span className="text-lg font-semibold text-site-pearl-bush">{product.title}</span>
+                          {product.price != null && <span className="text-sm font-semibold text-site-winter-hazel">{product.price}</span>}
                         </div>
                       </Link>
                     </div>

@@ -17,7 +17,7 @@ export default function ContentContact({ title, description }: { title?: string;
                 )}
                 {description && (
                   <Animated delay={200}>
-                    <p className="content-l text-muted">{description}</p>
+                    <p className="content-l text-site-lemon-grass">{description}</p>
                   </Animated>
                 )}
               </div>
@@ -25,12 +25,12 @@ export default function ContentContact({ title, description }: { title?: string;
 
             <Animated delay={300}>
               <div>
-                <h2 className="font-display text-lg font-bold leading-7">Contact</h2>
+                <h2 className="text-lg font-bold leading-7">Contact</h2>
                 <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
                   <li>
                     <a
                       href={`mailto:${CONTACT_EMAIL}`}
-                      className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
+                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -52,8 +52,8 @@ export default function ContentContact({ title, description }: { title?: string;
                     <a
                       href={INSTAGRAM_URL}
                       target="_blank"
-                      rel="noreferrer"
-                      className="flex w-fit items-center gap-2 transition-colors hover:text-leaf hover:underline"
+                      rel="noreferrer noopener"
+                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-ginger-brown hover:underline"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -70,6 +70,7 @@ export default function ContentContact({ title, description }: { title?: string;
                         <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                       </svg>
                       <span>Instagram</span>
+                      <span className="sr-only"> (opens in a new tab)</span>
                     </a>
                   </li>
                 </ul>

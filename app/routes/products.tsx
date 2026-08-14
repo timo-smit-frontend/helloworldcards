@@ -2,9 +2,9 @@ import ContentProducts from '~/components/flex/content/ContentProducts'
 
 export default function Products() {
   return (
-    <>
-      <h1 className="sr-only">All products</h1>
-      <ContentProducts title="All products" description="Browse our full collection of cards." />
-    </>
+    <ContentProducts
+      title="All the products we currently have in stock"
+      description="Pokémon cards, art, and a few extras we picked up along the way, from events, trades, and the corners of the hobby we keep coming back to. Have a look around, and if something catches your eye, we'd love to hear from you."
+    />
   )
 }

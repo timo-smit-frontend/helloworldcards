@@ -43,23 +43,23 @@ export default function ContentAgenda({
               )}
               {description && (
                 <Animated delay={200}>
-                  <p className="content-l text-muted">{description}</p>
+                  <p className="content-l text-site-lemon-grass">{description}</p>
                 </Animated>
               )}
             </div>
           )}
 
           {events.length > 0 ? (
-            <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-panel border border-line bg-cream p-0 px-5 sm:px-8">
+            <ul className="m-0 list-none divide-y divide-site-mulled-wine overflow-hidden rounded-panel border border-site-mulled-wine bg-site-gunmetal p-0 px-5 sm:px-8">
               {events.map((event, index) => (
                 <li key={event.id}>
                   <Animated delay={eventDelays[index % eventDelays.length]}>
                     <article className="grid gap-1 py-6 sm:grid-cols-[10rem_1fr_1fr] sm:items-baseline sm:gap-8">
-                      <time dateTime={event.date} className="title-xs text-moss">
+                      <time dateTime={event.date} className="title-xs text-site-winter-hazel">
                         {formatEventDate(event.date)}
                       </time>
                       <h3 className="title-xs">{event.title}</h3>
-                      <p className="content-m text-muted sm:text-right">{event.location}</p>
+                      <p className="content-m text-site-lemon-grass sm:text-right">{event.location}</p>
                     </article>
                   </Animated>
                 </li>
@@ -67,7 +67,7 @@ export default function ContentAgenda({
             </ul>
           ) : (
             <Animated delay={200}>
-              <p className="content-l text-muted">No upcoming events right now. Check back soon.</p>
+              <p className="content-l text-site-lemon-grass">No upcoming events right now. Check back soon.</p>
             </Animated>
           )}
         </div>

@@ -3,24 +3,28 @@ import { Animated } from '~/components/elements/Animated'
 export default function ContentText({
   title,
   description,
-  link
+  link,
+  heading = 'h2'
 }: {
   title?: string
   description?: string
   link?: { url: string; title: string }
+  heading?: 'h1' | 'h2'
 }) {
+  const Title = heading
+
   return (
     <section id="content-text" className="section">
       <div className="container-full">
-        <div className="flex max-w-3xl flex-col gap-3 lg:gap-6">
+        <div className="flex max-w-4xl flex-col gap-3 lg:gap-6">
           {title && (
             <Animated delay={100}>
-              <h2 className="title-l">{title}</h2>
+              <Title className="title-l">{title}</Title>
             </Animated>
           )}
           {description && (
             <Animated delay={200}>
-              <p className="content-l text-muted">{description}</p>
+              <p className="content-l text-site-lemon-grass">{description}</p>
             </Animated>
           )}
           {link && (

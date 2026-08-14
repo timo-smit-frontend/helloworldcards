@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import Seo from '~/components/elements/Seo'
 import ScrollToTop from '~/components/layout/ScrollToTop'
 import Root from '~/root'
+import About from '~/routes/about'
 import Agenda from '~/routes/agenda'
 import Contact from '~/routes/contact'
 import ErrorPage from '~/routes/error'
@@ -28,6 +29,7 @@ createRoot(rootElement).render(
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
           <Route path="agenda" element={<Agenda />} />
+          <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
         </Route>
         <Route path="products/:slug" element={<Product />} />

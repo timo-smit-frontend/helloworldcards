@@ -1,5 +1,5 @@
 import Autoplay from 'embla-carousel-autoplay'
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs, { type BreadcrumbItem } from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
@@ -33,7 +33,7 @@ export default function BannerImage({
                   {title && <h1 className="title-xl">{title}</h1>}
                   {description && (
                     <Animated delay={200}>
-                      <p className="content-xl text-muted">{description}</p>
+                      <p className="content-xl text-site-lemon-grass">{description}</p>
                     </Animated>
                   )}
                 </div>
@@ -62,34 +62,53 @@ export default function BannerImage({
   )
 }
 
+const reduceMotionQuery = '(prefers-reduced-motion: reduce)'
+
+function subscribeReducedMotion(onStoreChange: () => void) {
+  const media = window.matchMedia(reduceMotionQuery)
+  media.addEventListener('change', onStoreChange)
+  return () => media.removeEventListener('change', onStoreChange)
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia(reduceMotionQuery).matches
+}
+
 function BannerSlider({ images, alt, className }: { images: string[]; alt: string; className?: string }) {
+  const prefersReducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, () => true)
   const autoplay = useMemo(
     () =>
       Autoplay({
         delay: 7000,
-        stopOnInteraction: false
+        stopOnInteraction: true,
+        stopOnMouseEnter: true,
+        stopOnFocusIn: true
       }),
     []
   )
 
   if (images.length === 0) return null
 
+  const canAutoplay = images.length > 1 && !prefersReducedMotion
+
   return (
     <div className={className}>
       <Carousel
         opts={{ loop: images.length > 1 }}
-        plugins={images.length > 1 ? [autoplay] : undefined}
-        className="flex flex-col overflow-hidden rounded-panel bg-cream"
+        key={canAutoplay ? 'autoplay' : 'static'}
+        plugins={canAutoplay ? [autoplay] : undefined}
+        aria-label={alt}
+        className="flex flex-col overflow-hidden rounded-panel bg-site-gunmetal"
       >
         <CarouselContent>
           {images.map((src, index) => (
             <CarouselItem key={`${src}-${index}`} className="basis-full">
               <Image
                 src={src}
-                alt={index === 0 ? alt : ''}
+                alt=""
                 width={600}
                 height={800}
-                aria-hidden={index === 0 ? undefined : true}
+                aria-hidden
                 className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
               />
             </CarouselItem>

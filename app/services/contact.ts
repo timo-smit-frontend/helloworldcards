@@ -21,7 +21,7 @@ export async function sendContactMessage({ name, email, message }: { name: strin
       email,
       message,
       _replyto: email,
-      _subject: `Hello World Cards — message from ${name}`,
+      _subject: `Hello World Cards: message from ${name}`,
       _template: 'table',
       _captcha: 'false'
     })

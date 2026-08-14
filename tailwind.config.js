@@ -12,21 +12,20 @@ export default {
         button: '1.25rem'
       },
       boxShadow: {
-        card: '0 10px 28px rgb(58 50 44 / 0.08)'
+        card: '0 10px 28px rgb(0 0 0 / 0.4)'
       },
       colors: {
-        paper: '#f8efe4',
-        ink: '#3a322c',
-        muted: '#73685f',
-        surface: '#fff8f0',
-        cream: '#fffdf9',
-        line: '#e6d5c4',
-        leaf: '#5aafcb',
-        moss: '#3d8a9e'
+        'site-dark': '#1C2030',
+        'site-pearl-bush': '#e8e2d0',
+        'site-lemon-grass': '#a39c88',
+        'site-gunmetal': '#2a2f42',
+        'site-mulled-wine': '#4a5168',
+        'site-ginger-brown': '#d1be6a',
+        'site-winter-hazel': '#e2d28a',
+        'site-mirage': '#1a1c28'
       },
       fontFamily: {
-        sans: ['Outfit', ...defaultTheme.fontFamily.sans],
-        display: ['Outfit', ...defaultTheme.fontFamily.sans]
+        'site-outfit': ['Outfit', ...defaultTheme.fontFamily.sans]
       }
     }
   }

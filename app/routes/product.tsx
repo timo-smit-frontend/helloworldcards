@@ -16,6 +16,7 @@ export default function Product() {
     return (
       <Layout className="justify-center">
         <ContentText
+          heading="h1"
           title="Product not found"
           description="This product does not exist or has been moved."
           link={{ url: '/products', title: 'Back to all products' }}

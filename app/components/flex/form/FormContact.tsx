@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useRef, useState } from 'react'
 import { CONTACT_EMAIL, sendContactMessage } from '~/services/contact'
 import { isValidEmail } from '~/services/utils'
 
@@ -34,6 +34,9 @@ export default function FormContact() {
   const [nameTouched, setNameTouched] = useState(false)
   const [emailTouched, setEmailTouched] = useState(false)
   const [messageTouched, setMessageTouched] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
 
   const nameIsValid = name.trim() !== ''
   const emailIsValid = isValidEmail(email)
@@ -41,7 +44,6 @@ export default function FormContact() {
   const showNameError = nameTouched && !nameIsValid
   const showEmailError = emailTouched && !emailIsValid
   const showMessageError = messageTouched && !messageIsValid
-  const canSubmit = nameIsValid && emailIsValid && messageIsValid
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -51,18 +53,19 @@ export default function FormContact() {
       return
     }
 
-    if (!nameIsValid) {
+    if (!nameIsValid || !emailIsValid || !messageIsValid) {
       setNameTouched(true)
-      return
-    }
-
-    if (!emailIsValid) {
       setEmailTouched(true)
-      return
-    }
-
-    if (!messageIsValid) {
       setMessageTouched(true)
+
+      if (!nameIsValid) {
+        nameRef.current?.focus()
+      } else if (!emailIsValid) {
+        emailRef.current?.focus()
+      } else {
+        messageRef.current?.focus()
+      }
+
       return
     }
 
@@ -83,7 +86,7 @@ export default function FormContact() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-panel bg-cream p-6 sm:p-8 lg:p-10">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-panel bg-site-gunmetal p-6 sm:p-8 lg:p-10">
       <div className="hidden" aria-hidden>
         <label htmlFor="contact-company">Company</label>
         <input
@@ -98,10 +101,11 @@ export default function FormContact() {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="contact-name" className="text-sm font-medium leading-7">
-          Name
+          Name <span aria-hidden>*</span>
         </label>
         <input
           id="contact-name"
+          ref={nameRef}
           name="name"
           type="text"
           required
@@ -120,7 +124,7 @@ export default function FormContact() {
           className="field"
         />
         {showNameError && (
-          <p id="contact-name-error" className="content-s text-muted">
+          <p id="contact-name-error" className="content-s text-site-lemon-grass">
             {NAME_HINT}
           </p>
         )}
@@ -128,10 +132,11 @@ export default function FormContact() {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="contact-email" className="text-sm font-medium leading-7">
-          Email
+          Email <span aria-hidden>*</span>
         </label>
         <input
           id="contact-email"
+          ref={emailRef}
           name="email"
           type="email"
           inputMode="email"
@@ -155,7 +160,7 @@ export default function FormContact() {
           className="field"
         />
         {showEmailError && (
-          <p id="contact-email-error" className="content-s text-muted">
+          <p id="contact-email-error" className="content-s text-site-lemon-grass">
             {emailHint(email)}
           </p>
         )}
@@ -163,10 +168,11 @@ export default function FormContact() {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="contact-message" className="text-sm font-medium leading-7">
-          Message
+          Message <span aria-hidden>*</span>
         </label>
         <textarea
           id="contact-message"
+          ref={messageRef}
           name="message"
           required
           rows={6}
@@ -181,10 +187,10 @@ export default function FormContact() {
             setMessageTouched(true)
             applyRequiredValidity(event.target, event.target.value, MESSAGE_HINT)
           }}
-          className="field min-h-40 resize-y"
+          className="field min-h-40"
         />
         {showMessageError && (
-          <p id="contact-message-error" className="content-s text-muted">
+          <p id="contact-message-error" className="content-s text-site-lemon-grass">
             {MESSAGE_HINT}
           </p>
         )}
@@ -193,17 +199,17 @@ export default function FormContact() {
       <button
         type="submit"
         className="button-leaf cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={!canSubmit || status === 'submitting'}
+        disabled={status === 'submitting'}
       >
         {status === 'submitting' ? 'Sending…' : 'Send message'}
       </button>
 
       <div aria-live="polite">
-        {status === 'success' && <p className="content-s text-moss">Thanks! We will get back to you soon.</p>}
+        {status === 'success' && <p className="content-s text-site-winter-hazel">Thanks! We will get back to you soon.</p>}
         {status === 'error' && (
-          <p className="content-s text-muted">
+          <p className="content-s text-site-lemon-grass">
             Something went wrong. You can also email us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-leaf">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-site-ginger-brown">
               {CONTACT_EMAIL}
             </a>
             .

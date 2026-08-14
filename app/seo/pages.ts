@@ -177,6 +177,35 @@ function eventNodes(path: string): Record<string, unknown> {
   }
 }
 
+function aboutNodes(path: string): Array<Record<string, unknown>> {
+  const url = canonicalUrl(path)
+
+  return [
+    {
+      '@type': 'Person',
+      '@id': `${url}#sam`,
+      name: 'Sam',
+      jobTitle: 'Co-founder',
+      worksFor: { '@id': ORGANIZATION_ID }
+    },
+    {
+      '@type': 'Person',
+      '@id': `${url}#timo`,
+      name: 'Timo',
+      jobTitle: 'Co-founder',
+      worksFor: { '@id': ORGANIZATION_ID }
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${url}#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'About', item: url }
+      ]
+    }
+  ]
+}
+
 function page({
   path,
   title,
@@ -184,7 +213,8 @@ function page({
   image = SITE_IMAGE,
   type = 'website',
   robots = 'index, follow',
-  extraGraph = []
+  extraGraph = [],
+  webPageType
 }: {
   path: string
   title: string
@@ -193,6 +223,7 @@ function page({
   type?: 'website' | 'product'
   robots?: string
   extraGraph?: Array<Record<string, unknown>>
+  webPageType?: string
 }): SeoPage {
   return {
     path,
@@ -212,7 +243,7 @@ function page({
               path,
               title,
               description,
-              type: type === 'product' ? 'ItemPage' : 'WebPage'
+              type: webPageType ?? (type === 'product' ? 'ItemPage' : 'WebPage')
             }),
             ...extraGraph
           ]
@@ -223,8 +254,8 @@ function page({
 function productPage(product: Product): SeoPage {
   const path = `/products/${product.slug}`
   const description = product.price
-    ? `${product.title} — ${product.description}. ${product.price} at Hello World Cards.`
-    : `${product.title} — ${product.description}. Available at Hello World Cards.`
+    ? `${product.title}: ${product.description}. ${product.price} at Hello World Cards.`
+    : `${product.title}: ${product.description}. Available at Hello World Cards.`
 
   return page({
     path,
@@ -260,7 +291,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Shop'),
-      description: 'Browse our collection of Pokémon cards and art — pieces we love having around.',
+      description: 'Browse our collection of Pokémon cards and art, pieces we love having around.',
       extraGraph: [productListNode(path)]
     })
   }
@@ -269,8 +300,19 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Upcoming events'),
-      description: "We'll be at these Pokémon events — come say hi, browse the stall, and see what's new.",
+      description: "We'll be at these Pokémon events. Come say hi, browse the stall, and see what's new.",
       extraGraph: [eventNodes(path)]
+    })
+  }
+
+  if (path === '/about') {
+    return page({
+      path,
+      title: titleWithBrand('About'),
+      description:
+        "We're Sam and Timo, a couple who turned a Pokémon hobby into Hello World Cards, a small shop for cards, art, and the events we go to.",
+      webPageType: 'AboutPage',
+      extraGraph: aboutNodes(path)
     })
   }
 
@@ -278,7 +320,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Contact'),
-      description: "Questions about a card, an event, or something in the shop? Send us a message — we'd love to hear from you."
+      description: "Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you."
     })
   }
 
@@ -296,6 +338,7 @@ export function getIndexableSeoPages(): SeoPage[] {
     getSeoForPath('/'),
     getSeoForPath('/products'),
     getSeoForPath('/agenda'),
+    getSeoForPath('/about'),
     getSeoForPath('/contact'),
     ...getAllProducts().map((product) => productPage(product))
   ]
