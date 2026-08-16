@@ -10,11 +10,13 @@ import { cn } from '~/services/utils'
 
 export default function BannerImage({
   title,
+  subtitle,
   description,
   images,
   link
 }: {
   title?: string
+  subtitle?: string
   description?: string
   images?: string[]
   link?: { url?: string; target?: string; title?: string }
@@ -26,18 +28,23 @@ export default function BannerImage({
     <section id="banner-image" ref={ref} className={cn('my-16', isFirst && 'mt-16!')}>
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          {(title || description || link) && (
+          {(title || subtitle || description || link) && (
             <Animated delay={100}>
               <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
                 {isFirst && <Breadcrumbs />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
                 <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
-                  {(title || description) && (
+                  {(title || subtitle || description) && (
                     <div className="flex flex-col gap-2 lg:gap-4">
-                      {title && <h1 className="title-xl">{title}</h1>}
+                      {(subtitle || title) && (
+                        <div className="flex flex-col gap-1">
+                          {subtitle && <p className="content-l font-semibold text-site-mantle">{subtitle}</p>}
+                          {title && <h1 className="title-xl">{title}</h1>}
+                        </div>
+                      )}
                       {description && (
                         <Animated delay={200}>
-                          <p className="content-xl text-site-mantle">{description}</p>
+                          <p className="content-m text-site-mantle">{description}</p>
                         </Animated>
                       )}
                     </div>

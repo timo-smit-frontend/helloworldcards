@@ -84,7 +84,7 @@ export default function ContentProducts({
                           )}
                         </div>
                         <div className="flex flex-col gap-1 border-t border-site-mulled-wine px-4 py-3">
-                          <span className="text-sm leading-snug text-site-mantle">{product.description}</span>
+                          {product.subtitle && <span className="text-sm leading-snug text-site-mantle">{product.subtitle}</span>}
                           <span className="text-lg font-semibold text-site-gray-nurse">{product.title}</span>
                           {product.price != null && <span className="text-sm font-semibold text-site-summer-green">{product.price}</span>}
                         </div>

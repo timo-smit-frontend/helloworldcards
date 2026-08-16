@@ -29,6 +29,7 @@ export default function Product() {
     <Layout>
       <BannerImage
         title={product.title}
+        subtitle={product.subtitle}
         description={product.description}
         link={{ url: `mailto:${CONTACT_EMAIL}`, title: `Buy the ${product.title}` }}
         images={product.images}

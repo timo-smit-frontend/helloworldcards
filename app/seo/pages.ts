@@ -103,7 +103,7 @@ function productNodes(product: Product, path: string): Array<Record<string, unkn
     '@type': 'Product',
     '@id': `${url}#product`,
     name: product.title,
-    description: product.description,
+    description: product.description || product.subtitle,
     image: product.images,
     brand: { '@type': 'Brand', name: SITE_NAME },
     url
@@ -253,9 +253,10 @@ function page({
 
 function productPage(product: Product): SeoPage {
   const path = `/products/${product.slug}`
+  const blurb = product.description || product.subtitle
   const description = product.price
-    ? `${product.title}: ${product.description}. ${product.price} at Hello World Cards.`
-    : `${product.title}: ${product.description}. Available at Hello World Cards.`
+    ? `${product.title}: ${blurb}. ${product.price} at Hello World Cards.`
+    : `${product.title}: ${blurb}. Available at Hello World Cards.`
 
   return page({
     path,

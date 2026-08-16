@@ -3,6 +3,7 @@ import { slugify } from '../services/utils'
 export type Product = {
   id: number
   title: string
+  subtitle: string
   description: string
   images: string[]
   price?: string | number
@@ -15,42 +16,54 @@ const products: ProductRecord[] = [
   {
     id: 1,
     title: 'Mewtwo Reverse Holo',
-    description: '2016 XY Evolutions - 51/108',
+    subtitle: '2016 XY Evolutions - 51/108',
+    description:
+      'This Mewtwo Reverse Foil #51 is from the popular 2016 Pokémon XY Evolutions set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€99'
   },
   {
     id: 2,
     title: 'Blastoise Holo',
-    description: 'Base Set - Reverse Holo - 10/102',
+    subtitle: 'Base Set - Reverse Holo - 10/102',
+    description:
+      'This Blastoise Reverse Holo #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€189'
   },
   {
     id: 3,
     title: 'Venusaur Holo',
-    description: 'Base Set - 10/102',
+    subtitle: 'Base Set - 10/102',
+    description:
+      'This Venusaur Reverse Holo #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€159'
   },
   {
     id: 4,
     title: 'Pikachu Illustrator',
-    description: 'Base Set - 10/102',
+    subtitle: 'Base Set - 10/102',
+    description:
+      'This Pikachu Illustrator #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€1.200'
   },
   {
     id: 5,
     title: 'Mewtwo GX',
-    description: 'Base Set - 10/102',
+    subtitle: 'Base Set - 10/102',
+    description:
+      'This Mewtwo GX is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€79'
   },
   {
     id: 6,
     title: 'Eevee Promo',
-    description: 'Base Set - 10/102',
+    subtitle: 'Base Set - 10/102',
+    description:
+      'This Eevee Promo is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png']
   }
 ]
