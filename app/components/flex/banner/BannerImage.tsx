@@ -27,10 +27,10 @@ export default function BannerImage({
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
           {(title || description || link || breadcrumbs?.length) && (
             <Animated delay={100}>
-              <div className="flex h-full flex-col lg:gap-0 gap-8 lg:py-20">
+              <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
                 {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
-                <div className="flex flex-1 flex-col justify-center gap-4 lg:gap-8">
+                <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
                   {(title || description) && (
                     <div className="flex flex-col gap-2 lg:gap-4">
                       {title && <h1 className="title-xl">{title}</h1>}
@@ -111,18 +111,19 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
             <CarouselItem key={`${src}-${index}`} className="basis-full">
               <button
                 type="button"
-                className="block w-full cursor-pointer"
+                className="flex w-full cursor-pointer items-center justify-center p-5 lg:p-8"
                 aria-label={`Enlarge ${alt}`}
                 onClick={() => setController({ toggler: true, slide: index + 1 })}
               >
                 <Image
                   src={src}
                   alt=""
-                  width={600}
-                  height={800}
+                  width={400}
+                  height={560}
                   aria-hidden
                   priority
-                  className="aspect-3/4 h-auto max-h-120 w-full object-contain p-10 lg:max-h-160"
+                  sizes="(min-width: 1024px) 20rem, 16rem"
+                  className="h-100 w-auto max-w-full min-w-min object-contain lg:h-120"
                 />
               </button>
             </CarouselItem>

@@ -45,22 +45,22 @@ export default function ContentProducts({
           {products.length > 0 && (
             <ul className="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
               {products.map((product, index) => (
-                <li key={product.id} className="flex">
-                  <Animated delay={productDelays[index % productDelays.length]}>
-                    <div className="flex flex-1 flex-col">
+                <li key={product.id} className="flex w-full min-w-0">
+                  <Animated delay={productDelays[index % productDelays.length]} className="flex w-full min-w-0">
+                    <div className="flex w-full min-w-0 flex-1 flex-col">
                       <Link
                         to={`/products/${product.slug}`}
                         className="group flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
-                        <div className="relative aspect-4/5 max-lg:h-100 w-full shrink-0 p-5">
+                        <div className="relative aspect-5/7 w-full shrink-0 overflow-hidden">
                           {product.images[0] && (
                             <Image
                               src={product.images[0]}
                               alt=""
                               width={400}
-                              height={500}
+                              height={560}
                               aria-hidden
-                              className={`size-full object-contain ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
+                              className={`absolute inset-0 size-full object-contain p-5 ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
                             />
                           )}
                           {product.images[1] && (
@@ -68,9 +68,9 @@ export default function ContentProducts({
                               src={product.images[1]}
                               alt=""
                               width={400}
-                              height={500}
+                              height={560}
                               aria-hidden
-                              className="absolute inset-5 size-[calc(100%-2.5rem)] object-contain opacity-0 smooth group-hover:opacity-100"
+                              className="absolute inset-0 size-full object-contain p-5 opacity-0 smooth group-hover:opacity-100"
                             />
                           )}
                         </div>

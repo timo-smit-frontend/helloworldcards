@@ -42,14 +42,17 @@ export default function EnhanceImage({
           <DialogPrimitive.Description className="sr-only">
             Image {controller.slide} of {length}
           </DialogPrimitive.Description>
-          <div data-enhance className="flex max-h-full max-w-full flex-col items-center gap-5 px-5">
+          <div data-enhance className="flex w-full max-w-[calc(100vw-2.5rem)] flex-col items-center gap-5">
             {src && (
               <Image
-                className="h-auto max-h-[calc(100svh-11rem)] w-auto max-w-full cursor-default object-contain"
+                className="h-auto max-h-[calc(100svh-11rem)] w-auto max-w-full min-w-min cursor-default object-contain"
                 src={src}
                 alt={alt}
-                width={1200}
-                height={1600}
+                width={900}
+                height={1500}
+                sizes="(min-width: 1024px) 70vh, 100vw"
+                priority
+                maxwidth={1600}
               />
             )}
             <div role="toolbar" className="flex items-center gap-1 rounded-full bg-site-envy px-2 py-1.5 text-site-dark shadow-card">

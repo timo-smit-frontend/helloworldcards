@@ -14,10 +14,10 @@ type ProductRecord = Omit<Product, 'slug'>
 const products: ProductRecord[] = [
   {
     id: 1,
-    title: 'Charizard Holo',
-    description: 'Base Set - Holo - 10/102',
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
-    price: '€249'
+    title: 'Mewtwo Reverse Holo',
+    description: '2016 XY Evolutions - 51/108',
+    images: ['/images/pokemon-cards/148651617_front.jpg', '/images/pokemon-cards/148651617_back.jpg'],
+    price: '€99'
   },
   {
     id: 2,
