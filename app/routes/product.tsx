@@ -31,6 +31,7 @@ export default function Product() {
         title={product.title}
         subtitle={product.subtitle}
         description={product.description}
+        price={product.price != null ? String(product.price) : undefined}
         link={{ url: `mailto:${CONTACT_EMAIL}`, title: `Buy the ${product.title}` }}
         images={product.images}
       />

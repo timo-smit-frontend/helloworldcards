@@ -10,12 +10,14 @@ import useLocationFinder from '~/hooks/useLocationFinder'
 export default function BannerImage({
   title,
   subtitle,
+  price,
   description,
   images,
   link
 }: {
   title?: string
   subtitle?: string
+  price?: string
   description?: string
   images?: string[]
   link?: { url?: string; target?: string; title?: string }
@@ -27,13 +29,13 @@ export default function BannerImage({
     <section id="banner-image" ref={ref} className="lg:my-16 mt-12">
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          {(title || subtitle || description || link) && (
+          {(title || subtitle || description || price || link) && (
             <Animated delay={100}>
               <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
                 {isFirst && <Breadcrumbs />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
                 <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
-                  {(title || subtitle || description) && (
+                  {(title || subtitle || description || price) && (
                     <div className="flex flex-col gap-2 lg:gap-4">
                       {(subtitle || title) && (
                         <div className="flex flex-col gap-1">
@@ -46,10 +48,15 @@ export default function BannerImage({
                           <p className="content-m text-site-mantle">{description}</p>
                         </Animated>
                       )}
+                      {price && (
+                        <Animated delay={300}>
+                          <p className="content-xl font-semibold">{price}</p>
+                        </Animated>
+                      )}
                     </div>
                   )}
                   {link?.url && link?.title && (
-                    <Animated delay={300}>
+                    <Animated delay={400}>
                       <div>
                         <a href={link.url} target={link.target} className="button-green mt-auto">
                           {link.title}
