@@ -1,5 +1,8 @@
 import { Animated } from '~/components/elements/Animated'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
+import useLocationFinder from '~/hooks/useLocationFinder'
+import { cn } from '~/services/utils'
 
 export default function BannerFigcaption({
   title,
@@ -16,34 +19,39 @@ export default function BannerFigcaption({
   figcaption?: string
   alt?: string
 }) {
+  const { ref, isFirst } = useLocationFinder()
+
   return (
-    <section id="banner-figcaption" className="bg-site-dark">
-      <div className="container-full pt-12 lg:py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="flex flex-col gap-4 lg:gap-8">
-            {(title || description) && (
-              <div className="flex flex-col gap-2 lg:gap-4">
-                {title && (
-                  <Animated delay={200}>
-                    <h1 className="title-xl text-balance">{title}</h1>
-                  </Animated>
-                )}
-                {description && (
-                  <Animated delay={300}>
-                    <p className="content-l max-w-xl text-site-mantle">{description}</p>
-                  </Animated>
-                )}
-              </div>
-            )}
-            {link?.url && link?.title && (
-              <Animated delay={400}>
-                <div>
-                  <a href={link.url} className="button-green">
-                    {link.title}
-                  </a>
+    <section id="banner-figcaption" ref={ref} className={cn('bg-site-dark', isFirst && 'mt-16!')}>
+      <div className="container-full">
+        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <div className="flex flex-col gap-8 lg:h-full lg:gap-0">
+            {isFirst && <Breadcrumbs />}
+            <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
+              {(title || description) && (
+                <div className="flex flex-col gap-2 lg:gap-4">
+                  {title && (
+                    <Animated delay={200}>
+                      <h1 className="title-xl text-balance">{title}</h1>
+                    </Animated>
+                  )}
+                  {description && (
+                    <Animated delay={300}>
+                      <p className="content-l max-w-xl text-site-mantle">{description}</p>
+                    </Animated>
+                  )}
                 </div>
-              </Animated>
-            )}
+              )}
+              {link?.url && link?.title && (
+                <Animated delay={400}>
+                  <div>
+                    <a href={link.url} className="button-green">
+                      {link.title}
+                    </a>
+                  </div>
+                </Animated>
+              )}
+            </div>
           </div>
           {image && (
             <Animated delay={500}>

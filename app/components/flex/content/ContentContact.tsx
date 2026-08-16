@@ -1,24 +1,34 @@
 import { Animated } from '~/components/elements/Animated'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import FormContact from '~/components/flex/form/FormContact'
+import useLocationFinder from '~/hooks/useLocationFinder'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '~/services/contact'
+import { cn } from '~/services/utils'
 
 export default function ContentContact({ title, description }: { title?: string; description?: string }) {
+  const { ref, isFirst } = useLocationFinder()
+
   return (
-    <section id="content-contact" className="section">
+    <section id="content-contact" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
       <div className="container-full">
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16 xl:gap-24">
           <div className="flex flex-col gap-12">
             {(title || description) && (
-              <div className="flex max-w-xl flex-col gap-2 lg:gap-4">
-                {title && (
-                  <Animated delay={100}>
-                    <h1 className="title-l">{title}</h1>
-                  </Animated>
-                )}
-                {description && (
-                  <Animated delay={200}>
-                    <p className="content-l text-site-mantle">{description}</p>
-                  </Animated>
+              <div className="flex max-w-xl flex-col gap-8">
+                {isFirst && <Breadcrumbs />}
+                {(title || description) && (
+                  <div className="flex flex-col gap-2 lg:gap-4">
+                    {title && (
+                      <Animated delay={100}>
+                        <h1 className="title-l">{title}</h1>
+                      </Animated>
+                    )}
+                    {description && (
+                      <Animated delay={200}>
+                        <p className="content-l text-site-mantle">{description}</p>
+                      </Animated>
+                    )}
+                  </div>
                 )}
               </div>
             )}

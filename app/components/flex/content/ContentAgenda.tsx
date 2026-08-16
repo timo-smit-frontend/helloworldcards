@@ -1,5 +1,8 @@
 import { Animated } from '~/components/elements/Animated'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import { getEventsByIds, getUpcomingEvents } from '~/database/events'
+import useLocationFinder from '~/hooks/useLocationFinder'
+import { cn } from '~/services/utils'
 
 const eventDelays = [100, 200, 300, 400, 500, 600] as const
 
@@ -27,24 +30,30 @@ export default function ContentAgenda({
   description?: string
   id?: string | number | Array<string | number>
 }) {
+  const { ref, isFirst } = useLocationFinder()
   const ids = normalizeIds(id)
   const events = ids ? getEventsByIds(ids) : getUpcomingEvents()
 
   return (
-    <section id="content-agenda" className="section">
+    <section id="content-agenda" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (
-            <div className="flex max-w-3xl flex-col gap-2 lg:gap-4">
-              {title && (
-                <Animated delay={100}>
-                  <h2 className="title-l">{title}</h2>
-                </Animated>
-              )}
-              {description && (
-                <Animated delay={200}>
-                  <p className="content-l text-site-mantle">{description}</p>
-                </Animated>
+            <div className="flex max-w-3xl flex-col gap-8">
+              {isFirst && <Breadcrumbs />}
+              {(title || description) && (
+                <div className="flex flex-col gap-2 lg:gap-4">
+                  {title && (
+                    <Animated delay={100}>
+                      <h2 className="title-l">{title}</h2>
+                    </Animated>
+                  )}
+                  {description && (
+                    <Animated delay={200}>
+                      <p className="content-l text-site-mantle">{description}</p>
+                    </Animated>
+                  )}
+                </div>
               )}
             </div>
           )}

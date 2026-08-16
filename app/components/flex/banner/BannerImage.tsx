@@ -1,34 +1,35 @@
 import Autoplay from 'embla-carousel-autoplay'
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Animated } from '~/components/elements/Animated'
-import Breadcrumbs, { type BreadcrumbItem } from '~/components/elements/Breadcrumbs'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
 import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
+import useLocationFinder from '~/hooks/useLocationFinder'
+import { cn } from '~/services/utils'
 
 export default function BannerImage({
   title,
   description,
   images,
-  link,
-  breadcrumbs
+  link
 }: {
   title?: string
   description?: string
   images?: string[]
   link?: { url?: string; target?: string; title?: string }
-  breadcrumbs?: BreadcrumbItem[]
 }) {
+  const { ref, isFirst } = useLocationFinder()
   const slides = images?.filter(Boolean) ?? []
 
   return (
-    <section id="banner-image" className="my-16">
+    <section id="banner-image" ref={ref} className={cn('my-16', isFirst && 'mt-16!')}>
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          {(title || description || link || breadcrumbs?.length) && (
+          {(title || description || link) && (
             <Animated delay={100}>
               <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
-                {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
+                {isFirst && <Breadcrumbs />}
                 <BannerSlider images={slides} alt={title ?? 'Banner'} className="w-full shrink-0 lg:hidden" />
                 <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
                   {(title || description) && (

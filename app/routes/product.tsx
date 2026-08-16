@@ -32,7 +32,6 @@ export default function Product() {
         description={product.description}
         link={{ url: `mailto:${CONTACT_EMAIL}`, title: `Buy the ${product.title}` }}
         images={product.images}
-        breadcrumbs={[{ title: 'Home', url: '/' }, { title: 'Products', url: '/products' }, { title: product.title }]}
       />
       <ContentProducts title="Other similar products" id={similarIds} />
     </Layout>

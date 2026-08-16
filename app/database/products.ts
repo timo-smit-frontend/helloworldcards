@@ -16,7 +16,7 @@ const products: ProductRecord[] = [
     id: 1,
     title: 'Mewtwo Reverse Holo',
     description: '2016 XY Evolutions - 51/108',
-    images: ['/images/pokemon-cards/148651617_front.jpg', '/images/pokemon-cards/148651617_back.jpg'],
+    images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€99'
   },
   {

@@ -1,4 +1,7 @@
 import { Animated } from '~/components/elements/Animated'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
+import useLocationFinder from '~/hooks/useLocationFinder'
+import { cn } from '~/services/utils'
 
 export default function ContentAbout({
   title,
@@ -11,17 +14,22 @@ export default function ContentAbout({
   people: Array<{ name: string; description: string }>
   peopleCaption: string
 }) {
+  const { ref, isFirst } = useLocationFinder()
+
   return (
-    <section id="content-about" className="section">
+    <section id="content-about" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
       <div className="container-full">
         <div className="flex flex-col gap-12 lg:gap-16">
-          <div className="flex max-w-4xl flex-col gap-2 lg:gap-4">
-            <Animated delay={100}>
-              <h2 className="title-l">{title}</h2>
-            </Animated>
-            <Animated delay={200}>
-              <p className="content-l text-site-mantle">{description}</p>
-            </Animated>
+          <div className="flex max-w-4xl flex-col gap-8">
+            {isFirst && <Breadcrumbs />}
+            <div className="flex flex-col gap-2 lg:gap-4">
+              <Animated delay={100}>
+                <h2 className="title-l">{title}</h2>
+              </Animated>
+              <Animated delay={200}>
+                <p className="content-l text-site-mantle">{description}</p>
+              </Animated>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4">

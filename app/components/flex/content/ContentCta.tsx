@@ -1,5 +1,7 @@
 import { Animated } from '~/components/elements/Animated'
+import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
+import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
 
 export default function ContentCta({
@@ -13,9 +15,16 @@ export default function ContentCta({
   image?: string
   link?: { url?: string; title?: string }
 }) {
+  const { ref, isFirst } = useLocationFinder()
+
   return (
-    <section id="content-cta" className="section">
+    <section id="content-cta" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
       <div className="container-full">
+        {isFirst && (
+          <div className="mb-8">
+            <Breadcrumbs />
+          </div>
+        )}
         <div className="grid items-center overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine sm:grid-cols-2 lg:gap-16 gap-10">
           {(title || description || link) && (
             <div className={cn('flex flex-col gap-4 px-6 py-10 sm:px-8 lg:gap-8 lg:px-12 lg:py-16', !image && 'items-center text-center')}>
