@@ -28,7 +28,7 @@ export default function ContentProducts({
   const Heading = ids ? 'h2' : 'h1'
 
   return (
-    <section id="content-products" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
+    <section id="content-products" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         <div className="flex flex-col gap-10">
           {(title || description) && (

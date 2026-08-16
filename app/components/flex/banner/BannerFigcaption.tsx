@@ -2,7 +2,6 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
-import { cn } from '~/services/utils'
 
 export default function BannerFigcaption({
   title,
@@ -22,7 +21,7 @@ export default function BannerFigcaption({
   const { ref, isFirst } = useLocationFinder()
 
   return (
-    <section id="banner-figcaption" ref={ref} className={cn('bg-site-dark', isFirst && 'mt-16!')}>
+    <section id="banner-figcaption" ref={ref} className="bg-site-dark lg:mt-16 mt-12">
       <div className="container-full">
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div className="flex flex-col gap-8 lg:h-full lg:gap-0">

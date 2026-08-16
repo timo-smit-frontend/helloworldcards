@@ -23,7 +23,7 @@ export default function ContentText({
   const Title = heading
 
   return (
-    <section id="content-text" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
+    <section id="content-text" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         <div className="grid grid-cols-1 items-stretch gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="flex flex-col gap-8">

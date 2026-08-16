@@ -6,7 +6,6 @@ import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/compone
 import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
-import { cn } from '~/services/utils'
 
 export default function BannerImage({
   title,
@@ -25,7 +24,7 @@ export default function BannerImage({
   const slides = images?.filter(Boolean) ?? []
 
   return (
-    <section id="banner-image" ref={ref} className={cn('my-16', isFirst && 'mt-16!')}>
+    <section id="banner-image" ref={ref} className="lg:my-16 mt-12">
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
           {(title || subtitle || description || link) && (

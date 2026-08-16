@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { useLocation } from 'react-router'
 
 function scrollToTopInstant() {
@@ -16,31 +16,35 @@ function scrollToTopInstant() {
   body.style.scrollBehavior = previousBody
 }
 
+function scrollToHash(hash: string, behavior: ScrollBehavior) {
+  const id = decodeURIComponent(hash.slice(1))
+  const el = id ? document.getElementById(id) : null
+  if (!el) return false
+  el.scrollIntoView({ behavior })
+  return true
+}
+
 export default function ScrollToTop() {
   const { pathname, hash } = useLocation()
-  const previousPathname = useRef(pathname)
 
   useLayoutEffect(() => {
     window.history.scrollRestoration = 'manual'
   }, [])
 
   useLayoutEffect(() => {
-    const pathnameChanged = previousPathname.current !== pathname
-    previousPathname.current = pathname
+    if (hash && scrollToHash(hash, 'auto')) return
+    scrollToTopInstant()
+  }, [pathname, hash])
 
-    if (hash) {
-      const id = decodeURIComponent(hash.slice(1))
-      const el = id ? document.getElementById(id) : null
-      if (el) {
-        el.scrollIntoView({ behavior: pathnameChanged ? 'auto' : 'smooth' })
-        return
-      }
-    }
-
-    if (pathnameChanged) {
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || window.location.hash) return
       scrollToTopInstant()
     }
-  }, [pathname, hash])
+
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
 
   useEffect(() => {
     if (hash) return

@@ -18,7 +18,7 @@ export default function ContentCta({
   const { ref, isFirst } = useLocationFinder()
 
   return (
-    <section id="content-cta" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
+    <section id="content-cta" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         {isFirst && (
           <div className="mb-8">

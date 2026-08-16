@@ -17,7 +17,7 @@ export default function ContentAbout({
   const { ref, isFirst } = useLocationFinder()
 
   return (
-    <section id="content-about" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
+    <section id="content-about" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         <div className="flex flex-col gap-12 lg:gap-16">
           <div className="flex max-w-4xl flex-col gap-8">

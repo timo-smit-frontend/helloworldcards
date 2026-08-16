@@ -130,7 +130,17 @@
   }
 
   html {
-    scroll-padding-top: 7.5rem;
+    scroll-padding-top: calc(6rem + 1px);
+  }
+
+  #main > section:first-of-type,
+  #main > section:first-of-type :is(h1, h2) {
+    overflow-anchor: none;
+    scroll-margin-top: 3rem;
+
+    @variant lg {
+      scroll-margin-top: 4rem;
+    }
   }
 
   ::selection {

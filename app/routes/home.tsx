@@ -11,7 +11,7 @@ export default function Home() {
         title="Hello World Cards: Pokémon cards and more"
         description="Welcome to our little shop. This is where we share what's in stock Pokémon cards, Pokémon art, and more."
         image="/images/hero.jpg"
-        link={{ url: '/products', title: 'Visit the shop' }}
+        link={{ url: '/products', title: 'See our products' }}
         figcaption="This is our little corner of the world"
       />
       <ContentText

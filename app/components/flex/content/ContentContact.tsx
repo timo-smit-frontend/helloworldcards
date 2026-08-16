@@ -9,7 +9,7 @@ export default function ContentContact({ title, description }: { title?: string;
   const { ref, isFirst } = useLocationFinder()
 
   return (
-    <section id="content-contact" ref={ref} className={cn('section', isFirst && 'mt-16!')}>
+    <section id="content-contact" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16 xl:gap-24">
           <div className="flex flex-col gap-12">
