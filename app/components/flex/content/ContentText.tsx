@@ -18,7 +18,8 @@ export default function ContentText({
   link,
   heading = 'h2',
   sections,
-  updated
+  updated,
+  id = 'content-text'
 }: {
   title?: string
   description?: string
@@ -28,13 +29,14 @@ export default function ContentText({
   heading?: 'h1' | 'h2'
   sections?: ContentTextSection[]
   updated?: string
+  id?: string
 }) {
   const { ref, isFirst } = useLocationFinder()
   const Title = heading
   const hasSections = Boolean(sections?.length)
 
   return (
-    <section id="content-text" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
+    <section id={id} ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
         <div className={cn('grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16', hasSections ? 'items-start' : 'items-stretch')}>
           <div className="flex flex-col gap-8">
