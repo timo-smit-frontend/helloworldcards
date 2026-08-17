@@ -25,6 +25,10 @@ export default function Product() {
     )
   }
 
+  const buyLink = product.marktplaatsUrl
+    ? { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' as const }
+    : { url: `mailto:${CONTACT_EMAIL}`, title: 'Email us about this' }
+
   return (
     <Layout>
       <BannerImage
@@ -32,10 +36,10 @@ export default function Product() {
         subtitle={product.subtitle}
         description={product.description}
         price={product.price != null ? String(product.price) : undefined}
-        link={{ url: `mailto:${CONTACT_EMAIL}`, title: `Buy the ${product.title}` }}
+        link={buyLink}
         images={product.images}
       />
-      <ContentProducts title="Other similar products" id={similarIds} />
+      <ContentProducts title="More from the shop" id={similarIds} />
     </Layout>
   )
 }

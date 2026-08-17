@@ -7,6 +7,7 @@ export type Product = {
   description: string
   images: string[]
   price?: string | number
+  marktplaatsUrl?: string
   slug: string
 }
 
@@ -17,8 +18,7 @@ const products: ProductRecord[] = [
     id: 1,
     title: 'Mewtwo Reverse Holo',
     subtitle: '2016 XY Evolutions - 51/108',
-    description:
-      'This Mewtwo Reverse Foil #51 is from the popular 2016 Pokémon XY Evolutions set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint.',
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€99'
   },
@@ -26,8 +26,7 @@ const products: ProductRecord[] = [
     id: 2,
     title: 'Blastoise Holo',
     subtitle: 'Base Set - Reverse Holo - 10/102',
-    description:
-      'This Blastoise Reverse Holo #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€189'
   },
@@ -35,8 +34,7 @@ const products: ProductRecord[] = [
     id: 3,
     title: 'Venusaur Holo',
     subtitle: 'Base Set - 10/102',
-    description:
-      'This Venusaur Reverse Holo #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'Holo Venusaur from Base Set. Grass-type staple with the original full-art energy.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€159'
   },
@@ -44,8 +42,7 @@ const products: ProductRecord[] = [
     id: 4,
     title: 'Pikachu Illustrator',
     subtitle: 'Base Set - 10/102',
-    description:
-      'This Pikachu Illustrator #10 is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'Pikachu Illustrator — a display piece. Ask us if you want a closer look.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€1.200'
   },
@@ -53,8 +50,7 @@ const products: ProductRecord[] = [
     id: 5,
     title: 'Mewtwo GX',
     subtitle: 'Base Set - 10/102',
-    description:
-      'This Mewtwo GX is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€79'
   },
@@ -62,14 +58,23 @@ const products: ProductRecord[] = [
     id: 6,
     title: 'Eevee Promo',
     subtitle: 'Base Set - 10/102',
-    description:
-      'This Eevee Promo is from the popular 2016 Pokémon Base Set. Professionally graded by PSA, the card received an impressive PSA 9 MINT grade.',
+    description: 'An Eevee promo with the soft art people pick up and don\u2019t put back.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png']
   }
 ]
 
+function baseSlug(product: ProductRecord): string {
+  return slugify(`${product.title} ${product.subtitle}`)
+}
+
+function productSlug(product: ProductRecord): string {
+  const base = baseSlug(product)
+  const takenByEarlier = products.some((other) => other.id < product.id && baseSlug(other) === base)
+  return takenByEarlier ? `${base}-${product.id}` : base
+}
+
 function withSlug(product: ProductRecord): Product {
-  return { ...product, slug: slugify(product.title) }
+  return { ...product, slug: productSlug(product) }
 }
 
 export function getAllProducts(): Product[] {
@@ -86,7 +91,7 @@ export function getProductsByIds(ids: Array<string | number>): Product[] {
 }
 
 export function getProductBySlug(slug: string): Product | undefined {
-  const product = products.find((item) => slugify(item.title) === slug)
+  const product = products.find((item) => productSlug(item) === slug)
   return product ? withSlug(product) : undefined
 }
 
