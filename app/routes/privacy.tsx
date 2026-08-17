@@ -6,7 +6,7 @@ export default function Privacy() {
     <ContentText
       heading="h1"
       title="Privacy statement"
-      description="Hello World Cards is a small Pokémon card and art shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message."
+      description="Hello World Cards is a small Pokémon shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message."
       image="/images/wooper.png"
       alt="Wooper"
       updated="17 August 2026"
@@ -15,8 +15,8 @@ export default function Privacy() {
           title: 'Who we are',
           body: (
             <p>
-              Hello World Cards is Sam and Timo. We list Pokémon cards and art, and we write about events we go to. You can reach us at{' '}
-              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+              Hello World Cards is Sam and Timo. We list Pokémon cards here and on Marktplaats, and we write about events we go to. You can
+              reach us at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
             </p>
           )
         },

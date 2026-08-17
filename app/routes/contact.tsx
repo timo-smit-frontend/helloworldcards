@@ -7,7 +7,7 @@ export default function Contact() {
     <>
       <ContentContact
         title="Get in touch"
-        description="Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you."
+        description="Questions about a card, an event, a binder at a stall, or anything else? Send us a message."
       />
       <ContentFaq items={getFaqsByPage('contact')} />
     </>
