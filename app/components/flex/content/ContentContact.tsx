@@ -2,7 +2,7 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import FormContact from '~/components/flex/form/FormContact'
 import useLocationFinder from '~/hooks/useLocationFinder'
-import { CONTACT_EMAIL, INSTAGRAM_URL } from '~/services/contact'
+import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '~/services/contact'
 import { cn } from '~/services/utils'
 
 export default function ContentContact({ title, description }: { title?: string; description?: string }) {
@@ -80,6 +80,30 @@ export default function ContentContact({ title, description }: { title?: string;
                         <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                       </svg>
                       <span>Instagram</span>
+                      <span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={MARKTPLAATS_URL}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                        <path d="M3 9 12 3l9 6" />
+                      </svg>
+                      <span>Marktplaats</span>
                       <span className="sr-only"> (opens in a new tab)</span>
                     </a>
                   </li>

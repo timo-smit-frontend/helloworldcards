@@ -2,6 +2,7 @@ import { isValidEmail } from './utils'
 
 export const CONTACT_EMAIL = 'helloworldcards@outlook.com'
 export const INSTAGRAM_URL = 'https://www.instagram.com/helloworldcards/'
+export const MARKTPLAATS_URL = 'https://www.marktplaats.nl/u/hello-world-cards/25399885/'
 
 const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${CONTACT_EMAIL}`
 
