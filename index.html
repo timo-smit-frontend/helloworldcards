@@ -72,18 +72,24 @@
       }
     </script>
     <!--app-seo-end-->
-    <!-- Google Tag Manager -->
+    <!-- Google Tag Manager (loaded after idle so it does not contend with LCP) -->
     <script>
-      ;(function (w, d, s, l, i) {
-        w[l] = w[l] || []
-        w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })
-        var f = d.getElementsByTagName(s)[0],
-          j = d.createElement(s),
-          dl = l != 'dataLayer' ? '&l=' + l : ''
-        j.async = true
-        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl
-        f.parentNode.insertBefore(j, f)
-      })(window, document, 'script', 'dataLayer', 'GTM-NRDCRG7H')
+      window.dataLayer = window.dataLayer || []
+      function loadGtm() {
+        if (window.__gtmLoaded) return
+        window.__gtmLoaded = true
+        window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })
+        var first = document.getElementsByTagName('script')[0]
+        var script = document.createElement('script')
+        script.async = true
+        script.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-NRDCRG7H'
+        first.parentNode.insertBefore(script, first)
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(loadGtm, { timeout: 4000 })
+      } else {
+        window.addEventListener('load', loadGtm)
+      }
     </script>
     <!-- End Google Tag Manager -->
   </head>

@@ -2,9 +2,10 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 import type { Plugin } from 'vite'
-import { parseRasterVariant, rasterVariantSrc, variantWidthsFor } from './app/services/responsiveImage'
+import { parseRasterVariant, rasterVariantSrc, variantWidthsFor, type ImageFormat } from './app/services/responsiveImage'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
+const IMAGE_FORMATS: ImageFormat[] = ['avif', 'webp']
 
 async function findOriginal(publicDir: string, stem: string): Promise<string | undefined> {
   const relativeStem = stem.replace(/^\//, '')
@@ -20,8 +21,19 @@ async function findOriginal(publicDir: string, stem: string): Promise<string | u
   return undefined
 }
 
-async function resizeToWebp(inputPath: string, width: number): Promise<Buffer> {
-  return sharp(inputPath).resize({ width, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer()
+function encodeQuality(width: number, format: ImageFormat): number {
+  if (format === 'avif') return width >= 1000 ? 45 : 50
+  return width >= 1000 ? 70 : 75
+}
+
+async function resizeToFormat(inputPath: string, width: number, format: ImageFormat): Promise<Buffer> {
+  const image = sharp(inputPath).resize({ width, withoutEnlargement: true })
+  const quality = encodeQuality(width, format)
+  return format === 'avif' ? image.avif({ quality }).toBuffer() : image.webp({ quality }).toBuffer()
+}
+
+function contentType(format: ImageFormat): string {
+  return format === 'avif' ? 'image/avif' : 'image/webp'
 }
 
 export function responsiveImagesPlugin(): Plugin {
@@ -29,11 +41,11 @@ export function responsiveImagesPlugin(): Plugin {
   let outDir = ''
   const cache = new Map<string, Buffer>()
 
-  async function variantBuffer(originalPath: string, width: number): Promise<Buffer> {
-    const key = `${originalPath}?w=${width}`
+  async function variantBuffer(originalPath: string, width: number, format: ImageFormat): Promise<Buffer> {
+    const key = `${originalPath}?w=${width}&f=${format}`
     const cached = cache.get(key)
     if (cached) return cached
-    const buffer = await resizeToWebp(originalPath, width)
+    const buffer = await resizeToFormat(originalPath, width, format)
     cache.set(key, buffer)
     return buffer
   }
@@ -65,9 +77,9 @@ export function responsiveImagesPlugin(): Plugin {
         }
 
         try {
-          const body = await variantBuffer(originalPath, variant.width)
+          const body = await variantBuffer(originalPath, variant.width, variant.format)
           response.statusCode = 200
-          response.setHeader('Content-Type', 'image/webp')
+          response.setHeader('Content-Type', contentType(variant.format))
           response.end(body)
         } catch (error) {
           next(error)
@@ -91,9 +103,11 @@ export function responsiveImagesPlugin(): Plugin {
         const originalPath = path.join(imagesDir, entry)
         const stem = path.posix.join('/images', entry.replace(/\.(png|jpe?g|webp)$/i, ''))
         for (const width of variantWidthsFor()) {
-          const body = await variantBuffer(originalPath, width)
-          const fileName = path.basename(rasterVariantSrc(`${stem}.png`, width))
-          await fs.writeFile(path.join(outDir, 'images', fileName), body)
+          for (const format of IMAGE_FORMATS) {
+            const body = await variantBuffer(originalPath, width, format)
+            const fileName = path.basename(rasterVariantSrc(`${stem}.png`, width, format))
+            await fs.writeFile(path.join(outDir, 'images', fileName), body)
+          }
         }
       }
     }

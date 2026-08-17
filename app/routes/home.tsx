@@ -21,7 +21,7 @@ export default function Home() {
         alt="Pokémon card back"
         link={{ url: '/about', title: 'Learn more about us' }}
       />
-      <ContentProducts title="A few favorites" description="Cards and art we love having around." id={[1, 2, 3, 4]} />
+      <ContentProducts title="Our newest products" description="A selection of our newest products." id={[1, 2, 3, 4]} />
       <ContentCta
         title="Want to get in touch?"
         description="Questions about a card, an event, or something in the shop? Send us an email. We'd love to hear from you."

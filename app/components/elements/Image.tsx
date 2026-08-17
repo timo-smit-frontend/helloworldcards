@@ -40,6 +40,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   const isEager = resolvedLoading === 'eager'
   const local = isLocalRasterSrc(resolved)
   const ready = !local || isEager || sizes != null || layoutWidth > 0
+  const resolvedSizes = sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? PRIORITY_IMAGE_SIZES : LAZY_SIZES)
 
   useLayoutEffect(() => {
     const el = imgRef.current
@@ -64,7 +65,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
     className: cn('min-w-0 max-w-full', className),
     loading: resolvedLoading,
     decoding: decoding ?? (priority ? 'sync' : 'async'),
-    sizes: sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? PRIORITY_IMAGE_SIZES : LAZY_SIZES),
+    sizes: resolvedSizes,
     ...(resolvedFetchPriority ? { fetchPriority: resolvedFetchPriority } : {}),
     ref: (node: HTMLImageElement | null) => {
       imgRef.current = node
@@ -78,13 +79,12 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   }
 
   return (
-    // eslint-disable-next-line no-restricted-syntax -- Image is the allowed primitive wrapper
-    <img
-      {...imgProps}
-      src={ready ? rasterFallbackSrc(resolved, maxWidth) : undefined}
-      srcSet={ready ? rasterSrcSet(resolved, maxWidth) : undefined}
-      alt={alt}
-    />
+    <picture className="contents">
+      {ready && <source type="image/avif" srcSet={rasterSrcSet(resolved, maxWidth, 'avif')} sizes={resolvedSizes} />}
+      {ready && <source type="image/webp" srcSet={rasterSrcSet(resolved, maxWidth, 'webp')} sizes={resolvedSizes} />}
+      {/* eslint-disable-next-line no-restricted-syntax -- Image is the allowed primitive wrapper */}
+      <img {...imgProps} src={ready ? rasterFallbackSrc(resolved, maxWidth, 'webp') : undefined} alt={alt} />
+    </picture>
   )
 })
 

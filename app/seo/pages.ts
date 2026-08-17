@@ -347,7 +347,7 @@ export function getSeoForPath(pathname: string): SeoPage {
       path,
       title: `${SITE_NAME} | Pokémon cards, art, and events`,
       description: SITE_DESCRIPTION,
-      lcp: { src: SITE_IMAGE, maxWidth: 1200, sizes: PRIORITY_IMAGE_SIZES }
+      lcp: { src: SITE_IMAGE, maxWidth: 800, sizes: PRIORITY_IMAGE_SIZES }
     })
   }
 
