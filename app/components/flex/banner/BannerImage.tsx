@@ -6,6 +6,7 @@ import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/compone
 import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
 
 export default function BannerImage({
   title,
@@ -132,11 +133,12 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                 <Image
                   src={src}
                   alt=""
-                  width={400}
-                  height={560}
+                  width={800}
+                  height={1120}
                   aria-hidden
                   priority
-                  sizes="(min-width: 1024px) 20rem, 16rem"
+                  sizes={PRODUCT_IMAGE_SIZES}
+                  maxwidth={1000}
                   className="h-100 w-auto max-w-full min-w-min object-contain lg:h-120"
                 />
               </button>

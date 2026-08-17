@@ -11,7 +11,8 @@ const PAGE_TITLES: Record<string, string> = {
   products: 'Products',
   agenda: 'Agenda',
   about: 'About',
-  contact: 'Contact'
+  contact: 'Contact',
+  privacy: 'Privacy statement'
 }
 
 function crumbsFromPath(pathname: string): BreadcrumbItem[] {

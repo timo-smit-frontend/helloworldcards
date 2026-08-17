@@ -1,8 +1,11 @@
+import { buildLcpPreloadTag, isLocalRasterSrc } from '../services/responsiveImage'
 import type { SeoPage } from './pages'
 import { SITE_LOCALE, SITE_NAME, SITE_THEME_COLOR } from './site'
 
 const SEO_START = '<!--app-seo-start-->'
 const SEO_END = '<!--app-seo-end-->'
+const LCP_START = '<!--app-lcp-start-->'
+const LCP_END = '<!--app-lcp-end-->'
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -41,12 +44,26 @@ export function buildSeoHead(seo: SeoPage): string {
   return `${SEO_START}\n    ${tags.join('\n    ')}\n    ${SEO_END}`
 }
 
-export function applySeoHead(html: string, seo: SeoPage): string {
-  const block = buildSeoHead(seo)
+export function buildLcpHead(seo: SeoPage): string {
+  const tag = seo.lcp && isLocalRasterSrc(seo.lcp.src) ? buildLcpPreloadTag(seo.lcp.src, seo.lcp.maxWidth, seo.lcp.sizes) : ''
 
-  if (html.includes(SEO_START) && html.includes(SEO_END)) {
-    return html.replace(new RegExp(`${SEO_START}[\\s\\S]*?${SEO_END}`), block)
+  return tag ? `${LCP_START}\n    ${tag}\n    ${LCP_END}` : `${LCP_START}\n    ${LCP_END}`
+}
+
+export function applySeoHead(html: string, seo: SeoPage): string {
+  let next = html
+  const seoBlock = buildSeoHead(seo)
+
+  if (next.includes(SEO_START) && next.includes(SEO_END)) {
+    next = next.replace(new RegExp(`${SEO_START}[\\s\\S]*?${SEO_END}`), seoBlock)
+  } else {
+    next = next.replace(/<title>[^<]*<\/title>/i, seoBlock)
   }
 
-  return html.replace(/<title>[^<]*<\/title>/i, block)
+  const lcpBlock = buildLcpHead(seo)
+  if (next.includes(LCP_START) && next.includes(LCP_END)) {
+    next = next.replace(new RegExp(`${LCP_START}[\\s\\S]*?${LCP_END}`), lcpBlock)
+  }
+
+  return next
 }

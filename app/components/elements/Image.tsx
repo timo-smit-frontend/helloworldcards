@@ -1,5 +1,11 @@
 import { forwardRef, useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type Ref } from 'react'
-import { DEFAULT_SRCSET_MAX_WIDTH, isLocalRasterSrc, rasterFallbackSrc, rasterSrcSet } from '~/services/responsiveImage'
+import {
+  DEFAULT_SRCSET_MAX_WIDTH,
+  PRIORITY_IMAGE_SIZES,
+  isLocalRasterSrc,
+  rasterFallbackSrc,
+  rasterSrcSet
+} from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
 
 type ImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'width' | 'height' | 'srcSet'> & {
@@ -20,8 +26,7 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   else if (ref) ref.current = value
 }
 
-const EAGER_SIZES = '(min-width: 1024px) 50vw, 100vw'
-const LAZY_SIZES = `auto, ${EAGER_SIZES}`
+const LAZY_SIZES = `auto, ${PRIORITY_IMAGE_SIZES}`
 
 const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   { src, alt, width, height, maxwidth, sizes, priority = false, loading, fetchPriority, decoding, className, ...props },
@@ -58,8 +63,8 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
     height,
     className: cn('min-w-0 max-w-full', className),
     loading: resolvedLoading,
-    decoding: decoding ?? 'async',
-    sizes: sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? EAGER_SIZES : LAZY_SIZES),
+    decoding: decoding ?? (priority ? 'sync' : 'async'),
+    sizes: sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? PRIORITY_IMAGE_SIZES : LAZY_SIZES),
     ...(resolvedFetchPriority ? { fetchPriority: resolvedFetchPriority } : {}),
     ref: (node: HTMLImageElement | null) => {
       imgRef.current = node

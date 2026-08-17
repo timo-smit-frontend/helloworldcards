@@ -15,7 +15,7 @@ export default function Home() {
         figcaption="This is our little corner of the world"
       />
       <ContentText
-        title="Hey, we're Hello World Cards"
+        title="<Hello world />"
         description="We're Sam & Timo, two Pokémon-loving nerds who turned a hobby into this little corner of the internet. This is where we share what's in stock Pokémon cards, Pokémon art, and whatever else we pick up along the way. Whenever we head to a Pokémon event, we'll post about it here so you can follow along, see what we find, and maybe grab something for your own collection. If you love the games, the cards, or just the world around them as much as we do, you're in the right place."
         image="/images/wooper.png"
         alt="Pokémon card back"

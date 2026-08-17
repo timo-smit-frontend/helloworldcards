@@ -98,8 +98,15 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 border-t border-site-mulled-wine pt-10">
+        <div className="mt-16 flex flex-col gap-4 border-t border-site-mulled-wine pt-10 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All cards reserved.</p>
+          <Link
+            to="/privacy"
+            className="w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy hover:underline"
+            aria-current={location.pathname === '/privacy' ? 'page' : undefined}
+          >
+            Privacy statement
+          </Link>
         </div>
       </div>
     </footer>

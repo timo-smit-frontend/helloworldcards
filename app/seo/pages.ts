@@ -1,7 +1,14 @@
 import { getUpcomingEvents } from '../database/events'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '../services/contact'
+import { PRODUCT_IMAGE_SIZES, PRIORITY_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
 import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, toAbsoluteUrl } from './site'
+
+export type LcpImage = {
+  src: string
+  maxWidth: number
+  sizes: string
+}
 
 export type SeoPage = {
   path: string
@@ -12,6 +19,7 @@ export type SeoPage = {
   robots: string
   canonical: string | null
   jsonLd: Record<string, unknown>
+  lcp?: LcpImage
 }
 
 const ORGANIZATION_ID = `${SITE_URL}/#organization`
@@ -67,12 +75,14 @@ function webPageNode({
   path,
   title,
   description,
-  type = 'WebPage'
+  type = 'WebPage',
+  dateModified
 }: {
   path: string
   title: string
   description: string
   type?: string
+  dateModified?: string
 }): Record<string, unknown> {
   const url = canonicalUrl(path)
 
@@ -83,7 +93,8 @@ function webPageNode({
     name: title,
     description,
     isPartOf: { '@id': WEBSITE_ID },
-    about: { '@id': ORGANIZATION_ID }
+    about: { '@id': ORGANIZATION_ID },
+    ...(dateModified ? { dateModified } : {})
   }
 }
 
@@ -214,7 +225,9 @@ function page({
   type = 'website',
   robots = 'index, follow',
   extraGraph = [],
-  webPageType
+  webPageType,
+  dateModified,
+  lcp
 }: {
   path: string
   title: string
@@ -224,6 +237,8 @@ function page({
   robots?: string
   extraGraph?: Array<Record<string, unknown>>
   webPageType?: string
+  dateModified?: string
+  lcp?: LcpImage
 }): SeoPage {
   return {
     path,
@@ -233,6 +248,7 @@ function page({
     type,
     robots,
     canonical: robots.includes('noindex') ? null : canonicalUrl(path),
+    lcp,
     jsonLd: serializeJsonLdGraph(
       robots.includes('noindex')
         ? [organizationNode(), websiteNode()]
@@ -243,7 +259,8 @@ function page({
               path,
               title,
               description,
-              type: webPageType ?? (type === 'product' ? 'ItemPage' : 'WebPage')
+              type: webPageType ?? (type === 'product' ? 'ItemPage' : 'WebPage'),
+              dateModified
             }),
             ...extraGraph
           ]
@@ -264,7 +281,11 @@ function productPage(product: Product): SeoPage {
     description,
     image: product.images[0] ?? SITE_IMAGE,
     type: 'product',
-    extraGraph: productNodes(product, path)
+    extraGraph: productNodes(product, path),
+    lcp:
+      product.images[0] && isLocalRasterSrc(product.images[0])
+        ? { src: product.images[0], maxWidth: 1000, sizes: PRODUCT_IMAGE_SIZES }
+        : undefined
   })
 }
 
@@ -284,7 +305,8 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: `${SITE_NAME} | Pokémon cards, art, and events`,
-      description: SITE_DESCRIPTION
+      description: SITE_DESCRIPTION,
+      lcp: { src: SITE_IMAGE, maxWidth: 1200, sizes: PRIORITY_IMAGE_SIZES }
     })
   }
 
@@ -325,6 +347,27 @@ export function getSeoForPath(pathname: string): SeoPage {
     })
   }
 
+  if (path === '/privacy') {
+    return page({
+      path,
+      title: titleWithBrand('Privacy statement'),
+      description:
+        'How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.',
+      webPageType: 'PrivacyPolicy',
+      dateModified: '2026-08-17',
+      extraGraph: [
+        {
+          '@type': 'BreadcrumbList',
+          '@id': `${canonicalUrl(path)}#breadcrumb`,
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+            { '@type': 'ListItem', position: 2, name: 'Privacy statement', item: canonicalUrl(path) }
+          ]
+        }
+      ]
+    })
+  }
+
   const productMatch = path.match(/^\/products\/([^/]+)$/)
   if (productMatch?.[1]) {
     const product = getProductBySlug(productMatch[1])
@@ -341,6 +384,7 @@ export function getIndexableSeoPages(): SeoPage[] {
     getSeoForPath('/agenda'),
     getSeoForPath('/about'),
     getSeoForPath('/contact'),
+    getSeoForPath('/privacy'),
     ...getAllProducts().map((product) => productPage(product))
   ]
 }

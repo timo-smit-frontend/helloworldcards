@@ -60,6 +60,7 @@ export default function ContentCta({
                 alt=""
                 width={1280}
                 height={960}
+                maxwidth={1200}
                 className="sm:aspect-7/6 aspect-3/2 h-full w-full object-cover max-h-140"
               />
             </Animated>

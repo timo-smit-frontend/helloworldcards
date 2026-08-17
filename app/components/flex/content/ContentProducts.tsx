@@ -66,9 +66,10 @@ export default function ContentProducts({
                             <Image
                               src={product.images[0]}
                               alt=""
-                              width={400}
-                              height={560}
+                              width={800}
+                              height={1120}
                               aria-hidden
+                              maxwidth={1000}
                               className={`absolute inset-0 size-full object-contain p-5 ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
                             />
                           )}
@@ -76,10 +77,11 @@ export default function ContentProducts({
                             <Image
                               src={product.images[1]}
                               alt=""
-                              width={400}
-                              height={560}
+                              width={800}
+                              height={1120}
                               aria-hidden
                               className="absolute inset-0 size-full object-contain p-5 opacity-0 smooth group-hover:opacity-100"
+                              maxwidth={1000}
                             />
                           )}
                         </div>

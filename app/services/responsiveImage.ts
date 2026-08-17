@@ -1,4 +1,4 @@
-export const IMAGE_SCALING_FACTORS = [1, 1.5, 2.75] as const
+export const IMAGE_SCALING_FACTORS = [1, 1.5, 3] as const
 export const BUILD_MAXWIDTHS = [400, 600, 800, 1000, 1200, 1280, 1600, 1920, 2000] as const
 
 const LOCAL_RASTER = /\.(png|jpe?g|webp)$/i
@@ -24,6 +24,9 @@ export function variantWidthsFor(): number[] {
 
 export const DEFAULT_SRCSET_MAX_WIDTH = BUILD_MAXWIDTHS[BUILD_MAXWIDTHS.length - 1]
 const FALLBACK_SRC_WIDTH = 800
+
+export const PRIORITY_IMAGE_SIZES = '(min-width: 1024px) 50vw, 100vw'
+export const PRODUCT_IMAGE_SIZES = '(min-width: 1024px) 20rem, 16rem'
 
 export function srcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
   const widths = variantWidthsFor()
@@ -57,4 +60,10 @@ export function parseRasterVariant(pathname: string): { stem: string; width: num
   const match = pathname.match(VARIANT_PATH)
   if (!match) return null
   return { stem: match[1], width: Number(match[2]) }
+}
+
+export function buildLcpPreloadTag(src: string, maxWidth: number, sizes: string): string {
+  const href = rasterFallbackSrc(src, maxWidth)
+  const imagesrcset = rasterSrcSet(src, maxWidth)
+  return `<link rel="preload" as="image" type="image/webp" href="${href}" imagesrcset="${imagesrcset}" imagesizes="${sizes}" fetchpriority="high" />`
 }

@@ -2,6 +2,7 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { PRIORITY_IMAGE_SIZES } from '~/services/responsiveImage'
 
 export default function BannerFigcaption({
   title,
@@ -61,6 +62,8 @@ export default function BannerFigcaption({
                   width={1280}
                   height={960}
                   priority
+                  maxwidth={1200}
+                  sizes={PRIORITY_IMAGE_SIZES}
                   className="aspect-3/2 w-full rounded-[0.9rem] object-cover"
                 />
                 {figcaption && <figcaption className="mt-3 px-1 text-sm text-site-mantle">{figcaption}</figcaption>}

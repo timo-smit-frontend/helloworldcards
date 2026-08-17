@@ -1,8 +1,14 @@
+import { ReactNode } from 'react'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
+
+export type ContentTextSection = {
+  title: string
+  body: ReactNode
+}
 
 export default function ContentText({
   title,
@@ -10,7 +16,9 @@ export default function ContentText({
   image,
   alt = '',
   link,
-  heading = 'h2'
+  heading = 'h2',
+  sections,
+  updated
 }: {
   title?: string
   description?: string
@@ -18,14 +26,17 @@ export default function ContentText({
   alt?: string
   link?: { url: string; title: string }
   heading?: 'h1' | 'h2'
+  sections?: ContentTextSection[]
+  updated?: string
 }) {
   const { ref, isFirst } = useLocationFinder()
   const Title = heading
+  const hasSections = Boolean(sections?.length)
 
   return (
     <section id="content-text" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
-        <div className="grid grid-cols-1 items-stretch gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className={cn('grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16', hasSections ? 'items-start' : 'items-stretch')}>
           <div className="flex flex-col gap-8">
             {isFirst && <Breadcrumbs />}
             <div className="flex flex-col gap-4 lg:gap-8">
@@ -43,6 +54,27 @@ export default function ContentText({
                   )}
                 </div>
               )}
+              {hasSections && (
+                <div className="flex flex-col gap-10 lg:gap-12">
+                  {sections?.map((section) => {
+                    const headingId = `content-text-${section.title.toLowerCase().replace(/\s+/g, '-')}`
+
+                    return (
+                      <Animated key={section.title} delay={300}>
+                        <section className="flex flex-col gap-3" aria-labelledby={headingId}>
+                          <h2 id={headingId} className="title-xs">
+                            {section.title}
+                          </h2>
+                          <div className="content-m text-site-mantle [&_a]:underline [&_a]:underline-offset-4 [&_a]:transition-colors hover:[&_a]:text-site-envy">
+                            {section.body}
+                          </div>
+                        </section>
+                      </Animated>
+                    )
+                  })}
+                </div>
+              )}
+              {updated && <p className="content-s text-site-mantle">Last updated {updated}.</p>}
               {link && (
                 <Animated delay={300}>
                   <div>
@@ -56,13 +88,13 @@ export default function ContentText({
           </div>
           {image && (
             <Animated delay={400}>
-              <div className="relative overflow-hidden lg:h-full">
+              <div className={cn('relative overflow-hidden', !hasSections && 'lg:h-full')}>
                 <Image
                   src={image}
                   alt={alt}
                   width={1280}
                   height={960}
-                  className="h-auto w-full lg:absolute lg:inset-0 lg:h-full lg:w-full object-contain max-h-100"
+                  className={cn('h-auto w-full object-contain max-h-100', !hasSections && 'lg:absolute lg:inset-0 lg:h-full lg:w-full')}
                 />
               </div>
             </Animated>
