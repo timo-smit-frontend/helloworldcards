@@ -1,6 +1,8 @@
 import BannerFigcaption from '~/components/flex/banner/BannerFigcaption'
 import ContentAbout from '~/components/flex/content/ContentAbout'
 import ContentCta from '~/components/flex/content/ContentCta'
+import ContentFaq from '~/components/flex/content/ContentFaq'
+import { getFaqsByPage } from '~/database/faq'
 import { SITE_IMAGE } from '~/seo/site'
 
 export default function About() {
@@ -30,6 +32,7 @@ export default function About() {
         ]}
         peopleCaption="Two nerds who never quite outgrew Pokémon."
       />
+      <ContentFaq items={getFaqsByPage('about')} />
       <ContentCta
         title="Want to get in touch?"
         description="Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you."

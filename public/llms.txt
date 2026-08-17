@@ -1,0 +1,29 @@
+# Hello World Cards
+> Pokémon cards, art, and events from Sam & Timo. A little shop that still feels like two friends sharing a hobby.
+
+Hello World Cards is a small Pokémon card and art shop run by Sam and Timo. We sell online and at events in the Netherlands and Belgium. To buy a card, email helloworldcards@outlook.com or use the contact form.
+
+## Pages
+- [Home](https://helloworldcards.com/): Pokémon cards, art, and events from Sam & Timo. A little shop that still feels like two friends sharing a hobby.
+- [Shop](https://helloworldcards.com/products): Browse our collection of Pokémon cards and art, pieces we love having around.
+- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events. Come say hi, browse the stall, and see what's new.
+- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple who turned a Pokémon hobby into Hello World Cards, a small shop for cards, art, and the events we go to.
+- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you.
+
+## Products
+- [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo): 2016 XY Evolutions - 51/108. €99
+- [Blastoise Holo](https://helloworldcards.com/products/blastoise-holo): Base Set - Reverse Holo - 10/102. €189
+- [Venusaur Holo](https://helloworldcards.com/products/venusaur-holo): Base Set - 10/102. €159
+- [Pikachu Illustrator](https://helloworldcards.com/products/pikachu-illustrator): Base Set - 10/102. €1.200
+- [Mewtwo GX](https://helloworldcards.com/products/mewtwo-gx): Base Set - 10/102. €79
+- [Eevee Promo](https://helloworldcards.com/products/eevee-promo): Base Set - 10/102
+
+## Events
+- [Utrecht Card Show](https://helloworldcards.com/agenda): 2026-09-12, Jaarbeurs, Utrecht
+- [Pokémon Regional Championships](https://helloworldcards.com/agenda): 2026-10-03, RAI, Amsterdam
+- [Play! Pokémon League Challenge](https://helloworldcards.com/agenda): 2026-10-18, Spellenhuis, Rotterdam
+- [Belgian TCG Open](https://helloworldcards.com/agenda): 2026-11-07, Flanders Expo, Ghent
+- [Winter Collector Fair](https://helloworldcards.com/agenda): 2026-12-05, Jaarbeurs, Utrecht
+
+## Optional
+- [Privacy statement](https://helloworldcards.com/privacy): How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.

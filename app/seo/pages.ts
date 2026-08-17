@@ -1,4 +1,5 @@
 import { getUpcomingEvents } from '../database/events'
+import { getFaqsByPage, type FaqItem } from '../database/faq'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
 import { CONTACT_EMAIL, INSTAGRAM_URL } from '../services/contact'
 import { PRODUCT_IMAGE_SIZES, PRIORITY_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
@@ -53,10 +54,25 @@ function organizationNode(): Record<string, unknown> {
     '@type': 'Store',
     '@id': ORGANIZATION_ID,
     name: SITE_NAME,
+    description: SITE_DESCRIPTION,
     url: SITE_URL,
     email: CONTACT_EMAIL,
     image: toAbsoluteUrl(SITE_IMAGE),
-    sameAs: [INSTAGRAM_URL]
+    sameAs: [INSTAGRAM_URL],
+    founder: [
+      { '@type': 'Person', name: 'Sam', jobTitle: 'Co-founder' },
+      { '@type': 'Person', name: 'Timo', jobTitle: 'Co-founder' }
+    ],
+    areaServed: [
+      { '@type': 'Country', name: 'Netherlands' },
+      { '@type': 'Country', name: 'Belgium' }
+    ],
+    knowsAbout: ['Pokémon', 'Pokémon Trading Card Game', 'Pokémon art'],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      email: CONTACT_EMAIL,
+      contactType: 'customer service'
+    }
   }
 }
 
@@ -117,6 +133,7 @@ function productNodes(product: Product, path: string): Array<Record<string, unkn
     description: product.description || product.subtitle,
     image: product.images,
     brand: { '@type': 'Brand', name: SITE_NAME },
+    category: 'Pokémon Trading Card Game',
     url
   }
 
@@ -188,6 +205,23 @@ function eventNodes(path: string): Record<string, unknown> {
   }
 }
 
+function faqPageNode(path: string, items: FaqItem[]): Record<string, unknown> {
+  const url = canonicalUrl(path)
+
+  return {
+    '@type': 'FAQPage',
+    '@id': `${url}#faq`,
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer
+      }
+    }))
+  }
+}
+
 function aboutNodes(path: string): Array<Record<string, unknown>> {
   const url = canonicalUrl(path)
 
@@ -197,6 +231,9 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       '@id': `${url}#sam`,
       name: 'Sam',
       jobTitle: 'Co-founder',
+      description:
+        'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table.',
+      url,
       worksFor: { '@id': ORGANIZATION_ID }
     },
     {
@@ -204,6 +241,9 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       '@id': `${url}#timo`,
       name: 'Timo',
       jobTitle: 'Co-founder',
+      description:
+        'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs: Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should.',
+      url,
       worksFor: { '@id': ORGANIZATION_ID }
     },
     {
@@ -213,7 +253,8 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
         { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
         { '@type': 'ListItem', position: 2, name: 'About', item: url }
       ]
-    }
+    },
+    faqPageNode(path, getFaqsByPage('about'))
   ]
 }
 
@@ -343,7 +384,8 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Contact'),
-      description: "Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you."
+      description: "Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you.",
+      extraGraph: [faqPageNode(path, getFaqsByPage('contact'))]
     })
   }
 

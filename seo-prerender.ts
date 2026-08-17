@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { applySeoHead } from './app/seo/head'
+import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
 import { getIndexableSeoPages, getSeoForPath } from './app/seo/pages'
 import { SITE_URL } from './app/seo/site'
 
@@ -30,6 +31,17 @@ export function writeSitemap(dir: string): string {
   return sitemapPath
 }
 
+export function writeLlms(dir: string): void {
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'llms.txt'), buildLlmsTxt())
+  fs.writeFileSync(path.join(dir, 'llms-full.txt'), buildLlmsFullTxt())
+}
+
+export function writeSeoPublic(dir: string): void {
+  writeSitemap(dir)
+  writeLlms(dir)
+}
+
 export function writeSeoBuild(distDir: string): void {
   const template = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8')
   const pages = getIndexableSeoPages()
@@ -41,5 +53,5 @@ export function writeSeoBuild(distDir: string): void {
   }
 
   fs.writeFileSync(path.join(distDir, '404.html'), applySeoHead(template, getSeoForPath('/404')))
-  writeSitemap(distDir)
+  writeSeoPublic(distDir)
 }
