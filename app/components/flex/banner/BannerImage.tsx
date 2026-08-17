@@ -34,7 +34,7 @@ export default function BannerImage({
             <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
               {isFirst && <Breadcrumbs />}
               {slides.length > 0 && (
-                <Animated delay={100} reveal="load">
+                <Animated delay={100}>
                   <div className="w-full shrink-0 lg:hidden">
                     <BannerSlider images={slides} alt={title ?? 'Banner'} />
                   </div>
@@ -44,7 +44,7 @@ export default function BannerImage({
                 {(title || subtitle || description || price) && (
                   <div className="flex flex-col gap-2 lg:gap-4">
                     {(subtitle || title) && (
-                      <Animated delay={100} reveal="load">
+                      <Animated delay={100}>
                         <div className="flex flex-col gap-1">
                           {subtitle && <p className="content-l font-semibold text-site-mantle">{subtitle}</p>}
                           {title && <h1 className="title-xl">{title}</h1>}
@@ -52,19 +52,19 @@ export default function BannerImage({
                       </Animated>
                     )}
                     {description && (
-                      <Animated delay={200} reveal="load">
+                      <Animated delay={200}>
                         <p className="content-m text-site-mantle">{description}</p>
                       </Animated>
                     )}
                     {price && (
-                      <Animated delay={300} reveal="load">
+                      <Animated delay={300}>
                         <p className="content-xl font-semibold">{price}</p>
                       </Animated>
                     )}
                   </div>
                 )}
                 {link?.url && link?.title && (
-                  <Animated delay={400} reveal="load">
+                  <Animated delay={400}>
                     <div>
                       <a
                         href={link.url}
@@ -82,7 +82,7 @@ export default function BannerImage({
             </div>
           )}
           {slides.length > 0 && (
-            <Animated delay={400} reveal="load">
+            <Animated delay={400}>
               <div className="max-lg:hidden">
                 <BannerSlider images={slides} alt={title ?? 'Banner'} />
               </div>
@@ -151,7 +151,7 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                   priority
                   sizes={PRODUCT_IMAGE_SIZES}
                   maxwidth={1000}
-                  className="mx-auto block h-100 w-auto max-w-full min-w-min object-contain lg:h-120"
+                  className="h-100 w-auto max-w-full min-w-min object-contain lg:h-120"
                 />
               </button>
             </CarouselItem>
