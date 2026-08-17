@@ -1,6 +1,6 @@
 # Hello World Cards
 
-Personal multi-page React site, deployed to GitHub Pages on [helloworldcards.com](https://helloworldcards.com).
+Personal multi-page React site, deployed to Cloudflare on [helloworldcards.com](https://helloworldcards.com).
 
 ## Stack
 
@@ -18,23 +18,36 @@ npm run dev
 
 ## Scripts
 
-| Command           | Description                                        |
-| ----------------- | -------------------------------------------------- |
-| `npm run dev`     | Local dev server                                   |
-| `npm run build`   | Typecheck + production build (+ SPA `404.html`)    |
-| `npm run preview` | Preview the production build                       |
-| `npm run lint`    | ESLint                                             |
-| `npm run deploy`  | Build and publish `dist/` to the `gh-pages` branch |
+| Command           | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `npm run dev`     | Local dev server                                |
+| `npm run build`   | Typecheck + production build                    |
+| `npm run preview` | Preview the production build                    |
+| `npm run lint`    | ESLint                                          |
+| `npm run deploy`  | Build and publish `dist/` with Wrangler         |
 
-## Deploy to GitHub Pages
+## Deploy to Cloudflare
 
-1. Create a GitHub repo and push this project.
-2. Run `npm run deploy` (publishes to the `gh-pages` branch).
-3. In the repo: **Settings → Pages → Build and deployment**
-   - Source: **Deploy from a branch**
-   - Branch: `gh-pages` / `/ (root)`
-4. Under **Custom domain**, set `helloworldcards.com` (the `CNAME` file in `public/` is included in the build).
+Pushes to `main` are built by Cloudflare Workers Builds. In the project’s build settings:
 
-### DNS
+| Field            | Value                     |
+| ---------------- | ------------------------- |
+| Build command    | `npm run build`           |
+| Deploy command   | `npx wrangler deploy`     |
+| Version command  | `npx wrangler --version`  |
+| Root directory   | `/`                       |
+| Production branch| `main`                    |
 
-At your domain registrar, point the domain at GitHub Pages as documented by GitHub (typically A records to GitHub’s IPs for an apex domain, or a CNAME for `www`). Enable HTTPS in the Pages settings once DNS has propagated.
+Set a build variable `NODE_VERSION` to `22`, and select a Cloudflare API token with permission to deploy Workers. You need Node 22 locally as well (`nvm use`).
+
+To publish from your machine after `npx wrangler login`:
+
+```bash
+npm run deploy
+```
+
+### Custom domain
+
+In the Worker: **Settings → Domains & Routes → Custom domain** → `helloworldcards.com`.
+
+If the domain’s DNS is on Cloudflare, that is enough. If it still points at GitHub Pages, add the zone to Cloudflare (or update the registrar records Cloudflare shows) and disable GitHub Pages once the new site is live.
