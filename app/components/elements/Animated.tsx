@@ -98,6 +98,7 @@ export function Animated({
         DelayToClass[delay],
         EaseToClass[easing],
         DurationToClass[duration],
+        'fill-mode-both',
         'motion-reduce:animate-none',
         'opacity-100'
       ],

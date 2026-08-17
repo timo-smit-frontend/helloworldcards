@@ -17,7 +17,7 @@ export default function Product() {
       <Layout className="justify-center">
         <ContentText
           heading="h1"
-          title="Product not found"
+          title="This product was not found"
           description="This product does not exist or has been moved."
           link={{ url: '/products', title: 'Back to all products' }}
         />
@@ -32,7 +32,7 @@ export default function Product() {
   return (
     <Layout>
       <BannerImage
-        title={product.title}
+        title={product.title.length >= 20 ? product.title : `${product.title} Pokémon card`}
         subtitle={product.subtitle}
         description={product.description}
         price={product.price != null ? String(product.price) : undefined}

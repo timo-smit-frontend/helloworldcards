@@ -17,7 +17,7 @@ export default function ErrorPage() {
           </Animated>
           <Animated delay={300}>
             <h1 id="error-title" className="title-l">
-              Page not found
+              This page was not found
             </h1>
           </Animated>
           <Animated delay={400}>

@@ -9,9 +9,9 @@ export default function Home() {
     <>
       <BannerFigcaption
         title="Hello World Cards"
-        description="Welcome. We list Pokémon cards here and on Marktplaats, the same stock in both places. Sam also paints custom binders. We show those here and sell them in person at events."
+        description="Welcome. We sell Pokémon cards and custom handpainted binders. Have a look around, and let us know if you need anything."
         image="/images/hero.jpg"
-        link={{ url: '/products', title: 'See our products' }}
+        link={{ url: '/products', title: 'Have a look around' }}
         figcaption="This is our little corner of the world"
       />
       <ContentText

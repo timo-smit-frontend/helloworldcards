@@ -6,9 +6,8 @@ import { SITE_IMAGE } from '~/seo/site'
 export default function Agenda() {
   return (
     <>
-      <h1 className="sr-only">Agenda</h1>
       <ContentAgenda
-        title="Upcoming events"
+        title="Upcoming Pokémon events"
         description="We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's handpainted binders."
       />
       <ContentText

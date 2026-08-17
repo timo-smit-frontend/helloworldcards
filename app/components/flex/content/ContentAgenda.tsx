@@ -33,6 +33,7 @@ export default function ContentAgenda({
   const { ref, isFirst } = useLocationFinder()
   const ids = normalizeIds(id)
   const events = ids ? getEventsByIds(ids) : getUpcomingEvents()
+  const Heading = ids ? 'h2' : 'h1'
 
   return (
     <section id="content-agenda" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
@@ -45,7 +46,7 @@ export default function ContentAgenda({
                 <div className="flex flex-col gap-2 lg:gap-4">
                   {title && (
                     <Animated delay={100}>
-                      <h2 className="title-l">{title}</h2>
+                      <Heading className="title-l">{title}</Heading>
                     </Animated>
                   )}
                   {description && (

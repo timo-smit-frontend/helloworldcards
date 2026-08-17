@@ -10,7 +10,7 @@ export default function About() {
   return (
     <>
       <BannerFigcaption
-        title="We're Sam and Timo"
+        title="Hello, we're Sam and Timo"
         description="We're a couple who turned a Pokémon hobby into this little shop. You'll find cards online, the events we're heading to, and a stall when we're out."
         image={SITE_IMAGE}
         figcaption="From our little corner of the hobby."
