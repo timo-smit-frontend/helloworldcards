@@ -1,7 +1,7 @@
 import { getUpcomingEvents } from '../database/events'
 import { getFaqsByPage, type FaqItem } from '../database/faq'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
-import { CONTACT_EMAIL, INSTAGRAM_URL } from '../services/contact'
+import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
 import { PRODUCT_IMAGE_SIZES, PRIORITY_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
 import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, toAbsoluteUrl } from './site'
 
@@ -58,7 +58,7 @@ function organizationNode(): Record<string, unknown> {
     url: SITE_URL,
     email: CONTACT_EMAIL,
     image: toAbsoluteUrl(SITE_IMAGE),
-    sameAs: [INSTAGRAM_URL],
+    sameAs: [INSTAGRAM_URL, MARKTPLAATS_URL],
     founder: [
       { '@type': 'Person', name: 'Sam', jobTitle: 'Co-founder' },
       { '@type': 'Person', name: 'Timo', jobTitle: 'Co-founder' }
@@ -232,7 +232,7 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       name: 'Sam',
       jobTitle: 'Co-founder',
       description:
-        'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table.',
+        'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.',
       url,
       worksFor: { '@id': ORGANIZATION_ID }
     },
@@ -345,7 +345,7 @@ export function getSeoForPath(pathname: string): SeoPage {
   if (path === '/') {
     return page({
       path,
-      title: `${SITE_NAME} | Pokémon cards, art, and events`,
+      title: `${SITE_NAME} | Pokémon cards and events`,
       description: SITE_DESCRIPTION,
       lcp: { src: SITE_IMAGE, maxWidth: 800, sizes: PRIORITY_IMAGE_SIZES }
     })
@@ -355,7 +355,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Shop'),
-      description: 'Browse our collection of Pokémon cards and art, pieces we love having around.',
+      description: 'Browse Pokémon cards listed here and on Marktplaats.',
       extraGraph: [productListNode(path)]
     })
   }
@@ -364,7 +364,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Upcoming events'),
-      description: "We'll be at these Pokémon events. Come say hi, browse the stall, and see what's new.",
+      description: "We'll be at these Pokémon events. Come say hi, browse the stall, and have a look at Sam's binders.",
       extraGraph: [eventNodes(path)]
     })
   }
@@ -373,8 +373,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('About'),
-      description:
-        "We're Sam and Timo, a couple who turned a Pokémon hobby into Hello World Cards, a small shop for cards, art, and the events we go to.",
+      description: "We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards.",
       webPageType: 'AboutPage',
       extraGraph: aboutNodes(path)
     })
@@ -384,7 +383,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Contact'),
-      description: "Questions about a card, an event, or something in the shop? Send us a message. We'd love to hear from you.",
+      description: 'Questions about a card, an event, or anything else? Send us a message.',
       extraGraph: [faqPageNode(path, getFaqsByPage('contact'))]
     })
   }

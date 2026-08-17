@@ -1,7 +1,7 @@
 import { getUpcomingEvents } from '../database/events'
 import { getAllFaqs } from '../database/faq'
 import { getAllProducts } from '../database/products'
-import { CONTACT_EMAIL } from '../services/contact'
+import { CONTACT_EMAIL, MARKTPLAATS_URL } from '../services/contact'
 import { getSeoForPath } from './pages'
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from './site'
 
@@ -22,7 +22,7 @@ function introMarkdown(): string {
     `# ${SITE_NAME}`,
     `> ${SITE_DESCRIPTION}`,
     '',
-    `${SITE_NAME} is a small Pokémon card and art shop run by Sam and Timo. We sell online and at events in the Netherlands and Belgium. To buy a card, email ${CONTACT_EMAIL} or use the contact form.`
+    `${SITE_NAME} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${MARKTPLAATS_URL}), and we bring handpainted binders to events. Email ${CONTACT_EMAIL} about a card, an event, or anything else.`
   ].join('\n')
 }
 

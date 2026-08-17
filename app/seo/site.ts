@@ -2,7 +2,7 @@ export const SITE_URL = 'https://helloworldcards.com'
 export const SITE_NAME = 'Hello World Cards'
 export const SITE_LOCALE = 'en_GB'
 export const SITE_DESCRIPTION =
-  'Pokémon cards, art, and events from Sam & Timo. A little shop that still feels like two friends sharing a hobby.'
+  'Pokémon cards from Sam and Timo — listed here and on Marktplaats. Handpainted binders come with us to events.'
 export const SITE_IMAGE = '/images/hero.jpg'
 
 export function toAbsoluteUrl(path: string): string {
