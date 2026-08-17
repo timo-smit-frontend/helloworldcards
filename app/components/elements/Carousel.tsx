@@ -136,10 +136,7 @@ function CarouselDots({ className }: { className?: string }) {
             onClick={() => api?.scrollTo(index)}
           >
             <span
-              className={cn(
-                'size-2.5 rounded-full',
-                index === selectedIndex ? 'bg-site-envy' : 'border-2 border-site-envy bg-transparent'
-              )}
+              className={cn('size-2.5 rounded-full', index === selectedIndex ? 'bg-site-envy' : 'border-2 border-site-envy bg-transparent')}
               aria-hidden
             />
           </button>
