@@ -43,6 +43,8 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   const resolvedSizes = sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? PRIORITY_IMAGE_SIZES : LAZY_SIZES)
 
   useLayoutEffect(() => {
+    if (isEager || sizes != null) return
+
     const el = imgRef.current
     if (!el) return
 
@@ -55,7 +57,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
     const observer = new ResizeObserver(update)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [resolved])
+  }, [resolved, isEager, sizes])
 
   const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : undefined)
   const imgProps = {
@@ -64,7 +66,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
     height,
     className: cn('min-w-0 max-w-full', className),
     loading: resolvedLoading,
-    decoding: decoding ?? (priority ? 'sync' : 'async'),
+    ...(decoding != null ? { decoding } : isEager ? {} : { decoding: 'async' as const }),
     sizes: resolvedSizes,
     ...(resolvedFetchPriority ? { fetchPriority: resolvedFetchPriority } : {}),
     ref: (node: HTMLImageElement | null) => {
@@ -79,7 +81,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   }
 
   return (
-    <picture className="contents">
+    <picture className="flex w-full min-w-0 items-center justify-center">
       {ready && <source type="image/avif" srcSet={rasterSrcSet(resolved, maxWidth, 'avif')} sizes={resolvedSizes} />}
       {ready && <source type="image/webp" srcSet={rasterSrcSet(resolved, maxWidth, 'webp')} sizes={resolvedSizes} />}
       {/* eslint-disable-next-line no-restricted-syntax -- Image is the allowed primitive wrapper */}

@@ -25,7 +25,7 @@ export default function ContentText({
   description?: string
   image?: string
   alt?: string
-  link?: { url: string; title: string }
+  link?: { url: string; title: string; target?: string }
   heading?: 'h1' | 'h2'
   sections?: ContentTextSection[]
   updated?: string
@@ -80,8 +80,14 @@ export default function ContentText({
               {link && (
                 <Animated delay={300}>
                   <div>
-                    <a href={link.url} className="button-green">
+                    <a
+                      href={link.url}
+                      target={link.target}
+                      rel={link.target === '_blank' ? 'noreferrer noopener' : undefined}
+                      className="button-green"
+                    >
                       {link.title}
+                      {link.target === '_blank' ? <span className="sr-only"> (opens in a new tab)</span> : null}
                     </a>
                   </div>
                 </Animated>

@@ -1,14 +1,14 @@
 # Hello World Cards
-> Pokémon cards from Sam and Timo — listed here and on Marktplaats. Handpainted binders come with us to events.
+> Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.
 
-Hello World Cards is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (https://www.marktplaats.nl/u/hello-world-cards/25399885/), and we bring handpainted binders to events. Email helloworldcards@outlook.com about a card, an event, or anything else.
+Hello World Cards is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (https://www.marktplaats.nl/u/hello-world-cards/25399885/), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email helloworldcards@outlook.com about a card, an event, or anything else.
 
 ## Pages
-- [Home](https://helloworldcards.com/): Pokémon cards from Sam and Timo — listed here and on Marktplaats. Handpainted binders come with us to events.
-- [Shop](https://helloworldcards.com/products): Browse Pokémon cards listed here and on Marktplaats.
-- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events. Come say hi, browse the stall, and have a look at Sam's binders.
-- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards.
-- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, or anything else? Send us a message.
+- [Home](https://helloworldcards.com/): Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.
+- [Shop](https://helloworldcards.com/products): Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.
+- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.
+- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.
+- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, a binder at a stall, or anything else? Send us a message.
 
 ## Products
 - [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo-2016-xy-evolutions-51-108): 2016 XY Evolutions - 51/108. €99

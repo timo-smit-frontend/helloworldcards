@@ -18,7 +18,8 @@ const products: ProductRecord[] = [
     id: 1,
     title: 'Mewtwo Reverse Holo',
     subtitle: '2016 XY Evolutions - 51/108',
-    description: 'Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint.',
+    description:
+      'Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€99'
   },
@@ -26,7 +27,8 @@ const products: ProductRecord[] = [
     id: 2,
     title: 'Blastoise Holo',
     subtitle: 'Base Set - Reverse Holo - 10/102',
-    description: 'A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder.',
+    description:
+      'A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder. Listed here and on Marktplaats.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€189'
   },
@@ -34,7 +36,7 @@ const products: ProductRecord[] = [
     id: 3,
     title: 'Venusaur Holo',
     subtitle: 'Base Set - 10/102',
-    description: 'Holo Venusaur from Base Set. Grass-type staple with the original full-art energy.',
+    description: 'Holo Venusaur from Base Set. A grass-type staple with the original full-art energy, listed here and on Marktplaats.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€159'
   },
@@ -42,7 +44,7 @@ const products: ProductRecord[] = [
     id: 4,
     title: 'Pikachu Illustrator',
     subtitle: 'Base Set - 10/102',
-    description: 'Pikachu Illustrator — a display piece. Ask us if you want a closer look.',
+    description: 'Pikachu Illustrator, a display piece from the shop. Ask us if you want a closer look.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€1.200'
   },
@@ -50,7 +52,7 @@ const products: ProductRecord[] = [
     id: 5,
     title: 'Mewtwo GX',
     subtitle: 'Base Set - 10/102',
-    description: 'Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder.',
+    description: 'Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder. Same listing as on Marktplaats.',
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
     price: '€79'
   },
@@ -58,7 +60,7 @@ const products: ProductRecord[] = [
     id: 6,
     title: 'Eevee Promo',
     subtitle: 'Base Set - 10/102',
-    description: 'An Eevee promo with the soft art people pick up and don\u2019t put back.',
+    description: "An Eevee promo with the soft art people pick up and don't put back. Message us if you want it.",
     images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png']
   }
 ]

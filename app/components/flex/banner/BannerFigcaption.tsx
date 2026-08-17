@@ -31,19 +31,19 @@ export default function BannerFigcaption({
               {(title || description) && (
                 <div className="flex flex-col gap-2 lg:gap-4">
                   {title && (
-                    <Animated delay={200}>
+                    <Animated delay={200} reveal="load">
                       <h1 className="title-xl text-balance">{title}</h1>
                     </Animated>
                   )}
                   {description && (
-                    <Animated delay={300}>
+                    <Animated delay={300} reveal="load">
                       <p className="content-l max-w-xl text-site-mantle">{description}</p>
                     </Animated>
                   )}
                 </div>
               )}
               {link?.url && link?.title && (
-                <Animated delay={400}>
+                <Animated delay={400} reveal="load">
                   <div>
                     <a href={link.url} className="button-green">
                       {link.title}
@@ -54,7 +54,7 @@ export default function BannerFigcaption({
             </div>
           </div>
           {image && (
-            <Animated delay={500}>
+            <Animated delay={500} reveal="load">
               <figure className="mat">
                 <Image
                   src={image}

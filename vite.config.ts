@@ -5,7 +5,7 @@ import { defineConfig, type IndexHtmlTransformContext, type Plugin } from 'vite'
 import { applySeoHead } from './app/seo/head'
 import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
 import { getSeoForPath } from './app/seo/pages'
-import { buildSitemapXml, writeSeoBuild, writeSeoPublic } from './seo-prerender'
+import { buildSitemapXml, writePrerenderedApp, writeSeoBuild, writeSeoPublic } from './seo-prerender'
 import { responsiveImagesPlugin } from './vite-responsive-images'
 
 const FONT_START = '<!--app-font-start-->'
@@ -39,6 +39,22 @@ function outfitLatinHref(ctx: IndexHtmlTransformContext, base: string): string |
   return `${normalizedBase}${font.fileName}`
 }
 
+function moveModuleScriptsToBody(html: string): string {
+  const scripts = [...html.matchAll(/<script type="module"[^>]*><\/script>\n?/g)].map((match) => match[0].trim())
+  if (scripts.length === 0) return html
+
+  let next = html
+  for (const script of scripts) {
+    next = next.replace(script, '')
+  }
+
+  const deferred = scripts.map((script) =>
+    script.includes('fetchpriority=') ? script : script.replace('<script ', '<script fetchpriority="low" ')
+  )
+
+  return next.replace('</body>', `    ${deferred.join('\n    ')}\n  </body>`)
+}
+
 function fontPreloadPlugin(): Plugin {
   let base = '/'
 
@@ -50,7 +66,7 @@ function fontPreloadPlugin(): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(html, ctx) {
-        return applyFontPreload(html, outfitLatinHref(ctx, base))
+        return moveModuleScriptsToBody(applyFontPreload(html, outfitLatinHref(ctx, base)))
       }
     }
   }
@@ -99,8 +115,30 @@ function seoPlugin(): Plugin {
     buildStart() {
       writeSeoPublic(publicDir)
     },
-    closeBundle() {
+    async closeBundle() {
+      if (process.env.HWC_PRERENDER === '1') {
+        return
+      }
+
       writeSeoBuild(outDir)
+
+      process.env.HWC_PRERENDER = '1'
+      const { createServer } = await import('vite')
+      const vite = await createServer({
+        server: { middlewareMode: true, hmr: false, watch: null },
+        appType: 'custom',
+        mode: 'production'
+      })
+
+      try {
+        const { render } = (await vite.ssrLoadModule('/app/entry-server.tsx')) as {
+          render: (url: string) => Promise<string>
+        }
+        await writePrerenderedApp(outDir, render)
+      } finally {
+        await vite.close()
+        delete process.env.HWC_PRERENDER
+      }
     }
   }
 }

@@ -7,7 +7,7 @@ export default function Contact() {
     <>
       <ContentContact
         title="Get in touch"
-        description="Questions about a card, an event, a binder at a stall, or anything else? Send us a message."
+        description="Questions about a card, an event, a binder at a stall, or anything else? Send us a message. Email is always fine, even if a card is also on Marktplaats."
       />
       <ContentFaq items={getFaqsByPage('contact')} />
     </>

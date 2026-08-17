@@ -1,44 +1,50 @@
 # Hello World Cards
-> Pokémon cards from Sam and Timo — listed here and on Marktplaats. Handpainted binders come with us to events.
+> Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.
 
-Hello World Cards is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (https://www.marktplaats.nl/u/hello-world-cards/25399885/), and we bring handpainted binders to events. Email helloworldcards@outlook.com about a card, an event, or anything else.
+Hello World Cards is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (https://www.marktplaats.nl/u/hello-world-cards/25399885/), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email helloworldcards@outlook.com about a card, an event, or anything else.
 
 ## Pages
-- [Home](https://helloworldcards.com/): Pokémon cards from Sam and Timo — listed here and on Marktplaats. Handpainted binders come with us to events.
-- [Shop](https://helloworldcards.com/products): Browse Pokémon cards listed here and on Marktplaats.
-- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events. Come say hi, browse the stall, and have a look at Sam's binders.
-- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards.
-- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, or anything else? Send us a message.
+- [Home](https://helloworldcards.com/): Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.
+- [Shop](https://helloworldcards.com/products): Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.
+- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.
+- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.
+- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, a binder at a stall, or anything else? Send us a message.
 
 ## FAQ
 ### What is Hello World Cards?
-A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, and we bring handpainted binders to events.
+A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. There is no walk-in storefront.
 
 ### Who runs Hello World Cards?
-Sam and Timo, a couple of programmers who collect Pokémon. Sam collects Wooper and Quagsire and paints the binders. Timo chases Gengar and Ralts.
+Sam and Timo, a couple of programmers who collect Pokémon. Sam is a backend developer who collects Wooper and Quagsire and paints the binders. Timo is a frontend developer who chases Gengar and Ralts. The name Hello World is the programmer joke.
+
+### Why is it called Hello World Cards?
+Because we both write software. Sam does backend, Timo does frontend. Hello World is the first thing you print when you learn to code, so it felt like the right name for a shop that is still a hobby at heart.
 
 ### Do you have a physical shop?
-No walk-in storefront. We sell cards online and on Marktplaats, and in person at Pokémon events in the Netherlands and Belgium.
+No walk-in storefront. We sell cards online and on Marktplaats, and in person when we have a stall at Pokémon events in the Netherlands and Belgium.
 
 ### What do you sell?
-Pokémon cards, including graded cards, listed here and on Marktplaats. Sam's custom handpainted binders come with us to events.
+Pokémon cards, including graded cards. They are listed here and on Marktplaats. Sam also makes custom handpainted binders. We display those on the site so you can see them, and we sell them in person at events.
 
 ### How do I buy a card?
-Cards are listed here and on Marktplaats (https://www.marktplaats.nl/u/hello-world-cards/25399885/). If the product page has a Marktplaats link, that's the listing. If it doesn't, email us at helloworldcards@outlook.com. You can always email about anything.
+Browse the shop on this site. The same cards are listed on our Marktplaats page. If a product has a View on Marktplaats button, that is the listing. If it does not, email us at helloworldcards@outlook.com and we will help. You can always email about a card, even when there is a listing.
+
+### Can I buy a binder on the website?
+You can look at them here, but we do not sell binders through the site. Sam paints them as one-off pieces. Come to an event if you want to buy one.
 
 ### How can I get in touch?
-Email, the contact form, Instagram @helloworldcards, or our Marktplaats page.
+Use the form on this page, email us, Instagram @helloworldcards, or our Marktplaats page. Email is the one that always works, for cards, events, binders at a stall, or anything else.
 
 ### Where can I meet you in person?
-At the events on the agenda. We bring a stall with cards and Sam's handpainted binders.
+At the events on the agenda. We bring a stall with cards from the shop and Sam's handpainted binders. Check the dates, because we will not be at every show.
 
 ## Products
-- [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo-2016-xy-evolutions-51-108): 2016 XY Evolutions - 51/108. €99. Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint.
-- [Blastoise Holo](https://helloworldcards.com/products/blastoise-holo-base-set-reverse-holo-10-102): Base Set - Reverse Holo - 10/102. €189. A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder.
-- [Venusaur Holo](https://helloworldcards.com/products/venusaur-holo-base-set-10-102): Base Set - 10/102. €159. Holo Venusaur from Base Set. Grass-type staple with the original full-art energy.
-- [Pikachu Illustrator](https://helloworldcards.com/products/pikachu-illustrator-base-set-10-102): Base Set - 10/102. €1.200. Pikachu Illustrator — a display piece. Ask us if you want a closer look.
-- [Mewtwo GX](https://helloworldcards.com/products/mewtwo-gx-base-set-10-102): Base Set - 10/102. €79. Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder.
-- [Eevee Promo](https://helloworldcards.com/products/eevee-promo-base-set-10-102): Base Set - 10/102. An Eevee promo with the soft art people pick up and don’t put back.
+- [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo-2016-xy-evolutions-51-108): 2016 XY Evolutions - 51/108. €99. Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.
+- [Blastoise Holo](https://helloworldcards.com/products/blastoise-holo-base-set-reverse-holo-10-102): Base Set - Reverse Holo - 10/102. €189. A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder. Listed here and on Marktplaats.
+- [Venusaur Holo](https://helloworldcards.com/products/venusaur-holo-base-set-10-102): Base Set - 10/102. €159. Holo Venusaur from Base Set. A grass-type staple with the original full-art energy, listed here and on Marktplaats.
+- [Pikachu Illustrator](https://helloworldcards.com/products/pikachu-illustrator-base-set-10-102): Base Set - 10/102. €1.200. Pikachu Illustrator, a display piece from the shop. Ask us if you want a closer look.
+- [Mewtwo GX](https://helloworldcards.com/products/mewtwo-gx-base-set-10-102): Base Set - 10/102. €79. Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder. Same listing as on Marktplaats.
+- [Eevee Promo](https://helloworldcards.com/products/eevee-promo-base-set-10-102): Base Set - 10/102. An Eevee promo with the soft art people pick up and don't put back. Message us if you want it.
 
 ## Events
 - [Utrecht Card Show](https://helloworldcards.com/agenda): 2026-09-12, Jaarbeurs, Utrecht

@@ -13,6 +13,36 @@ function toDistFile(distDir: string, pagePath: string): string {
   return path.join(distDir, pagePath.slice(1), 'index.html')
 }
 
+const EMPTY_ROOT = '<div id="root"></div>'
+
+function toHtmlImageAttrs(markup: string): string {
+  return markup.replaceAll('srcSet=', 'srcset=').replaceAll('fetchPriority=', 'fetchpriority=')
+}
+
+export function injectRootMarkup(html: string, markup: string): string {
+  if (!html.includes(EMPTY_ROOT)) {
+    throw new Error(`Prerender expected ${EMPTY_ROOT} in the HTML template`)
+  }
+
+  return html.replace(EMPTY_ROOT, `<div id="root">${toHtmlImageAttrs(markup)}</div>`)
+}
+
+export async function writePrerenderedApp(distDir: string, render: (url: string) => Promise<string>): Promise<void> {
+  const pages = [
+    ...getIndexableSeoPages().map((page) => ({
+      url: page.path,
+      filePath: toDistFile(distDir, page.path)
+    })),
+    { url: '/404', filePath: path.join(distDir, '404.html') }
+  ]
+
+  for (const page of pages) {
+    const html = fs.readFileSync(page.filePath, 'utf8')
+    const markup = await render(page.url)
+    fs.writeFileSync(page.filePath, injectRootMarkup(html, markup))
+  }
+}
+
 export function buildSitemapXml(): string {
   const urls = getIndexableSeoPages()
     .map((page) => {

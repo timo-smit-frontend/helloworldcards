@@ -5,7 +5,7 @@ import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
 import { getProductBySlug, getSimilarProducts } from '~/database/products'
-import { CONTACT_EMAIL } from '~/services/contact'
+import { CONTACT_EMAIL, MARKTPLAATS_URL } from '~/services/contact'
 
 export default function Product() {
   const { slug } = useParams()
@@ -38,6 +38,14 @@ export default function Product() {
         price={product.price != null ? String(product.price) : undefined}
         link={buyLink}
         images={product.images}
+      />
+      <ContentText
+        id="content-text-marktplaats"
+        title="We sell on Marktplaats"
+        description="Hello World Cards sells its products on Marktplaats. View our stock there through the button below."
+        image="/images/wooper.png"
+        alt=""
+        link={{ url: MARKTPLAATS_URL, title: 'Us on Marktplaats', target: '_blank' }}
       />
       <ContentProducts title="More from the shop" id={similarIds} />
     </Layout>

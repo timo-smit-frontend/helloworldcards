@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, MARKTPLAATS_URL } from '../services/contact'
+import { CONTACT_EMAIL } from '../services/contact'
 
 export type FaqPage = 'about' | 'contact'
 
@@ -14,46 +14,63 @@ const faqs: FaqItem[] = [
     id: 1,
     page: 'about',
     question: 'What is Hello World Cards?',
-    answer: 'A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, and we bring handpainted binders to events.'
+    answer:
+      'A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. There is no walk-in storefront.'
   },
   {
     id: 2,
     page: 'about',
     question: 'Who runs Hello World Cards?',
     answer:
-      'Sam and Timo, a couple of programmers who collect Pokémon. Sam collects Wooper and Quagsire and paints the binders. Timo chases Gengar and Ralts.'
+      'Sam and Timo, a couple of programmers who collect Pokémon. Sam is a backend developer who collects Wooper and Quagsire and paints the binders. Timo is a frontend developer who chases Gengar and Ralts. The name Hello World is the programmer joke.'
   },
   {
     id: 3,
     page: 'about',
-    question: 'Do you have a physical shop?',
+    question: 'Why is it called Hello World Cards?',
     answer:
-      'No walk-in storefront. We sell cards online and on Marktplaats, and in person at Pokémon events in the Netherlands and Belgium.'
+      'Because we both write software. Sam does backend, Timo does frontend. Hello World is the first thing you print when you learn to code, so it felt like the right name for a shop that is still a hobby at heart.'
   },
   {
     id: 4,
     page: 'about',
-    question: 'What do you sell?',
+    question: 'Do you have a physical shop?',
     answer:
-      "Pokémon cards, including graded cards, listed here and on Marktplaats. Sam's custom handpainted binders come with us to events."
+      'No walk-in storefront. We sell cards online and on Marktplaats, and in person when we have a stall at Pokémon events in the Netherlands and Belgium.'
   },
   {
     id: 5,
-    page: 'contact',
-    question: 'How do I buy a card?',
-    answer: `Cards are listed here and on Marktplaats (${MARKTPLAATS_URL}). If the product page has a Marktplaats link, that's the listing. If it doesn't, email us at ${CONTACT_EMAIL}. You can always email about anything.`
+    page: 'about',
+    question: 'What do you sell?',
+    answer:
+      'Pokémon cards, including graded cards. They are listed here and on Marktplaats. Sam also makes custom handpainted binders. We display those on the site so you can see them, and we sell them in person at events.'
   },
   {
     id: 6,
     page: 'contact',
-    question: 'How can I get in touch?',
-    answer: 'Email, the contact form, Instagram @helloworldcards, or our Marktplaats page.'
+    question: 'How do I buy a card?',
+    answer: `Browse the shop on this site. The same cards are listed on our Marktplaats page. If a product has a View on Marktplaats button, that is the listing. If it does not, email us at ${CONTACT_EMAIL} and we will help. You can always email about a card, even when there is a listing.`
   },
   {
     id: 7,
     page: 'contact',
+    question: 'Can I buy a binder on the website?',
+    answer:
+      'You can look at them here, but we do not sell binders through the site. Sam paints them as one-off pieces. Come to an event if you want to buy one.'
+  },
+  {
+    id: 8,
+    page: 'contact',
+    question: 'How can I get in touch?',
+    answer:
+      'Use the form on this page, email us, Instagram @helloworldcards, or our Marktplaats page. Email is the one that always works, for cards, events, binders at a stall, or anything else.'
+  },
+  {
+    id: 9,
+    page: 'contact',
     question: 'Where can I meet you in person?',
-    answer: "At the events on the agenda. We bring a stall with cards and Sam's handpainted binders."
+    answer:
+      "At the events on the agenda. We bring a stall with cards from the shop and Sam's handpainted binders. Check the dates, because we will not be at every show."
   }
 ]
 

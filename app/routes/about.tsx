@@ -11,14 +11,14 @@ export default function About() {
     <>
       <BannerFigcaption
         title="We're Sam and Timo"
-        description="We're a couple who turned a Pokémon hobby into this little shop. Cards online, events on the agenda, and a stall when we're out."
+        description="We're a couple who turned a Pokémon hobby into this little shop. You'll find cards online, the events we're heading to, and a stall when we're out."
         image={SITE_IMAGE}
         figcaption="From our little corner of the hobby."
         alt="Pokémon cards and art from the Hello World Cards shop."
       />
       <ContentAbout
         title="A hobby that turned into a little shop"
-        description="Hello World Cards is us: Sam and Timo. We never quite grew out of Pokémon, and we both write software — which is why the shop is called Hello World. We list cards here and on Marktplaats, and we write up the events we're heading to."
+        description="Hello World Cards is us: Sam and Timo. We never quite grew out of Pokémon, and we both write software, which is why the shop is called Hello World. We list cards here and on Marktplaats, and we write up the events we're heading to."
         people={[
           {
             name: 'Sam',
@@ -35,15 +35,15 @@ export default function About() {
       />
       <ContentText
         title="What we bring to a stall"
-        description="Cards from the shop, and Sam's custom handpainted binders. The binders aren't listed online — they come with us to the next event."
-        image={SITE_IMAGE}
+        description="We bring cards from the shop, and Sam's custom handpainted binders. The binders are on the site so you can see them. We only sell them in person at the next event."
+        image="/images/wooper.png"
         alt=""
         link={{ url: '/agenda', title: 'See upcoming events' }}
       />
       <ContentFaq items={getFaqsByPage('about')} />
       <ContentCta
         title="Want to get in touch?"
-        description="Questions about a card, an event, or anything else? Send us a message."
+        description="Questions about a card, an event, a binder at a stall, or anything else? Send us a message."
         image={SITE_IMAGE}
         link={{ url: '/contact', title: 'Get in touch' }}
       />

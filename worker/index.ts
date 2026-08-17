@@ -43,9 +43,9 @@ function withSecurityHeaders(response: Response): Response {
     for (const [name, value] of Object.entries(HTML_SECURITY_HEADERS)) {
       headers.set(name, value)
     }
-  }
-
-  if (response.status >= 400) {
+    // Hashed JS is deleted on deploy; cached HTML would 404 the previous bundle.
+    headers.set('Cache-Control', 'no-store')
+  } else if (response.status >= 400) {
     headers.set('Cache-Control', 'no-store')
   }
 

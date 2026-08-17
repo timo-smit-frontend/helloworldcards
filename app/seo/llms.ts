@@ -22,7 +22,7 @@ function introMarkdown(): string {
     `# ${SITE_NAME}`,
     `> ${SITE_DESCRIPTION}`,
     '',
-    `${SITE_NAME} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${MARKTPLAATS_URL}), and we bring handpainted binders to events. Email ${CONTACT_EMAIL} about a card, an event, or anything else.`
+    `${SITE_NAME} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${MARKTPLAATS_URL}), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email ${CONTACT_EMAIL} about a card, an event, or anything else.`
   ].join('\n')
 }
 

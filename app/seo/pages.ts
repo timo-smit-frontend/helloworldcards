@@ -355,7 +355,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Shop'),
-      description: 'Browse Pokémon cards listed here and on Marktplaats.',
+      description: 'Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.',
       extraGraph: [productListNode(path)]
     })
   }
@@ -364,7 +364,8 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Upcoming events'),
-      description: "We'll be at these Pokémon events. Come say hi, browse the stall, and have a look at Sam's binders.",
+      description:
+        "We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.",
       extraGraph: [eventNodes(path)]
     })
   }
@@ -373,7 +374,8 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('About'),
-      description: "We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards.",
+      description:
+        "We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.",
       webPageType: 'AboutPage',
       extraGraph: aboutNodes(path)
     })
@@ -383,7 +385,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Contact'),
-      description: 'Questions about a card, an event, or anything else? Send us a message.',
+      description: 'Questions about a card, an event, a binder at a stall, or anything else? Send us a message.',
       extraGraph: [faqPageNode(path, getFaqsByPage('contact'))]
     })
   }

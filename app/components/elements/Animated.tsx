@@ -1,4 +1,5 @@
 import { cloneElement, isValidElement, ReactElement, useRef } from 'react'
+import { useInitialDocument } from '~/hooks/initialDocument'
 import { useInView } from '~/hooks/useInView'
 import { cn } from '~/services/utils'
 
@@ -67,6 +68,7 @@ interface AnimatedProps {
   delay?: Delay
   easing?: Easing
   duration?: Duration
+  reveal?: 'scroll' | 'load'
   className?: string
 }
 
@@ -76,25 +78,30 @@ export function Animated({
   delay = 0,
   easing = 'ease-in-out',
   duration = 500,
+  reveal = 'scroll',
   children,
   className
 }: AnimatedProps) {
   const ref = useRef<HTMLElement>(null)
+  const isInitialDocument = useInitialDocument()
+  const skipHide = reveal === 'load' && isInitialDocument
   const inView = useInView(ref, {
     once: true
   })
+  const shown = skipHide || inView
 
   const animationClass = cn(
-    inView && [
-      direction === 'in' ? 'animate-in' : 'animate-out',
-      AnimationToClass[animation],
-      DelayToClass[delay],
-      EaseToClass[easing],
-      DurationToClass[duration],
-      'motion-reduce:animate-none',
-      'opacity-100'
-    ],
-    !inView && '!opacity-0'
+    shown &&
+      !skipHide && [
+        direction === 'in' ? 'animate-in' : 'animate-out',
+        AnimationToClass[animation],
+        DelayToClass[delay],
+        EaseToClass[easing],
+        DurationToClass[duration],
+        'motion-reduce:animate-none',
+        'opacity-100'
+      ],
+    !shown && '!opacity-0'
   )
 
   if (!isValidElement(children)) {
