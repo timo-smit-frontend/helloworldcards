@@ -3,7 +3,7 @@ import path from 'node:path'
 import { applySeoHead } from './app/seo/head'
 import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
 import { getIndexableSeoPages, getSeoForPath } from './app/seo/pages'
-import { SITE_URL } from './app/seo/site'
+import { canonicalUrl } from './app/seo/site'
 
 function toDistFile(distDir: string, pagePath: string): string {
   if (pagePath === '/') {
@@ -46,7 +46,7 @@ export async function writePrerenderedApp(distDir: string, render: (url: string)
 export function buildSitemapXml(): string {
   const urls = getIndexableSeoPages()
     .map((page) => {
-      const loc = page.path === '/' ? `${SITE_URL}/` : (page.canonical ?? `${SITE_URL}${page.path}`)
+      const loc = page.canonical ?? canonicalUrl(page.path)
       return `  <url>\n    <loc>${loc}</loc>\n  </url>`
     })
     .join('\n')

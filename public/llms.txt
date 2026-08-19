@@ -5,25 +5,25 @@ Hello World Cards is a small Pokémon shop run by Sam and Timo. We list cards he
 
 ## Pages
 - [Home](https://helloworldcards.com/): Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.
-- [Shop](https://helloworldcards.com/products): Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.
-- [Upcoming events](https://helloworldcards.com/agenda): We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.
-- [About](https://helloworldcards.com/about): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.
-- [Contact](https://helloworldcards.com/contact): Questions about a card, an event, a binder at a stall, or anything else? Send us a message.
+- [Shop](https://helloworldcards.com/products/): Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.
+- [Upcoming events](https://helloworldcards.com/agenda/): We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.
+- [About](https://helloworldcards.com/about/): We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.
+- [Contact](https://helloworldcards.com/contact/): Questions about a card, an event, a binder at a stall, or anything else? Send us a message.
 
 ## Products
-- [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo-2016-xy-evolutions-51-108): 2016 XY Evolutions - 51/108. €99
-- [Blastoise Holo](https://helloworldcards.com/products/blastoise-holo-base-set-reverse-holo-10-102): Base Set - Reverse Holo - 10/102. €189
-- [Venusaur Holo](https://helloworldcards.com/products/venusaur-holo-base-set-10-102): Base Set - 10/102. €159
-- [Pikachu Illustrator](https://helloworldcards.com/products/pikachu-illustrator-base-set-10-102): Base Set - 10/102. €1.200
-- [Mewtwo GX](https://helloworldcards.com/products/mewtwo-gx-base-set-10-102): Base Set - 10/102. €79
-- [Eevee Promo](https://helloworldcards.com/products/eevee-promo-base-set-10-102): Base Set - 10/102
+- [Mewtwo Reverse Holo](https://helloworldcards.com/products/mewtwo-reverse-holo-2016-xy-evolutions-51-108/): 2016 XY Evolutions - 51/108. €99
+- [Blastoise Holo](https://helloworldcards.com/products/blastoise-holo-base-set-reverse-holo-10-102/): Base Set - Reverse Holo - 10/102. €189
+- [Venusaur Holo](https://helloworldcards.com/products/venusaur-holo-base-set-10-102/): Base Set - 10/102. €159
+- [Pikachu Illustrator](https://helloworldcards.com/products/pikachu-illustrator-base-set-10-102/): Base Set - 10/102. €1.200
+- [Mewtwo GX](https://helloworldcards.com/products/mewtwo-gx-base-set-10-102/): Base Set - 10/102. €79
+- [Eevee Promo](https://helloworldcards.com/products/eevee-promo-base-set-10-102/): Base Set - 10/102
 
 ## Events
-- [Utrecht Card Show](https://helloworldcards.com/agenda): 2026-09-12, Jaarbeurs, Utrecht
-- [Pokémon Regional Championships](https://helloworldcards.com/agenda): 2026-10-03, RAI, Amsterdam
-- [Play! Pokémon League Challenge](https://helloworldcards.com/agenda): 2026-10-18, Spellenhuis, Rotterdam
-- [Belgian TCG Open](https://helloworldcards.com/agenda): 2026-11-07, Flanders Expo, Ghent
-- [Winter Collector Fair](https://helloworldcards.com/agenda): 2026-12-05, Jaarbeurs, Utrecht
+- [Utrecht Card Show](https://helloworldcards.com/agenda/): 2026-09-12, Jaarbeurs, Utrecht
+- [Pokémon Regional Championships](https://helloworldcards.com/agenda/): 2026-10-03, RAI, Amsterdam
+- [Play! Pokémon League Challenge](https://helloworldcards.com/agenda/): 2026-10-18, Spellenhuis, Rotterdam
+- [Belgian TCG Open](https://helloworldcards.com/agenda/): 2026-11-07, Flanders Expo, Ghent
+- [Winter Collector Fair](https://helloworldcards.com/agenda/): 2026-12-05, Jaarbeurs, Utrecht
 
 ## Optional
-- [Privacy statement](https://helloworldcards.com/privacy): How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.
+- [Privacy statement](https://helloworldcards.com/privacy/): How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.

@@ -3,7 +3,7 @@ import { getFaqsByPage, type FaqItem } from '../database/faq'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
 import { PRODUCT_IMAGE_SIZES, PRIORITY_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
-import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, toAbsoluteUrl } from './site'
+import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
 
 export type LcpImage = {
   src: string
@@ -25,18 +25,7 @@ export type SeoPage = {
 
 const ORGANIZATION_ID = `${SITE_URL}/#organization`
 const WEBSITE_ID = `${SITE_URL}/#website`
-
-function canonicalUrl(path: string): string {
-  return path === '/' ? SITE_URL : `${SITE_URL}${path}`
-}
-
-function normalizePath(pathname: string): string {
-  const path = pathname.split('?')[0]?.split('#')[0] ?? '/'
-  if (path.length > 1 && path.endsWith('/')) {
-    return path.slice(0, -1)
-  }
-  return path || '/'
-}
+const HOME_URL = canonicalUrl('/')
 
 function titleWithBrand(pageTitle: string): string {
   return `${pageTitle} | ${SITE_NAME}`
@@ -152,7 +141,7 @@ function productNodes(product: Product, path: string): Array<Record<string, unkn
     '@type': 'BreadcrumbList',
     '@id': `${url}#breadcrumb`,
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 1, name: 'Home', item: HOME_URL },
       { '@type': 'ListItem', position: 2, name: 'Products', item: canonicalUrl('/products') },
       { '@type': 'ListItem', position: 3, name: product.title, item: url }
     ]
@@ -250,7 +239,7 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       '@type': 'BreadcrumbList',
       '@id': `${url}#breadcrumb`,
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: HOME_URL },
         { '@type': 'ListItem', position: 2, name: 'About', item: url }
       ]
     },
@@ -403,7 +392,7 @@ export function getSeoForPath(pathname: string): SeoPage {
           '@type': 'BreadcrumbList',
           '@id': `${canonicalUrl(path)}#breadcrumb`,
           itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+            { '@type': 'ListItem', position: 1, name: 'Home', item: HOME_URL },
             { '@type': 'ListItem', position: 2, name: 'Privacy statement', item: canonicalUrl(path) }
           ]
         }

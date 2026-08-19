@@ -3,13 +3,9 @@ import { getAllFaqs } from '../database/faq'
 import { getAllProducts } from '../database/products'
 import { CONTACT_EMAIL, MARKTPLAATS_URL } from '../services/contact'
 import { getSeoForPath } from './pages'
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from './site'
+import { SITE_DESCRIPTION, SITE_NAME, canonicalUrl } from './site'
 
 const PAGE_PATHS = ['/', '/products', '/agenda', '/about', '/contact'] as const
-
-function canonicalUrl(path: string): string {
-  return path === '/' ? `${SITE_URL}/` : `${SITE_URL}${path}`
-}
 
 function pageName(path: string): string {
   if (path === '/') return 'Home'

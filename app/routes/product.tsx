@@ -19,7 +19,7 @@ export default function Product() {
           heading="h1"
           title="This product was not found"
           description="This product does not exist or has been moved."
-          link={{ url: '/products', title: 'Back to all products' }}
+          link={{ url: '/products/', title: 'Back to all products' }}
         />
       </Layout>
     )

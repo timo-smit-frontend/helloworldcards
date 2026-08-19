@@ -58,7 +58,7 @@ export default function ContentProducts({
                   <Animated delay={productDelays[index % productDelays.length]} className="flex w-full min-w-0">
                     <div className="flex w-full min-w-0 flex-1 flex-col">
                       <Link
-                        to={`/products/${product.slug}`}
+                        to={`/products/${product.slug}/`}
                         className="group flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
                         <div className="relative aspect-5/7 w-full shrink-0 overflow-hidden">

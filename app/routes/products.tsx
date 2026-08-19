@@ -13,7 +13,7 @@ export default function Products() {
         title="Looking for a binder?"
         description="Sam's handpainted binders are on the site so you can see them, but they are not for sale here. They are one-off pieces we sell in person at events."
         image={SITE_IMAGE}
-        link={{ url: '/agenda', title: 'See upcoming events' }}
+        link={{ url: '/agenda/', title: 'See upcoming events' }}
       />
     </>
   )

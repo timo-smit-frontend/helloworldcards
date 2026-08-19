@@ -40,14 +40,14 @@ export default function About() {
         description="We bring cards from the shop, and Sam's custom handpainted binders. The binders are on the site so you can see them. We only sell them in person at the next event."
         image="/images/wooper.png"
         alt=""
-        link={{ url: '/agenda', title: 'See upcoming events' }}
+        link={{ url: '/agenda/', title: 'See upcoming events' }}
       />
       <ContentFaq items={getFaqsByPage('about')} />
       <ContentCta
         title="Want to get in touch?"
         description="Questions about a card, an event, a binder at a stall, or anything else? Send us a message."
         image={SITE_IMAGE}
-        link={{ url: '/contact', title: 'Get in touch' }}
+        link={{ url: '/contact/', title: 'Get in touch' }}
       />
     </>
   )

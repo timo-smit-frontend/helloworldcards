@@ -24,7 +24,7 @@ function crumbsFromPath(pathname: string): BreadcrumbItem[] {
 
   segments.forEach((segment, index) => {
     const isLast = index === segments.length - 1
-    const url = `/${segments.slice(0, index + 1).join('/')}`
+    const url = `/${segments.slice(0, index + 1).join('/')}/`
     let title = PAGE_TITLES[segment]
 
     if (!title && segments[0] === 'products' && index === 1) {

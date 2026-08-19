@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router'
 import Logo from '~/components/elements/Logo'
+import { isCurrentPath } from '~/seo/site'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '~/services/contact'
 
 const FOOTER_MENU = [
-  { title: 'Products', to: '/products' },
-  { title: 'Agenda', to: '/agenda' },
-  { title: 'About', to: '/about' },
-  { title: 'Contact', to: '/contact' }
+  { title: 'Products', to: '/products/' },
+  { title: 'Agenda', to: '/agenda/' },
+  { title: 'About', to: '/about/' },
+  { title: 'Contact', to: '/contact/' }
 ]
 
 export default function Footer() {
@@ -29,7 +30,7 @@ export default function Footer() {
                     <Link
                       to={item.to}
                       className="transition-colors hover:text-site-envy hover:underline"
-                      aria-current={location.pathname === item.to ? 'page' : undefined}
+                      aria-current={isCurrentPath(location.pathname, item.to) ? 'page' : undefined}
                     >
                       {item.title}
                     </Link>
@@ -125,9 +126,9 @@ export default function Footer() {
         <div className="mt-16 flex flex-col gap-4 border-t border-site-mulled-wine pt-10 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All cards reserved.</p>
           <Link
-            to="/privacy"
+            to="/privacy/"
             className="w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy hover:underline"
-            aria-current={location.pathname === '/privacy' ? 'page' : undefined}
+            aria-current={isCurrentPath(location.pathname, '/privacy/') ? 'page' : undefined}
           >
             Privacy statement
           </Link>

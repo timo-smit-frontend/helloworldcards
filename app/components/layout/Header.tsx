@@ -3,16 +3,16 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import Logo from '~/components/elements/Logo'
-import { SITE_NAME } from '~/seo/site'
+import { SITE_NAME, isCurrentPath } from '~/seo/site'
 import { cn } from '~/services/utils'
 
-const PRODUCTS_URL = '/products'
+const PRODUCTS_URL = '/products/'
 const PRODUCTS_TITLE = 'Products'
-const AGENDA_URL = '/agenda'
+const AGENDA_URL = '/agenda/'
 const AGENDA_TITLE = 'Agenda'
-const ABOUT_URL = '/about'
+const ABOUT_URL = '/about/'
 const ABOUT_TITLE = 'About'
-const CONTACT_URL = '/contact'
+const CONTACT_URL = '/contact/'
 const CONTACT_TITLE = 'Contact us'
 const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-summer-green'
 
@@ -63,7 +63,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
               <Link
                 to={PRODUCTS_URL}
                 className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={pathname === PRODUCTS_URL ? 'page' : undefined}
+                aria-current={isCurrentPath(pathname, PRODUCTS_URL) ? 'page' : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {PRODUCTS_TITLE}
@@ -71,7 +71,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
               <Link
                 to={AGENDA_URL}
                 className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={pathname === AGENDA_URL ? 'page' : undefined}
+                aria-current={isCurrentPath(pathname, AGENDA_URL) ? 'page' : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {AGENDA_TITLE}
@@ -79,7 +79,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
               <Link
                 to={ABOUT_URL}
                 className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={pathname === ABOUT_URL ? 'page' : undefined}
+                aria-current={isCurrentPath(pathname, ABOUT_URL) ? 'page' : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {ABOUT_TITLE}
@@ -87,7 +87,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
               <Link
                 to={CONTACT_URL}
                 className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={pathname === CONTACT_URL ? 'page' : undefined}
+                aria-current={isCurrentPath(pathname, CONTACT_URL) ? 'page' : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {CONTACT_TITLE}
@@ -135,16 +135,28 @@ export default function Header() {
 
           <div className="flex items-center gap-3 lg:gap-12">
             <nav aria-label="Primary" className="hidden items-center gap-12 lg:flex">
-              <Link to={PRODUCTS_URL} className={navLinkClass} aria-current={location.pathname === PRODUCTS_URL ? 'page' : undefined}>
+              <Link
+                to={PRODUCTS_URL}
+                className={navLinkClass}
+                aria-current={isCurrentPath(location.pathname, PRODUCTS_URL) ? 'page' : undefined}
+              >
                 {PRODUCTS_TITLE}
               </Link>
-              <Link to={AGENDA_URL} className={navLinkClass} aria-current={location.pathname === AGENDA_URL ? 'page' : undefined}>
+              <Link
+                to={AGENDA_URL}
+                className={navLinkClass}
+                aria-current={isCurrentPath(location.pathname, AGENDA_URL) ? 'page' : undefined}
+              >
                 {AGENDA_TITLE}
               </Link>
-              <Link to={ABOUT_URL} className={navLinkClass} aria-current={location.pathname === ABOUT_URL ? 'page' : undefined}>
+              <Link to={ABOUT_URL} className={navLinkClass} aria-current={isCurrentPath(location.pathname, ABOUT_URL) ? 'page' : undefined}>
                 {ABOUT_TITLE}
               </Link>
-              <Link to={CONTACT_URL} className={navLinkClass} aria-current={location.pathname === CONTACT_URL ? 'page' : undefined}>
+              <Link
+                to={CONTACT_URL}
+                className={navLinkClass}
+                aria-current={isCurrentPath(location.pathname, CONTACT_URL) ? 'page' : undefined}
+              >
                 Contact
               </Link>
             </nav>

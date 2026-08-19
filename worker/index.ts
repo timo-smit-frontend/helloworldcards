@@ -18,11 +18,11 @@ const HTML_SECURITY_HEADERS: Record<string, string> = {
     "frame-ancestors 'none'",
     "object-src 'none'",
     'upgrade-insecure-requests',
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://scripts.clarity.ms https://www.clarity.ms",
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://scripts.clarity.ms https://www.clarity.ms https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://raw.githubusercontent.com https://www.googletagmanager.com https://*.googletagmanager.com https://*.google-analytics.com https://*.clarity.ms https://c.bing.com",
     "font-src 'self'",
-    "connect-src 'self' https://formsubmit.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.clarity.ms https://c.bing.com",
+    "connect-src 'self' https://formsubmit.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.clarity.ms https://c.bing.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
     'frame-src https://www.googletagmanager.com https://td.doubleclick.net',
     "worker-src 'self' blob:"
   ].join('; ')
@@ -56,7 +56,7 @@ function withSecurityHeaders(response: Response): Response {
   })
 }
 
-function canonicalUrl(request: Request): URL | null {
+function canonicalRequestUrl(request: Request): URL | null {
   const url = new URL(request.url)
   let changed = false
 
@@ -70,7 +70,35 @@ function canonicalUrl(request: Request): URL | null {
     changed = true
   }
 
+  const canSlash =
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    url.pathname !== '/' &&
+    !url.pathname.endsWith('/') &&
+    !FILE_EXTENSION.test(url.pathname)
+
+  if (canSlash) {
+    url.pathname = `${url.pathname}/`
+    changed = true
+  }
+
   return changed ? url : null
+}
+
+function redirectPermanently(url: URL): Response {
+  return withSecurityHeaders(Response.redirect(url.href, 301))
+}
+
+function asPermanentRedirect(response: Response, request: Request): Response {
+  if (response.status !== 307 && response.status !== 308) {
+    return withSecurityHeaders(response)
+  }
+
+  const location = response.headers.get('Location')
+  if (!location) {
+    return withSecurityHeaders(response)
+  }
+
+  return redirectPermanently(new URL(location, request.url))
 }
 
 function shouldServeSpaFallback(request: Request, pathname: string): boolean {
@@ -87,16 +115,16 @@ function shouldServeSpaFallback(request: Request, pathname: string): boolean {
 
 export default {
   async fetch(request, env): Promise<Response> {
-    const redirectTo = canonicalUrl(request)
+    const redirectTo = canonicalRequestUrl(request)
     if (redirectTo) {
-      return Response.redirect(redirectTo.href, 301)
+      return redirectPermanently(redirectTo)
     }
 
     const url = new URL(request.url)
     const asset = await env.ASSETS.fetch(request)
 
     if (asset.status !== 404) {
-      return withSecurityHeaders(asset)
+      return asPermanentRedirect(asset, request)
     }
 
     if (!shouldServeSpaFallback(request, url.pathname)) {
