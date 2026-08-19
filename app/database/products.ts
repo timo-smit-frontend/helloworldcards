@@ -6,12 +6,13 @@ export type Product = {
   subtitle: string
   description: string
   images: string[]
+  pokemonId?: number
   price?: string | number
   marktplaatsUrl?: string
   slug: string
 }
 
-type ProductRecord = Omit<Product, 'slug'>
+type ProductRecord = Omit<Product, 'slug' | 'images'> & { images?: string[] }
 
 const products: ProductRecord[] = [
   {
@@ -29,7 +30,7 @@ const products: ProductRecord[] = [
     subtitle: 'Base Set - Reverse Holo - 10/102',
     description:
       'A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder. Listed here and on Marktplaats.',
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
+    pokemonId: 9,
     price: '€189'
   },
   {
@@ -37,7 +38,7 @@ const products: ProductRecord[] = [
     title: 'Venusaur Holo',
     subtitle: 'Base Set - 10/102',
     description: 'Holo Venusaur from Base Set. A grass-type staple with the original full-art energy, listed here and on Marktplaats.',
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
+    pokemonId: 3,
     price: '€159'
   },
   {
@@ -45,7 +46,7 @@ const products: ProductRecord[] = [
     title: 'Pikachu Illustrator',
     subtitle: 'Base Set - 10/102',
     description: 'Pikachu Illustrator, a display piece from the shop. Ask us if you want a closer look.',
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
+    pokemonId: 25,
     price: '€1.200'
   },
   {
@@ -53,15 +54,29 @@ const products: ProductRecord[] = [
     title: 'Mewtwo GX',
     subtitle: 'Base Set - 10/102',
     description: 'Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder. Same listing as on Marktplaats.',
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png'],
+    pokemonId: 150,
     price: '€79'
   },
   {
     id: 6,
     title: 'Eevee Promo',
     subtitle: 'Base Set - 10/102',
-    description: "An Eevee promo with the soft art people pick up and don't put back. Message us if you want it.",
-    images: ['/images/pokemon-card-front.png', '/images/pokemon-card-back.png']
+    description: "An Eevee promo with the soft art people pick up and don't put back.",
+    pokemonId: 133
+  },
+  {
+    id: 7,
+    title: 'Psyduck Binder',
+    subtitle: 'Custom handpainted',
+    description: 'A custom handpainted binder for Psyduck.',
+    pokemonId: 54
+  },
+  {
+    id: 8,
+    title: 'Slowpoke Binder',
+    subtitle: 'Custom handpainted',
+    description: 'A custom handpainted binder for Slowpoke.',
+    pokemonId: 79
   }
 ]
 
@@ -76,7 +91,7 @@ function productSlug(product: ProductRecord): string {
 }
 
 function withSlug(product: ProductRecord): Product {
-  return { ...product, slug: productSlug(product) }
+  return { ...product, images: product.images ?? [], slug: productSlug(product) }
 }
 
 export function getAllProducts(): Product[] {

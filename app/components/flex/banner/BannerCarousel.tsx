@@ -5,6 +5,7 @@ import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
 import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
+import Pokemon from '~/components/elements/Pokemon'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
 
@@ -14,6 +15,7 @@ export default function BannerCarousel({
   price,
   description,
   images,
+  pokemonId,
   link
 }: {
   title?: string
@@ -21,10 +23,12 @@ export default function BannerCarousel({
   price?: string
   description?: string
   images?: string[]
+  pokemonId?: number
   link?: { url?: string; target?: string; title?: string }
 }) {
   const { ref, isFirst } = useLocationFinder()
   const slides = images?.filter(Boolean) ?? []
+  const alt = title ?? 'Banner'
 
   return (
     <section id="banner-carousel" ref={ref} className="lg:my-16 mt-12">
@@ -33,13 +37,11 @@ export default function BannerCarousel({
           {(title || subtitle || description || price || link) && (
             <div className="flex flex-col gap-8 lg:h-full lg:gap-0">
               {isFirst && <Breadcrumbs />}
-              {slides.length > 0 && (
-                <Animated delay={100}>
-                  <div className="w-full shrink-0 lg:hidden">
-                    <BannerSlider images={slides} alt={title ?? 'Banner'} />
-                  </div>
-                </Animated>
-              )}
+              <Animated delay={100}>
+                <div className="w-full shrink-0 lg:hidden">
+                  <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
+                </div>
+              </Animated>
               <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
                 {(title || subtitle || description || price) && (
                   <div className="flex flex-col gap-2 lg:gap-4">
@@ -81,17 +83,23 @@ export default function BannerCarousel({
               </div>
             </div>
           )}
-          {slides.length > 0 && (
-            <Animated delay={400}>
-              <div className="max-lg:hidden">
-                <BannerSlider images={slides} alt={title ?? 'Banner'} />
-              </div>
-            </Animated>
-          )}
+          <Animated delay={400}>
+            <div className="max-lg:hidden">
+              <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
+            </div>
+          </Animated>
         </div>
       </div>
     </section>
   )
+}
+
+function BannerMedia({ images, pokemonId, alt }: { images: string[]; pokemonId?: number; alt: string }) {
+  if (images.length === 0) {
+    return <Pokemon variant="placeholder" id={pokemonId} className="h-100 w-full lg:h-120" />
+  }
+
+  return <BannerSlider images={images} alt={alt} />
 }
 
 const reduceMotionQuery = '(prefers-reduced-motion: reduce)'
@@ -131,7 +139,7 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
         key={canAutoplay ? 'autoplay' : 'static'}
         plugins={canAutoplay ? [autoplay] : undefined}
         aria-label={alt}
-        className="flex flex-col overflow-hidden rounded-panel bg-site-gunmetal"
+        className="flex flex-col overflow-hidden rounded-panel bg-site-mid"
       >
         <CarouselContent>
           {images.map((src, index) => (

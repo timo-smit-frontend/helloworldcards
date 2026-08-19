@@ -24,7 +24,7 @@ export default function Home() {
       <ContentProducts
         title="Our newest products"
         description="A few cards from the shop. What you see here is the same stock we list on Marktplaats."
-        id={[1, 2, 3, 4]}
+        id={[1, 7, 2, 8]}
       />
       <ContentText
         id="content-text-stall"

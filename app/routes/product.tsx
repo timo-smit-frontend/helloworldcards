@@ -38,6 +38,7 @@ export default function Product() {
         price={product.price != null ? String(product.price) : undefined}
         link={buyLink}
         images={product.images}
+        pokemonId={product.pokemonId}
       />
       <ContentText
         id="content-text-marktplaats"

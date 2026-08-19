@@ -120,7 +120,7 @@ function productNodes(product: Product, path: string): Array<Record<string, unkn
     '@id': `${url}#product`,
     name: product.title,
     description: product.description || product.subtitle,
-    image: product.images,
+    image: product.images.length > 0 ? product.images : toAbsoluteUrl(SITE_IMAGE),
     brand: { '@type': 'Brand', name: SITE_NAME },
     category: 'Pokémon Trading Card Game',
     url

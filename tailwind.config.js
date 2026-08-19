@@ -17,6 +17,7 @@ export default {
       colors: {
         'site-mirage': '#1A1C28',
         'site-dark': '#1C2030',
+        'site-mid': '#232839',
         'site-gunmetal': '#2A2F42',
         'site-mulled-wine': '#4A5168',
         'site-envy': '#84A38C',

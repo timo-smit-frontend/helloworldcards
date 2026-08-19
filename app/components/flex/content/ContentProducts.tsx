@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
+import Pokemon from '~/components/elements/Pokemon'
 import { getAllProducts, getProductsByIds } from '~/database/products'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
@@ -61,28 +62,32 @@ export default function ContentProducts({
                         to={`/products/${product.slug}/`}
                         className="group flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
-                        <div className="relative aspect-5/7 w-full shrink-0 overflow-hidden">
-                          {product.images[0] && (
-                            <Image
-                              src={product.images[0]}
-                              alt=""
-                              width={800}
-                              height={1120}
-                              aria-hidden
-                              maxwidth={1000}
-                              className={`absolute inset-0 size-full object-contain p-5 ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
-                            />
-                          )}
-                          {product.images[1] && (
-                            <Image
-                              src={product.images[1]}
-                              alt=""
-                              width={800}
-                              height={1120}
-                              aria-hidden
-                              className="absolute inset-0 size-full object-contain p-5 opacity-0 smooth group-hover:opacity-100"
-                              maxwidth={1000}
-                            />
+                        <div className="relative aspect-5/7 w-full shrink-0 overflow-hidden bg-site-mid">
+                          {product.images[0] ? (
+                            <>
+                              <Image
+                                src={product.images[0]}
+                                alt=""
+                                width={800}
+                                height={1120}
+                                aria-hidden
+                                maxwidth={1000}
+                                className={`absolute inset-0 size-full object-contain p-5 ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
+                              />
+                              {product.images[1] && (
+                                <Image
+                                  src={product.images[1]}
+                                  alt=""
+                                  width={800}
+                                  height={1120}
+                                  aria-hidden
+                                  className="absolute inset-0 size-full object-contain p-5 opacity-0 smooth group-hover:opacity-100"
+                                  maxwidth={1000}
+                                />
+                              )}
+                            </>
+                          ) : (
+                            <Pokemon variant="placeholder" id={product.pokemonId} className="absolute inset-0 size-full" />
                           )}
                         </div>
                         <div className="flex flex-col gap-1 border-t border-site-mulled-wine px-4 py-3">
