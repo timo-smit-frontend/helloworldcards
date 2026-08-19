@@ -34,6 +34,7 @@ export default function ContentAgenda({
   const ids = normalizeIds(id)
   const events = ids ? getEventsByIds(ids) : getUpcomingEvents()
   const Heading = ids ? 'h2' : 'h1'
+  const EventHeading = ids ? 'h3' : 'h2'
 
   return (
     <section id="content-agenda" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
@@ -68,7 +69,7 @@ export default function ContentAgenda({
                       <time dateTime={event.date} className="title-xs text-site-summer-green">
                         {formatEventDate(event.date)}
                       </time>
-                      <h3 className="title-xs">{event.title}</h3>
+                      <EventHeading className="title-xs">{event.title}</EventHeading>
                       <p className="content-m text-site-mantle md:text-right">{event.location}</p>
                     </article>
                   </Animated>
