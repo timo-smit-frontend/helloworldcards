@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
-import BannerImage from '~/components/flex/banner/BannerImage'
+import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
@@ -31,7 +31,7 @@ export default function Product() {
 
   return (
     <Layout>
-      <BannerImage
+      <BannerCarousel
         title={product.title.length >= 20 ? product.title : `${product.title} Pokémon card`}
         subtitle={product.subtitle}
         description={product.description}
@@ -45,7 +45,7 @@ export default function Product() {
         description="Hello World Cards sells its products on Marktplaats. View our stock there through the button below."
         image="/images/wooper.png"
         alt=""
-        link={{ url: MARKTPLAATS_URL, title: 'Us on Marktplaats', target: '_blank' }}
+        link={{ url: MARKTPLAATS_URL, title: 'Visit us on Marktplaats', target: '_blank' }}
       />
       <ContentProducts title="More from the shop" id={similarIds} />
     </Layout>

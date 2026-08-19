@@ -13,7 +13,7 @@ export default function ContentFaq({ title = 'Questions people ask', items }: { 
   return (
     <section id="content-faq" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
-        <div className="flex max-w-4xl flex-col gap-10 lg:gap-12">
+        <div className="flex lg:max-w-4xl flex-col gap-10 lg:gap-12 lg:mx-auto">
           <Animated delay={100}>
             <h2 className="title-l">{title}</h2>
           </Animated>

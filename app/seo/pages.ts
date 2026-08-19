@@ -232,7 +232,7 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       name: 'Sam',
       jobTitle: 'Co-founder',
       description:
-        'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.',
+        'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Snorlax too: same sleepy energy as Sam. Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.',
       url,
       worksFor: { '@id': ORGANIZATION_ID }
     },
@@ -242,7 +242,7 @@ function aboutNodes(path: string): Array<Record<string, unknown>> {
       name: 'Timo',
       jobTitle: 'Co-founder',
       description:
-        'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs: Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should.',
+        'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs are a forever chase. Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should. A Gengar or Ralts full art almost never gets walked past at a table. Timo also builds this shop, from the listings to the site itself.',
       url,
       worksFor: { '@id': ORGANIZATION_ID }
     },

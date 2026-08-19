@@ -8,7 +8,7 @@ import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
 
-export default function BannerImage({
+export default function BannerCarousel({
   title,
   subtitle,
   price,
@@ -27,11 +27,11 @@ export default function BannerImage({
   const slides = images?.filter(Boolean) ?? []
 
   return (
-    <section id="banner-image" ref={ref} className="lg:my-16 mt-12">
+    <section id="banner-carousel" ref={ref} className="lg:my-16 mt-12">
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
           {(title || subtitle || description || price || link) && (
-            <div className="flex flex-col gap-8 lg:h-full lg:gap-0 lg:py-20">
+            <div className="flex flex-col gap-8 lg:h-full lg:gap-0">
               {isFirst && <Breadcrumbs />}
               {slides.length > 0 && (
                 <Animated delay={100}>

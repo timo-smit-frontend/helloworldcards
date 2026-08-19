@@ -17,20 +17,32 @@ const CONTACT_TITLE = 'Contact us'
 const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-summer-green'
 
 function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenChange: (open: boolean) => void; pathname: string }) {
+  const [iconOpen, setIconOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setIconOpen(false)
+      return
+    }
+
+    const frame = requestAnimationFrame(() => setIconOpen(true))
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+
   return (
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <SheetPrimitive.Trigger
-        className="relative z-10 inline-flex size-11 items-center justify-center text-site-gray-nurse xl:hidden"
+        className="relative z-10 inline-flex size-11 items-center justify-center text-site-gray-nurse lg:hidden"
         aria-label={open ? 'Close menu' : 'Open menu'}
       >
-        <BurgerMenu className="cursor-pointer" open={open} />
+        <BurgerMenu className="cursor-pointer" open={false} />
       </SheetPrimitive.Trigger>
       <SheetPrimitive.Portal>
-        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" />
+        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-200 data-[state=open]:duration-300" />
         <SheetPrimitive.Content
           aria-modal="true"
           onCloseAutoFocus={(event) => event.preventDefault()}
-          className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-gray-nurse shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top"
+          className="fixed inset-0 z-50 flex h-full flex-col bg-site-gunmetal text-site-gray-nurse shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-200 data-[state=open]:duration-300"
         >
           <SheetPrimitive.Title className="sr-only">Menu</SheetPrimitive.Title>
           <SheetPrimitive.Description className="sr-only">Site navigation</SheetPrimitive.Description>
@@ -44,7 +56,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
                 className="inline-flex size-11 items-center justify-center text-site-gray-nurse"
                 aria-label="Close menu"
               >
-                <BurgerMenu className="cursor-pointer" open />
+                <BurgerMenu className="cursor-pointer" open={iconOpen} />
               </SheetPrimitive.Close>
             </div>
             <nav aria-label="Primary" className="flex flex-col gap-6 py-10 sm:gap-8">
@@ -110,9 +122,9 @@ export default function Header() {
     <header
       className={cn(
         'smooth sticky top-0 z-50 border-b border-site-mulled-wine bg-site-dark/90 text-site-gray-nurse backdrop-blur-md',
-        isSticky && !menuOpen && 'shadow-sm',
-        menuOpen && 'invisible pointer-events-none'
+        isSticky && !menuOpen && 'shadow-sm'
       )}
+      aria-hidden={menuOpen ? true : undefined}
     >
       <div className="container-full">
         <div className="flex items-center justify-between py-2">
@@ -121,8 +133,8 @@ export default function Header() {
             <Logo className="h-20 w-auto" />
           </Link>
 
-          <div className="flex items-center gap-3 xl:gap-12">
-            <nav aria-label="Primary" className="hidden items-center gap-12 xl:flex">
+          <div className="flex items-center gap-3 lg:gap-12">
+            <nav aria-label="Primary" className="hidden items-center gap-12 lg:flex">
               <Link to={PRODUCTS_URL} className={navLinkClass} aria-current={location.pathname === PRODUCTS_URL ? 'page' : undefined}>
                 {PRODUCTS_TITLE}
               </Link>

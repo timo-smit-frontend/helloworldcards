@@ -27,7 +27,7 @@ export default function ContentCta({
             <Breadcrumbs />
           </div>
         )}
-        <div className="grid items-center overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine sm:grid-cols-2 lg:gap-16 gap-10">
+        <div className="grid items-center overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine lg:grid-cols-2 lg:gap-16">
           {(title || description || link) && (
             <div className={cn('flex flex-col gap-4 px-6 py-10 sm:px-8 lg:gap-8 lg:px-12 lg:py-16', !image && 'items-center text-center')}>
               {(title || description) && (

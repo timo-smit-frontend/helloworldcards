@@ -13,7 +13,7 @@ export default function About() {
         title="Hello, we're Sam and Timo"
         description="We're a couple who turned a Pokémon hobby into this little shop. You'll find cards online, the events we're heading to, and a stall when we're out."
         image={SITE_IMAGE}
-        figcaption="From our little corner of the hobby."
+        figcaption="This is us in our natural habitat."
         alt="Pokémon cards and art from the Hello World Cards shop."
       />
       <ContentAbout
@@ -22,13 +22,15 @@ export default function About() {
         people={[
           {
             name: 'Sam',
+            pokemonIds: [194, 195, 143, 151, 54, 79],
             description:
-              'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.'
+              'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Snorlax too: same sleepy energy as Sam. Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.'
           },
           {
             name: 'Timo',
+            pokemonIds: [94, 280, 186, 330, 285, 150],
             description:
-              'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs: Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should.'
+              'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs are a forever chase. Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should. A Gengar or Ralts full art almost never gets walked past at a table. Timo also builds this shop, from the listings to the site itself.'
           }
         ]}
         peopleCaption="Two nerds who never quite outgrew Pokémon."
