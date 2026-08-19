@@ -16,6 +16,33 @@ const CONTACT_URL = '/contact/'
 const CONTACT_TITLE = 'Contact us'
 const navLinkClass =
   'text-lg font-semibold transition-colors hover:text-site-summer-green hover:underline aria-[current=page]:text-site-summer-green'
+const mobileNavLinkClass =
+  'mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl'
+
+function MobileNavLink({
+  to,
+  pathname,
+  onNavigate,
+  children
+}: {
+  to: string
+  pathname: string
+  onNavigate: () => void
+  children: string
+}) {
+  const current = isCurrentPath(pathname, to)
+
+  return (
+    <Link
+      to={to}
+      className={cn(mobileNavLinkClass, current && 'text-site-envy')}
+      aria-current={current ? 'page' : undefined}
+      onClick={onNavigate}
+    >
+      {children}
+    </Link>
+  )
+}
 
 function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenChange: (open: boolean) => void; pathname: string }) {
   const [iconOpen, setIconOpen] = useState(false)
@@ -61,38 +88,18 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
               </SheetPrimitive.Close>
             </div>
             <nav aria-label="Primary" className="flex flex-col gap-6 py-10 sm:gap-8">
-              <Link
-                to={PRODUCTS_URL}
-                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={isCurrentPath(pathname, PRODUCTS_URL) ? 'page' : undefined}
-                onClick={() => onOpenChange(false)}
-              >
+              <MobileNavLink to={PRODUCTS_URL} pathname={pathname} onNavigate={() => onOpenChange(false)}>
                 {PRODUCTS_TITLE}
-              </Link>
-              <Link
-                to={AGENDA_URL}
-                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={isCurrentPath(pathname, AGENDA_URL) ? 'page' : undefined}
-                onClick={() => onOpenChange(false)}
-              >
+              </MobileNavLink>
+              <MobileNavLink to={AGENDA_URL} pathname={pathname} onNavigate={() => onOpenChange(false)}>
                 {AGENDA_TITLE}
-              </Link>
-              <Link
-                to={ABOUT_URL}
-                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={isCurrentPath(pathname, ABOUT_URL) ? 'page' : undefined}
-                onClick={() => onOpenChange(false)}
-              >
+              </MobileNavLink>
+              <MobileNavLink to={ABOUT_URL} pathname={pathname} onNavigate={() => onOpenChange(false)}>
                 {ABOUT_TITLE}
-              </Link>
-              <Link
-                to={CONTACT_URL}
-                className="mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl"
-                aria-current={isCurrentPath(pathname, CONTACT_URL) ? 'page' : undefined}
-                onClick={() => onOpenChange(false)}
-              >
+              </MobileNavLink>
+              <MobileNavLink to={CONTACT_URL} pathname={pathname} onNavigate={() => onOpenChange(false)}>
                 {CONTACT_TITLE}
-              </Link>
+              </MobileNavLink>
             </nav>
           </div>
         </SheetPrimitive.Content>

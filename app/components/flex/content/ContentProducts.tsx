@@ -62,7 +62,7 @@ export default function ContentProducts({
                         to={`/products/${product.slug}/`}
                         className="group flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
                       >
-                        <div className="relative aspect-5/7 w-full shrink-0 overflow-hidden bg-site-mid">
+                        <div className="relative sm:aspect-5/7 aspect-square w-full shrink-0 overflow-hidden bg-site-mid">
                           {product.images[0] ? (
                             <>
                               <Image

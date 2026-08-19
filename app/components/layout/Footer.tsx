@@ -24,7 +24,7 @@ export default function Footer() {
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(150px,211px)_minmax(200px,320px)_auto] lg:gap-8 xl:gap-16">
             <nav aria-label="Footer menu" className="hidden lg:block">
               <h2 className="text-lg font-bold leading-7">Menu</h2>
-              <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
+              <ul className="mt-4 flex flex-col sm:gap-2 gap-6 text-base font-medium leading-7">
                 {FOOTER_MENU.map((item) => (
                   <li key={item.to} className="min-w-60">
                     <Link
@@ -41,7 +41,7 @@ export default function Footer() {
 
             <div className="min-w-60">
               <h2 className="text-lg font-bold leading-7">Contact</h2>
-              <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
+              <ul className="mt-4 flex flex-col sm:gap-2 gap-6 text-base font-medium leading-7">
                 <li>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
@@ -68,7 +68,7 @@ export default function Footer() {
 
             <div className="min-w-60">
               <h2 className="text-lg font-bold leading-7">Follow us</h2>
-              <ul className="mt-4 flex flex-col gap-2 text-base font-medium leading-7">
+              <ul className="mt-4 flex flex-col sm:gap-2 gap-6 text-base font-medium leading-7">
                 <li>
                   <a
                     href={INSTAGRAM_URL}

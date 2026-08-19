@@ -64,12 +64,12 @@ export default function ContentAgenda({
               {events.map((event, index) => (
                 <li key={event.id}>
                   <Animated delay={eventDelays[index % eventDelays.length]}>
-                    <article className="grid gap-1 py-6 sm:grid-cols-[10rem_1fr_1fr] sm:items-baseline sm:gap-8">
+                    <article className="grid gap-2 py-6 md:grid-cols-[10rem_1fr_1fr] md:items-baseline md:gap-8 sm:gap-3">
                       <time dateTime={event.date} className="title-xs text-site-summer-green">
                         {formatEventDate(event.date)}
                       </time>
                       <h3 className="title-xs">{event.title}</h3>
-                      <p className="content-m text-site-mantle sm:text-right">{event.location}</p>
+                      <p className="content-m text-site-mantle md:text-right">{event.location}</p>
                     </article>
                   </Animated>
                 </li>

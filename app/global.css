@@ -116,7 +116,7 @@
 }
 
 @utility mobile-menu-hover {
-  @apply relative text-site-gray-nurse transition-all duration-300 ease-out;
+  @apply relative transition-all duration-300 ease-out;
 
   &::after {
     content: '';
@@ -129,10 +129,6 @@
     &::after {
       @apply w-full;
     }
-  }
-
-  &[aria-current='page'] {
-    @apply text-site-envy;
   }
 }
 
