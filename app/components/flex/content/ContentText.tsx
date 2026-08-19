@@ -102,7 +102,10 @@ export default function ContentText({
                   alt={alt}
                   width={1280}
                   height={960}
-                  className={cn('h-auto w-full object-contain max-h-100', !hasSections && 'lg:absolute lg:inset-0 lg:h-full lg:w-full')}
+                  className={cn(
+                    'h-auto w-full object-contain max-h-100',
+                    !hasSections && 'lg:absolute lg:inset-0 lg:left-0 lg:right-0 lg:mx-auto lg:h-full lg:w-auto'
+                  )}
                 />
               </div>
             </Animated>
