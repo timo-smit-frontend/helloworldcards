@@ -2,6 +2,7 @@ import { getUpcomingEvents } from '../database/events'
 import { getFaqsByPage, type FaqItem } from '../database/faq'
 import { getAllProducts, getProductBySlug, type Product } from '../database/products'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
+import { SITE_IMAGE_ALT, imageAltFor } from '../services/imageCopy'
 import { PRODUCT_IMAGE_SIZES, PRIORITY_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
 import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
 
@@ -16,6 +17,7 @@ export type SeoPage = {
   title: string
   description: string
   image: string
+  imageAlt: string
   type: 'website' | 'product'
   robots: string
   canonical: string | null
@@ -252,6 +254,7 @@ function page({
   title,
   description,
   image = SITE_IMAGE,
+  imageAlt = SITE_IMAGE_ALT,
   type = 'website',
   robots = 'index, follow',
   extraGraph = [],
@@ -263,6 +266,7 @@ function page({
   title: string
   description: string
   image?: string
+  imageAlt?: string
   type?: 'website' | 'product'
   robots?: string
   extraGraph?: Array<Record<string, unknown>>
@@ -275,6 +279,7 @@ function page({
     title,
     description,
     image: toAbsoluteUrl(image),
+    imageAlt,
     type,
     robots,
     canonical: robots.includes('noindex') ? null : canonicalUrl(path),
@@ -310,6 +315,7 @@ function productPage(product: Product): SeoPage {
     title: titleWithBrand(product.title),
     description,
     image: product.images[0] ?? SITE_IMAGE,
+    imageAlt: imageAltFor(product.images[0] ?? SITE_IMAGE) ?? product.title,
     type: 'product',
     extraGraph: productNodes(product, path),
     lcp:

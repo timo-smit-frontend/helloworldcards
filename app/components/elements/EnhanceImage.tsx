@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { type Dispatch, type SetStateAction } from 'react'
 import Image from '~/components/elements/Image'
+import { imageAltFor } from '~/services/imageCopy'
 
 export type EnhanceImageController = {
   toggler: boolean
@@ -47,7 +48,7 @@ export default function EnhanceImage({
               <Image
                 className="h-auto max-h-[calc(100svh-11rem)] w-auto max-w-full min-w-min cursor-default object-contain"
                 src={src}
-                alt={alt}
+                alt={imageAltFor(src) ?? alt}
                 width={900}
                 height={1500}
                 sizes="(min-width: 1024px) 70vh, 100vw"

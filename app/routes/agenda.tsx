@@ -14,7 +14,6 @@ export default function Agenda() {
         title="What you'll find at the stall"
         description="We bring cards from the shop and Sam's custom handpainted binders. You can look at the binders on this site, but we only sell them in person. Cards are listed here and on Marktplaats if you want to browse before you come. If you have a question before an event, email is always fine."
         image="/images/wooper.png"
-        alt=""
         link={{ url: '/products/', title: 'See our products' }}
       />
       <ContentCta

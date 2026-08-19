@@ -27,11 +27,12 @@ export function buildSeoHead(seo: SeoPage): string {
     `<meta property="og:title" content="${escapeHtml(seo.title)}" />`,
     `<meta property="og:description" content="${escapeHtml(seo.description)}" />`,
     `<meta property="og:image" content="${escapeHtml(seo.image)}" />`,
-    `<meta property="og:image:alt" content="${escapeHtml(seo.title)}" />`,
+    `<meta property="og:image:alt" content="${escapeHtml(seo.imageAlt)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${escapeHtml(seo.title)}" />`,
     `<meta name="twitter:description" content="${escapeHtml(seo.description)}" />`,
-    `<meta name="twitter:image" content="${escapeHtml(seo.image)}" />`
+    `<meta name="twitter:image" content="${escapeHtml(seo.image)}" />`,
+    `<meta name="twitter:image:alt" content="${escapeHtml(seo.imageAlt)}" />`
   ]
 
   if (seo.canonical) {

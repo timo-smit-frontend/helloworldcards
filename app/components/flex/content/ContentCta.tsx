@@ -2,18 +2,21 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { resolveImageAlt } from '~/services/imageCopy'
 import { cn } from '~/services/utils'
 
 export default function ContentCta({
   title,
   description,
   image,
+  alt,
   link,
   id = 'content-cta'
 }: {
   title?: string
   description?: string
   image?: string
+  alt?: string
   link?: { url?: string; title?: string }
   id?: string
 }) {
@@ -59,7 +62,7 @@ export default function ContentCta({
             <Animated delay={400}>
               <Image
                 src={image}
-                alt=""
+                alt={resolveImageAlt(image, alt)}
                 width={1280}
                 height={960}
                 maxwidth={1200}

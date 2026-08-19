@@ -45,7 +45,6 @@ export default function Product() {
         title="We sell on Marktplaats"
         description="Hello World Cards sells its products on Marktplaats. View our stock there through the button below."
         image="/images/wooper.png"
-        alt=""
         link={{ url: MARKTPLAATS_URL, title: 'Visit us on Marktplaats', target: '_blank' }}
       />
       <ContentProducts title="More from the shop" id={similarIds} />

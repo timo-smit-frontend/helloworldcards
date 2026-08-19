@@ -7,6 +7,7 @@ import EnhanceImage from '~/components/elements/EnhanceImage'
 import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { imageTitleFor } from '~/services/imageCopy'
 import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
 
 export default function BannerCarousel({
@@ -154,6 +155,7 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                 <Image
                   src={src}
                   alt=""
+                  title={imageTitleFor(src) ?? (images.length > 1 ? `${alt}, photo ${index + 1}` : alt)}
                   width={800}
                   height={1120}
                   aria-hidden

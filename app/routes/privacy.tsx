@@ -8,7 +8,6 @@ export default function Privacy() {
       title="Our privacy statement"
       description="Hello World Cards is a small Pokémon shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message, including the contact form."
       image="/images/wooper.png"
-      alt="Wooper"
       updated="17 August 2026"
       sections={[
         {

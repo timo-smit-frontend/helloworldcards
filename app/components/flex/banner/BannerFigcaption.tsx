@@ -2,17 +2,20 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { resolveImageAlt } from '~/services/imageCopy'
 import { PRIORITY_IMAGE_SIZES } from '~/services/responsiveImage'
 
 export default function BannerFigcaption({
   title,
+  srTitle,
   description,
   image,
   link,
   figcaption,
-  alt = ''
+  alt
 }: {
   title?: string
+  srTitle?: string
   description?: string
   image?: string
   link?: { url?: string; target?: string; title?: string }
@@ -30,9 +33,16 @@ export default function BannerFigcaption({
             <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
               {(title || description) && (
                 <div className="flex flex-col gap-2 lg:gap-4">
+                  {srTitle && <h1 className="sr-only">{srTitle}</h1>}
                   {title && (
                     <Animated delay={200} reveal="load">
-                      <h1 className="title-xl text-balance">{title}</h1>
+                      {srTitle ? (
+                        <p className="title-xl text-balance" aria-hidden>
+                          {title}
+                        </p>
+                      ) : (
+                        <h1 className="title-xl text-balance">{title}</h1>
+                      )}
                     </Animated>
                   )}
                   {description && (
@@ -58,7 +68,7 @@ export default function BannerFigcaption({
               <figure className="mat">
                 <Image
                   src={image}
-                  alt={alt}
+                  alt={resolveImageAlt(image, alt)}
                   width={1280}
                   height={960}
                   priority

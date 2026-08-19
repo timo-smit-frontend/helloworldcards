@@ -5,6 +5,7 @@ import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
 import { getAllProducts, getProductsByIds } from '~/database/products'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { imageTitleFor } from '~/services/imageCopy'
 import { cn } from '~/services/utils'
 
 const productDelays = [
@@ -70,6 +71,7 @@ export default function ContentProducts({
                               <Image
                                 src={product.images[0]}
                                 alt=""
+                                title={imageTitleFor(product.images[0]) ?? product.title}
                                 width={800}
                                 height={1120}
                                 aria-hidden
@@ -80,6 +82,7 @@ export default function ContentProducts({
                                 <Image
                                   src={product.images[1]}
                                   alt=""
+                                  title={imageTitleFor(product.images[1]) ?? `${product.title}, photo 2`}
                                   width={800}
                                   height={1120}
                                   aria-hidden

@@ -65,11 +65,12 @@ export default function Seo() {
     upsertMeta('property', 'og:title', seo.title)
     upsertMeta('property', 'og:description', seo.description)
     upsertMeta('property', 'og:image', seo.image)
-    upsertMeta('property', 'og:image:alt', seo.title)
+    upsertMeta('property', 'og:image:alt', seo.imageAlt)
     upsertMeta('name', 'twitter:card', 'summary_large_image')
     upsertMeta('name', 'twitter:title', seo.title)
     upsertMeta('name', 'twitter:description', seo.description)
     upsertMeta('name', 'twitter:image', seo.image)
+    upsertMeta('name', 'twitter:image:alt', seo.imageAlt)
 
     if (seo.canonical) {
       upsertMeta('property', 'og:url', seo.canonical)

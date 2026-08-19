@@ -1,4 +1,5 @@
 import { forwardRef, useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type Ref } from 'react'
+import { resolveImageTitle } from '~/services/imageCopy'
 import {
   DEFAULT_SRCSET_MAX_WIDTH,
   PRIORITY_IMAGE_SIZES,
@@ -29,12 +30,13 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
 const LAZY_SIZES = `auto, ${PRIORITY_IMAGE_SIZES}`
 
 const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
-  { src, alt, width, height, maxwidth, sizes, priority = false, loading, fetchPriority, decoding, className, ...props },
+  { src, alt, title, width, height, maxwidth, sizes, priority = false, loading, fetchPriority, decoding, className, ...props },
   ref
 ) {
   const imgRef = useRef<HTMLImageElement>(null)
   const [layoutWidth, setLayoutWidth] = useState(0)
   const resolved = resolveSrc(src)
+  const resolvedTitle = resolveImageTitle(resolved, title, alt)
   const maxWidth = maxwidth ?? DEFAULT_SRCSET_MAX_WIDTH
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy')
   const isEager = resolvedLoading === 'eager'
@@ -64,6 +66,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
     ...props,
     width,
     height,
+    title: resolvedTitle,
     className: cn('min-w-0 max-w-full', className),
     loading: resolvedLoading,
     ...(decoding != null ? { decoding } : isEager ? {} : { decoding: 'async' as const }),

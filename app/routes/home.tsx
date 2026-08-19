@@ -9,6 +9,7 @@ export default function Home() {
     <>
       <BannerFigcaption
         title="Hello World Cards"
+        srTitle="Hello World Cards: Pokémon cards, custom binders, and events"
         description="Welcome. We sell Pokémon cards and custom handpainted binders. Have a look around, and let us know if you need anything."
         image="/images/hero.jpg"
         link={{ url: '/products/', title: 'Have a look around' }}
@@ -16,9 +17,9 @@ export default function Home() {
       />
       <ContentText
         title="<Hello world />"
+        srTitle="Sam and Timo, the programmers behind Hello World Cards"
         description="We're Sam and Timo, a couple of programmers who never quite grew out of Pokémon. Sam works on the backend, Timo on the frontend, which is why the shop is called Hello World."
         image="/images/wooper.png"
-        alt="Pokémon card back"
         link={{ url: '/about/', title: 'Learn more about us' }}
       />
       <ContentProducts
@@ -31,7 +32,6 @@ export default function Home() {
         title="Cards in the shop, binders at the stall"
         description="We list Pokémon cards here and on Marktplaats. Sam paints custom binders that we show on the site as well. You can look at them here, but we only sell them in person at events."
         image="/images/wooper.png"
-        alt=""
         link={{ url: '/agenda/', title: 'See upcoming events' }}
       />
       <ContentCta

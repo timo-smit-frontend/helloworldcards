@@ -1,6 +1,7 @@
 export default function Logo({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" aria-hidden>
+      <title>Hello World Cards</title>
       <defs>
         <clipPath id="ballClip">
           <circle cx="260" cy="260" r="190" />

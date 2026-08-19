@@ -3,6 +3,7 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
+import { resolveImageAlt } from '~/services/imageCopy'
 import { cn } from '~/services/utils'
 
 export type ContentTextSection = {
@@ -12,9 +13,10 @@ export type ContentTextSection = {
 
 export default function ContentText({
   title,
+  srTitle,
   description,
   image,
-  alt = '',
+  alt,
   link,
   heading = 'h2',
   sections,
@@ -22,6 +24,7 @@ export default function ContentText({
   id = 'content-text'
 }: {
   title?: string
+  srTitle?: string
   description?: string
   image?: string
   alt?: string
@@ -44,9 +47,16 @@ export default function ContentText({
             <div className="flex flex-col gap-4 lg:gap-8">
               {(title || description) && (
                 <div className="flex flex-col gap-2 lg:gap-4">
+                  {srTitle && <Title className="sr-only">{srTitle}</Title>}
                   {title && (
                     <Animated delay={100}>
-                      <Title className="title-l">{title}</Title>
+                      {srTitle ? (
+                        <p className="title-l" aria-hidden>
+                          {title}
+                        </p>
+                      ) : (
+                        <Title className="title-l">{title}</Title>
+                      )}
                     </Animated>
                   )}
                   {description && (
@@ -99,7 +109,7 @@ export default function ContentText({
               <div className={cn('relative overflow-hidden', !hasSections && 'lg:h-full')}>
                 <Image
                   src={image}
-                  alt={alt}
+                  alt={resolveImageAlt(image, alt)}
                   width={1280}
                   height={960}
                   className={cn(
