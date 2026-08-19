@@ -17,7 +17,7 @@ export default function Footer() {
     <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 pb-16 text-site-gray-nurse lg:pb-24">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
-          <Link to="/" className="block w-fit" aria-label="Hello World Cards">
+          <Link to="/" className="block w-fit transition-opacity hover:opacity-80" aria-label="Hello World Cards">
             <Logo className="h-auto w-40 sm:w-46 lg:w-54" />
           </Link>
 
@@ -29,7 +29,7 @@ export default function Footer() {
                   <li key={item.to} className="min-w-60">
                     <Link
                       to={item.to}
-                      className="transition-colors hover:text-site-envy hover:underline aria-[current=page]:text-site-envy"
+                      className="link-underline transition-colors hover:text-site-envy aria-[current=page]:text-site-envy"
                       aria-current={isCurrentPath(location.pathname, item.to) ? 'page' : undefined}
                     >
                       {item.title}
@@ -45,7 +45,7 @@ export default function Footer() {
                 <li>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
+                    className="group flex w-fit items-center gap-2 transition-colors hover:text-site-envy"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -60,7 +60,7 @@ export default function Footer() {
                       <rect width="20" height="16" x="2" y="4" rx="2" />
                       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
-                    <span>{CONTACT_EMAIL}</span>
+                    <span className="link-underline">{CONTACT_EMAIL}</span>
                   </a>
                 </li>
               </ul>
@@ -74,7 +74,7 @@ export default function Footer() {
                     href={INSTAGRAM_URL}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
+                    className="group flex w-fit items-center gap-2 transition-colors hover:text-site-envy"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -90,7 +90,7 @@ export default function Footer() {
                       <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
                       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                     </svg>
-                    <span>Instagram</span>
+                    <span className="link-underline">Instagram</span>
                     <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                 </li>
@@ -99,7 +99,7 @@ export default function Footer() {
                     href={MARKTPLAATS_URL}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="flex w-fit items-center gap-2 transition-colors hover:text-site-envy hover:underline"
+                    className="group flex w-fit items-center gap-2 transition-colors hover:text-site-envy"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -114,7 +114,7 @@ export default function Footer() {
                       <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
                       <path d="M3 9 12 3l9 6" />
                     </svg>
-                    <span>Marktplaats</span>
+                    <span className="link-underline">Marktplaats</span>
                     <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                 </li>
@@ -127,7 +127,7 @@ export default function Footer() {
           <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All cards reserved.</p>
           <Link
             to="/privacy/"
-            className="w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy hover:underline aria-[current=page]:text-site-envy"
+            className="link-underline w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy aria-[current=page]:text-site-envy"
             aria-current={isCurrentPath(location.pathname, '/privacy/') ? 'page' : undefined}
           >
             Privacy statement

@@ -15,7 +15,7 @@ const ABOUT_TITLE = 'About'
 const CONTACT_URL = '/contact/'
 const CONTACT_TITLE = 'Contact us'
 const navLinkClass =
-  'text-lg font-semibold transition-colors hover:text-site-summer-green hover:underline aria-[current=page]:text-site-summer-green'
+  'link-underline text-lg font-semibold transition-colors hover:text-site-summer-green aria-[current=page]:text-site-summer-green'
 const mobileNavLinkClass =
   'mobile-menu-hover title-base flex w-full items-center px-0 py-2 text-2xl sm:text-3xl lg:text-4xl'
 
@@ -76,7 +76,7 @@ function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOp
           <SheetPrimitive.Description className="sr-only">Site navigation</SheetPrimitive.Description>
           <div className="container-full">
             <div className="flex items-center justify-between py-2">
-              <Link to="/" className="shrink-0" onClick={() => onOpenChange(false)}>
+              <Link to="/" className="shrink-0 transition-opacity hover:opacity-80" onClick={() => onOpenChange(false)}>
                 <span className="sr-only">{SITE_NAME}</span>
                 <Logo className="h-20 w-auto" />
               </Link>
@@ -136,7 +136,7 @@ export default function Header() {
     >
       <div className="container-full">
         <div className="flex items-center justify-between py-2">
-          <Link to="/" className="shrink-0">
+          <Link to="/" className="shrink-0 transition-opacity hover:opacity-80">
             <span className="sr-only">{SITE_NAME}</span>
             <Logo className="h-20 w-auto" />
           </Link>

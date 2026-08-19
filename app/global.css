@@ -115,6 +115,34 @@
   @apply transition-all duration-200 ease-in-out;
 }
 
+@utility link-underline {
+  @apply relative inline-block;
+
+  &::after {
+    content: '';
+    @apply pointer-events-none absolute left-0 h-0.5 w-full origin-left scale-x-0 bg-current transition-transform duration-300 ease-out;
+    bottom: 0.08em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition-duration: 0s;
+    }
+  }
+
+  @variant hover {
+    &::after {
+      @apply scale-x-100;
+    }
+  }
+
+  @variant lg {
+    .group:hover &::after {
+      @apply scale-x-100;
+    }
+  }
+}
+
 @utility mobile-menu-hover {
   @apply relative transition-all duration-300 ease-out;
 

@@ -46,7 +46,7 @@ export default function ContentProducts({
                   )}
                   {description && (
                     <Animated delay={200}>
-                      <p className="content-s text-site-mantle">{description}</p>
+                      <p className="content-l text-site-mantle">{description}</p>
                     </Animated>
                   )}
                 </div>
