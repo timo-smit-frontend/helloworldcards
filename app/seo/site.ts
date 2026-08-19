@@ -14,7 +14,11 @@ export function normalizePath(pathname: string): string {
 }
 
 export function isCurrentPath(pathname: string, href: string): boolean {
-  return normalizePath(pathname) === normalizePath(href)
+  const current = normalizePath(pathname)
+  const target = normalizePath(href)
+
+  if (target === '/') return current === '/'
+  return current === target || current.startsWith(`${target}/`)
 }
 
 export function canonicalUrl(path: string): string {

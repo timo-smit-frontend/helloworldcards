@@ -29,7 +29,7 @@ export default function Footer() {
                   <li key={item.to} className="min-w-60">
                     <Link
                       to={item.to}
-                      className="transition-colors hover:text-site-envy hover:underline"
+                      className="transition-colors hover:text-site-envy hover:underline aria-[current=page]:text-site-envy"
                       aria-current={isCurrentPath(location.pathname, item.to) ? 'page' : undefined}
                     >
                       {item.title}
@@ -127,7 +127,7 @@ export default function Footer() {
           <p className="text-base font-medium leading-7">© {new Date().getFullYear()} Hello World Cards. All cards reserved.</p>
           <Link
             to="/privacy/"
-            className="w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy hover:underline"
+            className="w-fit text-base font-medium leading-7 transition-colors hover:text-site-envy hover:underline aria-[current=page]:text-site-envy"
             aria-current={isCurrentPath(location.pathname, '/privacy/') ? 'page' : undefined}
           >
             Privacy statement

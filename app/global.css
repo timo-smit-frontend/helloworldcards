@@ -130,6 +130,10 @@
       @apply w-full;
     }
   }
+
+  &[aria-current='page'] {
+    @apply text-site-envy;
+  }
 }
 
 @layer base {

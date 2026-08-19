@@ -14,7 +14,8 @@ const ABOUT_URL = '/about/'
 const ABOUT_TITLE = 'About'
 const CONTACT_URL = '/contact/'
 const CONTACT_TITLE = 'Contact us'
-const navLinkClass = 'text-lg font-semibold transition-colors hover:text-site-summer-green'
+const navLinkClass =
+  'text-lg font-semibold transition-colors hover:text-site-summer-green hover:underline aria-[current=page]:text-site-summer-green'
 
 function MobileMenuSheet({ open, onOpenChange, pathname }: { open: boolean; onOpenChange: (open: boolean) => void; pathname: string }) {
   const [iconOpen, setIconOpen] = useState(false)
