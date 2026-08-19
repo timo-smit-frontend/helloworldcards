@@ -7,7 +7,9 @@ import { getAllProducts, getProductsByIds } from '~/database/products'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
 
-const productDelays = [100, 200, 300, 400, 500, 600] as const
+const productDelays = [
+  100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000
+] as const
 
 function normalizeIds(id?: string | number | Array<string | number>): Array<string | number> | undefined {
   if (id == null) return undefined
@@ -56,7 +58,7 @@ export default function ContentProducts({
             <ul className="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
               {products.map((product, index) => (
                 <li key={product.id} className="flex w-full min-w-0">
-                  <Animated delay={productDelays[index % productDelays.length]} className="flex w-full min-w-0">
+                  <Animated delay={productDelays[Math.min(index, productDelays.length - 1)]} className="flex w-full min-w-0">
                     <div className="flex w-full min-w-0 flex-1 flex-col">
                       <Link
                         to={`/products/${product.slug}/`}

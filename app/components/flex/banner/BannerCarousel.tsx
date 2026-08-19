@@ -121,9 +121,10 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
     () =>
       Autoplay({
         delay: 5000,
-        stopOnInteraction: true,
+        stopOnInteraction: false,
         stopOnMouseEnter: true,
-        stopOnFocusIn: true
+        stopOnFocusIn: true,
+        rootNode: (emblaRoot) => emblaRoot.parentElement
       }),
     []
   )

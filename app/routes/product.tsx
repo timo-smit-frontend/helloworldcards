@@ -32,7 +32,7 @@ export default function Product() {
   return (
     <Layout>
       <BannerCarousel
-        title={product.title.length >= 20 ? product.title : `${product.title} Pokémon card`}
+        title={product.title}
         subtitle={product.subtitle}
         description={product.description}
         price={product.price != null ? String(product.price) : undefined}
