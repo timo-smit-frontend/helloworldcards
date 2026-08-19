@@ -63,7 +63,7 @@ export default function Breadcrumbs({ items, className }: { items?: BreadcrumbIt
                   {item.title}
                 </span>
               ) : (
-                <Link to={item.url} className="smooth hover:underline">
+                <Link to={item.url} className="link-underline">
                   {item.title}
                 </Link>
               )}
