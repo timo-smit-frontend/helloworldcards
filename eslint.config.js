@@ -14,7 +14,7 @@ const compat = new FlatCompat({
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'worker-configuration.d.ts']
+    ignores: ['dist/**', 'node_modules/**', 'worker/worker-configuration.d.ts']
   },
   ...compat.config({
     root: true,
@@ -81,7 +81,7 @@ export default [
         extends: ['plugin:@typescript-eslint/recommended']
       },
       {
-        files: ['eslint.config.js', 'vite.config.ts', 'seo-prerender.ts'],
+        files: ['eslint.config.js', 'vite.config.ts', 'vite/**/*.ts'],
         env: {
           node: true
         }

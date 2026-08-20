@@ -14,5 +14,5 @@
       "~/*": ["./app/*"]
     }
   },
-  "include": ["vite.config.ts", "seo-prerender.ts", "vite-responsive-images.ts"]
+  "include": ["vite.config.ts", "vite/**/*.ts"]
 }

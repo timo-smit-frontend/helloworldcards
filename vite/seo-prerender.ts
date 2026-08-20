@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { applySeoHead } from './app/seo/head'
-import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
-import { getIndexableSeoPages, getSeoForPath } from './app/seo/pages'
-import { canonicalUrl } from './app/seo/site'
+import { applySeoHead } from '../app/seo/head'
+import { buildLlmsFullTxt, buildLlmsTxt } from '../app/seo/llms'
+import { getIndexableSeoPages, getSeoForPath } from '../app/seo/pages'
+import { canonicalUrl } from '../app/seo/site'
 
 function toDistFile(distDir: string, pagePath: string): string {
   if (pagePath === '/') {

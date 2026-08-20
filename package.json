@@ -10,7 +10,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "cf-typegen": "wrangler types worker/worker-configuration.d.ts"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "^5.3.0",

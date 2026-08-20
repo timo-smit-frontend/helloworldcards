@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 import type { Plugin } from 'vite'
-import { parseRasterVariant, rasterVariantSrc, variantWidthsFor, type ImageFormat } from './app/services/responsiveImage'
+import { parseRasterVariant, rasterVariantSrc, variantWidthsFor, type ImageFormat } from '../app/services/responsiveImage'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 const IMAGE_FORMATS: ImageFormat[] = ['avif', 'webp']
