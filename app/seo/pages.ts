@@ -136,29 +136,18 @@ function productListNode(path: string): Record<string, unknown> {
   }
 }
 
-function eventNodes(path: string): Record<string, unknown> {
+function eventListNode(path: string): Record<string, unknown> {
   const events = getUpcomingEvents()
 
   return {
     '@type': 'ItemList',
     '@id': `${canonicalUrl(path)}#events`,
     name: 'Upcoming events',
+    numberOfItems: events.length,
     itemListElement: events.map((event, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      item: {
-        '@type': 'Event',
-        name: event.title,
-        startDate: event.date,
-        eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-        eventStatus: 'https://schema.org/EventScheduled',
-        location: {
-          '@type': 'Place',
-          name: event.location,
-          address: event.location
-        },
-        organizer: { '@id': ORGANIZATION_ID }
-      }
+      name: `${event.title}, ${event.date}, ${event.location}`
     }))
   }
 }
@@ -328,7 +317,7 @@ export function getSeoForPath(pathname: string): SeoPage {
       title: titleWithBrand('Upcoming events'),
       description:
         "We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.",
-      extraGraph: [eventNodes(path)]
+      extraGraph: [eventListNode(path)]
     })
   }
 
