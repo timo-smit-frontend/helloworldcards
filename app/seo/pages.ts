@@ -105,41 +105,10 @@ function webPageNode({
   }
 }
 
-function euroPrice(price: string | number): string | undefined {
-  if (typeof price === 'number') {
-    return String(price)
-  }
-
-  const normalized = price.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.')
-  return normalized || undefined
-}
-
-function productNodes(product: Product, path: string): Array<Record<string, unknown>> {
+function productBreadcrumbs(product: Product, path: string): Record<string, unknown> {
   const url = canonicalUrl(path)
-  const offerPrice = product.price != null ? euroPrice(product.price) : undefined
-  const productNode: Record<string, unknown> = {
-    '@type': 'Product',
-    '@id': `${url}#product`,
-    name: product.title,
-    description: product.description || product.subtitle,
-    image: product.images.length > 0 ? product.images : toAbsoluteUrl(SITE_IMAGE),
-    brand: { '@type': 'Brand', name: SITE_NAME },
-    category: 'Pokémon Trading Card Game',
-    url
-  }
 
-  if (offerPrice) {
-    productNode.offers = {
-      '@type': 'Offer',
-      url,
-      priceCurrency: 'EUR',
-      price: offerPrice,
-      availability: 'https://schema.org/InStock',
-      seller: { '@id': ORGANIZATION_ID }
-    }
-  }
-
-  const breadcrumbs: Record<string, unknown> = {
+  return {
     '@type': 'BreadcrumbList',
     '@id': `${url}#breadcrumb`,
     itemListElement: [
@@ -148,8 +117,6 @@ function productNodes(product: Product, path: string): Array<Record<string, unkn
       { '@type': 'ListItem', position: 3, name: product.title, item: url }
     ]
   }
-
-  return [productNode, breadcrumbs]
 }
 
 function productListNode(path: string): Record<string, unknown> {
@@ -316,8 +283,8 @@ function productPage(product: Product): SeoPage {
     description,
     image: product.images[0] ?? SITE_IMAGE,
     imageAlt: imageAltFor(product.images[0] ?? SITE_IMAGE) ?? product.title,
-    type: 'product',
-    extraGraph: productNodes(product, path),
+    webPageType: 'ItemPage',
+    extraGraph: [productBreadcrumbs(product, path)],
     lcp:
       product.images[0] && isLocalRasterSrc(product.images[0])
         ? { src: product.images[0], maxWidth: 1000, sizes: PRODUCT_IMAGE_SIZES }
