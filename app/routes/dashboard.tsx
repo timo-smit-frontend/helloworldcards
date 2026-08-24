@@ -53,6 +53,12 @@ export default function Dashboard() {
         body: JSON.stringify({ username, password })
       })
 
+      if (response.status === 503) {
+        setMessage('Sign in is not available.')
+        setStatus('login')
+        return
+      }
+
       if (!response.ok) {
         setMessage('Wrong username or password')
         setStatus('login')
