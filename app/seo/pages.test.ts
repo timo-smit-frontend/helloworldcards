@@ -10,7 +10,7 @@ describe('dashboard privacy', () => {
     expect(seo.canonical).toBeNull()
   })
 
-  it('keeps the till out of the sitemap', () => {
+  it('keeps the dashboard out of the sitemap', () => {
     expect(getIndexableSeoPages().some((page) => page.path.includes('dashboard'))).toBe(false)
   })
 

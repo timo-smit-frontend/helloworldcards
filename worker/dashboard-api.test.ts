@@ -19,6 +19,7 @@ describe('dashboard API', () => {
     const response = await handleDashboardRequest(new Request('https://example.com/dashboard/session', { method: 'POST' }), {})
 
     expect(response?.status).toBe(503)
+    await expect(response?.json()).resolves.toEqual({ error: 'Sign in is not available.' })
   })
 
   it('does not handle public shop routes', async () => {

@@ -15,7 +15,7 @@ function formatSignedEuros(value: number): string {
   return formatted
 }
 
-export default function TillChart({ ledger }: { ledger: Ledger }) {
+export default function DashboardChart({ ledger }: { ledger: Ledger }) {
   const scale = Math.max(ledger.spending, Math.abs(ledger.potentialGain), 1)
   const spentWidth = (ledger.spending / scale) * 100
   const gainWidth = (Math.abs(ledger.potentialGain) / scale) * 100
@@ -42,9 +42,14 @@ export default function TillChart({ ledger }: { ledger: Ledger }) {
       </div>
 
       <div className="overflow-x-auto">
-        <svg viewBox="0 0 800 220" className="h-auto w-full min-w-72" role="img" aria-labelledby="till-chart-title till-chart-desc">
-          <title id="till-chart-title">Spendings against potential gain</title>
-          <desc id="till-chart-desc">
+        <svg
+          viewBox="0 0 800 220"
+          className="h-auto w-full min-w-72"
+          role="img"
+          aria-labelledby="dashboard-chart-title dashboard-chart-desc"
+        >
+          <title id="dashboard-chart-title">Spendings against potential gain</title>
+          <desc id="dashboard-chart-desc">
             {`You paid ${formatEuros(ledger.spending)} for current stock. If it all sells at the listed prices, the potential gain is ${formatSignedEuros(ledger.potentialGain)}.`}
           </desc>
           <rect x="0" y="28" width="800" height="164" rx="18" className="fill-site-mid" />

@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-17",
   "workers_dev": false,
   "preview_urls": true,
-  // Till login uses Worker secrets, not vars: DASHBOARD_USERNAME, DASHBOARD_PASSWORD, DASHBOARD_SESSION_SECRET
+  // Dashboard login uses Worker secrets, not vars: DASHBOARD_USERNAME, DASHBOARD_PASSWORD, DASHBOARD_SESSION_SECRET
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

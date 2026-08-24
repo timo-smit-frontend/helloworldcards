@@ -344,8 +344,8 @@ export function getSeoForPath(pathname: string): SeoPage {
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
     return page({
       path: '/dashboard',
-      title: titleWithBrand('Till'),
-      description: 'Private till.',
+      title: titleWithBrand('Dashboard'),
+      description: 'Sign in.',
       robots: 'noindex, nofollow, noarchive'
     })
   }

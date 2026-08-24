@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
+import DashboardChart from '~/components/dashboard/DashboardChart'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
-import TillChart from '~/components/dashboard/TillChart'
 import type { Ledger } from '~/database/ledger-types'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
@@ -22,8 +22,7 @@ export default function Dashboard() {
     }
 
     if (response.status === 503) {
-      const body = (await response.json()) as { error?: string }
-      setMessage(body.error ?? 'Till is not configured.')
+      setMessage('Sign in is not available.')
       setStatus('login')
       return
     }
@@ -55,8 +54,7 @@ export default function Dashboard() {
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { error?: string }
-        setMessage(body.error ?? 'Wrong username or password')
+        setMessage('Wrong username or password')
         setStatus('login')
         return
       }
@@ -64,7 +62,7 @@ export default function Dashboard() {
       setPassword('')
       await loadLedger()
     } catch {
-      setMessage('Could not reach the till. Try again.')
+      setMessage('Could not sign in. Try again.')
     } finally {
       setSubmitting(false)
     }
@@ -90,7 +88,9 @@ export default function Dashboard() {
       <SkipToMainContent />
       <header className="border-b border-site-mulled-wine">
         <div className="container-full flex items-center justify-between py-5">
-          <p className="text-sm font-semibold tracking-[0.2em] uppercase">Hello World Cards · Till</p>
+          <p className="text-sm font-semibold tracking-[0.2em] uppercase">
+            {status === 'ready' ? 'Hello World Cards · Dashboard' : 'Hello World Cards'}
+          </p>
           {status === 'ready' && (
             <button
               type="button"
@@ -106,13 +106,13 @@ export default function Dashboard() {
       <main id="main" className="flex flex-1 flex-col" tabIndex={-1}>
         {status === 'loading' && (
           <section className="container-full flex flex-1 items-center py-24">
-            <p className="content-l text-site-mantle">Opening the till…</p>
+            <p className="content-l text-site-mantle">Loading…</p>
           </section>
         )}
 
         {status === 'error' && (
           <section className="container-full flex flex-1 items-center py-24">
-            <p className="content-l text-site-mantle">The till could not be loaded. Refresh and try again.</p>
+            <p className="content-l text-site-mantle">This page could not be loaded. Refresh and try again.</p>
           </section>
         )}
 
@@ -122,16 +122,13 @@ export default function Dashboard() {
               onSubmit={(event) => void handleLogin(event)}
               className="flex w-full max-w-md flex-col gap-6 rounded-panel bg-site-gunmetal p-6 sm:p-8"
             >
+              <h1 className="title-l">Sign in</h1>
               <div className="flex flex-col gap-2">
-                <h1 className="title-l">Sign in</h1>
-                <p className="content-s text-site-mantle">Private till. Spendings and potential gain for current stock.</p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label htmlFor="till-username" className="text-sm font-medium">
+                <label htmlFor="dashboard-username" className="text-sm font-medium">
                   Username
                 </label>
                 <input
-                  id="till-username"
+                  id="dashboard-username"
                   name="username"
                   type="text"
                   autoComplete="username"
@@ -142,11 +139,11 @@ export default function Dashboard() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label htmlFor="till-password" className="text-sm font-medium">
+                <label htmlFor="dashboard-password" className="text-sm font-medium">
                   Password
                 </label>
                 <input
-                  id="till-password"
+                  id="dashboard-password"
                   name="password"
                   type="password"
                   autoComplete="current-password"
@@ -175,7 +172,7 @@ export default function Dashboard() {
               <p className="content-l text-site-mantle">What you paid versus what you stand to make if every listed item sells.</p>
             </div>
             <div className="mt-12">
-              <TillChart ledger={ledger} />
+              <DashboardChart ledger={ledger} />
             </div>
           </section>
         )}

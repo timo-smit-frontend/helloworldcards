@@ -7,7 +7,7 @@ Personal multi-page React site, deployed to Cloudflare on [helloworldcards.com](
 - Vite + React 19 + TypeScript
 - React Router (client-side)
 - Tailwind CSS v4
-- Cloudflare Worker for the private till at `/dashboard/`
+- Cloudflare Worker for the private dashboard at `/dashboard/`
 - Product copy lives in `app/database/products.ts`, including a `cost` field (what you paid)
 
 ## Develop
@@ -18,7 +18,7 @@ cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-`.dev.vars` holds till login secrets locally. It is gitignored. Do not prefix those names with `VITE_` — Vite would bake them into the public JavaScript.
+`.dev.vars` holds dashboard login secrets locally. It is gitignored. Do not prefix those names with `VITE_` — Vite would bake them into the public JavaScript.
 
 ## Scripts
 
@@ -31,16 +31,16 @@ npm run dev
 | `npm test`        | Vitest                                  |
 | `npm run deploy`  | Build and publish `dist/` with Wrangler |
 
-## Till (`/dashboard/`)
+## Dashboard (`/dashboard/`)
 
-The till is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spendings (sum of `cost`) against potential gain (listed price minus cost).
+The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spendings (sum of `cost`) against potential gain (listed price minus cost).
 
 Set these as **Worker secrets** (Cloudflare dashboard or `wrangler secret put`), never in source or `wrangler.jsonc`:
 
 | Secret                     | Purpose                  |
 | -------------------------- | ------------------------ |
-| `DASHBOARD_USERNAME`       | Till login               |
-| `DASHBOARD_PASSWORD`       | Till login               |
+| `DASHBOARD_USERNAME`       | Dashboard login          |
+| `DASHBOARD_PASSWORD`       | Dashboard login          |
 | `DASHBOARD_SESSION_SECRET` | Signs the session cookie |
 
 ```bash
@@ -51,7 +51,7 @@ npx wrangler secret put DASHBOARD_SESSION_SECRET
 
 Use a long random value for `DASHBOARD_SESSION_SECRET` (for example `openssl rand -base64 32`).
 
-Update purchase costs on each product in `app/database/products.ts`. Those numbers are stripped from the public shop bundle; the till reads them on the Worker after login.
+Update purchase costs on each product in `app/database/products.ts`. Those numbers are stripped from the public shop bundle; the dashboard reads them on the Worker after login.
 
 ## Deploy to Cloudflare
 

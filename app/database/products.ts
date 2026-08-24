@@ -19,7 +19,7 @@ export type InventoryProduct = Product & {
 
 type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   images?: string[]
-  /** Purchase price in euros. Private till only; stripped from the public shop bundle. */
+  /** Purchase price in euros. Dashboard only; stripped from the public shop bundle. */
   cost?: number
 }
 

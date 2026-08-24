@@ -3,23 +3,23 @@ import { createSessionToken, timingSafeEqual, verifySessionToken } from './sessi
 
 describe('session tokens', () => {
   it('accepts a token signed with the env secret', async () => {
-    const token = await createSessionToken('till-secret', 'sam')
-    await expect(verifySessionToken('till-secret', token)).resolves.toBe('sam')
+    const token = await createSessionToken('dashboard-secret', 'sam')
+    await expect(verifySessionToken('dashboard-secret', token)).resolves.toBe('sam')
   })
 
   it('rejects a token signed with a different secret', async () => {
-    const token = await createSessionToken('till-secret', 'sam')
+    const token = await createSessionToken('dashboard-secret', 'sam')
     await expect(verifySessionToken('other-secret', token)).resolves.toBeNull()
   })
 
   it('rejects a tampered token', async () => {
-    const token = await createSessionToken('till-secret', 'sam')
-    await expect(verifySessionToken('till-secret', `${token}x`)).resolves.toBeNull()
+    const token = await createSessionToken('dashboard-secret', 'sam')
+    await expect(verifySessionToken('dashboard-secret', `${token}x`)).resolves.toBeNull()
   })
 
   it('rejects an expired token', async () => {
-    const token = await createSessionToken('till-secret', 'sam', Date.now() - 8 * 24 * 60 * 60 * 1000)
-    await expect(verifySessionToken('till-secret', token)).resolves.toBeNull()
+    const token = await createSessionToken('dashboard-secret', 'sam', Date.now() - 8 * 24 * 60 * 60 * 1000)
+    await expect(verifySessionToken('dashboard-secret', token)).resolves.toBeNull()
   })
 })
 

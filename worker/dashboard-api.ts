@@ -52,7 +52,7 @@ function configured(env: DashboardEnv): env is Required<DashboardEnv> {
 }
 
 function unconfigured(): Response {
-  return json({ error: 'Till is not configured. Set DASHBOARD_USERNAME, DASHBOARD_PASSWORD, and DASHBOARD_SESSION_SECRET.' }, 503)
+  return json({ error: 'Sign in is not available.' }, 503)
 }
 
 function isSecureRequest(request: Request): boolean {
