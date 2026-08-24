@@ -1,3 +1,5 @@
+import { handleDashboardRequest, isDashboardPath } from './dashboard-api'
+
 const APEX_HOST = 'helloworldcards.com'
 const FILE_EXTENSION = /\.[a-zA-Z0-9]{1,8}$/
 
@@ -32,7 +34,7 @@ function isHtml(response: Response): boolean {
   return (response.headers.get('content-type') ?? '').includes('text/html')
 }
 
-function withSecurityHeaders(response: Response): Response {
+function withSecurityHeaders(response: Response, options?: { noindex?: boolean }): Response {
   const headers = new Headers(response.headers)
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
@@ -49,11 +51,24 @@ function withSecurityHeaders(response: Response): Response {
     headers.set('Cache-Control', 'no-store')
   }
 
+  if (options?.noindex) {
+    headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    headers.set('Cache-Control', 'no-store')
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers
   })
+}
+
+function applyDashboardRobots(html: string): string {
+  return html
+    .replace(/<meta name="robots" content="[^"]*"\s*\/?>/i, '<meta name="robots" content="noindex, nofollow, noarchive" />')
+    .replace(/<link rel="canonical"[^>]*>\s*/i, '')
+    .replace(/<meta property="og:url"[^>]*>\s*/i, '')
+    .replace(/<!-- Google Tag Manager \(noscript\) -->[\s\S]*?<!-- End Google Tag Manager \(noscript\) -->/i, '')
 }
 
 function canonicalRequestUrl(request: Request): URL | null {
@@ -88,9 +103,9 @@ function redirectPermanently(url: URL): Response {
   return withSecurityHeaders(Response.redirect(url.href, 301))
 }
 
-function asPermanentRedirect(response: Response, request: Request): Response {
+function asPermanentRedirect(response: Response, request: Request, noindex = false): Response {
   if (response.status !== 307 && response.status !== 308) {
-    return withSecurityHeaders(response)
+    return withSecurityHeaders(response, { noindex })
   }
 
   const location = response.headers.get('Location')
@@ -121,17 +136,34 @@ export default {
     }
 
     const url = new URL(request.url)
+    const dashboardApi = await handleDashboardRequest(request, env)
+    if (dashboardApi) {
+      return withSecurityHeaders(dashboardApi, { noindex: true })
+    }
+
     const asset = await env.ASSETS.fetch(request)
+    const dashboardPage = isDashboardPath(url.pathname)
 
     if (asset.status !== 404) {
-      return asPermanentRedirect(asset, request)
+      return asPermanentRedirect(asset, request, dashboardPage)
     }
 
     if (!shouldServeSpaFallback(request, url.pathname)) {
-      return withSecurityHeaders(asset)
+      return withSecurityHeaders(asset, { noindex: dashboardPage })
     }
 
     const index = await env.ASSETS.fetch(new URL('/index.html', url.origin))
+    if (dashboardPage && isHtml(index)) {
+      const html = applyDashboardRobots(await index.text())
+      return withSecurityHeaders(
+        new Response(html, {
+          status: index.status,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        }),
+        { noindex: true }
+      )
+    }
+
     return withSecurityHeaders(index)
   }
 } satisfies ExportedHandler<Env>

@@ -6,6 +6,7 @@ import { applySeoHead } from './app/seo/head'
 import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
 import { getSeoForPath } from './app/seo/pages'
 import { buildSitemapXml, writePrerenderedApp, writeSeoBuild, writeSeoPublic } from './vite/seo-prerender'
+import { dashboardApiPlugin, stripProductCostsPlugin } from './vite/dashboard-api'
 import { responsiveImagesPlugin } from './vite/responsive-images'
 
 const FONT_START = '<!--app-font-start-->'
@@ -145,7 +146,19 @@ function seoPlugin(): Plugin {
 
 export default defineConfig({
   base: '/',
-  plugins: [react(), tailwindcss(), responsiveImagesPlugin(), seoPlugin(), fontPreloadPlugin()],
+  server: {
+    host: true,
+    allowedHosts: true
+  },
+  plugins: [
+    react(),
+    tailwindcss(),
+    responsiveImagesPlugin(),
+    stripProductCostsPlugin(),
+    dashboardApiPlugin(),
+    seoPlugin(),
+    fontPreloadPlugin()
+  ],
   resolve: {
     alias: {
       '~': path.resolve(__dirname, 'app')
