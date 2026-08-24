@@ -341,6 +341,15 @@ export function getSeoForPath(pathname: string): SeoPage {
     })
   }
 
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) {
+    return page({
+      path: '/dashboard',
+      title: titleWithBrand('Till'),
+      description: 'Private till.',
+      robots: 'noindex, nofollow, noarchive'
+    })
+  }
+
   if (path === '/privacy') {
     return page({
       path,

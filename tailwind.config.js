@@ -21,6 +21,8 @@ export default {
         'site-gunmetal': '#2A2F42',
         'site-mulled-wine': '#4A5168',
         'site-envy': '#84A38C',
+        'site-foil': '#C4A574',
+        'site-loss': '#C47A7A',
         'site-mantle': '#92A196',
         'site-summer-green': '#9CB8A4',
         'site-gray-nurse': '#E0E6E1'

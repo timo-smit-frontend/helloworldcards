@@ -7,6 +7,7 @@ import Root from '~/root'
 import Home from '~/routes/home'
 
 const About = lazy(() => import('~/routes/about'))
+const Dashboard = lazy(() => import('~/routes/dashboard'))
 const Agenda = lazy(() => import('~/routes/agenda'))
 const Contact = lazy(() => import('~/routes/contact'))
 const Privacy = lazy(() => import('~/routes/privacy'))
@@ -31,6 +32,7 @@ export function App() {
               <Route path="privacy" element={<Privacy />} />
             </Route>
             <Route path="products/:slug" element={<Product />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="*" element={<ErrorPage />} />
           </Routes>
         </Suspense>

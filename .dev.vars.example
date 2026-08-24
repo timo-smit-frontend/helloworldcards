@@ -1,0 +1,7 @@
+# Copy to `.dev.vars` for local `npm run dev`.
+# In production, set these as Worker secrets (`wrangler secret put ...`).
+# Never commit real values. Never prefix these with VITE_ — that would leak them into the browser bundle.
+
+DASHBOARD_USERNAME=your-username
+DASHBOARD_PASSWORD=your-password
+DASHBOARD_SESSION_SECRET=generate-a-long-random-string

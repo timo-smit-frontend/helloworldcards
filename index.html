@@ -56,10 +56,7 @@
             "url": "https://helloworldcards.com",
             "email": "helloworldcards@outlook.com",
             "image": "https://helloworldcards.com/images/hero.jpg",
-            "sameAs": [
-              "https://www.instagram.com/helloworldcards/",
-              "https://www.marktplaats.nl/u/hello-world-cards/25399885/"
-            ]
+            "sameAs": ["https://www.instagram.com/helloworldcards/", "https://www.marktplaats.nl/u/hello-world-cards/25399885/"]
           },
           {
             "@type": "WebSite",
@@ -87,6 +84,7 @@
       window.dataLayer = window.dataLayer || []
       function loadGtm() {
         if (window.__gtmLoaded) return
+        if (location.pathname.indexOf('/dashboard') === 0) return
         window.__gtmLoaded = true
         window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })
         var first = document.getElementsByTagName('script')[0]
