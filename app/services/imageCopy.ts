@@ -25,6 +25,14 @@ const IMAGE_COPY: Record<string, ImageCopy> = {
   '/images/148651617_back.jpg': {
     title: 'Mewtwo Reverse Holo, back',
     alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
+  },
+  '/images/76719295_front.jpg': {
+    title: 'Lugia V Full Art, front',
+    alt: 'PSA 9 Silver Tempest Lugia V full art, 185/195, in a grading slab.'
+  },
+  '/images/76719295_back.jpg': {
+    title: 'Lugia V Full Art, back',
+    alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
   }
 }
 

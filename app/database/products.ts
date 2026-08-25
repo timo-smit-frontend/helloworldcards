@@ -35,6 +35,26 @@ const products: ProductRecord[] = [
     cost: 55
   },
   {
+    id: 9,
+    title: 'Lugia V Full Art',
+    subtitle: '2022 Sword & Shield Silver Tempest - 185/195',
+    description:
+      'Full art Lugia V from the 2022 Sword & Shield Silver Tempest set, number 185/195. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+    images: ['/images/76719295_front.jpg', '/images/76719295_back.jpg'],
+    price: '€45',
+    cost: 30
+  },
+  {
+    id: 10,
+    title: 'Charizard Holo',
+    subtitle: '2016 XY Generations Radiant Collection - RC5/RC32',
+    description:
+      'Holo Charizard from the 2016 XY Generations Radiant Collection, number RC5/RC32. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+    pokemonId: 6,
+    price: '€120',
+    cost: 75
+  },
+  {
     id: 2,
     title: 'Blastoise Holo',
     subtitle: 'Base Set - Reverse Holo - 10/102',

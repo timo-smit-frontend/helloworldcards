@@ -8,6 +8,7 @@ const SPRITE_SIZE = 96
 
 const POKEMON_NAMES: Record<number, string> = {
   3: 'Venusaur',
+  6: 'Charizard',
   9: 'Blastoise',
   25: 'Pikachu',
   54: 'Psyduck',
