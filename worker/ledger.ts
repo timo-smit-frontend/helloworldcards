@@ -1,7 +1,8 @@
-import type { Ledger, LedgerItem } from '../app/database/ledger-types'
+import type { Ledger } from '../app/database/ledger-types'
 import { getInventory } from '../app/database/products'
 
-export type { Ledger, LedgerItem }
+export type { Ledger, LedgerItem, LedgerPeriod, LedgerTotals } from '../app/database/ledger-types'
+export { soldItemsForPeriod, summarizeLedger } from '../app/database/ledger'
 
 export function parseListedPrice(price: string | number | undefined): number | null {
   if (price == null || price === '') {
@@ -44,7 +45,10 @@ export function buildLedger(): Ledger {
       title: product.title,
       spending,
       listed,
-      potentialGain
+      potentialGain,
+      sold: product.sold === true,
+      soldAt: product.soldAt ?? null,
+      acquiredAt: product.acquiredAt ?? null
     }
   })
 

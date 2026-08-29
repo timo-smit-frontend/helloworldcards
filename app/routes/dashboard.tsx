@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
-import DashboardChart from '~/components/dashboard/DashboardChart'
+import DashboardChart, { PeriodToggle } from '~/components/dashboard/DashboardChart'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
-import type { Ledger } from '~/database/ledger-types'
+import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
 
@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [period, setPeriod] = useState<LedgerPeriod>('all')
 
   async function loadLedger() {
     const response = await fetch('/dashboard/ledger', { credentials: 'same-origin' })
@@ -173,12 +174,15 @@ export default function Dashboard() {
 
         {status === 'ready' && ledger && (
           <section className="container-full section">
-            <div className="flex max-w-4xl flex-col gap-4 lg:gap-6">
-              <h1 className="title-l">Current stock</h1>
-              <p className="content-l text-site-mantle">What you paid versus what you stand to make if every listed item sells.</p>
+            <div className="flex flex-col gap-4 lg:gap-6">
+              <h1 className="title-l">The books</h1>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="content-l text-site-mantle">What you paid, what came back, and what is still listed.</p>
+                <PeriodToggle period={period} onChange={setPeriod} />
+              </div>
             </div>
             <div className="mt-12">
-              <DashboardChart ledger={ledger} />
+              <DashboardChart ledger={ledger} period={period} />
             </div>
           </section>
         )}

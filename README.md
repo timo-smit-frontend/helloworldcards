@@ -33,7 +33,7 @@ npm run dev
 
 ## Dashboard (`/dashboard/`)
 
-The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spendings (sum of `cost`) against potential gain (listed price minus cost).
+The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spent, sold, and remaining potential, plus margin stats and a recently-sold list. Mark a card sold with `sold: true` and `soldAt: 'YYYY-MM-DD'` in `app/database/products.ts` — it leaves the shop and stays on the books.
 
 Set these as **Worker secrets** (Cloudflare dashboard or `wrangler secret put`), never in source or `wrangler.jsonc`:
 

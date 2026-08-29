@@ -63,9 +63,15 @@ describe('dashboard API', () => {
     )
 
     expect(ledger?.status).toBe(200)
-    const body = (await ledger!.json()) as { spending: number; potentialGain: number }
+    const body = (await ledger!.json()) as {
+      spending: number
+      potentialGain: number
+      items: Array<{ sold: boolean; soldAt: string | null }>
+    }
     expect(body.spending).toBeGreaterThan(0)
     expect(typeof body.potentialGain).toBe('number')
+    expect(body.items.length).toBeGreaterThan(0)
+    expect(body.items.every((item) => typeof item.sold === 'boolean')).toBe(true)
   })
 
   it('hides the ledger from signed-out requests', async () => {

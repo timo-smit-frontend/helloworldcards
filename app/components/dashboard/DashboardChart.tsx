@@ -1,4 +1,6 @@
-import type { Ledger } from '~/database/ledger-types'
+import { useMemo } from 'react'
+import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
+import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
 
 function formatEuros(value: number): string {
   return new Intl.NumberFormat('nl-NL', {
@@ -15,99 +17,168 @@ function formatSignedEuros(value: number): string {
   return formatted
 }
 
-export default function DashboardChart({ ledger }: { ledger: Ledger }) {
-  const scale = Math.max(ledger.spending, Math.abs(ledger.potentialGain), 1)
-  const spentWidth = (ledger.spending / scale) * 100
-  const gainWidth = (Math.abs(ledger.potentialGain) / scale) * 100
-  const gainPositive = ledger.potentialGain >= 0
+function formatPercent(value: number | null): string {
+  if (value == null) return '—'
+  return new Intl.NumberFormat('nl-NL', {
+    style: 'percent',
+    maximumFractionDigits: 0
+  }).format(value)
+}
+
+function formatSoldDate(iso: string | null): string {
+  if (!iso) return 'Date unknown'
+  const [year, month, day] = iso.split('-').map(Number)
+  if (!year || !month || !day) return 'Date unknown'
+  return new Date(year, month - 1, day).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
+function moneyTone(value: number): string {
+  if (value > 0) return 'text-site-envy'
+  if (value < 0) return 'text-site-loss'
+  return 'text-site-gray-nurse'
+}
+
+export function PeriodToggle({ period, onChange }: { period: LedgerPeriod; onChange: (period: LedgerPeriod) => void }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Period"
+      className="inline-flex rounded-full bg-site-mid p-1 ring-1 ring-site-mulled-wine"
+    >
+      {(
+        [
+          ['all', 'All time'],
+          ['month', 'This month']
+        ] as const
+      ).map(([value, label]) => {
+        const selected = period === value
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(value)}
+            className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-semibold smooth ${
+              selected ? 'bg-site-gunmetal text-site-gray-nurse' : 'text-site-mantle'
+            }`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{label}</dt>
+      <dd className={`text-xl font-semibold tabular-nums sm:text-2xl ${tone ?? 'text-site-gray-nurse'}`}>{value}</dd>
+    </div>
+  )
+}
+
+function SoldRow({ item }: { item: LedgerItem }) {
+  const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
   return (
-    <figure className="flex flex-col gap-10">
-      <div className="grid gap-8 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-        <div className="flex flex-col gap-1 sm:items-end sm:text-right">
-          <p className="text-xs font-semibold tracking-[0.22em] text-site-foil uppercase">What you paid</p>
-          <p className="font-semibold tabular-nums text-5xl tracking-[-0.04em] text-site-foil sm:text-6xl">
-            {formatEuros(ledger.spending)}
+    <li className="grid gap-1 py-4 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-6">
+      <p className="text-sm tabular-nums text-site-mantle">{formatSoldDate(item.soldAt)}</p>
+      <p className="min-w-0 truncate font-semibold text-site-gray-nurse">{item.title}</p>
+      <p className="text-sm tabular-nums text-site-mantle">
+        {item.listed == null ? 'No listed price' : formatEuros(item.listed)}
+        {' · '}
+        {profit == null ? 'No cost' : formatSignedEuros(profit)}
+      </p>
+    </li>
+  )
+}
+
+export default function DashboardChart({ ledger, period }: { ledger: Ledger; period: LedgerPeriod }) {
+  const totals = useMemo(() => summarizeLedger(ledger.items, period), [ledger.items, period])
+  const soldItems = useMemo(() => soldItemsForPeriod(ledger.items, period), [ledger.items, period])
+
+  return (
+    <div className="flex flex-col gap-12 lg:gap-16">
+      <table className="w-full border-collapse text-left">
+        <caption className="sr-only">
+          {`Spent ${formatEuros(totals.spent)}, sold ${formatEuros(totals.sold)}, potential ${formatEuros(totals.potential)}.`}
+        </caption>
+        <thead className="sr-only sm:not-sr-only">
+          <tr className="sm:border-b sm:border-site-mulled-wine">
+            <th scope="col" className="w-1/3 py-3 pr-4 text-xs font-semibold tracking-[0.22em] text-site-foil uppercase">
+              Spent
+            </th>
+            <th scope="col" className="w-1/3 py-3 px-4 text-xs font-semibold tracking-[0.22em] text-site-envy uppercase">
+              Sold
+            </th>
+            <th scope="col" className="w-1/3 py-3 pl-4 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">
+              Potential
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="flex flex-col gap-8 border-b border-site-mulled-wine py-6 sm:table-row sm:gap-0 sm:py-0">
+            <td className="align-bottom sm:py-6 sm:pr-4">
+              <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-foil uppercase sm:hidden">Spent</p>
+              <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-foil sm:text-5xl lg:text-6xl">
+                {formatEuros(totals.spent)}
+              </p>
+              <p className="mt-2 text-sm text-site-mantle">What you paid</p>
+            </td>
+            <td className="align-bottom sm:py-6 sm:px-4">
+              <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-envy uppercase sm:hidden">Sold</p>
+              <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-envy sm:text-5xl lg:text-6xl">
+                {formatEuros(totals.sold)}
+              </p>
+              <p className="mt-2 text-sm text-site-mantle">Taken in</p>
+            </td>
+            <td className="align-bottom sm:py-6 sm:pl-4">
+              <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase sm:hidden">Potential</p>
+              <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-gray-nurse sm:text-5xl lg:text-6xl">
+                {formatEuros(totals.potential)}
+              </p>
+              <p className="mt-2 text-sm text-site-mantle">Still listed</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <dl className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+        <Stat label="Sold" value={`${totals.cardsSold}`} />
+        <Stat label="In stock" value={`${totals.cardsInStock}`} />
+        <Stat
+          label="Realized"
+          value={`${formatSignedEuros(totals.realizedProfit)} / ${formatPercent(totals.realizedMargin)}`}
+          tone={moneyTone(totals.realizedProfit)}
+        />
+        <Stat
+          label="If stock sells"
+          value={`${formatSignedEuros(totals.potentialProfit)} / ${formatPercent(totals.potentialMargin)}`}
+          tone={moneyTone(totals.potentialProfit)}
+        />
+      </dl>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Recently sold</h2>
+        {soldItems.length === 0 ? (
+          <p className="content-m text-site-mantle">
+            {period === 'month' ? 'No cards sold this month.' : 'No sales on the books yet.'}
           </p>
-        </div>
-        <div className="hidden h-16 w-px bg-site-mulled-wine sm:block" aria-hidden />
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold tracking-[0.22em] text-site-envy uppercase">If the stock sells</p>
-          <p
-            className={`font-semibold tabular-nums text-5xl tracking-[-0.04em] sm:text-6xl ${gainPositive ? 'text-site-envy' : 'text-site-loss'}`}
-          >
-            {formatSignedEuros(ledger.potentialGain)}
-          </p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <svg
-          viewBox="0 0 800 220"
-          className="h-auto w-full min-w-72"
-          role="img"
-          aria-labelledby="dashboard-chart-title dashboard-chart-desc"
-        >
-          <title id="dashboard-chart-title">Spendings against potential gain</title>
-          <desc id="dashboard-chart-desc">
-            {`You paid ${formatEuros(ledger.spending)} for current stock. If it all sells at the listed prices, the potential gain is ${formatSignedEuros(ledger.potentialGain)}.`}
-          </desc>
-          <rect x="0" y="28" width="800" height="164" rx="18" className="fill-site-mid" />
-          <line x1="400" y1="44" x2="400" y2="176" className="stroke-site-mulled-wine" strokeWidth="2" />
-          <circle cx="400" cy="110" r="5" className="fill-site-gray-nurse" />
-          <text x="380" y="70" textAnchor="end" className="fill-site-mantle text-[13px]">
-            Paid
-          </text>
-          <text x="420" y="70" className="fill-site-mantle text-[13px]">
-            Gain
-          </text>
-          <rect x={400 - spentWidth * 3.2} y="92" width={spentWidth * 3.2} height="36" rx="4" className="fill-site-foil" />
-          <rect x="400" y="92" width={gainWidth * 3.2} height="36" rx="4" className={gainPositive ? 'fill-site-envy' : 'fill-site-loss'} />
-          <text x="380" y="158" textAnchor="end" className="fill-site-foil text-[15px] tabular-nums">
-            {formatEuros(ledger.spending)}
-          </text>
-          <text x="420" y="158" className={`${gainPositive ? 'fill-site-envy' : 'fill-site-loss'} text-[15px] tabular-nums`}>
-            {formatSignedEuros(ledger.potentialGain)}
-          </text>
-        </svg>
-      </div>
-
-      <figcaption className="sr-only">
-        Spendings {formatEuros(ledger.spending)}. Potential gain {formatSignedEuros(ledger.potentialGain)}.
-      </figcaption>
-
-      <ul className="flex flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine">
-        {ledger.items.map((item) => {
-          const itemScale = Math.max(item.spending ?? 0, Math.abs(item.potentialGain ?? 0), 1)
-          const paid = item.spending == null ? 0 : (item.spending / itemScale) * 100
-          const gain = item.potentialGain == null ? 0 : (Math.abs(item.potentialGain) / itemScale) * 100
-          const itemGainPositive = (item.potentialGain ?? 0) >= 0
-
-          return (
-            <li key={item.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
-                <p className="text-sm tabular-nums text-site-mantle">
-                  {item.spending == null ? 'No cost yet' : formatEuros(item.spending)}
-                  {' · '}
-                  {item.potentialGain == null ? 'No listed price' : formatSignedEuros(item.potentialGain)}
-                </p>
-              </div>
-              <div className="flex h-3 overflow-hidden rounded-full bg-site-mid" aria-hidden>
-                <span className="flex w-1/2 justify-end bg-transparent">
-                  <span className="h-full rounded-l-full bg-site-foil" style={{ width: `${paid}%` }} />
-                </span>
-                <span className="flex w-1/2 bg-transparent">
-                  <span
-                    className={`h-full rounded-r-full ${itemGainPositive ? 'bg-site-envy' : 'bg-site-loss'}`}
-                    style={{ width: `${gain}%` }}
-                  />
-                </span>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </figure>
+        ) : (
+          <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+            {soldItems.map((item) => (
+              <SoldRow key={item.id} item={item} />
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
   )
 }

@@ -104,8 +104,6 @@ async function sendFetchResponse(response: Response, res: ServerResponse): Promi
 }
 
 function dashboardApiMiddleware(root: string) {
-  const env = loadDashboardEnv(root)
-
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
     try {
       const url = req.url?.split('?')[0] ?? ''
@@ -115,7 +113,7 @@ function dashboardApiMiddleware(root: string) {
       }
 
       const request = await toFetchRequest(req)
-      const response = await handleDashboardRequest(request, env)
+      const response = await handleDashboardRequest(request, loadDashboardEnv(root))
       if (!response) {
         next()
         return

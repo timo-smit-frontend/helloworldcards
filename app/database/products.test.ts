@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAllProducts, getInventory, getProductBySlug } from './products'
+import { getAllProducts, getInventory, getProductBySlug, isShopListed } from './products'
 
 describe('product inventory', () => {
   it('keeps only the four shop cards, titled as printed on the slab', () => {
@@ -13,8 +13,26 @@ describe('product inventory', () => {
     ])
   })
 
-  it('keeps purchase cost off the public product records', () => {
-    expect(getAllProducts().every((product) => !('cost' in product))).toBe(true)
+  it('keeps purchase cost and sale status off the public product records', () => {
+    expect(
+      getAllProducts().every(
+        (product) => !('cost' in product) && !('sold' in product) && !('soldAt' in product) && !('acquiredAt' in product)
+      )
+    ).toBe(true)
+  })
+
+  it('keeps sold cards in inventory and off the shop', () => {
+    expect(isShopListed({})).toBe(true)
+    expect(isShopListed({ sold: false })).toBe(true)
+    expect(isShopListed({ sold: true })).toBe(false)
+
+    const sold = getInventory().filter((item) => item.sold)
+    const shopIds = new Set(getAllProducts().map((product) => product.id))
+
+    for (const item of sold) {
+      expect(shopIds.has(item.id)).toBe(false)
+      expect(getProductBySlug(item.slug)).toBeUndefined()
+    }
   })
 
   it('tracks what was paid for stock on the inventory records', () => {

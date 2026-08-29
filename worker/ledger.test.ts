@@ -1,5 +1,51 @@
 import { describe, expect, it } from 'vitest'
-import { buildLedger, parseListedPrice } from './ledger'
+import type { LedgerItem } from '../app/database/ledger-types'
+import { buildLedger, parseListedPrice, soldItemsForPeriod, summarizeLedger } from './ledger'
+
+const now = new Date('2026-08-29T12:00:00')
+
+const items: LedgerItem[] = [
+  {
+    id: 1,
+    title: 'In stock from January',
+    spending: 50,
+    listed: 80,
+    potentialGain: 30,
+    sold: false,
+    soldAt: null,
+    acquiredAt: '2026-01-10'
+  },
+  {
+    id: 2,
+    title: 'Bought this month',
+    spending: 20,
+    listed: 40,
+    potentialGain: 20,
+    sold: false,
+    soldAt: null,
+    acquiredAt: '2026-08-05'
+  },
+  {
+    id: 3,
+    title: 'Sold this month',
+    spending: 30,
+    listed: 60,
+    potentialGain: 30,
+    sold: true,
+    soldAt: '2026-08-20',
+    acquiredAt: '2026-03-01'
+  },
+  {
+    id: 4,
+    title: 'Sold last year',
+    spending: 10,
+    listed: 25,
+    potentialGain: 15,
+    sold: true,
+    soldAt: '2025-12-01',
+    acquiredAt: '2025-06-01'
+  }
+]
 
 describe('parseListedPrice', () => {
   it('reads euro strings with Dutch thousands separators', () => {
@@ -33,5 +79,42 @@ describe('buildLedger', () => {
 
     expect(withBoth).toBeDefined()
     expect(withBoth?.potentialGain).toBe((withBoth?.listed ?? 0) - (withBoth?.spending ?? 0))
+  })
+})
+
+describe('summarizeLedger', () => {
+  it('counts all-time spent, sold revenue, and remaining potential', () => {
+    const totals = summarizeLedger(items, 'all', now)
+
+    expect(totals.spent).toBe(110)
+    expect(totals.sold).toBe(85)
+    expect(totals.potential).toBe(120)
+    expect(totals.cardsSold).toBe(2)
+    expect(totals.cardsInStock).toBe(2)
+    expect(totals.realizedProfit).toBe(45)
+    expect(totals.realizedMargin).toBe(45 / 40)
+    expect(totals.potentialProfit).toBe(50)
+    expect(totals.potentialMargin).toBe(50 / 70)
+  })
+
+  it('scopes spent and sold to this month and keeps potential as current stock', () => {
+    const totals = summarizeLedger(items, 'month', now)
+
+    expect(totals.spent).toBe(50)
+    expect(totals.sold).toBe(60)
+    expect(totals.potential).toBe(120)
+    expect(totals.cardsSold).toBe(1)
+    expect(totals.cardsInStock).toBe(2)
+    expect(totals.realizedProfit).toBe(30)
+    expect(totals.realizedMargin).toBe(1)
+    expect(totals.potentialProfit).toBe(50)
+    expect(totals.potentialMargin).toBe(50 / 70)
+  })
+})
+
+describe('soldItemsForPeriod', () => {
+  it('lists sold cards from newest sale to oldest', () => {
+    expect(soldItemsForPeriod(items, 'all', now).map((item) => item.id)).toEqual([3, 4])
+    expect(soldItemsForPeriod(items, 'month', now).map((item) => item.id)).toEqual([3])
   })
 })
