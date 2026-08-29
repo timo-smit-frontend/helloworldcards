@@ -64,7 +64,7 @@ describe('product inventory', () => {
     expect(product?.description).toContain('56/82')
     expect(product?.images).toEqual(['/images/76645522_front.jpg', '/images/76645522_back.jpg'])
     expect(product?.pokemonId).toBe(23)
-    expect(product?.price).toBe('€40')
+    expect(product?.price).toBe('€60')
     expect(getInventory().find((item) => item.id === 4)?.cost).toBe(25)
   })
 })

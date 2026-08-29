@@ -63,7 +63,7 @@ const products: ProductRecord[] = [
       '1st Edition Ekans from Team Rocket, number 56/82. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
     images: ['/images/76645522_front.jpg', '/images/76645522_back.jpg'],
     pokemonId: 23,
-    price: '€40',
+    price: '€60',
     cost: 25
   }
 ]
