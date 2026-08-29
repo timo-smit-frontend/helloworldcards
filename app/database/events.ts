@@ -5,38 +5,7 @@ export type Event = {
   location: string
 }
 
-const events: Event[] = [
-  {
-    id: 1,
-    title: 'Utrecht Card Show',
-    date: '2026-09-12',
-    location: 'Jaarbeurs, Utrecht'
-  },
-  {
-    id: 2,
-    title: 'Pokémon Regional Championships',
-    date: '2026-10-03',
-    location: 'RAI, Amsterdam'
-  },
-  {
-    id: 3,
-    title: 'Play! Pokémon League Challenge',
-    date: '2026-10-18',
-    location: 'Spellenhuis, Rotterdam'
-  },
-  {
-    id: 4,
-    title: 'Belgian TCG Open',
-    date: '2026-11-07',
-    location: 'Flanders Expo, Ghent'
-  },
-  {
-    id: 5,
-    title: 'Winter Collector Fair',
-    date: '2026-12-05',
-    location: 'Jaarbeurs, Utrecht'
-  }
-]
+const events: Event[] = []
 
 function startOfDay(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate())

@@ -19,19 +19,35 @@ const IMAGE_COPY: Record<string, ImageCopy> = {
     alt: 'Wooper, a smiling blue Pokémon with branching pink gills.'
   },
   '/images/148651617_front.jpg': {
-    title: 'Mewtwo Reverse Holo, front',
+    title: 'Mewtwo, front',
     alt: 'PSA 9 XY Evolutions Mewtwo reverse holo, 51/108, in a grading slab.'
   },
   '/images/148651617_back.jpg': {
-    title: 'Mewtwo Reverse Holo, back',
+    title: 'Mewtwo, back',
     alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
   },
   '/images/76719295_front.jpg': {
-    title: 'Lugia V Full Art, front',
+    title: 'Lugia V, front',
     alt: 'PSA 9 Silver Tempest Lugia V full art, 185/195, in a grading slab.'
   },
   '/images/76719295_back.jpg': {
-    title: 'Lugia V Full Art, back',
+    title: 'Lugia V, back',
+    alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
+  },
+  '/images/61958598_front.jpg': {
+    title: 'Charizard, front',
+    alt: 'PSA 9 XY Generations Radiant Collection Charizard holo, RC5/RC32, in a grading slab.'
+  },
+  '/images/61958598_back.jpg': {
+    title: 'Charizard, back',
+    alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
+  },
+  '/images/76645522_front.jpg': {
+    title: 'Ekans, front',
+    alt: 'PSA 9 1st Edition Team Rocket Ekans, 56/82, in a grading slab.'
+  },
+  '/images/76645522_back.jpg': {
+    title: 'Ekans, back',
     alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
   }
 }

@@ -315,8 +315,7 @@ export function getSeoForPath(pathname: string): SeoPage {
     return page({
       path,
       title: titleWithBrand('Upcoming events'),
-      description:
-        "We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's binders.",
+      description: 'When we have a stall at a Pokémon event in the Netherlands or Belgium, the date and place will be here.',
       extraGraph: [eventListNode(path)]
     })
   }

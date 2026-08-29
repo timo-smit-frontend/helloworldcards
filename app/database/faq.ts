@@ -70,7 +70,7 @@ const faqs: FaqItem[] = [
     page: 'contact',
     question: 'Where can I meet you in person?',
     answer:
-      "At the events on the agenda. We bring a stall with cards from the shop and Sam's handpainted binders. Check the dates, because we will not be at every show."
+      "When we have a stall at a Pokémon event. Those dates go on the agenda. We do not have a next event planned yet. We bring cards from the shop and Sam's handpainted binders."
   }
 ]
 

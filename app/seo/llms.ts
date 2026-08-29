@@ -49,7 +49,7 @@ function eventsSection(): string {
   const agendaUrl = canonicalUrl('/agenda')
 
   if (!events.length) {
-    return `## Events\n- [Upcoming events](${agendaUrl}): No upcoming events listed right now.`
+    return `## Events\n- [Upcoming events](${agendaUrl}): No next event planned yet.`
   }
 
   const items = events.map((event) => `- [${event.title}](${agendaUrl}): ${event.date}, ${event.location}`)

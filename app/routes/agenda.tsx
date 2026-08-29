@@ -8,7 +8,7 @@ export default function Agenda() {
     <>
       <ContentAgenda
         title="Upcoming Pokémon events"
-        description="We'll be at these Pokémon events in the Netherlands and Belgium. Come say hi, browse the stall, and have a look at Sam's handpainted binders."
+        description="When we have a stall at a Pokémon event, the date and place will be here. Come say hi, browse the cards, and have a look at Sam's handpainted binders."
       />
       <ContentText
         title="What you'll find at the stall"

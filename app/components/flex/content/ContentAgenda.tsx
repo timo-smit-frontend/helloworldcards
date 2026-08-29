@@ -1,8 +1,11 @@
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
+import Pokemon from '~/components/elements/Pokemon'
 import { getEventsByIds, getUpcomingEvents } from '~/database/events'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
+
+const GENGAR_ID = 94
 
 const eventDelays = [100, 200, 300, 400, 500, 600] as const
 
@@ -78,7 +81,28 @@ export default function ContentAgenda({
             </ul>
           ) : (
             <Animated delay={200}>
-              <p className="content-l text-site-mantle">No upcoming events right now. Check back soon.</p>
+              <div
+                role="status"
+                className="grid items-center overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine md:grid-cols-[minmax(0,1fr)_20rem] lg:grid-cols-[minmax(0,1fr)_24rem]"
+              >
+                <div className="flex flex-col justify-center gap-3 px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
+                  <EventHeading className="title-xs">No next event planned yet</EventHeading>
+                  <p className="content-m max-w-xl text-site-mantle">
+                    We have not booked a stall. When we do, the date and place will show up here.
+                  </p>
+                </div>
+                <div aria-hidden className="relative flex items-center justify-center px-6 pb-8 md:px-8 md:py-8">
+                  <div
+                    aria-hidden
+                    className="absolute inset-x-8 inset-y-4 rounded-full bg-[radial-gradient(circle,rgb(74_81_104/0.7)_0%,transparent_72%)]"
+                  />
+                  <Pokemon
+                    variant="placeholder"
+                    id={GENGAR_ID}
+                    className="relative z-10 h-44 w-full sm:h-52 md:h-56 lg:h-64 [&_img]:[image-rendering:pixelated]"
+                  />
+                </div>
+              </div>
             </Animated>
           )}
         </div>

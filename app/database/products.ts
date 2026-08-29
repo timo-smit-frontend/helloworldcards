@@ -26,94 +26,45 @@ type ProductRecord = Omit<Product, 'slug' | 'images'> & {
 const products: ProductRecord[] = [
   {
     id: 1,
-    title: 'Mewtwo Reverse Holo',
-    subtitle: '2016 XY Evolutions - 51/108',
+    title: 'Mewtwo',
+    subtitle: '2016 Evolutions - #51',
     description:
-      'Reverse holo Mewtwo from the 2016 XY Evolutions set, number 51/108. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+      'Reverse foil Mewtwo from XY Evolutions, number 51/108. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
-    price: '€99',
+    price: '€100',
     cost: 55
   },
   {
-    id: 9,
-    title: 'Lugia V Full Art',
-    subtitle: '2022 Sword & Shield Silver Tempest - 185/195',
+    id: 2,
+    title: 'Lugia V',
+    subtitle: '2022 Silver Tempest - #185',
     description:
-      'Full art Lugia V from the 2022 Sword & Shield Silver Tempest set, number 185/195. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+      'Full art Lugia V from Sword & Shield Silver Tempest, number 185/195. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
     images: ['/images/76719295_front.jpg', '/images/76719295_back.jpg'],
     price: '€45',
     cost: 30
   },
   {
-    id: 10,
-    title: 'Charizard Holo',
-    subtitle: '2016 XY Generations Radiant Collection - RC5/RC32',
+    id: 3,
+    title: 'Charizard',
+    subtitle: '2016 Radiant Collection - #RC5',
     description:
-      'Holo Charizard from the 2016 XY Generations Radiant Collection, number RC5/RC32. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+      'Holo Charizard from the XY Generations Radiant Collection, number RC5/RC32. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+    images: ['/images/61958598_front.jpg', '/images/61958598_back.jpg'],
     pokemonId: 6,
-    price: '€120',
+    price: '€125',
     cost: 75
   },
   {
-    id: 2,
-    title: 'Blastoise Holo',
-    subtitle: 'Base Set - Reverse Holo - 10/102',
-    description:
-      'A reverse holo Blastoise from Base Set. Classic art, the kind of card that still earns a page in the binder. Listed here and on Marktplaats.',
-    pokemonId: 9,
-    price: '€189',
-    cost: 110
-  },
-  {
-    id: 3,
-    title: 'Venusaur Holo',
-    subtitle: 'Base Set - 10/102',
-    description: 'Holo Venusaur from Base Set. A grass-type staple with the original full-art energy, listed here and on Marktplaats.',
-    pokemonId: 3,
-    price: '€159',
-    cost: 90
-  },
-  {
     id: 4,
-    title: 'Pikachu Illustrator',
-    subtitle: 'Base Set - 10/102',
-    description: 'Pikachu Illustrator, a display piece from the shop. Ask us if you want a closer look.',
-    pokemonId: 25,
-    price: '€1.200',
-    cost: 750
-  },
-  {
-    id: 5,
-    title: 'Mewtwo GX',
-    subtitle: 'Base Set - 10/102',
-    description: 'Mewtwo GX from the shop. A later-era hit that still pulls focus in a binder. Same listing as on Marktplaats.',
-    pokemonId: 150,
-    price: '€79',
-    cost: 40
-  },
-  {
-    id: 6,
-    title: 'Eevee Promo',
-    subtitle: 'Base Set - 10/102',
-    description: "An Eevee promo with the soft art people pick up and don't put back.",
-    pokemonId: 133,
-    cost: 18
-  },
-  {
-    id: 7,
-    title: 'Psyduck Binder',
-    subtitle: 'Custom handpainted',
-    description: 'A custom handpainted binder for Psyduck.',
-    pokemonId: 54,
-    cost: 35
-  },
-  {
-    id: 8,
-    title: 'Slowpoke Binder',
-    subtitle: 'Custom handpainted',
-    description: 'A custom handpainted binder for Slowpoke.',
-    pokemonId: 79,
-    cost: 35
+    title: 'Ekans',
+    subtitle: '2000 Team Rocket - #56',
+    description:
+      '1st Edition Ekans from Team Rocket, number 56/82. Graded PSA 9 Mint. Email us if you want the details, or use the Marktplaats listing when one is up.',
+    images: ['/images/76645522_front.jpg', '/images/76645522_back.jpg'],
+    pokemonId: 23,
+    price: '€40',
+    cost: 25
   }
 ]
 
