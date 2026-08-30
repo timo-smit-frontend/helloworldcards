@@ -1,7 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import DashboardChart, { PeriodToggle } from '~/components/dashboard/DashboardChart'
+import Logo from '~/components/elements/Logo'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
+import { SITE_NAME } from '~/seo/site'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
 
@@ -94,10 +97,11 @@ export default function Dashboard() {
     <div className="flex min-h-screen flex-col bg-site-dark text-site-gray-nurse">
       <SkipToMainContent />
       <header className="border-b border-site-mulled-wine">
-        <div className="container-full flex items-center justify-between py-5">
-          <p className="text-sm font-semibold tracking-[0.2em] uppercase">
-            {status === 'ready' ? 'Hello World Cards · Dashboard' : 'Hello World Cards'}
-          </p>
+        <div className="container-full flex items-center justify-between py-2">
+          <Link to="/" className="shrink-0 transition-opacity hover:opacity-80">
+            <span className="sr-only">{SITE_NAME}</span>
+            <Logo className="h-20 w-auto" />
+          </Link>
           {status === 'ready' && (
             <button
               type="button"
@@ -173,7 +177,7 @@ export default function Dashboard() {
         )}
 
         {status === 'ready' && ledger && (
-          <section className="container-full section">
+          <section className="container-full py-16 sm:py-24">
             <div className="flex flex-col gap-4 lg:gap-6">
               <h1 className="title-l">The books</h1>
               <div className="flex flex-wrap items-center justify-between gap-4">

@@ -42,7 +42,7 @@ const products: ProductRecord[] = [
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€100',
     cost: 55,
-    acquiredAt: '2026-01-15'
+    acquiredAt: '2026-08-30'
   },
   {
     id: 2,
@@ -53,7 +53,7 @@ const products: ProductRecord[] = [
     images: ['/images/76719295_front.jpg', '/images/76719295_back.jpg'],
     price: '€45',
     cost: 30,
-    acquiredAt: '2026-03-02'
+    acquiredAt: '2026-08-30'
   },
   {
     id: 3,
@@ -65,7 +65,7 @@ const products: ProductRecord[] = [
     pokemonId: 6,
     price: '€125',
     cost: 75,
-    acquiredAt: '2026-04-18'
+    acquiredAt: '2026-08-30'
   },
   {
     id: 4,
@@ -77,7 +77,7 @@ const products: ProductRecord[] = [
     pokemonId: 23,
     price: '€60',
     cost: 25,
-    acquiredAt: '2026-06-08'
+    acquiredAt: '2026-08-30'
   }
 ]
 
