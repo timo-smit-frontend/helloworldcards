@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getIndexableSeoPages, getSeoForPath } from './pages'
+import { getIndexableSeoPages, getSeoForPath } from '~/seo/pages'
 
 describe('dashboard privacy', () => {
   it('marks /dashboard as noindex so crawlers skip it', () => {
@@ -16,7 +16,7 @@ describe('dashboard privacy', () => {
 
   it('disallows /dashboard/ in robots.txt', async () => {
     const { readFile } = await import('node:fs/promises')
-    const robots = await readFile(new URL('../../public/robots.txt', import.meta.url), 'utf8')
+    const robots = await readFile(new URL('../public/robots.txt', import.meta.url), 'utf8')
     expect(robots).toContain('Disallow: /dashboard/')
   })
 })

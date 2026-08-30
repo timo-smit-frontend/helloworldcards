@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAllProducts, getInventory, getProductBySlug, getRandomProducts, isShopListed } from './products'
+import { getAllProducts, getInventory, getProductBySlug, getRandomProducts, isShopListed } from '~/database/products'
 
 describe('product inventory', () => {
   it('keeps only the shop cards, titled as printed on the slab', () => {

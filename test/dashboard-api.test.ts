@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { handleDashboardRequest } from './dashboard-api'
-import { SESSION_COOKIE } from './session'
+import { handleDashboardRequest } from '../worker/dashboard-api'
+import { SESSION_COOKIE } from '../worker/session'
 
 const env = {
   DASHBOARD_USERNAME: 'sam',

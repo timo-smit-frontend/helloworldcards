@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSessionToken, timingSafeEqual, verifySessionToken } from './session'
+import { createSessionToken, timingSafeEqual, verifySessionToken } from '../worker/session'
 
 describe('session tokens', () => {
   it('accepts a token signed with the env secret', async () => {

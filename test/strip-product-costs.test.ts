@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripProductCosts } from './strip-product-costs'
+import { stripProductCosts } from '../vite/strip-product-costs'
 
 describe('stripProductCosts', () => {
   it('removes purchase cost fields from product source', () => {

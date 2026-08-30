@@ -81,7 +81,7 @@ export default [
         extends: ['plugin:@typescript-eslint/recommended']
       },
       {
-        files: ['eslint.config.js', 'vite.config.ts', 'vite/**/*.ts'],
+        files: ['eslint.config.js', 'vite.config.ts', 'vitest.config.ts', 'vite/**/*.ts', 'test/**/*.ts'],
         env: {
           node: true
         }

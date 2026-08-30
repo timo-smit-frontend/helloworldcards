@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -14,5 +14,5 @@
       "~/*": ["./app/*"]
     }
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "vite/**/*.ts"]
+  "include": ["test/**/*.ts"]
 }
