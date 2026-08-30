@@ -5,7 +5,7 @@ export type PriceRange = {
   max: number
 }
 
-export function catalogPriceBounds(products: Array<{ price?: string | number }>): PriceRange | null {
+export function catalogPriceBounds<T extends { price?: string | number }>(products: T[]): PriceRange | null {
   const prices = products
     .map((product) => parseListedPrice(product.price))
     .filter((price): price is number => price != null)

@@ -19,7 +19,7 @@ describe('catalogPriceBounds', () => {
   })
 
   it('returns null when nothing has a listed price', () => {
-    expect(catalogPriceBounds([{ id: 1 }])).toBeNull()
+    expect(catalogPriceBounds([{}])).toBeNull()
   })
 })
 
