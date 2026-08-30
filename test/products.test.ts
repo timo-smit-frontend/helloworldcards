@@ -8,7 +8,10 @@ describe('product inventory', () => {
       [2, 'Lugia V', '2022 Silver Tempest - #185', 'lugia-v-2022-silver-tempest-185'],
       [3, 'Charizard', '2016 Radiant Collection - #RC5', 'charizard-2016-radiant-collection-rc5'],
       [4, 'Ekans', '2000 Team Rocket - #56', 'ekans-2000-team-rocket-56'],
-      [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140']
+      [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
+      [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
+      [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
+      [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05']
     ])
   })
 
@@ -53,6 +56,9 @@ describe('product inventory', () => {
     expect(product?.description).not.toContain('Fugitive Ink')
     expect(product?.description).not.toContain('graded higher')
     expect(product?.price).toBe('€100')
+    expect(product?.language).toBe('english')
+    expect(product?.grader).toBe('psa')
+    expect(product?.year).toBe(2016)
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737465')
   })
 
@@ -126,12 +132,72 @@ describe('product inventory', () => {
     expect(product?.description).toContain('centering 9.5')
     expect(product?.description).not.toContain('Email us')
     expect(product?.description).not.toContain('graded higher')
-    expect(product?.images).toEqual(['/images/0018501427_front.jpg', '/images/0018501427_back.jpg'])
+    expect(product?.images).toEqual(['/images/18501427_front.jpg', '/images/18501427_back.jpg'])
     expect(product?.pokemonId).toBe(570)
     expect(product?.price).toBe('€70')
+    expect(product?.language).toBe('japanese')
+    expect(product?.grader).toBe('beckett')
+    expect(product?.year).toBe(2025)
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436896724')
     expect(inventory?.cost).toBe(40)
     expect(inventory?.acquiredAt).toBe('2026-08-30')
+  })
+
+  it('lists the Brilliant Stars Arceus V with slab photos', () => {
+    const product = getProductBySlug('arceus-v-2022-brilliant-stars-165')
+
+    expect(product?.title).toBe('Arceus V')
+    expect(product?.subtitle).toBe('2022 Brilliant Stars - #165')
+    expect(product?.description).toContain('Full Art')
+    expect(product?.description).toContain('Brilliant Stars')
+    expect(product?.description).toContain('165/172')
+    expect(product?.description).toContain('142991345')
+    expect(product?.description).not.toContain('Email us')
+    expect(product?.description).not.toContain('Fugitive Ink')
+    expect(product?.description).not.toContain('graded higher')
+    expect(product?.images).toEqual(['/images/142991345_front.jpg', '/images/142991345_back.jpg'])
+    expect(product?.pokemonId).toBe(493)
+    expect(product?.price).toBe('€50')
+    expect(getInventory().find((item) => item.id === 6)?.cost).toBe(28)
+    expect(getInventory().find((item) => item.id === 6)?.acquiredAt).toBe('2026-08-30')
+  })
+
+  it('lists the Mega Evolution Mega Latias ex SIR with slab photos', () => {
+    const product = getProductBySlug('mega-latias-ex-2025-mega-evolution-181')
+
+    expect(product?.title).toBe('Mega Latias ex')
+    expect(product?.subtitle).toBe('2025 Mega Evolution - #181')
+    expect(product?.description).toContain('Special Illustration Rare')
+    expect(product?.description).toContain('Mega Evolution')
+    expect(product?.description).toContain('181/132')
+    expect(product?.description).toContain('136389084')
+    expect(product?.description).not.toContain('Email us')
+    expect(product?.description).not.toContain('Fugitive Ink')
+    expect(product?.description).not.toContain('graded higher')
+    expect(product?.images).toEqual(['/images/136389084_front.jpg', '/images/136389084_back.jpg'])
+    expect(product?.pokemonId).toBe(380)
+    expect(product?.price).toBe('€120')
+    expect(getInventory().find((item) => item.id === 7)?.cost).toBe(72)
+    expect(getInventory().find((item) => item.id === 7)?.acquiredAt).toBe('2026-08-30')
+  })
+
+  it('lists the Brilliant Stars Trainer Gallery Zekrom with slab photos', () => {
+    const product = getProductBySlug('zekrom-2022-brilliant-stars-tg05')
+
+    expect(product?.title).toBe('Zekrom')
+    expect(product?.subtitle).toBe('2022 Brilliant Stars - #TG05')
+    expect(product?.description).toContain('Trainer Gallery')
+    expect(product?.description).toContain('Brilliant Stars')
+    expect(product?.description).toContain('TG05/TG30')
+    expect(product?.description).toContain('142991337')
+    expect(product?.description).not.toContain('Email us')
+    expect(product?.description).not.toContain('Fugitive Ink')
+    expect(product?.description).not.toContain('graded higher')
+    expect(product?.images).toEqual(['/images/142991337_front.jpg', '/images/142991337_back.jpg'])
+    expect(product?.pokemonId).toBe(644)
+    expect(product?.price).toBe('€60')
+    expect(getInventory().find((item) => item.id === 8)?.cost).toBe(28)
+    expect(getInventory().find((item) => item.id === 8)?.acquiredAt).toBe('2026-08-30')
   })
 
   it('picks a random sample of available shop cards', () => {

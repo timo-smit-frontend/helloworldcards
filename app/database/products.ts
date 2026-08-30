@@ -1,5 +1,11 @@
 import { slugify } from '../services/utils'
 
+export const CARD_LANGUAGES = ['english', 'japanese'] as const
+export const CARD_GRADERS = ['psa', 'beckett'] as const
+
+export type CardLanguage = (typeof CARD_LANGUAGES)[number]
+export type CardGrader = (typeof CARD_GRADERS)[number]
+
 export type Product = {
   id: number
   title: string
@@ -8,6 +14,9 @@ export type Product = {
   images: string[]
   pokemonId?: number
   price?: string | number
+  language?: CardLanguage
+  grader?: CardGrader
+  year?: number
   marktplaatsUrl?: string
   slug: string
 }
@@ -41,6 +50,9 @@ const products: ProductRecord[] = [
       'A reverse holo from the 2016 XY Evolutions set, number 51/108. Evolutions reprints the original Base Set art with an XY-era reverse holo finish. This copy is graded PSA 9 Mint, cert 148651617. The PSA population is 1,857.',
     images: ['/images/148651617_front.jpg', '/images/148651617_back.jpg'],
     price: '€100',
+    language: 'english',
+    grader: 'psa',
+    year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
     cost: 55,
     acquiredAt: '2026-08-30'
@@ -53,6 +65,9 @@ const products: ProductRecord[] = [
       'A Full Art from the 2022 Sword & Shield Silver Tempest set, number 185/195. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 76719295. The PSA population is 1,254.',
     images: ['/images/76719295_front.jpg', '/images/76719295_back.jpg'],
     price: '€45',
+    language: 'english',
+    grader: 'psa',
+    year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737892',
     cost: 30,
     acquiredAt: '2026-08-30'
@@ -66,6 +81,9 @@ const products: ProductRecord[] = [
     images: ['/images/61958598_front.jpg', '/images/61958598_back.jpg'],
     pokemonId: 6,
     price: '€125',
+    language: 'english',
+    grader: 'psa',
+    year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738233',
     cost: 75,
     acquiredAt: '2026-08-30'
@@ -79,6 +97,9 @@ const products: ProductRecord[] = [
     images: ['/images/76645522_front.jpg', '/images/76645522_back.jpg'],
     pokemonId: 23,
     price: '€60',
+    language: 'english',
+    grader: 'psa',
+    year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700',
     cost: 25,
     acquiredAt: '2026-08-30'
@@ -89,11 +110,59 @@ const products: ProductRecord[] = [
     subtitle: '2025 White Flare Japanese - #140',
     description:
       'An Art Rare from the 2025 Scarlet & Violet White Flare Japanese set, number 140/086. Art Rares are the full-illustration prints from the Japanese set. This copy was graded BGS 9.5 Gem Mint on 3 September 2025, cert 18501427. Subgrades are centering 9.5, corners 10, edges 10, and surface 9.5. The Beckett population is 35.',
-    images: ['/images/0018501427_front.jpg', '/images/0018501427_back.jpg'],
+    images: ['/images/18501427_front.jpg', '/images/18501427_back.jpg'],
     pokemonId: 570,
     price: '€70',
+    language: 'japanese',
+    grader: 'beckett',
+    year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
     cost: 40,
+    acquiredAt: '2026-08-30'
+  },
+  {
+    id: 6,
+    title: 'Arceus V',
+    subtitle: '2022 Brilliant Stars - #165',
+    description:
+      'A Full Art from the 2022 Sword & Shield Brilliant Stars set, number 165/172. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 142991345. The PSA population is 369.',
+    images: ['/images/142991345_front.jpg', '/images/142991345_back.jpg'],
+    pokemonId: 493,
+    price: '€50',
+    language: 'english',
+    grader: 'psa',
+    year: 2022,
+    cost: 28,
+    acquiredAt: '2026-08-30'
+  },
+  {
+    id: 7,
+    title: 'Mega Latias ex',
+    subtitle: '2025 Mega Evolution - #181',
+    description:
+      'A Special Illustration Rare from the 2025 Mega Evolution set, number 181/132. Special Illustration Rares are the full-art chase prints from the English set. This copy is graded PSA 9 Mint, cert 136389084. The PSA population is 4,479.',
+    images: ['/images/136389084_front.jpg', '/images/136389084_back.jpg'],
+    pokemonId: 380,
+    price: '€120',
+    language: 'english',
+    grader: 'psa',
+    year: 2025,
+    cost: 72,
+    acquiredAt: '2026-08-30'
+  },
+  {
+    id: 8,
+    title: 'Zekrom',
+    subtitle: '2022 Brilliant Stars - #TG05',
+    description:
+      'A Full Art from the 2022 Sword & Shield Brilliant Stars Trainer Gallery, number TG05/TG30. This is the Trainer Gallery print, not the regular set card. This copy is graded PSA 9 Mint, cert 142991337. The PSA population is 3,381.',
+    images: ['/images/142991337_front.jpg', '/images/142991337_back.jpg'],
+    pokemonId: 644,
+    price: '€60',
+    language: 'english',
+    grader: 'psa',
+    year: 2022,
+    cost: 28,
     acquiredAt: '2026-08-30'
   }
 ]

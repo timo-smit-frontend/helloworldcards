@@ -1,12 +1,24 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
+import { ProductCatalogFilterFields, ProductCatalogFilterSheet, ProductCatalogPagination } from '~/components/elements/ProductFiltering'
 import { getAllProducts, getProductsByIds, getRandomProducts } from '~/database/products'
+import useCatalogPageSize from '~/hooks/useCatalogPageSize'
 import useLocationFinder from '~/hooks/useLocationFinder'
-import { imageTitleFor } from '~/services/imageCopy'
+import {
+  applyCatalogPageSearchParams,
+  applyCatalogSearchParams,
+  catalogFiltersActive,
+  listCatalogProducts,
+  paginateCatalogProducts,
+  parseCatalogPageParam,
+  parseCatalogSearchParams,
+  resetCatalogSearchParams
+} from '~/services/productCatalog'
+import { applyPriceRangeSearchParams, catalogPriceBounds, parsePriceRangeParams, type PriceRange } from '~/services/productPriceFilter'
 import { cn } from '~/services/utils'
 
 const productDelays = [
@@ -30,18 +42,60 @@ export default function ContentProducts({
   random?: number
 }) {
   const { ref, isFirst } = useLocationFinder()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const pageSize = useCatalogPageSize()
   const ids = normalizeIds(id)
+  const showFilters = ids == null && random == null
   const products = useMemo(() => {
     if (random != null) return getRandomProducts(random)
     if (ids) return getProductsByIds(ids)
     return getAllProducts()
   }, [random, ids])
+  const bounds = useMemo(() => (showFilters ? catalogPriceBounds(products) : null), [products, showFilters])
+  const range = bounds ? parsePriceRangeParams(searchParams, bounds) : null
+  const catalog = parseCatalogSearchParams(searchParams)
+  const requestedPage = parseCatalogPageParam(searchParams)
+  const priceActive = bounds != null && range != null && (range.min > bounds.min || range.max < bounds.max)
+  const filtersActive = catalogFiltersActive({ ...catalog, priceActive })
+  const listedProducts = showFilters
+    ? listCatalogProducts(products, { ...catalog, range, priceActive })
+    : products
+  const paged = showFilters ? paginateCatalogProducts(listedProducts, requestedPage, pageSize) : null
+  const visibleProducts = paged?.items ?? listedProducts
   const Heading = ids || random != null ? 'h2' : 'h1'
+
+  useEffect(() => {
+    if (!showFilters || paged == null || paged.page === requestedPage) {
+      return
+    }
+
+    setSearchParams(applyCatalogPageSearchParams(searchParams, paged.page), { replace: true })
+  }, [paged, requestedPage, searchParams, setSearchParams, showFilters])
+
+  function handlePriceRangeChange(next: PriceRange) {
+    if (!bounds) return
+    setSearchParams(applyPriceRangeSearchParams(searchParams, next, bounds), { replace: true })
+  }
+
+  function handlePageChange(page: number) {
+    setSearchParams(applyCatalogPageSearchParams(searchParams, page), { replace: true })
+    document.getElementById('content-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleCatalogChange(next: Partial<typeof catalog>) {
+    setSearchParams(
+      applyCatalogSearchParams(searchParams, {
+        language: next.language !== undefined ? next.language : catalog.language,
+        sort: next.sort !== undefined ? next.sort : catalog.sort
+      }),
+      { replace: true }
+    )
+  }
 
   return (
     <section id="content-products" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
-        <div className="flex flex-col gap-10">
+        <div className={cn('flex flex-col gap-10', showFilters && 'max-lg:pb-20')}>
           {(title || description) && (
             <div className="flex max-w-4xl flex-col gap-8">
               {isFirst && <Breadcrumbs />}
@@ -62,9 +116,52 @@ export default function ContentProducts({
             </div>
           )}
 
-          {products.length > 0 && (
+          {showFilters && (
+            <>
+              <Animated delay={300}>
+                <div className="hidden grid-cols-1 gap-5 sm:grid-cols-2 lg:grid lg:grid-cols-4">
+                  <ProductCatalogFilterFields
+                    idPrefix="product"
+                    bounds={bounds}
+                    range={range}
+                    language={catalog.language}
+                    sort={catalog.sort}
+                    onRangeChange={handlePriceRangeChange}
+                    onLanguageChange={(next) => handleCatalogChange({ language: next })}
+                    onSortChange={(next) => handleCatalogChange({ sort: next })}
+                  />
+                  <div className="min-w-0">
+                    {filtersActive && (
+                      <div className="flex w-full min-w-0 flex-col gap-3">
+                        <span className="invisible text-sm font-medium" aria-hidden>
+                          Reset
+                        </span>
+                        <button
+                          type="button"
+                          className="button-green w-full! cursor-pointer"
+                          onClick={() => setSearchParams(resetCatalogSearchParams(searchParams), { replace: true })}
+                        >
+                          Reset filters
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Animated>
+              <ProductCatalogFilterSheet
+                bounds={bounds}
+                range={range}
+                language={catalog.language}
+                sort={catalog.sort}
+                searchParams={searchParams}
+                onApply={(next) => setSearchParams(next, { replace: true })}
+              />
+            </>
+          )}
+
+          {listedProducts.length > 0 ? (
             <ul className="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
-              {products.map((product, index) => (
+              {visibleProducts.map((product, index) => (
                 <li key={product.id} className="flex w-full min-w-0">
                   <Animated delay={productDelays[Math.min(index, productDelays.length - 1)]} className="flex w-full min-w-0">
                     <div className="flex w-full min-w-0 flex-1 flex-col">
@@ -78,22 +175,22 @@ export default function ContentProducts({
                               <Image
                                 src={product.images[0]}
                                 alt=""
-                                title={imageTitleFor(product.images[0]) ?? product.title}
+                                title=""
                                 width={800}
                                 height={1120}
                                 aria-hidden
                                 maxwidth={1000}
-                                className={`absolute inset-0 size-full object-contain p-5 ${product.images[1] ? 'smooth group-hover:opacity-0' : ''}`}
+                                className={product.images[1] ? 'product-hover-morph-front' : 'absolute inset-0 size-full object-contain p-5'}
                               />
                               {product.images[1] && (
                                 <Image
                                   src={product.images[1]}
                                   alt=""
-                                  title={imageTitleFor(product.images[1]) ?? `${product.title}, photo 2`}
+                                  title=""
                                   width={800}
                                   height={1120}
                                   aria-hidden
-                                  className="absolute inset-0 size-full object-contain p-5 opacity-0 smooth group-hover:opacity-100"
+                                  className="product-hover-morph-back"
                                   maxwidth={1000}
                                 />
                               )}
@@ -113,6 +210,14 @@ export default function ContentProducts({
                 </li>
               ))}
             </ul>
+          ) : null}
+          {showFilters && paged && paged.totalPages > 1 && (
+            <ProductCatalogPagination page={paged.page} totalPages={paged.totalPages} onPageChange={handlePageChange} />
+          )}
+          {listedProducts.length === 0 && products.length > 0 && (
+            <Animated delay={300}>
+              <p className="content-m text-site-mantle">No products match those filters.</p>
+            </Animated>
           )}
         </div>
       </div>

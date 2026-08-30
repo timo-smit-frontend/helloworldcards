@@ -115,6 +115,36 @@
   @apply transition-all duration-200 ease-in-out;
 }
 
+@utility product-hover-morph {
+  @apply absolute inset-0 size-full object-contain p-5;
+  transition: opacity 420ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition-duration: 0ms;
+  }
+}
+
+@utility product-hover-morph-front {
+  @apply product-hover-morph;
+
+  @variant lg {
+    .group:hover & {
+      opacity: 0;
+    }
+  }
+}
+
+@utility product-hover-morph-back {
+  @apply product-hover-morph;
+  opacity: 0;
+
+  @variant lg {
+    .group:hover & {
+      opacity: 1;
+    }
+  }
+}
+
 @utility link-underline {
   @apply relative inline-block;
 
@@ -190,6 +220,70 @@
   input:focus-visible,
   textarea:focus-visible,
   [role='option']:focus-visible {
+    @apply outline-3 outline-offset-2 outline-site-envy;
+  }
+
+  input[type='range'].price-range {
+    @apply pointer-events-none absolute inset-0 m-0 h-full w-full appearance-none bg-transparent;
+  }
+
+  input[type='range'].price-range::-webkit-slider-runnable-track {
+    @apply h-full bg-transparent;
+  }
+
+  input[type='range'].price-range::-moz-range-track {
+    @apply h-full bg-transparent;
+  }
+
+  input[type='range'].price-range::-webkit-slider-thumb {
+    @apply pointer-events-auto relative z-10 size-5 cursor-pointer appearance-none rounded-full border-2 border-site-dark bg-site-summer-green shadow-card;
+    margin-top: 0.25rem;
+    transition:
+      scale 200ms ease-in-out,
+      background-color 200ms ease-in-out,
+      box-shadow 200ms ease-in-out;
+  }
+
+  input[type='range'].price-range::-moz-range-thumb {
+    @apply pointer-events-auto relative z-10 size-5 cursor-pointer appearance-none rounded-full border-2 border-site-dark bg-site-summer-green shadow-card;
+    border: 2px solid var(--color-site-dark);
+    transition:
+      scale 200ms ease-in-out,
+      background-color 200ms ease-in-out,
+      box-shadow 200ms ease-in-out;
+  }
+
+  @variant lg {
+    input[type='range'].price-range:hover::-webkit-slider-thumb {
+      @apply scale-125 bg-site-envy;
+      box-shadow: 0 0 0 4px rgb(132 163 140 / 0.4);
+    }
+
+    input[type='range'].price-range:hover::-moz-range-thumb {
+      @apply scale-125 bg-site-envy;
+      box-shadow: 0 0 0 4px rgb(132 163 140 / 0.4);
+    }
+  }
+
+  input[type='range'].price-range:active::-webkit-slider-thumb {
+    @apply scale-125 bg-site-envy;
+    box-shadow: 0 0 0 4px rgb(132 163 140 / 0.4);
+  }
+
+  input[type='range'].price-range:active::-moz-range-thumb {
+    @apply scale-125 bg-site-envy;
+    box-shadow: 0 0 0 4px rgb(132 163 140 / 0.4);
+  }
+
+  input[type='range'].price-range:focus-visible {
+    outline: none;
+  }
+
+  input[type='range'].price-range:focus-visible::-webkit-slider-thumb {
+    @apply outline-3 outline-offset-2 outline-site-envy;
+  }
+
+  input[type='range'].price-range:focus-visible::-moz-range-thumb {
     @apply outline-3 outline-offset-2 outline-site-envy;
   }
 
