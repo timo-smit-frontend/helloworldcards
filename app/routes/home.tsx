@@ -25,7 +25,7 @@ export default function Home() {
       <ContentProducts
         title="Our newest products"
         description="A few cards from the shop. What you see here is the same stock we list on Marktplaats."
-        id={[1, 2, 3, 4]}
+        random={4}
       />
       <ContentText
         id="content-text-stall"

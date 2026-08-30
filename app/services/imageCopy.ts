@@ -49,6 +49,14 @@ const IMAGE_COPY: Record<string, ImageCopy> = {
   '/images/76645522_back.jpg': {
     title: 'Ekans, back',
     alt: 'The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.'
+  },
+  '/images/0018501427_front.jpg': {
+    title: 'Zorua AR, front',
+    alt: 'BGS 9.5 White Flare Japanese Zorua Art Rare, 140/086, in a Beckett grading slab.'
+  },
+  '/images/0018501427_back.jpg': {
+    title: 'Zorua AR, back',
+    alt: 'The back of a graded Japanese Pokémon card in a Beckett slab, showing the Poké Ball design.'
   }
 }
 

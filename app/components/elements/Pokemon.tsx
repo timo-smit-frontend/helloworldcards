@@ -23,7 +23,8 @@ const POKEMON_NAMES: Record<number, string> = {
   195: 'Quagsire',
   280: 'Ralts',
   285: 'Shroomish',
-  330: 'Flygon'
+  330: 'Flygon',
+  570: 'Zorua'
 }
 
 function randomPokemonId(): number {

@@ -1,9 +1,10 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
-import { getAllProducts, getProductsByIds } from '~/database/products'
+import { getAllProducts, getProductsByIds, getRandomProducts } from '~/database/products'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { imageTitleFor } from '~/services/imageCopy'
 import { cn } from '~/services/utils'
@@ -20,16 +21,22 @@ function normalizeIds(id?: string | number | Array<string | number>): Array<stri
 export default function ContentProducts({
   title,
   description,
-  id
+  id,
+  random
 }: {
   title?: string
   description?: string
   id?: string | number | Array<string | number>
+  random?: number
 }) {
   const { ref, isFirst } = useLocationFinder()
   const ids = normalizeIds(id)
-  const products = ids ? getProductsByIds(ids) : getAllProducts()
-  const Heading = ids ? 'h2' : 'h1'
+  const products = useMemo(() => {
+    if (random != null) return getRandomProducts(random)
+    if (ids) return getProductsByIds(ids)
+    return getAllProducts()
+  }, [random, ids])
+  const Heading = ids || random != null ? 'h2' : 'h1'
 
   return (
     <section id="content-products" ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
