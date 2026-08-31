@@ -1,3 +1,6 @@
+import { getInventory } from '../app/database/products'
+import type { CardmarketReport } from '../app/services/cardmarket/scan'
+import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
 import { buildLedger } from './ledger'
 import {
   clearSessionCookie,
@@ -13,10 +16,68 @@ export type DashboardEnv = {
   DASHBOARD_USERNAME?: string
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string
+  CARDMARKET?: {
+    get(key: string): Promise<string | null>
+    put(key: string, value: string): Promise<void>
+  }
+}
+
+export type CardmarketStore = {
+  getReport(): Promise<CardmarketReport | null>
+  putReport(report: CardmarketReport): Promise<void>
+}
+
+export type DashboardRuntime = {
+  fetchCardmarketPage?: (url: string) => Promise<string>
+  cardmarketStore?: CardmarketStore
 }
 
 const MAX_BODY_BYTES = 4096
-const API_PATHS = new Set(['/dashboard/session', '/dashboard/logout', '/dashboard/ledger'])
+const API_PATHS = new Set([
+  '/dashboard/session',
+  '/dashboard/logout',
+  '/dashboard/ledger',
+  '/dashboard/cardmarket/report',
+  '/dashboard/cardmarket/scan'
+])
+const CARDMARKET_REPORT_KEY = 'report'
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+export function memoryCardmarketStore(): CardmarketStore {
+  let report: CardmarketReport | null = null
+  return {
+    async getReport() {
+      return report
+    },
+    async putReport(next) {
+      report = next
+    }
+  }
+}
+
+export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): CardmarketStore {
+  return {
+    async getReport() {
+      const raw = await kv.get(CARDMARKET_REPORT_KEY)
+      return raw ? (JSON.parse(raw) as CardmarketReport) : null
+    },
+    async putReport(report) {
+      await kv.put(CARDMARKET_REPORT_KEY, JSON.stringify(report))
+    }
+  }
+}
+
+export async function fetchCardmarketPage(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': BROWSER_USER_AGENT,
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  })
+  return response.text()
+}
 
 export function normalizeDashboardPath(pathname: string): string {
   if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -141,7 +202,7 @@ function logout(request: Request): Response {
   return json({ ok: true }, 200, { 'Set-Cookie': cookie })
 }
 
-async function ledger(request: Request, env: Required<DashboardEnv>): Promise<Response> {
+async function requireSession(request: Request, env: Required<DashboardEnv>): Promise<Response | null> {
   const token = readCookie(request.headers.get('Cookie'), SESSION_COOKIE)
   if (!token) {
     return json({ error: 'Sign in required' }, 401)
@@ -152,10 +213,60 @@ async function ledger(request: Request, env: Required<DashboardEnv>): Promise<Re
     return json({ error: 'Sign in required' }, 401, { 'Set-Cookie': clearSessionCookie(isSecureRequest(request)) })
   }
 
+  return null
+}
+
+async function ledger(request: Request, env: Required<DashboardEnv>): Promise<Response> {
+  const unauthorized = await requireSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+
   return json(buildLedger())
 }
 
-export async function handleDashboardRequest(request: Request, env: DashboardEnv): Promise<Response | null> {
+let fallbackStore: CardmarketStore | undefined
+
+function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): CardmarketStore {
+  if (runtime?.cardmarketStore) {
+    return runtime.cardmarketStore
+  }
+  if (env.CARDMARKET) {
+    return kvCardmarketStore(env.CARDMARKET)
+  }
+  fallbackStore ??= memoryCardmarketStore()
+  return fallbackStore
+}
+
+async function cardmarketReport(request: Request, env: Required<DashboardEnv>, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+
+  const report = await resolveStore(env, runtime).getReport()
+  return json({ report: report ? withProductFrontImages(report, getInventory()) : null })
+}
+
+async function cardmarketScan(request: Request, env: Required<DashboardEnv>, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+
+  const store = resolveStore(env, runtime)
+  const fetchPage = runtime?.fetchCardmarketPage ?? fetchCardmarketPage
+  const previous = await store.getReport()
+  const report = await runCardmarketScan({
+    products: getInventory(),
+    previous,
+    fetchPage
+  })
+  await store.putReport(report)
+  return json({ report })
+}
+
+export async function handleDashboardRequest(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
   const path = normalizeDashboardPath(new URL(request.url).pathname)
   if (!API_PATHS.has(path)) {
     return null
@@ -175,6 +286,14 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
 
   if (path === '/dashboard/ledger' && request.method === 'GET') {
     return ledger(request, env)
+  }
+
+  if (path === '/dashboard/cardmarket/report' && request.method === 'GET') {
+    return cardmarketReport(request, env, runtime)
+  }
+
+  if (path === '/dashboard/cardmarket/scan' && request.method === 'POST') {
+    return cardmarketScan(request, env, runtime)
   }
 
   return json({ error: 'Method not allowed' }, 405)

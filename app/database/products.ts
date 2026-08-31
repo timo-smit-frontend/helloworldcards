@@ -32,6 +32,14 @@ export type InventoryProduct = Product & {
   soldAt?: string
   /** ISO date `YYYY-MM-DD` when the card was bought. */
   acquiredAt?: string
+  /** Numeric slab grade (9, 9.5, 10). Dashboard Cardmarket comps only. */
+  grade?: number
+  /** Cardmarket singles URL. Dashboard comps only; stripped from the public shop bundle. */
+  cardmarketUrl?: string
+  /** Cardmarket Reverse Holo filter. Dashboard comps only. */
+  reverseHolo?: boolean
+  /** Cardmarket First Edition filter. Dashboard comps only. */
+  firstEdition?: boolean
 }
 
 export type ProductBuyLink = {
@@ -56,6 +64,10 @@ type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   concept?: boolean
   soldAt?: string
   acquiredAt?: string
+  grade?: number
+  cardmarketUrl?: string
+  reverseHolo?: boolean
+  firstEdition?: boolean
 }
 
 const products: ProductRecord[] = [
@@ -69,8 +81,11 @@ const products: ProductRecord[] = [
     price: '€100',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51',
+    reverseHolo: true,
     cost: 55,
     acquiredAt: '2026-08-30'
   },
@@ -84,8 +99,10 @@ const products: ProductRecord[] = [
     price: '€45',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737892',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Silver-Tempest/Lugia-V-V2-SIT185',
     cost: 30,
     acquiredAt: '2026-08-30'
   },
@@ -100,8 +117,10 @@ const products: ProductRecord[] = [
     price: '€125',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738233',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Generations/Charizard-GENRC5',
     cost: 75,
     acquiredAt: '2026-08-30'
   },
@@ -116,8 +135,11 @@ const products: ProductRecord[] = [
     price: '€60',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56',
+    firstEdition: true,
     cost: 25,
     acquiredAt: '2026-08-30'
   },
@@ -132,8 +154,10 @@ const products: ProductRecord[] = [
     price: '€70',
     language: 'japanese',
     grader: 'beckett',
+    grade: 9.5,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/White-Flare-JP/Zorua-V2-sv11W140',
     cost: 40,
     acquiredAt: '2026-08-30'
   },
@@ -148,7 +172,9 @@ const products: ProductRecord[] = [
     price: '€50',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2022,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Arceus-V-V2-BRS165',
     cost: 28,
     acquiredAt: '2026-08-30',
     concept: true
@@ -164,7 +190,9 @@ const products: ProductRecord[] = [
     price: '€120',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2025,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181',
     cost: 72,
     acquiredAt: '2026-08-30',
     concept: true
@@ -180,9 +208,28 @@ const products: ProductRecord[] = [
     price: '€60',
     language: 'english',
     grader: 'psa',
+    grade: 9,
     year: 2022,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Zekrom-BRSTG05',
     cost: 28,
     acquiredAt: '2026-08-30',
+    concept: true
+  },
+  {
+    id: 9,
+    title: 'Poke Kid',
+    subtitle: '2020 Shiny Star V Japanese - #197',
+    description:
+      'A Full Art from the 2020 Sword & Shield Shiny Star V Japanese set, number 197/190. This is the Full Art trainer, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 80573086. The PSA population is 5,748.',
+    images: ['/images/80573086_front.jpg', '/images/80573086_back.jpg'],
+    price: '€95',
+    language: 'japanese',
+    grader: 'psa',
+    grade: 10,
+    year: 2020,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197',
+    cost: 61,
+    acquiredAt: '2026-08-31',
     concept: true
   }
 ]
@@ -204,6 +251,10 @@ function withSlug(product: ProductRecord): Product {
   delete publicProduct.soldAt
   delete publicProduct.acquiredAt
   delete publicProduct.concept
+  delete publicProduct.grade
+  delete publicProduct.cardmarketUrl
+  delete publicProduct.reverseHolo
+  delete publicProduct.firstEdition
   return publicProduct
 }
 
@@ -219,7 +270,11 @@ function withInventory(product: ProductRecord): InventoryProduct {
     ...(product.sold ? { sold: true } : {}),
     ...(product.soldAt ? { soldAt: product.soldAt } : {}),
     ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {}),
-    ...(product.concept ? { concept: true } : {})
+    ...(product.concept ? { concept: true } : {}),
+    ...(product.grade != null ? { grade: product.grade } : {}),
+    ...(product.cardmarketUrl ? { cardmarketUrl: product.cardmarketUrl } : {}),
+    ...(product.reverseHolo ? { reverseHolo: true } : {}),
+    ...(product.firstEdition ? { firstEdition: true } : {})
   }
 }
 

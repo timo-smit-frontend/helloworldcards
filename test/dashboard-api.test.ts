@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { handleDashboardRequest } from '../worker/dashboard-api'
+import { handleDashboardRequest, memoryCardmarketStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 
 const env = {
@@ -77,5 +77,77 @@ describe('dashboard API', () => {
   it('hides the ledger from signed-out requests', async () => {
     const response = await handleDashboardRequest(new Request('https://example.com/dashboard/ledger'), env)
     expect(response?.status).toBe(401)
+  })
+
+  it('returns an empty Cardmarket report until a scan has run', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+    const store = memoryCardmarketStore()
+
+    const signedOut = await handleDashboardRequest(new Request('https://example.com/dashboard/cardmarket/report'), env, {
+      cardmarketStore: store
+    })
+    expect(signedOut?.status).toBe(401)
+
+    const signedIn = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/report', {
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      { cardmarketStore: store }
+    )
+
+    expect(signedIn?.status).toBe(200)
+    await expect(signedIn?.json()).resolves.toEqual({ report: null })
+  })
+
+  it('scans watchable cards and stores suggestions', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+    const store = memoryCardmarketStore()
+    const urls: string[] = []
+
+    const scan = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      {
+        cardmarketStore: store,
+        fetchCardmarketPage: async (url) => {
+          urls.push(url)
+          return `
+            <div id="articleRow1" class="article-row">
+              <a href="/en/Pokemon/Users/CatDoesThings">CatDoesThings</a>
+              <span>PSA 10</span>
+              <span>100,00 €</span>
+            </div>
+          `
+        }
+      }
+    )
+
+    expect(scan?.status).toBe(200)
+    expect(urls.length).toBeGreaterThan(0)
+    expect(urls.every((url) => url.includes('minCondition=2'))).toBe(true)
+
+    const body = (await scan!.json()) as {
+      report: { products: Array<{ title: string; image: string | null; suggestion: { direction: string; target: number } | null }> }
+    }
+    const pokeKid = body.report.products.find((product) => product.title === 'Poke Kid')
+    expect(pokeKid?.image).toBe('/images/80573086_front.jpg')
+    expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
   })
 })

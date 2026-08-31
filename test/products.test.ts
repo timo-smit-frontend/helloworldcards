@@ -11,7 +11,8 @@ describe('product inventory', () => {
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
-      [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05']
+      [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05'],
+      [9, 'Poke Kid', '2020 Shiny Star V Japanese - #197', 'poke-kid-2020-shiny-star-v-japanese-197']
     ])
   })
 
@@ -19,7 +20,15 @@ describe('product inventory', () => {
     expect(
       getAllProducts().every(
         (product) =>
-          !('cost' in product) && !('sold' in product) && !('soldAt' in product) && !('acquiredAt' in product) && !('concept' in product)
+          !('cost' in product) &&
+          !('sold' in product) &&
+          !('soldAt' in product) &&
+          !('acquiredAt' in product) &&
+          !('concept' in product) &&
+          !('grade' in product) &&
+          !('cardmarketUrl' in product) &&
+          !('reverseHolo' in product) &&
+          !('firstEdition' in product)
       )
     ).toBe(true)
   })
@@ -38,10 +47,10 @@ describe('product inventory', () => {
     }
   })
 
-  it('marks Arceus, Latias, and Zekrom as concept inventory without listing URLs', () => {
+  it('marks Arceus, Latias, Zekrom, and Poke Kid as concept inventory without listing URLs', () => {
     const inventory = getInventory()
     const liveIds = [1, 2, 3, 4, 5]
-    const conceptIds = [6, 7, 8]
+    const conceptIds = [6, 7, 8, 9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -82,6 +91,10 @@ describe('product inventory', () => {
     expect(product?.grader).toBe('psa')
     expect(product?.year).toBe(2016)
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737465')
+    const inventory = getInventory().find((item) => item.id === 1)
+    expect(inventory?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51')
+    expect(inventory?.reverseHolo).toBe(true)
+    expect(inventory?.firstEdition).toBeUndefined()
   })
 
   it('lists the Silver Tempest Lugia V with slab photos', () => {
@@ -100,6 +113,7 @@ describe('product inventory', () => {
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
     expect(product?.images).toEqual(['/images/76719295_front.jpg', '/images/76719295_back.jpg'])
     expect(inventory?.cost).toBe(30)
+    expect(inventory?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Silver-Tempest/Lugia-V-V2-SIT185')
   })
 
   it('lists the Generations Charizard with slab photos', () => {
@@ -138,6 +152,10 @@ describe('product inventory', () => {
     expect(product?.price).toBe('€60')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436738700')
     expect(getInventory().find((item) => item.id === 4)?.cost).toBe(25)
+    const inventory = getInventory().find((item) => item.id === 4)
+    expect(inventory?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56')
+    expect(inventory?.firstEdition).toBe(true)
+    expect(inventory?.reverseHolo).toBeUndefined()
   })
 
   it('lists the White Flare Japanese Zorua AR with Beckett slab photos', () => {
@@ -182,6 +200,9 @@ describe('product inventory', () => {
     expect(product?.price).toBe('€50')
     expect(getInventory().find((item) => item.id === 6)?.cost).toBe(28)
     expect(getInventory().find((item) => item.id === 6)?.acquiredAt).toBe('2026-08-30')
+    expect(getInventory().find((item) => item.id === 6)?.cardmarketUrl).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Arceus-V-V2-BRS165'
+    )
   })
 
   it('lists the Mega Evolution Mega Latias ex SIR with slab photos', () => {
@@ -201,6 +222,9 @@ describe('product inventory', () => {
     expect(product?.price).toBe('€120')
     expect(getInventory().find((item) => item.id === 7)?.cost).toBe(72)
     expect(getInventory().find((item) => item.id === 7)?.acquiredAt).toBe('2026-08-30')
+    expect(getInventory().find((item) => item.id === 7)?.cardmarketUrl).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181'
+    )
   })
 
   it('lists the Brilliant Stars Trainer Gallery Zekrom with slab photos', () => {
@@ -220,6 +244,34 @@ describe('product inventory', () => {
     expect(product?.price).toBe('€60')
     expect(getInventory().find((item) => item.id === 8)?.cost).toBe(28)
     expect(getInventory().find((item) => item.id === 8)?.acquiredAt).toBe('2026-08-30')
+  })
+
+  it('lists the Shiny Star V Japanese Poke Kid FA with slab photos', () => {
+    const product = getProductBySlug('poke-kid-2020-shiny-star-v-japanese-197')
+    const inventory = getInventory().find((item) => item.id === 9)
+
+    expect(product?.title).toBe('Poke Kid')
+    expect(product?.subtitle).toBe('2020 Shiny Star V Japanese - #197')
+    expect(product?.description).toContain('Full Art')
+    expect(product?.description).toContain('Shiny Star V Japanese')
+    expect(product?.description).toContain('197/190')
+    expect(product?.description).toContain('PSA 10')
+    expect(product?.description).toContain('80573086')
+    expect(product?.description).not.toContain('Email us')
+    expect(product?.description).not.toContain('Fugitive Ink')
+    expect(product?.description).not.toContain('graded higher')
+    expect(product?.images).toEqual(['/images/80573086_front.jpg', '/images/80573086_back.jpg'])
+    expect(product?.pokemonId).toBeUndefined()
+    expect(product?.price).toBe('€95')
+    expect(product?.language).toBe('japanese')
+    expect(product?.grader).toBe('psa')
+    expect(product?.year).toBe(2020)
+    expect(product?.marktplaatsUrl).toBeUndefined()
+    expect(inventory?.concept).toBe(true)
+    expect(inventory?.grade).toBe(10)
+    expect(inventory?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197')
+    expect(inventory?.cost).toBe(61)
+    expect(inventory?.acquiredAt).toBe('2026-08-31')
   })
 
   it('picks a random sample of available shop cards', () => {

@@ -4,6 +4,7 @@ import DashboardChart, { PeriodToggle } from '~/components/dashboard/DashboardCh
 import Logo from '~/components/elements/Logo'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
+import type { CardmarketReport } from '~/services/cardmarket/scan'
 import { SITE_NAME } from '~/seo/site'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
@@ -16,6 +17,9 @@ export default function Dashboard() {
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [period, setPeriod] = useState<LedgerPeriod>('all')
+  const [report, setReport] = useState<CardmarketReport | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
 
   async function loadLedger() {
     const response = await fetch('/dashboard/ledger', { credentials: 'same-origin' })
@@ -38,6 +42,40 @@ export default function Dashboard() {
 
     setLedger((await response.json()) as Ledger)
     setStatus('ready')
+    await loadReport()
+  }
+
+  async function loadReport() {
+    const response = await fetch('/dashboard/cardmarket/report', { credentials: 'same-origin' })
+    if (!response.ok) {
+      return
+    }
+
+    const body = (await response.json()) as { report: CardmarketReport | null }
+    setReport(body.report)
+  }
+
+  async function handleScan() {
+    setScanning(true)
+    setScanError(null)
+    try {
+      const response = await fetch('/dashboard/cardmarket/scan', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      })
+      if (!response.ok) {
+        setScanError('The Cardmarket scan could not be started. Try again.')
+        return
+      }
+
+      const body = (await response.json()) as { report: CardmarketReport }
+      setReport(body.report)
+    } catch {
+      setScanError('The Cardmarket scan could not be started. Try again.')
+    } finally {
+      setScanning(false)
+    }
   }
 
   useEffect(() => {
@@ -88,6 +126,7 @@ export default function Dashboard() {
       })
     } finally {
       setLedger(null)
+      setReport(null)
       setStatus('login')
       setSubmitting(false)
     }
@@ -186,7 +225,14 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mt-12">
-              <DashboardChart ledger={ledger} period={period} />
+              <DashboardChart
+                ledger={ledger}
+                period={period}
+                report={report}
+                scanning={scanning}
+                scanError={scanError}
+                onScan={() => void handleScan()}
+              />
             </div>
           </section>
         )}

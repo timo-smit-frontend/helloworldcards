@@ -2,7 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Plugin } from 'vite'
-import { handleDashboardRequest, isDashboardApiPath } from '../worker/dashboard-api'
+import { handleDashboardRequest, isDashboardApiPath, normalizeDashboardPath } from '../worker/dashboard-api'
+import { closePlaywrightCardmarketFetcher, fileCardmarketStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
 import { stripProductCosts } from './strip-product-costs'
 
 function parseDotEnv(source: string): Record<string, string> {
@@ -113,13 +114,33 @@ function dashboardApiMiddleware(root: string) {
       }
 
       const request = await toFetchRequest(req)
-      const response = await handleDashboardRequest(request, loadDashboardEnv(root))
-      if (!response) {
-        next()
-        return
+      const pathName = normalizeDashboardPath(url)
+      const runtime = { cardmarketStore: fileCardmarketStore(root) }
+      let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
+      if (pathName === '/dashboard/cardmarket/scan' && req.method === 'POST') {
+        try {
+          browser = await getPlaywrightCardmarketFetcher(root)
+        } catch {
+          browser = null
+        }
       }
 
-      await sendFetchResponse(response, res)
+      try {
+        const response = await handleDashboardRequest(request, loadDashboardEnv(root), {
+          ...runtime,
+          ...(browser ? { fetchCardmarketPage: browser.fetchPage } : {})
+        })
+        if (!response) {
+          next()
+          return
+        }
+
+        await sendFetchResponse(response, res)
+      } finally {
+        if (browser) {
+          await closePlaywrightCardmarketFetcher()
+        }
+      }
     } catch (error) {
       next(error)
     }

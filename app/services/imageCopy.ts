@@ -57,6 +57,14 @@ const IMAGE_COPY: Record<string, ImageCopy> = {
   '/images/18501427_back.jpg': {
     title: 'Zorua AR, back',
     alt: 'The back of a graded Japanese Pokémon card in a Beckett slab, showing the Poké Ball design.'
+  },
+  '/images/80573086_front.jpg': {
+    title: 'Poke Kid, front',
+    alt: 'PSA 10 Shiny Star V Japanese Poke Kid full art, 197/190, in a grading slab.'
+  },
+  '/images/80573086_back.jpg': {
+    title: 'Poke Kid, back',
+    alt: 'The back of a graded Japanese Pokémon card in a PSA slab, showing the Poké Ball design.'
   }
 }
 

@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
+import { RotateCw } from 'lucide'
+import { MorphIcon } from 'morphicons/react'
+import Image from '~/components/elements/Image'
 import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
+import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
 
 function formatEuros(value: number): string {
   return new Intl.NumberFormat('nl-NL', {
@@ -44,11 +48,7 @@ function moneyTone(value: number): string {
 
 export function PeriodToggle({ period, onChange }: { period: LedgerPeriod; onChange: (period: LedgerPeriod) => void }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="Period"
-      className="inline-flex rounded-full bg-site-mid p-1 ring-1 ring-site-mulled-wine"
-    >
+    <div role="radiogroup" aria-label="Period" className="inline-flex rounded-full bg-site-mid p-1 ring-1 ring-site-mulled-wine">
       {(
         [
           ['all', 'All time'],
@@ -84,6 +84,130 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   )
 }
 
+function formatListedEuros(value: number): string {
+  return formatEuros(Math.ceil(value))
+}
+
+function PriceFigure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex min-w-16 flex-col items-end gap-1 text-right">
+      <p className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{label}</p>
+      <p className={`font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`}>{value}</p>
+    </div>
+  )
+}
+
+function SuggestionRow({ item }: { item: CardmarketProductReport }) {
+  const suggestion = item.suggestion
+  const delta = suggestion ? suggestion.target - item.listed : null
+  const listings = [
+    ...(suggestion?.basis.map((listing) => ({ listing, suffix: undefined as string | undefined })) ?? []),
+    ...item.gone.map((listing) => ({ listing, suffix: 'gone' }))
+  ]
+  const notes = [...(suggestion?.notes ?? []), ...(item.error ? [item.error] : [])]
+
+  return (
+    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+      <div className="relative size-36 shrink-0 overflow-hidden rounded-md bg-site-mid ring-1 ring-site-mulled-wine">
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt=""
+            title=""
+            width={288}
+            height={288}
+            maxwidth={400}
+            sizes="144px"
+            aria-hidden
+            className="absolute inset-0 size-full object-contain p-1.5"
+          />
+        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
+        {listings.length > 0 || notes.length > 0 ? (
+          <ul className="mt-1 grid w-max grid-cols-[--spacing(14)_--spacing(36)_--spacing(14)_--spacing(14)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
+            {listings.map(({ listing, suffix }) => {
+              const vsListed = listing.price - item.listed
+              return (
+                <li key={`${listing.id}-${suffix ?? 'live'}`} className="col-span-full grid grid-cols-subgrid">
+                  <span className="min-w-0 truncate">{listing.comment}</span>
+                  <span className="min-w-0 truncate">
+                    {listing.seller}
+                    {suffix ? ` ${suffix}` : null}
+                  </span>
+                  <span className="min-w-0 truncate tabular-nums">{formatListedEuros(listing.price)}</span>
+                  <span className={`min-w-0 truncate tabular-nums font-semibold ${vsListed === 0 ? '' : moneyTone(vsListed)}`}>
+                    {vsListed === 0 ? '' : formatSignedEuros(vsListed)}
+                  </span>
+                </li>
+              )
+            })}
+            {notes.map((line) => (
+              <li key={line} className="col-span-full truncate">
+                {line}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+      <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+        <PriceFigure label="Current" value={formatListedEuros(item.listed)} />
+        <PriceFigure
+          label="Suggested"
+          value={suggestion ? formatListedEuros(suggestion.target) : '—'}
+          tone={delta == null || delta === 0 ? undefined : moneyTone(delta)}
+        />
+      </div>
+    </li>
+  )
+}
+
+function PriceSuggestions({
+  report,
+  scanning,
+  scanError,
+  onScan
+}: {
+  report: CardmarketReport | null
+  scanning: boolean
+  scanError: string | null
+  onScan: () => void
+}) {
+  const rows = (report?.products ?? []).filter((product) => product.suggestion != null || product.error != null || product.gone.length > 0)
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Price suggestions</h2>
+        <button
+          type="button"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={scanning ? 'Scanning Cardmarket' : 'Scan Cardmarket'}
+          onClick={onScan}
+          disabled={scanning}
+        >
+          <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
+        </button>
+      </div>
+      {scanError ? <p className="content-m text-site-loss">{scanError}</p> : null}
+      {scanning && rows.length === 0 ? (
+        <p className="content-m text-site-mantle">Scanning Cardmarket…</p>
+      ) : rows.length === 0 ? (
+        <p className="content-m text-site-mantle">
+          {report ? 'Prices are even with the lowest same-grade listing.' : 'Scan Cardmarket to see which prices should go up or down.'}
+        </p>
+      ) : (
+        <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+          {rows.map((item) => (
+            <SuggestionRow key={item.id} item={item} />
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
 function SoldRow({ item }: { item: LedgerItem }) {
   const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
@@ -100,7 +224,21 @@ function SoldRow({ item }: { item: LedgerItem }) {
   )
 }
 
-export default function DashboardChart({ ledger, period }: { ledger: Ledger; period: LedgerPeriod }) {
+export default function DashboardChart({
+  ledger,
+  period,
+  report,
+  scanning,
+  scanError,
+  onScan
+}: {
+  ledger: Ledger
+  period: LedgerPeriod
+  report: CardmarketReport | null
+  scanning: boolean
+  scanError: string | null
+  onScan: () => void
+}) {
   const totals = useMemo(() => summarizeLedger(ledger.items, period), [ledger.items, period])
   const soldItems = useMemo(() => soldItemsForPeriod(ledger.items, period), [ledger.items, period])
 
@@ -165,12 +303,12 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
         />
       </dl>
 
+      <PriceSuggestions report={report} scanning={scanning} scanError={scanError} onScan={onScan} />
+
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Recently sold</h2>
         {soldItems.length === 0 ? (
-          <p className="content-m text-site-mantle">
-            {period === 'month' ? 'No cards sold this month.' : 'No sales on the books yet.'}
-          </p>
+          <p className="content-m text-site-mantle">{period === 'month' ? 'No cards sold this month.' : 'No sales on the books yet.'}</p>
         ) : (
           <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
             {soldItems.map((item) => (
