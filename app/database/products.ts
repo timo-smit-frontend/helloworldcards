@@ -26,6 +26,8 @@ export type InventoryProduct = Product & {
   cost?: number
   /** Sold cards stay in inventory for stats and leave the public shop. */
   sold?: boolean
+  /** On the shop but not listed on Marktplaats yet. Stripped from the public shop bundle. */
+  concept?: boolean
   /** ISO date `YYYY-MM-DD`. Required to sort and filter sales by month. */
   soldAt?: string
   /** ISO date `YYYY-MM-DD` when the card was bought. */
@@ -37,6 +39,7 @@ type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   /** Purchase price in euros. Dashboard only; stripped from the public shop bundle. */
   cost?: number
   sold?: boolean
+  concept?: boolean
   soldAt?: string
   acquiredAt?: string
 }
@@ -133,7 +136,8 @@ const products: ProductRecord[] = [
     grader: 'psa',
     year: 2022,
     cost: 28,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-30',
+    concept: true
   },
   {
     id: 7,
@@ -148,7 +152,8 @@ const products: ProductRecord[] = [
     grader: 'psa',
     year: 2025,
     cost: 72,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-30',
+    concept: true
   },
   {
     id: 8,
@@ -163,7 +168,8 @@ const products: ProductRecord[] = [
     grader: 'psa',
     year: 2022,
     cost: 28,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-30',
+    concept: true
   }
 ]
 
@@ -183,6 +189,7 @@ function withSlug(product: ProductRecord): Product {
   delete publicProduct.sold
   delete publicProduct.soldAt
   delete publicProduct.acquiredAt
+  delete publicProduct.concept
   return publicProduct
 }
 
@@ -197,7 +204,8 @@ function withInventory(product: ProductRecord): InventoryProduct {
     ...(product.cost != null ? { cost: product.cost } : {}),
     ...(product.sold ? { sold: true } : {}),
     ...(product.soldAt ? { soldAt: product.soldAt } : {}),
-    ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {})
+    ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {}),
+    ...(product.concept ? { concept: true } : {})
   }
 }
 

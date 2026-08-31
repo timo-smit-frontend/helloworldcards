@@ -18,7 +18,12 @@ describe('product inventory', () => {
   it('keeps purchase cost and sale status off the public product records', () => {
     expect(
       getAllProducts().every(
-        (product) => !('cost' in product) && !('sold' in product) && !('soldAt' in product) && !('acquiredAt' in product)
+        (product) =>
+          !('cost' in product) &&
+          !('sold' in product) &&
+          !('soldAt' in product) &&
+          !('acquiredAt' in product) &&
+          !('concept' in product)
       )
     ).toBe(true)
   })
@@ -35,6 +40,27 @@ describe('product inventory', () => {
       expect(shopIds.has(item.id)).toBe(false)
       expect(getProductBySlug(item.slug)).toBeUndefined()
     }
+  })
+
+  it('marks Arceus, Latias, and Zekrom as concept inventory without listing URLs', () => {
+    const inventory = getInventory()
+    const liveIds = [1, 2, 3, 4, 5]
+    const conceptIds = [6, 7, 8]
+
+    for (const id of liveIds) {
+      const item = inventory.find((product) => product.id === id)
+      expect(item?.concept).toBeUndefined()
+      expect(item?.marktplaatsUrl).toMatch(/^https:\/\/www\.marktplaats\.nl\//)
+    }
+
+    for (const id of conceptIds) {
+      const item = inventory.find((product) => product.id === id)
+      expect(item?.concept).toBe(true)
+      expect(item?.marktplaatsUrl).toBeUndefined()
+      expect(getAllProducts().some((product) => product.id === id)).toBe(true)
+    }
+
+    expect(inventory.every((item) => !(item.concept && item.marktplaatsUrl))).toBe(true)
   })
 
   it('tracks what was paid for stock on the inventory records', () => {
@@ -215,6 +241,7 @@ describe('product inventory', () => {
     expect(sample.every((product) => shopIds.has(product.id))).toBe(true)
     expect(sample.every((product) => !soldIds.has(product.id))).toBe(true)
     expect(sample.every((product) => !('sold' in product))).toBe(true)
+    expect(sample.every((product) => !('concept' in product))).toBe(true)
   })
 
   it('defaults to four available products', () => {
