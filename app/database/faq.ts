@@ -1,5 +1,3 @@
-import { CONTACT_EMAIL } from '../services/contact'
-
 export type FaqPage = 'about' | 'contact'
 
 export type FaqItem = {
@@ -49,7 +47,8 @@ const faqs: FaqItem[] = [
     id: 6,
     page: 'contact',
     question: 'How do I buy a card?',
-    answer: `Browse the shop on this site. The same cards are listed on our Marktplaats page. If a product has a View on Marktplaats button, that is the listing. If it does not, email us at ${CONTACT_EMAIL} and we will help. You can always email about a card, even when there is a listing.`
+    answer:
+      'Browse the shop on this site. If a product has a View on Marktplaats button, that is the listing — you buy it there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying those cards.'
   },
   {
     id: 7,
