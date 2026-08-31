@@ -1,25 +1,67 @@
 ---
-description: How to post Hello World Cards listings on Marktplaats
+description: How to post, sell, and delete Hello World Cards listings on Marktplaats
 alwaysApply: true
 ---
 
 # Marktplaats listings
 
-Use the seller’s logged-in Playwright/Chrome session. Never ask for or type the password. Do not post a card that is `concept` or not in stock.
+Use Playwright MCP (`user-playwright`) on the seller’s already-logged-in session. Never ask for or type the password. Cursor’s built-in browser is a different session — do not use it for this. If the header is not **Hello World Cards**, stop and ask the user to log in.
 
-When a card should go live: place the ad, then set `marktplaatsUrl` and drop `concept`. Until then it stays `concept: true` with no listing URL (shop shows **Not yet available to buy**).
+Do not post a card that is `concept` or not in stock. Do not change prices on other live ads.
 
-## Always
+## Chat triggers — do this immediately
 
-- **Photos:** slab front first, slab back second (`*_front.jpg` then `*_back.jpg`).
-- **Category:** Hobby en Vrije tijd → Verzamelkaartspellen | Pokémon.
+- **Go live / list {card}:** pre-flight → fill the form → **stop and wait** for the user to check it → only then publish. After they confirm, drop `concept` and set `marktplaatsUrl`. Shop shows **View on Marktplaats**.
+- **{card} is sold for €X** (or “sold for X euros”): **shop first**, then delete the Marktplaats ad as sold. See Sold below.
+- **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the ad as **not** sold.
+
+Until a card is live it stays `concept: true` with no listing URL.
+
+## Always (form)
+
+- **Photos:** slab front first, slab back second. Upload `public` + `product.images` (`*_front.jpg` then `*_back.jpg`).
+- **Category:** title → **Vind categorie** → Verzamelkaartspellen | Pokémon (Hobby en Vrije tijd).
 - **Kenmerken:** Zo goed als nieuw, Type Losse kaart, Foil on.
 - **Levering:** Ophalen of Verzenden. Pakketgrootte **Brievenbuspakje** (never Klein pakket).
-- **Prijs:** Vraagprijs from the site. **Direct Kopen toegestaan** on. Do not turn on Bieden unless asked.
+- **Prijs:** Vraagprijs from the site. **Direct Kopen toegestaan** on. Bieden off unless asked.
 - **Adverteren:** **Gratis** only. Never Plus/Premium unless asked.
-- Do not change prices on other live ads.
 
-## Title (copy live ads)
+## Place an ad
+
+1. Draft title + description from the frozen references **before** opening the form.
+2. **Plaats advertentie** → paste title → **Vind categorie** → Pokémon → **Verder**.
+3. Photos, kenmerken, levering, prijs, Direct Kopen, Gratis (defaults above).
+4. Description last, in `.RichTextEditor-module-editorInput`. Type it — see Description. Never `fill()` or set `innerHTML`.
+5. **Stop.** Do **not** click **Plaats je advertentie** (or **Plaats advertentie** on the last step). Tell the user the form is ready and wait until they say it looks good (or ask for a fix).
+6. Only after they confirm: **Plaats je advertentie**. Copy `https://www.marktplaats.nl/seller/view/{itemId}` onto the product; drop `concept`. Update tests if they assert concept/URL.
+
+## Sold / delete an ad
+
+Marktplaats delete is an **in-page** choice, not a native `alert`. After **Verwijder**, click:
+
+- **Verkocht via Marktplaats** if we sold it
+- **Niet verkocht via Marktplaats** if we are only taking the ad down
+
+Do not `dialog.accept()`. Open `/seller/view/{itemId}` from `marktplaatsUrl` (or find it under Mijn advertenties). Confirm it is gone (410 / missing from the ads list).
+
+### Sold for €X — shop first
+
+In `app/database/products.ts` on that card:
+
+- `sold: true`
+- `soldAt: 'YYYY-MM-DD'` (today)
+- `price: '€X'` — **actual sale amount** (dashboard revenue reads `price`)
+- remove `marktplaatsUrl` and `concept`
+
+That hides it from the shop (`isShopListed`) and keeps it on the dashboard. Then delete the Marktplaats ad as **Verkocht via Marktplaats**. Update `test/products.test.ts` (and any catalog assertions) so the card is no longer expected in the shop.
+
+If Playwright is not logged in, still update the shop first, then ask the user to log in so the ad can be deleted.
+
+### Delete without a sale
+
+`concept: true`, remove `marktplaatsUrl`, do **not** set `sold`. Then **Niet verkocht via Marktplaats**.
+
+## Title
 
 `{Name} {number} {variant} - {Grader} {grade} - {Set}`
 
@@ -27,21 +69,21 @@ Examples: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`, `Arceus V Full Ar
 
 ## Description (Lexical editor)
 
-Copy the frozen reference ads below (verbatim snapshots). Do not depend on Marktplaats URLs — those ads disappear when a card sells.
+Copy the frozen reference ads below. Do not depend on Marktplaats URLs — those ads disappear when a card sells.
 
-Do **not** `fill()` the description — Marktplaats collapses `\n` into one paragraph. Click the editor, then:
+Click the editor, then:
 
-- **Enter** between major sections (creates a new paragraph = visible blank line)
-- **Shift+Enter** inside a section (line break, no extra gap — Details bullets, 📦 then 💬, ⭐ then the combine line)
-- Bold: the `Mooie …` phrase, **Details:**, **Bekijk ook onze andere advertenties!**. Bold grade / subgrades / pop only when they are a selling point (see Zorua).
+- **Enter** between major sections (new paragraph = visible blank line)
+- **Shift+Enter** inside a section (Details bullets, 📦 then 💬, ⭐ then the combine line)
+- **Cmd+B** for bold: the `Mooie …` phrase, **Details:**, **Bekijk ook onze andere advertenties!**. Bold grade / subgrades / pop only when they are a selling point (Zorua).
 
 **Blank line between every major section.** Details bullets stay tight.
 
 ### Pop
 
-Only mention pop when it is **low** (a scarcity argument — tens, like Zorua’s 20). Then: intro `Lage **pop** van **{n}**.` and a Details line `• Pop: {n}`.
+Only mention pop when it is **low** (tens, like Zorua’s 20): intro `Lage **pop** van **{n}**.` and `• Pop: {n}`.
 
-Skip pop entirely when it is high / irrelevant (hundreds or thousands — Charizard has none). If unsure, omit.
+Skip pop when it is high / irrelevant (hundreds or thousands — Charizard has none). If unsure, omit.
 
 ### Frozen reference — Charizard (default / no pop)
 
@@ -100,5 +142,3 @@ Zoekwoorden: Pokémon Zorua, Zorua AR, Zorua 140/086, Zorua BGS 9.5, BGS Gem Min
 ```
 
 Use Charizard as the default shape. After Grade, add subgrades / `Graded op` / Pop only when we have them and they help (Zorua). Never a cert number.
-
-After publish, save `https://www.marktplaats.nl/seller/view/{itemId}` on the product.

@@ -24,7 +24,7 @@ export type Product = {
 export type InventoryProduct = Product & {
   /** What we paid for the item, in euros. Stripped from the public shop bundle. */
   cost?: number
-  /** Sold cards stay in inventory for stats and leave the public shop. */
+  /** Sold cards stay in inventory for stats and leave the public shop. Set with soldAt; set `price` to the actual sale amount. */
   sold?: boolean
   /** On the shop but not listed on Marktplaats yet. Stripped from the public shop bundle. */
   concept?: boolean
