@@ -4,8 +4,8 @@ import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
-import { getProductBySlug, getSimilarProducts } from '~/database/products'
-import { CONTACT_EMAIL, MARKTPLAATS_URL } from '~/services/contact'
+import { getProductBySlug, getSimilarProducts, productBuyLink } from '~/database/products'
+import { MARKTPLAATS_URL } from '~/services/contact'
 
 export default function Product() {
   const { slug } = useParams()
@@ -25,9 +25,7 @@ export default function Product() {
     )
   }
 
-  const buyLink = product.marktplaatsUrl
-    ? { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' as const }
-    : { url: `mailto:${CONTACT_EMAIL}`, title: 'Email us about this' }
+  const buyLink = productBuyLink(product)
 
   return (
     <Layout>

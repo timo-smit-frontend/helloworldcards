@@ -34,6 +34,20 @@ export type InventoryProduct = Product & {
   acquiredAt?: string
 }
 
+export type ProductBuyLink = {
+  title: string
+  url?: string
+  target?: '_blank'
+}
+
+export function productBuyLink(product: Pick<Product, 'marktplaatsUrl'>): ProductBuyLink {
+  if (product.marktplaatsUrl) {
+    return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' }
+  }
+
+  return { title: 'Not yet available to buy' }
+}
+
 type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   images?: string[]
   /** Purchase price in euros. Dashboard only; stripped from the public shop bundle. */

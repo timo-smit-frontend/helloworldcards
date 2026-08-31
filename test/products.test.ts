@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAllProducts, getInventory, getProductBySlug, getRandomProducts, isShopListed } from '~/database/products'
+import { getAllProducts, getInventory, getProductBySlug, getRandomProducts, isShopListed, productBuyLink } from '~/database/products'
 
 describe('product inventory', () => {
   it('keeps only the shop cards, titled as printed on the slab', () => {
@@ -19,11 +19,7 @@ describe('product inventory', () => {
     expect(
       getAllProducts().every(
         (product) =>
-          !('cost' in product) &&
-          !('sold' in product) &&
-          !('soldAt' in product) &&
-          !('acquiredAt' in product) &&
-          !('concept' in product)
+          !('cost' in product) && !('sold' in product) && !('soldAt' in product) && !('acquiredAt' in product) && !('concept' in product)
       )
     ).toBe(true)
   })
@@ -246,5 +242,21 @@ describe('product inventory', () => {
 
   it('defaults to four available products', () => {
     expect(getRandomProducts()).toHaveLength(Math.min(4, getAllProducts().length))
+  })
+
+  it('uses a Marktplaats buy link when the listing URL is set', () => {
+    const product = getProductBySlug('mewtwo-2016-evolutions-51')
+    expect(productBuyLink(product!)).toEqual({
+      url: 'https://www.marktplaats.nl/seller/view/m2436737465',
+      title: 'View on Marktplaats',
+      target: '_blank'
+    })
+  })
+
+  it('uses a disabled concept CTA when there is no listing URL', () => {
+    const product = getProductBySlug('arceus-v-2022-brilliant-stars-165')
+    expect(product?.marktplaatsUrl).toBeUndefined()
+    expect(productBuyLink(product!)).toEqual({ title: 'Not yet available to buy' })
+    expect(productBuyLink(product!).url).toBeUndefined()
   })
 })

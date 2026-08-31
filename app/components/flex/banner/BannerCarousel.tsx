@@ -66,18 +66,24 @@ export default function BannerCarousel({
                     )}
                   </div>
                 )}
-                {link?.url && link?.title && (
+                {link?.title && (
                   <Animated delay={400}>
                     <div>
-                      <a
-                        href={link.url}
-                        target={link.target}
-                        rel={link.target === '_blank' ? 'noreferrer noopener' : undefined}
-                        className="button-green mt-auto"
-                      >
-                        {link.title}
-                        {link.target === '_blank' ? <span className="sr-only"> (opens in a new tab)</span> : null}
-                      </a>
+                      {link.url ? (
+                        <a
+                          href={link.url}
+                          target={link.target}
+                          rel={link.target === '_blank' ? 'noreferrer noopener' : undefined}
+                          className="button-green mt-auto"
+                        >
+                          {link.title}
+                          {link.target === '_blank' ? <span className="sr-only"> (opens in a new tab)</span> : null}
+                        </a>
+                      ) : (
+                        <button type="button" disabled className="button-green mt-auto">
+                          {link.title}
+                        </button>
+                      )}
                     </div>
                   </Animated>
                 )}

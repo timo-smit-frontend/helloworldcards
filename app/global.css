@@ -53,6 +53,10 @@
       filter: brightness(0.96);
     }
   }
+
+  &[disabled] {
+    @apply cursor-not-allowed opacity-60;
+  }
 }
 
 @utility title-xl {
