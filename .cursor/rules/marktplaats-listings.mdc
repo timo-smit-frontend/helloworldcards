@@ -1,0 +1,104 @@
+---
+description: How to post Hello World Cards listings on Marktplaats
+alwaysApply: true
+---
+
+# Marktplaats listings
+
+Use the seller’s logged-in Playwright/Chrome session. Never ask for or type the password. Do not post a card that is `concept` or not in stock.
+
+When a card should go live: place the ad, then set `marktplaatsUrl` and drop `concept`. Until then it stays `concept: true` with no listing URL (shop shows **Not yet available to buy**).
+
+## Always
+
+- **Photos:** slab front first, slab back second (`*_front.jpg` then `*_back.jpg`).
+- **Category:** Hobby en Vrije tijd → Verzamelkaartspellen | Pokémon.
+- **Kenmerken:** Zo goed als nieuw, Type Losse kaart, Foil on.
+- **Levering:** Ophalen of Verzenden. Pakketgrootte **Brievenbuspakje** (never Klein pakket).
+- **Prijs:** Vraagprijs from the site. **Direct Kopen toegestaan** on. Do not turn on Bieden unless asked.
+- **Adverteren:** **Gratis** only. Never Plus/Premium unless asked.
+- Do not change prices on other live ads.
+
+## Title (copy live ads)
+
+`{Name} {number} {variant} - {Grader} {grade} - {Set}`
+
+Examples: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`, `Arceus V Full Art 165/172 - PSA 9 - Brilliant Stars`.
+
+## Description (Lexical editor)
+
+Copy the frozen reference ads below (verbatim snapshots). Do not depend on Marktplaats URLs — those ads disappear when a card sells.
+
+Do **not** `fill()` the description — Marktplaats collapses `\n` into one paragraph. Click the editor, then:
+
+- **Enter** between major sections (creates a new paragraph = visible blank line)
+- **Shift+Enter** inside a section (line break, no extra gap — Details bullets, 📦 then 💬, ⭐ then the combine line)
+- Bold: the `Mooie …` phrase, **Details:**, **Bekijk ook onze andere advertenties!**. Bold grade / subgrades / pop only when they are a selling point (see Zorua).
+
+**Blank line between every major section.** Details bullets stay tight.
+
+### Pop
+
+Only mention pop when it is **low** (a scarcity argument — tens, like Zorua’s 20). Then: intro `Lage **pop** van **{n}**.` and a Details line `• Pop: {n}`.
+
+Skip pop entirely when it is high / irrelevant (hundreds or thousands — Charizard has none). If unsure, omit.
+
+### Frozen reference — Charizard (default / no pop)
+
+Title: `Charizard RC5/RC32 - PSA 9 - Generations Radiant Collection`
+
+```
+Mooie **Charizard Holo uit de Pokémon XY Generations Radiant Collection van 2016**.
+
+Charizard is zonder twijfel één van de meest populaire en geliefde Pokémon onder verzamelaars. Deze Holo uit de Radiant Collection heeft een opvallend artwork en is in PSA 9 een prachtige toevoeging aan iedere Pokémon- of Charizard-collectie.
+
+**Details:**
+• Pokémon: Charizard
+• Set: XY Generations – Radiant Collection
+• Jaar: 2016
+• Kaartnummer: RC5/RC32
+• Variant: Holo
+• Grade: PSA 9 MINT
+
+📦 Verzenden of ophalen mogelijk.
+💬 Vragen of interesse? Stuur gerust een bericht via Marktplaats.
+
+⭐ **Bekijk ook onze andere advertenties!**
+We hebben meerdere Pokémon-kaarten en graded cards te koop. Neem gerust een kijkje bij onze andere advertenties en combineer meerdere kaarten in één bestelling.
+
+Zoekwoorden: Pokémon Charizard, Charizard PSA 9, Charizard Holo, Charizard RC5, RC5/RC32, Pokemon PSA, XY Generations, Generations 2016, Radiant Collection, graded Pokemon card, Pokemon kaarten, Pokémon verzameling
+```
+
+### Frozen reference — Zorua (low pop + BGS subgrades)
+
+Title: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`
+
+```
+Mooie **Zorua Art Rare uit de Japanse Pokémon White Flare set van 2025**. Deze Zorua AR heeft een prachtig full-art artwork en is met een **BGS 9.5 Gem Mint** beoordeling een mooie toevoeging aan iedere Pokémon-verzameling. De kaart scoort bovendien **twee perfecte 10 subgrades** voor corners en edges. Lage **pop** van **20**.
+
+**Details:**
+• Pokémon: Zorua
+• Set: White Flare Japanese
+• Jaar: 2025
+• Kaartnummer: 140/086
+• Variant: Art Rare (AR)
+• Grade: BGS 9.5 Gem Mint
+• Centering: 9.5
+• Corners: 10
+• Edges: 10
+• Surface: 9.5
+• Graded op: 3 september 2025
+• Pop: 20
+
+📦 Verzenden of ophalen mogelijk.
+💬 Vragen of interesse? Stuur gerust een bericht via Marktplaats.
+
+⭐ **Bekijk ook onze andere advertenties!**
+We hebben meerdere Pokémon-kaarten en graded cards te koop. Neem gerust een kijkje bij onze andere advertenties en combineer meerdere kaarten in één bestelling.
+
+Zoekwoorden: Pokémon Zorua, Zorua AR, Zorua 140/086, Zorua BGS 9.5, BGS Gem Mint, White Flare, White Flare Japanese, Pokemon 2025, Art Rare Pokemon, Japanese Pokemon card, graded Pokemon card, Pokemon kaarten, Pokémon verzameling
+```
+
+Use Charizard as the default shape. After Grade, add subgrades / `Graded op` / Pop only when we have them and they help (Zorua). Never a cert number.
+
+After publish, save `https://www.marktplaats.nl/seller/view/{itemId}` on the product.

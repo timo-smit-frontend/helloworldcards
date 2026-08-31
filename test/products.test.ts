@@ -254,7 +254,7 @@ describe('product inventory', () => {
   })
 
   it('uses a disabled concept CTA when there is no listing URL', () => {
-    const product = getProductBySlug('arceus-v-2022-brilliant-stars-165')
+    const product = getProductBySlug('zekrom-2022-brilliant-stars-tg05')
     expect(product?.marktplaatsUrl).toBeUndefined()
     expect(productBuyLink(product!)).toEqual({ title: 'Not yet available to buy' })
     expect(productBuyLink(product!).url).toBeUndefined()
