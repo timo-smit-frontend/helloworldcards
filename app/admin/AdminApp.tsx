@@ -578,7 +578,7 @@ function productStatus(product: Pick<InventoryProduct, 'sold' | 'concept'>) {
 
 function AdminStickyBar({ children, end }: { children: ReactNode; end?: boolean }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-site-mulled-wine bg-site-dark/95 px-5 py-3 backdrop-blur-sm lg:left-56 sm:px-8">
+    <div className="admin-sticky-bar">
       <div className={`flex items-center gap-4 ${end ? 'justify-end' : 'justify-between'}`}>{children}</div>
     </div>
   )
@@ -666,7 +666,7 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
   const requestLeave = useRequestLeave()
 
   return (
-    <div className="admin-shell fixed inset-0 flex overflow-hidden bg-site-dark text-site-gray-nurse">
+    <div className="admin-shell fixed inset-0 flex overflow-hidden bg-site-dark text-site-gray-nurse transform-[translateZ(0)]">
       <SkipToMainContent />
       <aside className="hidden h-full w-56 shrink-0 overflow-hidden border-r border-site-mulled-wine lg:flex lg:flex-col">
         <div className="border-b border-site-mulled-wine px-5 py-4">
@@ -959,7 +959,7 @@ function PageEditor() {
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-5 pb-24">
+    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-5">
       <h1 className="title-l">{isNew ? 'New page' : 'Edit page'}</h1>
       <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] xl:items-start">
         <div className="flex min-w-0 flex-col gap-5">
@@ -1386,7 +1386,7 @@ function ProductEditor() {
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-8 pb-24">
+    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-8">
       <h1 className="title-l">{isNew ? 'New product' : 'Edit product'}</h1>
       <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
         <div className="flex min-w-0 flex-col gap-8">
@@ -1983,7 +1983,7 @@ function CollectionEditor({
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-4 pb-24">
+    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-4">
       <h1 className="title-l">
         {isNew ? 'New' : 'Edit'} {singular}
       </h1>
@@ -2275,7 +2275,7 @@ function SettingsScreen() {
   if (!settings) return <AdminFormSkeleton fields={6} />
   return (
     <form
-      className="flex w-full min-w-0 flex-col gap-8 pb-24"
+      className="admin-form-scroll gap-8"
       onSubmit={(event) => {
         event.preventDefault()
         void adminJson('/settings', { method: 'PUT', body: JSON.stringify({ ...settings, nav: mirroredNav(nav) }) }).then((result) => {
