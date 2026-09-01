@@ -12,10 +12,25 @@ import {
   verifySessionToken
 } from './session'
 
+export type CardmarketBrowser = {
+  quickAction(
+    action: 'content',
+    options: {
+      url: string
+      gotoOptions?: { waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2'; timeout?: number }
+      waitForSelector?: { selector: string; timeout?: number }
+      bestAttempt?: boolean
+      userAgent?: string
+      cacheTTL?: number
+    }
+  ): Promise<Response>
+}
+
 export type DashboardEnv = {
   DASHBOARD_USERNAME?: string
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string
+  BROWSER?: CardmarketBrowser
   CARDMARKET?: {
     get(key: string): Promise<string | null>
     put(key: string, value: string): Promise<void>
@@ -68,7 +83,13 @@ export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
   }
 }
 
-export async function fetchCardmarketPage(url: string): Promise<string> {
+const ARTICLE_ROW = '[id^="articleRow"]'
+
+export async function fetchCardmarketPage(url: string, browser?: CardmarketBrowser): Promise<string> {
+  if (browser) {
+    return fetchCardmarketPageWithBrowser(browser, url)
+  }
+
   const response = await fetch(url, {
     headers: {
       'User-Agent': BROWSER_USER_AGENT,
@@ -77,6 +98,28 @@ export async function fetchCardmarketPage(url: string): Promise<string> {
     }
   })
   return response.text()
+}
+
+export async function fetchCardmarketPageWithBrowser(browser: CardmarketBrowser, url: string): Promise<string> {
+  const response = await browser.quickAction('content', {
+    url,
+    gotoOptions: { waitUntil: 'domcontentloaded', timeout: 60_000 },
+    waitForSelector: { selector: ARTICLE_ROW, timeout: 25_000 },
+    bestAttempt: true,
+    userAgent: BROWSER_USER_AGENT,
+    cacheTTL: 0
+  })
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 200)
+    throw new Error(`Cardmarket browser fetch failed (${response.status}).${detail ? ` ${detail}` : ''}`)
+  }
+
+  const data = (await response.json()) as { success?: boolean; result?: unknown }
+  if (!data.success || typeof data.result !== 'string') {
+    throw new Error('Cardmarket browser fetch returned no HTML.')
+  }
+
+  return data.result
 }
 
 export function normalizeDashboardPath(pathname: string): string {
@@ -255,7 +298,7 @@ async function cardmarketScan(request: Request, env: Required<DashboardEnv>, run
   }
 
   const store = resolveStore(env, runtime)
-  const fetchPage = runtime?.fetchCardmarketPage ?? fetchCardmarketPage
+  const fetchPage = runtime?.fetchCardmarketPage ?? ((url) => fetchCardmarketPage(url, env.BROWSER))
   const previous = await store.getReport()
   const report = await runCardmarketScan({
     products: getInventory(),
