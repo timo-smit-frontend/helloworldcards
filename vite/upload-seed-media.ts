@@ -80,11 +80,27 @@ async function writeManifest(manifest: MediaUploadManifest, cacheDir: string, lo
   log('media-variants: manifest updated on R2')
 }
 
+export async function publishSeedMediaManifest(root: string, log = console.log): Promise<void> {
+  const seedDir = path.join(root, 'seed/media')
+  try {
+    await fs.access(seedDir)
+  } catch {
+    log('media-variants: no seed/media directory')
+    return
+  }
+
+  const cacheDir = path.join(root, '.cache', 'media-variants')
+  await fs.mkdir(cacheDir, { recursive: true })
+  const current = await buildMediaUploadManifest(seedDir)
+  await writeManifest(current, cacheDir, log)
+}
+
 export async function uploadSeedMediaVariants(root: string, log = console.log): Promise<void> {
   if (process.env.HWC_SKIP_MEDIA_UPLOAD === '1') {
     return
   }
-  if (process.env.WORKERS_CI === '1' && process.env.WORKERS_CI_BRANCH !== 'main') {
+  if (process.env.WORKERS_CI === '1') {
+    log('media-variants: skipping R2 upload on Workers Builds (run npm run media:upload locally when seed media changes)')
     return
   }
 
