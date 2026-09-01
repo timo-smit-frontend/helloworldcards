@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isCmsReadyForPath } from '~/cms/ready'
+import { readCachedCmsPayload, writeCachedCmsPayload } from '~/cms/cache'
 import type { PublicCmsPayload } from '~/cms/types'
 
 function payload(overrides: Partial<PublicCmsPayload> = {}): PublicCmsPayload {
@@ -37,32 +37,26 @@ function payload(overrides: Partial<PublicCmsPayload> = {}): PublicCmsPayload {
   }
 }
 
-describe('isCmsReadyForPath', () => {
-  it('is ready when the resolved path matches the requested path', () => {
-    expect(isCmsReadyForPath(payload(), '/', '/')).toBe(true)
-    expect(isCmsReadyForPath(payload(), '/about', '/about/')).toBe(true)
-  })
-
-  it('is not ready without payload or resolved path', () => {
-    expect(isCmsReadyForPath(null, '/', '/')).toBe(false)
-    expect(isCmsReadyForPath(payload(), null, '/')).toBe(false)
-  })
-
-  it('is not ready when navigating before the next payload arrives', () => {
+describe('CMS cache', () => {
+  it('reads cached payloads by normalized path', () => {
     const home = payload()
-    const product = payload({
-      page: null,
-      product: {
-        id: 1,
-        slug: 'pikachu',
-        title: 'Pikachu',
-        subtitle: 'Base Set',
-        description: 'A classic card',
-        images: []
-      }
-    })
+    const cache = writeCachedCmsPayload(new Map(), '/', home)
 
-    expect(isCmsReadyForPath(home, '/', '/products/pikachu/')).toBe(false)
-    expect(isCmsReadyForPath(product, '/products/pikachu', '/')).toBe(false)
+    expect(readCachedCmsPayload(cache, '/')).toEqual(home)
+    expect(readCachedCmsPayload(cache, '/about/')).toBeNull()
+  })
+
+  it('keeps previously visited pages available while navigating', () => {
+    const home = payload()
+    const about = payload({ page: { ...home.page!, path: '/about', title: 'About' } })
+    let cache = writeCachedCmsPayload(new Map(), '/', home)
+    cache = writeCachedCmsPayload(cache, '/about', about)
+
+    expect(readCachedCmsPayload(cache, '/about/')).toEqual(about)
+    expect(readCachedCmsPayload(cache, '/products/pikachu/')).toBeNull()
+  })
+
+  it('starts empty without a boot payload', () => {
+    expect(readCachedCmsPayload(new Map(), '/')).toBeNull()
   })
 })
