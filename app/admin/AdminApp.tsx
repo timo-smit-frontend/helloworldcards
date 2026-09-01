@@ -2448,21 +2448,27 @@ function SettingsScreen() {
           {nav.map((item, index) => (
             <div
               key={item.id || index}
-              className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"
+              className="flex w-full items-stretch gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"
             >
-              <input
-                className={fieldClass()}
-                value={item.label}
-                aria-label="Label"
-                onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))}
-              />
-              <input
-                className={fieldClass()}
-                value={item.href}
-                aria-label="Link"
-                onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))}
-              />
-              <IconButton label="Remove" icon={Trash2} danger onClick={() => setNav(nav.filter((_, rowIndex) => rowIndex !== index))} />
+              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:contents">
+                <input
+                  className={fieldClass()}
+                  value={item.label}
+                  aria-label="Label"
+                  onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))}
+                />
+                <input
+                  className={fieldClass()}
+                  value={item.href}
+                  aria-label="Link"
+                  onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))}
+                />
+              </div>
+              <div className="flex shrink-0 self-center sm:self-auto">
+                <div className="flex size-12 items-center justify-center rounded-button border-2 border-site-mulled-wine bg-site-dark sm:size-auto sm:rounded-none sm:border-0 sm:bg-transparent">
+                  <IconButton label="Remove" icon={Trash2} danger onClick={() => setNav(nav.filter((_, rowIndex) => rowIndex !== index))} />
+                </div>
+              </div>
             </div>
           ))}
         </div>
