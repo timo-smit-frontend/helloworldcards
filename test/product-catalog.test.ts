@@ -15,8 +15,8 @@ import {
 } from '~/services/productCatalog'
 
 const sample: CatalogProduct[] = [
-  { id: 1, title: 'Mewtwo', price: '€100', language: 'english', grader: 'psa', year: 2016 },
-  { id: 2, title: 'Zorua AR', price: '€70', language: 'japanese', grader: 'beckett', year: 2025 },
+  { id: 1, title: 'Mewtwo', price: '€95', language: 'english', grader: 'psa', year: 2016 },
+  { id: 2, title: 'Zorua AR', price: '€65', language: 'japanese', grader: 'beckett', year: 2025 },
   { id: 3, title: 'Binder' }
 ]
 

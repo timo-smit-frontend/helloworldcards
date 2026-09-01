@@ -31,3 +31,23 @@ export function parseListedPrice(price: string | number | undefined): number | n
 export function formatShopPrice(value: number): string {
   return `€${value}`
 }
+
+/** Shop listing price minus €0,01 for Marktplaats (psychological pricing). Shop stays clean; MP looks slightly cheaper. */
+export function marktplaatsListingEuros(shopPrice: string | number | undefined): number | null {
+  const euros = parseListedPrice(shopPrice)
+  if (euros == null) {
+    return null
+  }
+  return Math.max(0, euros - 0.01)
+}
+
+/** Dutch Vraagprijs field, e.g. `99,99` for a €100 shop price. */
+export function formatMarktplaatsVraagprijs(euros: number): string {
+  return euros.toFixed(2).replace('.', ',')
+}
+
+/** Shop `€100` → Marktplaats `99,99`. Returns null when shop price is missing or invalid. */
+export function marktplaatsVraagprijsFromShop(shopPrice: string | number | undefined): string | null {
+  const euros = marktplaatsListingEuros(shopPrice)
+  return euros == null ? null : formatMarktplaatsVraagprijs(euros)
+}

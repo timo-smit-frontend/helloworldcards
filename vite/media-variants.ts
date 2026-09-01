@@ -59,14 +59,18 @@ export async function putMediaVariants(
 export async function seedMediaWithVariants(
   bucket: MediaBucket,
   seedDir: string,
-  files: ReadonlyArray<{ key: string; filename: string; contentType: string }>
+  files: ReadonlyArray<{ key: string; filename: string; contentType: string }>,
+  options?: { variants?: boolean }
 ): Promise<void> {
+  const variants = options?.variants ?? true
   for (const file of files) {
     const originalPath = path.join(seedDir, file.filename)
     if (!(await bucket.get(file.key))) {
       const bytes = await fs.readFile(originalPath)
       await bucket.put(file.key, bytes, { httpMetadata: { contentType: file.contentType } })
     }
-    await putMediaVariants(bucket, originalPath, file.key)
+    if (variants) {
+      await putMediaVariants(bucket, originalPath, file.key)
+    }
   }
 }

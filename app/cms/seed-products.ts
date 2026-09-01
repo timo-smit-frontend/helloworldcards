@@ -8,7 +8,7 @@ export const seedProductRecords: ProductRecord[] = [
     description:
       'A reverse holo from the 2016 XY Evolutions set, number 51/108. Evolutions reprints the original Base Set art with an XY-era reverse holo finish. This copy is graded PSA 9 Mint, cert 148651617. The PSA population is 1,857.',
     images: ['/media/148651617_front.jpg', '/media/148651617_back.jpg'],
-    price: '€100',
+    price: '€95',
     language: 'english',
     grader: 'psa',
     grade: 9,
@@ -82,7 +82,7 @@ export const seedProductRecords: ProductRecord[] = [
       'An Art Rare from the 2025 Scarlet & Violet White Flare Japanese set, number 140/086. Art Rares are the full-illustration prints from the Japanese set. This copy was graded BGS 9.5 Gem Mint on 3 September 2025, cert 18501427. Subgrades are centering 9.5, corners 10, edges 10, and surface 9.5. The Beckett population is 35.',
     images: ['/media/18501427_front.jpg', '/media/18501427_back.jpg'],
     pokemonId: 570,
-    price: '€70',
+    price: '€65',
     language: 'japanese',
     grader: 'beckett',
     grade: 9.5,

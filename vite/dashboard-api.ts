@@ -126,7 +126,13 @@ function isCmsDevPath(pathname: string): boolean {
 }
 
 async function seedLocalMediaBucket(media: MediaBucket, root = process.cwd()): Promise<void> {
-  await seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles)
+  await seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles, { variants: false })
+}
+
+function seedLocalMediaVariantsInBackground(media: MediaBucket, root = process.cwd()): void {
+  void seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles).catch((error) => {
+    console.error('[cms-api] Failed to seed media variants:', error)
+  })
 }
 
 type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void> }
@@ -147,6 +153,7 @@ async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
     if (env.DB && env.MEDIA) {
       await ensureCmsSchema(env.DB)
       await seedLocalMediaBucket(env.MEDIA)
+      seedLocalMediaVariantsInBackground(env.MEDIA)
       return {
         db: env.DB,
         media: env.MEDIA,
@@ -160,6 +167,7 @@ async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
 
   const media = memoryR2()
   await seedLocalMediaBucket(media)
+  seedLocalMediaVariantsInBackground(media)
   return {
     db: createMemoryD1(),
     media
