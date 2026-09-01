@@ -143,6 +143,7 @@ export type CmsSettings = {
   notFoundTitle: string
   notFoundDescription: string
   notFoundCta: string
+  cmsSeedVersion?: number
 }
 
 export type CmsEvent = {
