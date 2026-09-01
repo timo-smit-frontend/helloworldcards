@@ -12,25 +12,10 @@ import {
   verifySessionToken
 } from './session'
 
-export type CardmarketBrowser = {
-  quickAction(
-    action: 'content',
-    options: {
-      url: string
-      gotoOptions?: { waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2'; timeout?: number }
-      waitForSelector?: { selector: string; timeout?: number }
-      bestAttempt?: boolean
-      userAgent?: string
-      cacheTTL?: number
-    }
-  ): Promise<Response>
-}
-
 export type DashboardEnv = {
   DASHBOARD_USERNAME?: string
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string
-  BROWSER?: CardmarketBrowser
   CARDMARKET?: {
     get(key: string): Promise<string | null>
     put(key: string, value: string): Promise<void>
@@ -56,8 +41,6 @@ const API_PATHS = new Set([
   '/dashboard/cardmarket/scan'
 ])
 const CARDMARKET_REPORT_KEY = 'report'
-const BROWSER_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 export function memoryCardmarketStore(): CardmarketStore {
   let report: CardmarketReport | null = null
@@ -81,45 +64,6 @@ export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
       await kv.put(CARDMARKET_REPORT_KEY, JSON.stringify(report))
     }
   }
-}
-
-const ARTICLE_ROW = '[id^="articleRow"]'
-
-export async function fetchCardmarketPage(url: string, browser?: CardmarketBrowser): Promise<string> {
-  if (browser) {
-    return fetchCardmarketPageWithBrowser(browser, url)
-  }
-
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': BROWSER_USER_AGENT,
-      Accept: 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9'
-    }
-  })
-  return response.text()
-}
-
-export async function fetchCardmarketPageWithBrowser(browser: CardmarketBrowser, url: string): Promise<string> {
-  const response = await browser.quickAction('content', {
-    url,
-    gotoOptions: { waitUntil: 'domcontentloaded', timeout: 60_000 },
-    waitForSelector: { selector: ARTICLE_ROW, timeout: 25_000 },
-    bestAttempt: true,
-    userAgent: BROWSER_USER_AGENT,
-    cacheTTL: 0
-  })
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 200)
-    throw new Error(`Cardmarket browser fetch failed (${response.status}).${detail ? ` ${detail}` : ''}`)
-  }
-
-  const data = (await response.json()) as { success?: boolean; result?: unknown }
-  if (!data.success || typeof data.result !== 'string') {
-    throw new Error('Cardmarket browser fetch returned no HTML.')
-  }
-
-  return data.result
 }
 
 export function normalizeDashboardPath(pathname: string): string {
@@ -297,8 +241,12 @@ async function cardmarketScan(request: Request, env: Required<DashboardEnv>, run
     return unauthorized
   }
 
+  if (!runtime?.fetchCardmarketPage) {
+    return json({ error: 'Cardmarket scan is only available locally.' }, 404)
+  }
+
   const store = resolveStore(env, runtime)
-  const fetchPage = runtime?.fetchCardmarketPage ?? ((url) => fetchCardmarketPage(url, env.BROWSER))
+  const fetchPage = runtime.fetchCardmarketPage
   const previous = await store.getReport()
   const report = await runCardmarketScan({
     products: getInventory(),

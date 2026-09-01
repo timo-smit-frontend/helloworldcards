@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  fetchCardmarketPageWithBrowser,
-  handleDashboardRequest,
-  memoryCardmarketStore
-} from '../worker/dashboard-api'
+import { handleDashboardRequest, memoryCardmarketStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 
 const env = {
@@ -155,7 +151,7 @@ describe('dashboard API', () => {
     expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
   })
 
-  it('renders Cardmarket pages with the browser binding so Cloudflare challenges can complete', async () => {
+  it('does not scan Cardmarket on the live worker without a local page fetcher', async () => {
     const login = await handleDashboardRequest(
       new Request('https://example.com/dashboard/session', {
         method: 'POST',
@@ -165,11 +161,9 @@ describe('dashboard API', () => {
       env
     )
     const token = cookieFrom(login!)
-    const store = memoryCardmarketStore()
-    const requested: Array<{ action: string; url: string; selector?: string }> = []
     const originalFetch = globalThis.fetch
     globalThis.fetch = (async () => {
-      throw new Error('plain fetch should not be used on live Cardmarket scans')
+      throw new Error('live Cardmarket scans should not fetch pages')
     }) as typeof fetch
 
     try {
@@ -178,56 +172,14 @@ describe('dashboard API', () => {
           method: 'POST',
           headers: { Cookie: `${SESSION_COOKIE}=${token}` }
         }),
-        {
-          ...env,
-          BROWSER: {
-            async quickAction(action: 'content', options: { url: string; waitForSelector?: { selector: string } }) {
-              requested.push({ action, url: options.url, selector: options.waitForSelector?.selector })
-              return Response.json({
-                success: true,
-                result: `
-                  <div id="articleRow1" class="article-row">
-                    <a href="/en/Pokemon/Users/CatDoesThings">CatDoesThings</a>
-                    <span>PSA 10</span>
-                    <span>100,00 €</span>
-                  </div>
-                `
-              })
-            }
-          }
-        },
-        { cardmarketStore: store }
+        env,
+        { cardmarketStore: memoryCardmarketStore() }
       )
 
-      expect(scan?.status).toBe(200)
-      expect(requested.length).toBeGreaterThan(0)
-      expect(requested.every((item) => item.action === 'content')).toBe(true)
-      expect(requested.every((item) => item.selector === '[id^="articleRow"]')).toBe(true)
-      expect(requested.every((item) => item.url.includes('minCondition=2'))).toBe(true)
-
-      const body = (await scan!.json()) as {
-        report: { products: Array<{ title: string; error: string | null; suggestion: { target: number } | null }> }
-      }
-      const pokeKid = body.report.products.find((product) => product.title === 'Poke Kid')
-      expect(pokeKid?.error).toBeNull()
-      expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ target: 100 }))
+      expect(scan?.status).toBe(404)
+      await expect(scan?.json()).resolves.toEqual({ error: 'Cardmarket scan is only available locally.' })
     } finally {
       globalThis.fetch = originalFetch
     }
-  })
-})
-
-describe('fetchCardmarketPageWithBrowser', () => {
-  it('throws when Browser Run does not return HTML', async () => {
-    await expect(
-      fetchCardmarketPageWithBrowser(
-        {
-          async quickAction() {
-            return Response.json({ success: false })
-          }
-        },
-        'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197'
-      )
-    ).rejects.toThrow(/no HTML/i)
   })
 })

@@ -42,7 +42,9 @@ export default function Dashboard() {
 
     setLedger((await response.json()) as Ledger)
     setStatus('ready')
-    await loadReport()
+    if (import.meta.env.DEV) {
+      await loadReport()
+    }
   }
 
   async function loadReport() {
@@ -225,14 +227,18 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mt-12">
-              <DashboardChart
-                ledger={ledger}
-                period={period}
-                report={report}
-                scanning={scanning}
-                scanError={scanError}
-                onScan={() => void handleScan()}
-              />
+              {import.meta.env.DEV ? (
+                <DashboardChart
+                  ledger={ledger}
+                  period={period}
+                  report={report}
+                  scanning={scanning}
+                  scanError={scanError}
+                  onScan={() => void handleScan()}
+                />
+              ) : (
+                <DashboardChart ledger={ledger} period={period} />
+              )}
             </div>
           </section>
         )}
