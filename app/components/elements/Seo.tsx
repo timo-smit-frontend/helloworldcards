@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 import { isAdminPath } from '~/admin/runtime'
-import { useCms } from '~/cms/context'
+import { useCms, useCmsLoading } from '~/cms/context'
 import { adminSeo, getSeoForPayload } from '~/seo/cms'
 import { getSeoForPath } from '~/seo/pages'
 import { SITE_LOCALE, SITE_NAME, SITE_THEME_COLOR } from '~/seo/site'
@@ -54,10 +54,16 @@ function upsertJsonLd(data: Record<string, unknown>) {
 export default function Seo({ admin }: { admin?: boolean }) {
   const { pathname } = useLocation()
   const cms = useCms()
+  const cmsLoading = useCmsLoading()
   const hostname = typeof window === 'undefined' ? '' : window.location.hostname
 
   useEffect(() => {
-    const seo = admin || isAdminPath(pathname, hostname) ? adminSeo() : cms ? getSeoForPayload(pathname, cms) : getSeoForPath(pathname)
+    const seo =
+      admin || isAdminPath(pathname, hostname)
+        ? adminSeo()
+        : cms && !cmsLoading
+          ? getSeoForPayload(pathname, cms)
+          : getSeoForPath(pathname)
 
     document.title = seo.title
     upsertMeta('name', 'description', seo.description)
@@ -84,7 +90,7 @@ export default function Seo({ admin }: { admin?: boolean }) {
     }
 
     upsertJsonLd(seo.jsonLd)
-  }, [admin, cms, hostname, pathname])
+  }, [admin, cms, cmsLoading, hostname, pathname])
 
   return null
 }
