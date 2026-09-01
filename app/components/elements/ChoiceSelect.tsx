@@ -105,7 +105,7 @@ export function ChoiceSelect({
                       />
                     </span>
                   ) : null}
-                  <Select.ItemText>{option.label}</Select.ItemText>
+                  <Select.ItemText className={option.image ? 'max-sm:hidden' : undefined}>{option.label}</Select.ItemText>
                 </span>
                 <Select.ItemIndicator className="shrink-0 text-site-summer-green">
                   <MorphIcon icon={Check} size={16} strokeWidth={2.5} />

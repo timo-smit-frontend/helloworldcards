@@ -1,4 +1,4 @@
-export const ADMIN_LOADING_MIN_MS = 1000
+export const ADMIN_LOADING_MIN_MS = 500
 
 const pulse = 'animate-pulse rounded-md bg-site-mulled-wine motion-reduce:animate-none'
 
@@ -44,7 +44,7 @@ export function AdminBlocksSkeleton({ count = 5 }: { count?: number }) {
         <div key={index} className="flex items-center gap-3 rounded-panel bg-site-gunmetal px-4 py-3 ring-1 ring-site-mulled-wine">
           <div className={`${pulse} h-4 w-6`} />
           <div className={`${pulse} aspect-2/1 w-24 shrink-0 sm:w-40`} />
-          <div className={`${pulse} h-5 min-w-0 flex-1`} />
+          <div className={`${pulse} h-5 min-w-0 flex-1 max-sm:hidden`} />
         </div>
       ))}
     </div>

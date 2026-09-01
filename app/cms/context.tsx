@@ -29,6 +29,8 @@ export function CmsProvider({ children }: { children: ReactNode }) {
   const currentPath = normalizePagePath(location.pathname)
   const [cache, setCache] = useState(() => {
     const initial = typeof window === 'undefined' ? null : (window.__CMS__ ?? null)
+    applyMediaCopy(initial)
+
     if (!initial) {
       return new Map<string, PublicCmsPayload>()
     }

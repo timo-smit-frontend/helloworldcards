@@ -152,42 +152,52 @@
 
   &:is(input[type='date']) {
     position: relative;
-    display: block;
     appearance: none;
     -webkit-appearance: none;
-    text-align: center;
   }
 
-  &:is(input[type='date'])::-webkit-date-and-time-value {
-    min-width: 0;
-    text-align: center;
-  }
-
+  &:is(input[type='date'])::-webkit-date-and-time-value,
   &:is(input[type='date'])::-webkit-datetime-edit {
     min-width: 0;
-    text-align: center;
+    height: 100%;
+    display: flex;
+    align-items: center;
   }
 
   &:is(input[type='date'])::-webkit-datetime-edit-fields-wrapper {
     display: flex;
-    justify-content: center;
-    width: 100%;
+    align-items: center;
+    height: 100%;
   }
 
   &:is(input[type='date'])::-webkit-calendar-picker-indicator {
     position: absolute;
+    top: 50%;
     right: 0.75rem;
     margin: 0;
+    transform: translateY(-50%);
   }
 }
 
-@utility admin-sticky-bar {
-  @apply fixed inset-x-0 bottom-0 z-20 border-t border-site-mulled-wine bg-site-dark/95 px-5 pt-3 backdrop-blur-sm lg:left-56 sm:px-8;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+@utility admin-page {
+  @apply min-h-0 flex-1 overflow-x-clip overflow-y-auto p-5 sm:p-8;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
-@utility admin-form-scroll {
-  @apply flex w-full min-w-0 flex-col pb-[calc(6rem+env(safe-area-inset-bottom,0px))];
+@utility admin-form {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}
+
+@utility admin-form-body {
+  @apply min-h-0 flex-1 overflow-x-clip overflow-y-auto p-5 sm:p-8;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+@utility admin-sticky-bar {
+  @apply shrink-0 border-t border-site-mulled-wine bg-site-dark/95 px-5 pt-3 backdrop-blur-sm sm:px-8;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
 }
 
 @utility smooth {
@@ -279,8 +289,8 @@
   html:has(.admin-shell),
   html:has(.admin-shell) body {
     @apply overflow-hidden overscroll-none;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: 100svh;
+    max-height: 100svh;
     min-height: auto;
   }
 
@@ -295,11 +305,7 @@
   }
 
   html:has(.admin-shell) #main {
-    -webkit-overflow-scrolling: touch;
-    overflow-x: clip;
-    overflow-y: scroll;
-    overscroll-behavior-y: contain;
-    touch-action: pan-y;
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
   }
 
   html {

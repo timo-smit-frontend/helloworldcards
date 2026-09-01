@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { DialogCloseButton } from './DialogClose'
 import { useNavigate } from 'react-router'
 import { hasUnsavedChanges, serializeDraft, unsavedChangesCopy } from './unsaved-changes'
 
@@ -163,8 +164,9 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
       >
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-100 w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-panel bg-site-gunmetal p-6 shadow-card ring-1 ring-site-mulled-wine focus:outline-none">
-            <DialogPrimitive.Title className="title-xs">{copy.title}</DialogPrimitive.Title>
+          <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-100 w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-panel bg-site-gunmetal p-6 pr-14 shadow-card ring-1 ring-site-mulled-wine focus:outline-none">
+            <DialogCloseButton />
+            <DialogPrimitive.Title className="title-xs md:mt-8">{copy.title}</DialogPrimitive.Title>
             <DialogPrimitive.Description className="content-s mt-3 text-site-mantle">{copy.description}</DialogPrimitive.Description>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row-reverse sm:justify-start">
               <button type="button" className="button-green sm:w-fit" onClick={stay}>

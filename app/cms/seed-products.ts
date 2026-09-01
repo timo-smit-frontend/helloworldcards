@@ -17,7 +17,8 @@ export const seedProductRecords: ProductRecord[] = [
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51',
     reverseHolo: true,
     cost: 55,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-16',
+    pokemonId: 150
   },
   {
     id: 2,
@@ -34,7 +35,7 @@ export const seedProductRecords: ProductRecord[] = [
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737892',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Silver-Tempest/Lugia-V-V2-SIT185',
     cost: 30,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-25'
   },
   {
     id: 3,
@@ -52,7 +53,7 @@ export const seedProductRecords: ProductRecord[] = [
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738233',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Generations/Charizard-GENRC5',
     cost: 75,
-    acquiredAt: '2026-08-30'
+    acquiredAt: '2026-08-25'
   },
   {
     id: 4,

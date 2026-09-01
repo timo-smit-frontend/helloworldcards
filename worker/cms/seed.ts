@@ -15,6 +15,7 @@ import {
 } from './db'
 
 const SEED_MEDIA_CREATED_AT = '2026-09-01T00:00:00.000Z'
+export const CMS_SEED_VERSION = 1
 
 async function rewriteLegacyImagePaths(db: CmsDb): Promise<void> {
   await db.prepare("UPDATE products SET images = REPLACE(images, '/images/', '/media/')").run()
@@ -45,7 +46,7 @@ async function seedMediaLibrary(db: CmsDb): Promise<void> {
 
 export async function ensureSeeded(db: CmsDb): Promise<void> {
   if (!(await getSettings(db))) {
-    await putSettings(db, seedSettings)
+    await putSettings(db, { ...seedSettings, cmsSeedVersion: CMS_SEED_VERSION })
     await replaceNav(db, seedNavItems)
 
     for (const product of seedProductRecords) {
@@ -59,8 +60,15 @@ export async function ensureSeeded(db: CmsDb): Promise<void> {
     for (const page of seedPages) {
       await insertPage(db, page)
     }
+
+    await seedMediaLibrary(db)
+    return
   }
 
-  await rewriteLegacyImagePaths(db)
-  await seedMediaLibrary(db)
+  const settings = (await getSettings(db))!
+  if ((settings.cmsSeedVersion ?? 0) < CMS_SEED_VERSION) {
+    await rewriteLegacyImagePaths(db)
+    await seedMediaLibrary(db)
+    await putSettings(db, { ...settings, cmsSeedVersion: CMS_SEED_VERSION })
+  }
 }

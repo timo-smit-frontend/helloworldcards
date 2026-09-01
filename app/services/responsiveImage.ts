@@ -47,7 +47,24 @@ export function rasterFallbackSrc(src: string, maxWidth: number = DEFAULT_SRCSET
 
 export function isLocalRasterSrc(src: string): boolean {
   const path = src.split('?')[0]
-  return path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/media/') && LOCAL_RASTER.test(path)
+  return path.startsWith('/') && !path.startsWith('//') && LOCAL_RASTER.test(path)
+}
+
+export function mediaVariantKey(originalKey: string, width: number, format: ImageFormat): string {
+  return originalKey.replace(LOCAL_RASTER, `-w${width}.${format}`)
+}
+
+export function allMediaVariantKeys(originalKey: string): string[] {
+  if (!LOCAL_RASTER.test(originalKey)) {
+    return []
+  }
+  const keys: string[] = []
+  for (const width of BUILD_WIDTHS) {
+    for (const format of ['avif', 'webp'] as const) {
+      keys.push(mediaVariantKey(originalKey, width, format))
+    }
+  }
+  return keys
 }
 
 export function rasterVariantSrc(src: string, width: number, format: ImageFormat = 'webp'): string {

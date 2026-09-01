@@ -9,6 +9,7 @@ import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public
 import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
 import { closePlaywrightCardmarketFetcher, fileCardmarketStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
+import { seedMediaWithVariants } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
 function parseDotEnv(source: string): Record<string, string> {
@@ -125,14 +126,7 @@ function isCmsDevPath(pathname: string): boolean {
 }
 
 async function seedLocalMediaBucket(media: MediaBucket, root = process.cwd()): Promise<void> {
-  const dir = path.join(root, 'seed/media')
-  for (const file of seedMediaFiles) {
-    if (await media.get(file.key)) {
-      continue
-    }
-    const bytes = fs.readFileSync(path.join(dir, file.filename))
-    await media.put(file.key, bytes, { httpMetadata: { contentType: file.contentType } })
-  }
+  await seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles)
 }
 
 type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void> }

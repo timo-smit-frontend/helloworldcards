@@ -3,9 +3,11 @@ import { deleteMedia, insertMedia, listMedia, updateMedia, type CmsDb } from './
 import { getR2Usage, incrementR2Usage } from './r2-usage'
 import { ensureSeeded } from './seed'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
+import { allMediaVariantKeys, parseRasterVariant } from '../../app/services/responsiveImage'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+const ORIGINAL_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const
 // Same contract as denofdata.com CMS media: browsers keep a year, shared caches a week.
 const MEDIA_CACHE_CONTROL = 'public, immutable, max-age=31536000, s-maxage=604800'
 
@@ -57,6 +59,32 @@ function mediaHeaders(contentType: string, key: string): Headers {
   })
 }
 
+async function resolveMediaObject(
+  bucket: MediaBucket,
+  key: string
+): Promise<{ object: NonNullable<Awaited<ReturnType<MediaBucket['get']>>>; servedKey: string } | null> {
+  const direct = await bucket.get(key)
+  if (direct) {
+    return { object: direct, servedKey: key }
+  }
+
+  const variant = parseRasterVariant(`/media/${key}`)
+  if (!variant) {
+    return null
+  }
+
+  const base = variant.stem.replace(/^.*\//, '')
+  for (const extension of ORIGINAL_EXTENSIONS) {
+    const originalKey = `${base}${extension}`
+    const object = await bucket.get(originalKey)
+    if (object) {
+      return { object, servedKey: originalKey }
+    }
+  }
+
+  return null
+}
+
 export function memoryR2(): MediaBucket {
   const files = new Map<string, { body: Uint8Array; contentType: string }>()
   return {
@@ -102,7 +130,7 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
     return cached
   }
 
-  const object = await bucket.get(key)
+  const resolved = await resolveMediaObject(bucket, key)
   const db = dbOf(env, runtime)
   if (db) {
     try {
@@ -112,13 +140,14 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
     }
   }
 
-  if (!object) {
+  if (!resolved) {
     return json({ error: 'Not found' }, 404)
   }
 
+  const { object, servedKey } = resolved
   const type = object.httpMetadata?.contentType ?? 'application/octet-stream'
   const body = request.method === 'HEAD' ? null : await object.arrayBuffer()
-  const response = new Response(body, { headers: mediaHeaders(type, key) })
+  const response = new Response(body, { headers: mediaHeaders(type, servedKey) })
   if (cache && request.method === 'GET') {
     const stored = response.clone()
     const put = cache.put(cacheKey, stored)
@@ -211,9 +240,15 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
       return json({ error: 'Not found' }, 404)
     }
     await bucket.delete(removed.key)
+    const cache = await edgeCache(runtime)
+    for (const variantKey of allMediaVariantKeys(removed.key)) {
+      await bucket.delete(variantKey)
+      const variantPath = `/media/${variantKey}`
+      await runtime?.purgeMediaCache?.(variantPath)
+      await cache?.delete?.(cacheRequest(new URL(variantPath, request.url).href))
+    }
     const pathname = `/media/${removed.key}`
     await runtime?.purgeMediaCache?.(pathname)
-    const cache = await edgeCache(runtime)
     await cache?.delete?.(cacheRequest(new URL(pathname, request.url).href))
     return json({ ok: true })
   }

@@ -16,6 +16,7 @@ import {
   listEvents,
   listFaqs,
   listInventory,
+  listAdminInventory,
   listNav,
   listPages,
   listTrashedEvents,
@@ -215,7 +216,7 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
     }
 
     if (path === '/api/admin/products' && request.method === 'GET') {
-      return json({ products: await listInventory(db) })
+      return json({ products: await listAdminInventory(db) })
     }
 
     if (path === '/api/admin/products' && request.method === 'POST') {
@@ -270,7 +271,16 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
         if (await productSlugTaken(db, slug, id)) {
           return json({ error: 'That slug is already used.' }, 400)
         }
-        await updateProduct(db, id, { ...record, slug })
+        const merged: ProductRecord & { slug: string } = { ...existing, ...record, slug }
+        if ('pokemonId' in body) {
+          const pokemonId = asNumber(body.pokemonId)
+          if (pokemonId != null) {
+            merged.pokemonId = pokemonId
+          } else {
+            delete merged.pokemonId
+          }
+        }
+        await updateProduct(db, id, merged)
         return json({ product: await getProductById(db, id) })
       }
       if (request.method === 'DELETE') {

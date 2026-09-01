@@ -6,6 +6,7 @@ import {
   isAdminApiAllowed,
   isAdminHost,
   isLocalHost,
+  isPrivateNetworkHost,
   isReservedPath,
   normalizePagePath,
   publicDashboardRedirect
@@ -19,11 +20,17 @@ describe('admin host', () => {
     expect(isAdminHost(`www.${APEX_HOST}`)).toBe(false)
     expect(isLocalHost('localhost')).toBe(true)
     expect(isLocalHost('127.0.0.1')).toBe(true)
+    expect(isLocalHost('192.168.2.12')).toBe(true)
+    expect(isPrivateNetworkHost('192.168.2.12')).toBe(true)
+    expect(isPrivateNetworkHost('10.0.0.5')).toBe(true)
+    expect(isPrivateNetworkHost('172.16.0.1')).toBe(true)
+    expect(isPrivateNetworkHost('8.8.8.8')).toBe(false)
   })
 
   it('allows admin APIs on the admin host and on local Vite', () => {
     expect(isAdminApiAllowed(ADMIN_HOST)).toBe(true)
     expect(isAdminApiAllowed('localhost')).toBe(true)
+    expect(isAdminApiAllowed('192.168.2.12')).toBe(true)
     expect(isAdminApiAllowed(APEX_HOST)).toBe(false)
   })
 
