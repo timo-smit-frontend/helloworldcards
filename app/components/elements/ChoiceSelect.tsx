@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import * as Select from '@radix-ui/react-select'
 import { Check, ChevronDown, type IconNode } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
@@ -36,7 +37,7 @@ export function ChoiceSelect({
   value: string
   options: Array<ChoiceSelectOption>
   onChange: (value: string) => void
-  placeholder?: string
+  placeholder?: ReactNode
   icon?: IconNode
   plain?: boolean
   className?: string
@@ -54,7 +55,7 @@ export function ChoiceSelect({
         aria-labelledby={ariaLabelledBy}
         aria-label={ariaLabel}
         className={cn(
-          'flex cursor-pointer items-center justify-between gap-3 py-0 text-left',
+          'flex min-w-0 cursor-pointer items-center justify-between gap-3 py-0 text-left',
           plain
             ? 'h-auto bg-transparent px-0 font-semibold text-site-mantle hover:text-site-gray-nurse data-placeholder:text-site-mantle'
             : 'field hover:border-site-envy data-[state=open]:border-site-envy data-placeholder:text-site-mantle',
@@ -72,12 +73,18 @@ export function ChoiceSelect({
           sideOffset={6}
           className={cn(
             'z-110 overflow-hidden rounded-button border-2 border-site-mulled-wine bg-site-gunmetal shadow-card',
-            plain || hasImages ? 'min-w-72' : 'w-(--radix-select-trigger-width)',
-            hasImages && 'max-h-[min(70dvh,40rem)] min-w-80',
+            plain || hasImages ? 'min-w-0 w-[min(calc(100vw-2rem),22rem)] sm:min-w-72' : 'w-(--radix-select-trigger-width)',
+            hasImages && 'max-h-[min(50dvh,24rem)] sm:max-h-[min(70dvh,40rem)] sm:min-w-80',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
           )}
         >
-          <Select.Viewport className={cn('p-1', hasImages && 'max-h-[min(70dvh,40rem)] overflow-y-auto')}>
+          <Select.Viewport
+            className={cn(
+              'p-1',
+              hasImages &&
+                'max-h-[min(50dvh,24rem)] overflow-y-scroll [-webkit-overflow-scrolling:touch] [touch-action:pan-y] sm:max-h-[min(70dvh,40rem)]'
+            )}
+          >
             {options.map((option) => (
               <Select.Item
                 key={option.value || EMPTY_VALUE}
@@ -86,8 +93,16 @@ export function ChoiceSelect({
               >
                 <span className="flex min-w-0 items-center gap-3">
                   {option.image ? (
-                    <span className="block aspect-2/1 w-40 shrink-0 overflow-hidden rounded-panel bg-site-dark p-1 ring-1 ring-site-mulled-wine">
-                      <Image src={option.image} alt="" width={160} height={80} maxwidth={320} className="size-full object-contain" />
+                    <span className="block aspect-2/1 w-24 shrink-0 overflow-hidden rounded-panel bg-site-dark p-1 ring-1 ring-site-mulled-wine sm:w-40">
+                      <Image
+                        src={option.image}
+                        alt=""
+                        width={160}
+                        height={80}
+                        maxwidth={320}
+                        sizes="10rem"
+                        className="size-full object-contain"
+                      />
                     </span>
                   ) : null}
                   <Select.ItemText>{option.label}</Select.ItemText>

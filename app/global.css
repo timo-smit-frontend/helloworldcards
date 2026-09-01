@@ -140,7 +140,7 @@
 }
 
 @utility field {
-  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 text-base text-site-gray-nurse placeholder:text-site-mantle smooth;
+  @apply w-full min-w-0 max-w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 text-base text-site-gray-nurse placeholder:text-site-mantle smooth;
 
   &:not(textarea) {
     @apply h-12 py-0 leading-none;
@@ -148,6 +148,25 @@
 
   &:is(textarea) {
     @apply py-3 leading-7;
+  }
+
+  &:is(input[type='date']) {
+    position: relative;
+    display: block;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  &:is(input[type='date'])::-webkit-date-and-time-value,
+  &:is(input[type='date'])::-webkit-datetime-edit {
+    min-width: 0;
+    width: 100%;
+  }
+
+  &:is(input[type='date'])::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0.75rem;
+    margin: 0;
   }
 }
 
@@ -253,6 +272,13 @@
 
   html:has(.admin-shell) #root {
     @apply h-full overflow-hidden;
+  }
+
+  html:has(.admin-shell) #main {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
   }
 
   html {

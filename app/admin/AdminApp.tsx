@@ -25,8 +25,8 @@ import {
 } from '~/cms/types'
 import type { InventoryProduct } from '~/database/products'
 import { formatShopPrice, parseListedPrice } from '~/services/price'
-import { toAbsoluteUrl } from '~/seo/site'
-import { AdminLoading, remainingLoadingHold } from './AdminLoading'
+import { SITE_NAME, toAbsoluteUrl } from '~/seo/site'
+import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleton, remainingLoadingHold } from './AdminLoading'
 import { adminJson } from './api'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { adminPrefix, adminTo } from './runtime'
@@ -48,9 +48,17 @@ function fieldClass() {
   return 'field w-full'
 }
 
+function DateInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <span className="relative block w-full min-w-0 max-w-full overflow-hidden">
+      <input type="date" className={fieldClass()} value={value} onChange={(event) => onChange(event.target.value)} />
+    </span>
+  )
+}
+
 function AdminCheck({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <label className="field flex cursor-pointer items-center gap-3 hover:border-site-envy">
+    <label className="field flex min-w-0 cursor-pointer items-center gap-3 hover:border-site-envy">
       <span className="relative size-6 shrink-0">
         <input
           type="checkbox"
@@ -110,8 +118,19 @@ function isAdminNavCurrent(pathname: string, prefix: string, to: (typeof NAV)[nu
   return to === '/' ? pathname === href || pathname === `${prefix}/` : pathname.startsWith(href)
 }
 
-function adminNavLinkClass(current: boolean) {
-  return `rounded-panel px-3 py-2 text-sm font-semibold ${current ? 'bg-site-gunmetal text-site-envy' : 'text-site-mantle hover:text-site-gray-nurse'}`
+function adminNavLinkClass(current: boolean, large?: boolean) {
+  return `rounded-panel px-3 font-semibold ${large ? 'py-3.5 text-2xl' : 'py-2 text-sm'} ${
+    current ? 'bg-site-gunmetal text-site-envy' : 'text-site-mantle hover:text-site-gray-nurse'
+  }`
+}
+
+function AdminLogoLink({ className, onClick }: { className: string; onClick?: () => void }) {
+  return (
+    <Link to={adminTo('/')} className="shrink-0" onClick={onClick}>
+      <span className="sr-only">{SITE_NAME}</span>
+      <Logo className={className} />
+    </Link>
+  )
 }
 
 function AdminScreenHeader({ title, to, label, trashTo }: { title: string; to: string; label: string; trashTo?: string }) {
@@ -448,7 +467,7 @@ function BlockPreviewThumb({ type }: { type: CmsBlockType }) {
   if (!src) return null
   return (
     <span className="block aspect-2/1 w-24 shrink-0 overflow-hidden rounded-panel bg-site-dark p-1 ring-1 ring-site-mulled-wine sm:w-40">
-      <Image src={src} alt="" width={160} height={80} maxwidth={320} className="size-full object-contain" />
+      <Image src={src} alt="" width={160} height={80} maxwidth={320} sizes="10rem" className="size-full object-contain" />
     </span>
   )
 }
@@ -489,15 +508,21 @@ function DeleteControl({
 function AdminTable({
   caption,
   columns,
-  children
+  children,
+  loading
 }: {
   caption: string
   columns: Array<{ label: string; className?: string }>
   children: ReactNode
+  loading?: boolean
 }) {
+  if (loading) {
+    return <AdminTableSkeleton columns={columns.length} />
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left [&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4">
+    <div className="min-w-0 max-w-full [touch-action:pan-y]">
+      <table className="w-full max-w-full border-collapse text-left [&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-site-mulled-wine">
@@ -519,12 +544,27 @@ function AdminTable({
 }
 
 function adminRowClass() {
-  return 'relative cursor-pointer border-b border-site-mulled-wine hover:bg-site-gunmetal'
+  return 'relative cursor-pointer border-b border-site-mulled-wine [touch-action:pan-y] hover:bg-site-gunmetal'
+}
+
+function AdminClickableRow({ to, children }: { to: string; children: ReactNode }) {
+  const navigate = useNavigate()
+  return (
+    <tr
+      className={adminRowClass()}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest('a, button')) return
+        navigate(to)
+      }}
+    >
+      {children}
+    </tr>
+  )
 }
 
 function AdminRowLink({ to, children }: { to: string; children: ReactNode }) {
   return (
-    <Link to={to} className="font-semibold after:absolute after:inset-0 after:content-['']">
+    <Link to={to} className="relative z-1 font-semibold [touch-action:pan-y]">
       {children}
     </Link>
   )
@@ -544,7 +584,7 @@ function AdminStickyBar({ children, end }: { children: ReactNode; end?: boolean 
   )
 }
 
-function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function AdminNavLinks({ onNavigate, large }: { onNavigate?: () => void; large?: boolean }) {
   const location = useLocation()
   const prefix = adminPrefix()
 
@@ -552,7 +592,7 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
     const href = adminTo(item.to)
     const current = isAdminNavCurrent(location.pathname, prefix, item.to)
     return (
-      <Link key={item.to} to={href} className={adminNavLinkClass(current)} onClick={onNavigate}>
+      <Link key={item.to} to={href} className={adminNavLinkClass(current, large)} onClick={onNavigate}>
         {item.label}
       </Link>
     )
@@ -597,16 +637,16 @@ function AdminMobileMenu({ onLogout, submitting }: { onLogout: () => void; submi
           <DialogPrimitive.Title className="sr-only">Menu</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">CMS navigation</DialogPrimitive.Description>
           <div className="flex items-center justify-between border-b border-site-mulled-wine px-5 py-3">
-            <Logo className="h-12 w-auto" />
+            <AdminLogoLink className="h-12 w-auto" onClick={() => setOpen(false)} />
             <DialogPrimitive.Close className="inline-flex size-11 items-center justify-center text-site-gray-nurse" aria-label="Close menu">
               <BurgerMenu className="cursor-pointer" open={iconOpen} />
             </DialogPrimitive.Close>
           </div>
           <nav aria-label="CMS" className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto p-3">
-            <AdminNavLinks onNavigate={() => setOpen(false)} />
+            <AdminNavLinks large onNavigate={() => setOpen(false)} />
             <button
               type="button"
-              className="mt-auto cursor-pointer rounded-panel px-3 py-2 text-left text-sm font-semibold text-site-mantle hover:text-site-gray-nurse"
+              className="mt-auto cursor-pointer rounded-panel px-3 py-3.5 text-left text-2xl font-semibold text-site-mantle hover:text-site-gray-nurse"
               onClick={() => {
                 setOpen(false)
                 requestLeave(onLogout)
@@ -630,7 +670,7 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
       <SkipToMainContent />
       <aside className="hidden h-full w-56 shrink-0 overflow-hidden border-r border-site-mulled-wine lg:flex lg:flex-col">
         <div className="border-b border-site-mulled-wine px-5 py-4">
-          <Logo className="h-14 w-auto" />
+          <AdminLogoLink className="h-14 w-auto" />
         </div>
         <nav aria-label="CMS" className="flex min-h-0 flex-1 flex-col gap-1 p-3">
           <AdminNavLinks />
@@ -647,11 +687,15 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="shrink-0 border-b border-site-mulled-wine lg:hidden">
           <div className="flex items-center justify-between px-5 py-3">
-            <Logo className="h-12 w-auto" />
+            <AdminLogoLink className="h-12 w-auto" />
             <AdminMobileMenu onLogout={onLogout} submitting={submitting} />
           </div>
         </header>
-        <main id="main" className="min-h-0 flex-1 overflow-auto p-5 sm:p-8" tabIndex={-1}>
+        <main
+          id="main"
+          className="min-h-0 flex-1 overflow-y-scroll p-5 sm:p-8 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
@@ -774,12 +818,15 @@ function DashboardScreen() {
 
 function PagesScreen() {
   const [pages, setPages] = useState<CmsPage[]>([])
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
-    void adminJson<{ pages: CmsPage[] }>('/pages').then((result) => {
-      if (result.data?.pages) {
-        setPages(result.data.pages)
-      }
-    })
+    void adminJson<{ pages: CmsPage[] }>('/pages')
+      .then((result) => {
+        if (result.data?.pages) {
+          setPages(result.data.pages)
+        }
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   return (
@@ -787,6 +834,7 @@ function PagesScreen() {
       <AdminScreenHeader title="Pages" to={adminTo('/pages/new')} label="New page" trashTo={adminTo('/pages/trash')} />
       <AdminTable
         caption="Pages"
+        loading={loading}
         columns={[
           { label: 'Title' },
           { label: 'Path', className: 'pr-4 whitespace-nowrap' },
@@ -794,13 +842,13 @@ function PagesScreen() {
         ]}
       >
         {pages.map((page) => (
-          <tr key={page.id} className={adminRowClass()}>
+          <AdminClickableRow key={page.id} to={adminTo(`/pages/${page.id}`)}>
             <td className="py-3.5 pr-4">
               <AdminRowLink to={adminTo(`/pages/${page.id}`)}>{page.title}</AdminRowLink>
             </td>
             <td className="py-3.5 pr-4 font-mono text-sm whitespace-nowrap text-site-mantle">{page.path}</td>
             <td className="py-3.5 text-sm whitespace-nowrap text-site-mantle capitalize">{page.status}</td>
-          </tr>
+          </AdminClickableRow>
         ))}
       </AdminTable>
     </div>
@@ -843,6 +891,7 @@ function PageEditor() {
     blocks: []
   })
   const [error, setError] = useState('')
+  const [ready, setReady] = useState(isNew)
   const [expandedBlocks, setExpandedBlocks] = useState<ReadonlySet<string>>(() => new Set())
   const { capture, allowLeave } = useUnsavedDraft(page, { captured: isNew, subject: 'this page' })
   const captureRef = useRef(capture)
@@ -863,18 +912,24 @@ function PageEditor() {
 
   useEffect(() => {
     if (isNew) {
+      setReady(true)
       return
     }
     let cancelled = false
-    void adminJson<{ page: CmsPage }>(`/pages/${id}`).then((result) => {
-      if (cancelled || !result.data?.page) {
-        return
-      }
-      const next = result.data.page
-      const draft = { ...next, seoImage: next.seoImage ?? '' }
-      setPage(draft)
-      captureRef.current(draft)
-    })
+    setReady(false)
+    void adminJson<{ page: CmsPage }>(`/pages/${id}`)
+      .then((result) => {
+        if (cancelled || !result.data?.page) {
+          return
+        }
+        const next = result.data.page
+        const draft = { ...next, seoImage: next.seoImage ?? '' }
+        setPage(draft)
+        captureRef.current(draft)
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -910,73 +965,78 @@ function PageEditor() {
         <div className="flex min-w-0 flex-col gap-5">
           <h2 className="title-xs">Components</h2>
           <div className="flex flex-col gap-3">
-            {page.blocks.map((block, index) => {
-              const collapsed = !expandedBlocks.has(block.id)
-              const fieldsId = `${block.id}-fields`
-              return (
-                <div
-                  key={block.id}
-                  id={block.id}
-                  className="scroll-mt-4 overflow-hidden rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine"
-                >
-                  <div className="flex min-w-0 items-center bg-site-mid">
-                    <button
-                      type="button"
-                      aria-expanded={!collapsed}
-                      aria-controls={fieldsId}
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-left"
-                      onClick={() =>
-                        setExpandedBlocks((current) => {
-                          const next = new Set(current)
-                          if (next.has(block.id)) {
-                            next.delete(block.id)
-                          } else {
-                            next.add(block.id)
-                          }
-                          return next
-                        })
-                      }
+            {!ready ? <AdminBlocksSkeleton /> : null}
+            {ready
+              ? page.blocks.map((block, index) => {
+                  const collapsed = !expandedBlocks.has(block.id)
+                  const fieldsId = `${block.id}-fields`
+                  return (
+                    <div
+                      key={block.id}
+                      id={block.id}
+                      className="scroll-mt-4 overflow-hidden rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine"
                     >
-                      <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-site-mantle">{index + 1}</span>
-                      <BlockPreviewThumb type={block.type} />
-                      <span className="title-base min-w-0 truncate text-base sm:text-lg lg:text-xl">{CMS_BLOCK_LABELS[block.type]}</span>
-                    </button>
-                    <div className="flex shrink-0 items-center gap-2 pr-4">
-                      <IconButton
-                        label="Move up"
-                        icon={ArrowUp}
-                        disabled={index === 0}
-                        onClick={() => setPage({ ...page, blocks: move(page.blocks, index, -1) })}
-                      />
-                      <IconButton
-                        label="Move down"
-                        icon={ArrowDown}
-                        disabled={index === page.blocks.length - 1}
-                        onClick={() => setPage({ ...page, blocks: move(page.blocks, index, 1) })}
-                      />
-                      <IconButton
-                        label="Remove"
-                        icon={Trash2}
-                        danger
-                        onClick={() => setPage({ ...page, blocks: page.blocks.filter((_, item) => item !== index) })}
-                      />
+                      <div className="flex min-w-0 items-center bg-site-mid">
+                        <button
+                          type="button"
+                          aria-expanded={!collapsed}
+                          aria-controls={fieldsId}
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-left [touch-action:pan-y]"
+                          onClick={() =>
+                            setExpandedBlocks((current) => {
+                              const next = new Set(current)
+                              if (next.has(block.id)) {
+                                next.delete(block.id)
+                              } else {
+                                next.add(block.id)
+                              }
+                              return next
+                            })
+                          }
+                        >
+                          <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-site-mantle">{index + 1}</span>
+                          <BlockPreviewThumb type={block.type} />
+                          <span className="title-base min-w-0 truncate text-base sm:text-lg lg:text-xl">
+                            {CMS_BLOCK_LABELS[block.type]}
+                          </span>
+                        </button>
+                        <div className="flex shrink-0 items-center gap-2 pr-4">
+                          <IconButton
+                            label="Move up"
+                            icon={ArrowUp}
+                            disabled={index === 0}
+                            onClick={() => setPage({ ...page, blocks: move(page.blocks, index, -1) })}
+                          />
+                          <IconButton
+                            label="Move down"
+                            icon={ArrowDown}
+                            disabled={index === page.blocks.length - 1}
+                            onClick={() => setPage({ ...page, blocks: move(page.blocks, index, 1) })}
+                          />
+                          <IconButton
+                            label="Remove"
+                            icon={Trash2}
+                            danger
+                            onClick={() => setPage({ ...page, blocks: page.blocks.filter((_, item) => item !== index) })}
+                          />
+                        </div>
+                      </div>
+                      <div id={fieldsId} hidden={collapsed} className="p-4">
+                        <BlockFields
+                          block={block}
+                          pagePath={page.path}
+                          onChange={(next) =>
+                            setPage({ ...page, blocks: page.blocks.map((item, itemIndex) => (itemIndex === index ? next : item)) })
+                          }
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div id={fieldsId} hidden={collapsed} className="p-4">
-                    <BlockFields
-                      block={block}
-                      pagePath={page.path}
-                      onChange={(next) =>
-                        setPage({ ...page, blocks: page.blocks.map((item, itemIndex) => (itemIndex === index ? next : item)) })
-                      }
-                    />
-                  </div>
-                </div>
-              )
-            })}
+                  )
+                })
+              : null}
           </div>
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           <h2 className="title-xs">Page settings</h2>
           <label className="text-sm font-medium">
             Title
@@ -1037,7 +1097,12 @@ function PageEditor() {
           aria-label="Add a new component"
           plain
           value=""
-          placeholder="Add a new component"
+          placeholder={
+            <>
+              <span className="sm:hidden">Add component</span>
+              <span className="hidden sm:inline">Add a new component</span>
+            </>
+          }
           icon={Plus}
           options={CMS_BLOCK_TYPES.map((type) => ({
             value: type,
@@ -1199,16 +1264,20 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
 
 function ProductsScreen() {
   const [products, setProducts] = useState<InventoryProduct[]>([])
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
-    void adminJson<{ products: InventoryProduct[] }>('/products').then((result) => {
-      if (result.data?.products) setProducts(result.data.products)
-    })
+    void adminJson<{ products: InventoryProduct[] }>('/products')
+      .then((result) => {
+        if (result.data?.products) setProducts(result.data.products)
+      })
+      .finally(() => setLoading(false))
   }, [])
   return (
     <div className="flex flex-col gap-6">
       <AdminScreenHeader title="Products" to={adminTo('/products/new')} label="New product" trashTo={adminTo('/products/trash')} />
       <AdminTable
         caption="Products"
+        loading={loading}
         columns={[
           { label: 'Title' },
           { label: 'Status', className: 'pr-4 whitespace-nowrap' },
@@ -1216,14 +1285,14 @@ function ProductsScreen() {
         ]}
       >
         {products.map((product) => (
-          <tr key={product.id} className={adminRowClass()}>
+          <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
             <td className="py-3.5 pr-4">
               <AdminRowLink to={adminTo(`/products/${product.id}`)}>{product.title}</AdminRowLink>
               {product.subtitle ? <p className="mt-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
             </td>
             <td className="py-3.5 pr-4 text-sm whitespace-nowrap text-site-mantle capitalize">{productStatus(product)}</td>
             <td className="py-3.5 text-sm whitespace-nowrap tabular-nums text-site-mantle">{product.price ?? '—'}</td>
-          </tr>
+          </AdminClickableRow>
         ))}
       </AdminTable>
     </div>
@@ -1236,20 +1305,29 @@ function ProductEditor() {
   const isNew = id === 'new'
   const [product, setProduct] = useState<Partial<InventoryProduct>>({ title: '', subtitle: '', description: '', images: [] })
   const [error, setError] = useState('')
+  const [ready, setReady] = useState(isNew)
   const { capture, allowLeave } = useUnsavedDraft(product, { captured: isNew, subject: 'this product' })
   const captureRef = useRef(capture)
   captureRef.current = capture
 
   useEffect(() => {
-    if (isNew) return
+    if (isNew) {
+      setReady(true)
+      return
+    }
     let cancelled = false
-    void adminJson<{ product: InventoryProduct }>(`/products/${id}`).then((result) => {
-      if (cancelled || !result.data?.product) {
-        return
-      }
-      setProduct(result.data.product)
-      captureRef.current(result.data.product)
-    })
+    setReady(false)
+    void adminJson<{ product: InventoryProduct }>(`/products/${id}`)
+      .then((result) => {
+        if (cancelled || !result.data?.product) {
+          return
+        }
+        setProduct(result.data.product)
+        captureRef.current(result.data.product)
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -1303,6 +1381,10 @@ function ProductEditor() {
 
   const listingStatus = productStatus(product)
 
+  if (!ready) {
+    return <AdminFormSkeleton fields={8} />
+  }
+
   return (
     <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-8 pb-24">
       <h1 className="title-l">{isNew ? 'New product' : 'Edit product'}</h1>
@@ -1340,7 +1422,7 @@ function ProductEditor() {
           </div>
           <div className="flex flex-col gap-5">
             <h2 className="title-xs">Card</h2>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-5">
               <AdminField label="Year">
                 <input
                   className={fieldClass()}
@@ -1436,7 +1518,7 @@ function ProductEditor() {
               }
             />
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-5">
             <AdminField label="Cost">
               <input
                 className={fieldClass()}
@@ -1454,20 +1536,10 @@ function ProductEditor() {
             </AdminField>
           </div>
           <AdminField label="Acquired at">
-            <input
-              className={fieldClass()}
-              type="date"
-              value={product.acquiredAt ?? ''}
-              onChange={(event) => set('acquiredAt', event.target.value || undefined)}
-            />
+            <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
           </AdminField>
           <AdminField label="Sold at">
-            <input
-              className={fieldClass()}
-              type="date"
-              value={product.soldAt ?? ''}
-              onChange={(event) => set('soldAt', event.target.value || undefined)}
-            />
+            <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />
           </AdminField>
           <AdminField label="Marktplaats URL">
             <input
@@ -1623,6 +1695,7 @@ function MediaScreen() {
   const ignoreOutsideClick = useRef(false)
   const [media, setMedia] = useState<CmsMedia[]>([])
   const [r2, setR2] = useState<R2UsageSnapshot | null>(null)
+  const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const selected = media.find((item) => item.id === selectedId) ?? null
 
@@ -1635,10 +1708,12 @@ function MediaScreen() {
   }
 
   useEffect(() => {
-    void adminJson<{ media: CmsMedia[]; r2: R2UsageSnapshot }>('/media').then((result) => {
-      if (result.data?.media) setMedia(result.data.media)
-      if (result.data?.r2) setR2(result.data.r2)
-    })
+    void adminJson<{ media: CmsMedia[]; r2: R2UsageSnapshot }>('/media')
+      .then((result) => {
+        if (result.data?.media) setMedia(result.data.media)
+        if (result.data?.r2) setR2(result.data.r2)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   async function upload(file: File) {
@@ -1697,6 +1772,16 @@ function MediaScreen() {
         </div>
       ) : null}
       <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 sm:grid-cols-4 md:grid-cols-5">
+        {loading
+          ? Array.from({ length: 9 }, (_, index) => (
+              <li
+                key={index}
+                className="aspect-square animate-pulse rounded-panel bg-site-mulled-wine motion-reduce:animate-none"
+                aria-hidden={index > 0}
+                {...(index === 0 ? { role: 'status', 'aria-label': 'Loading media' } : {})}
+              />
+            ))
+          : null}
         {media.map((item) => (
           <li key={item.id}>
             <button
@@ -1786,18 +1871,26 @@ function CollectionScreen({
   columns: Array<{ key: string; label: string; className?: string }>
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
-    void adminJson<Record<string, Array<Record<string, unknown>>>>(path).then((result) => {
-      if (result.data?.[collectionKey]) setItems(result.data[collectionKey])
-    })
+    setLoading(true)
+    void adminJson<Record<string, Array<Record<string, unknown>>>>(path)
+      .then((result) => {
+        if (result.data?.[collectionKey]) setItems(result.data[collectionKey])
+      })
+      .finally(() => setLoading(false))
   }, [path, collectionKey])
 
   return (
     <div className="flex flex-col gap-6">
       <AdminScreenHeader title={title} to={adminTo(`${path}/new`)} label={newLabel} trashTo={adminTo(`${path}/trash`)} />
-      <AdminTable caption={title} columns={columns.map((column) => ({ label: column.label, className: column.className }))}>
+      <AdminTable
+        caption={title}
+        loading={loading}
+        columns={columns.map((column) => ({ label: column.label, className: column.className }))}
+      >
         {items.map((item) => (
-          <tr key={String(item.id)} className={adminRowClass()}>
+          <AdminClickableRow key={String(item.id)} to={adminTo(`${path}/${item.id}`)}>
             {columns.map((column, index) => (
               <td key={column.key} className={`py-3.5 ${column.className ?? 'pr-4'}`}>
                 {index === 0 ? (
@@ -1807,7 +1900,7 @@ function CollectionScreen({
                 )}
               </td>
             ))}
-          </tr>
+          </AdminClickableRow>
         ))}
       </AdminTable>
     </div>
@@ -1830,24 +1923,33 @@ function CollectionEditor({
   const isNew = id === 'new'
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
+  const [ready, setReady] = useState(isNew)
   const { capture, allowLeave } = useUnsavedDraft(draft, { captured: isNew, subject: `this ${singular}` })
   const captureRef = useRef(capture)
   captureRef.current = capture
 
   useEffect(() => {
-    if (isNew) return
+    if (isNew) {
+      setReady(true)
+      return
+    }
     let cancelled = false
-    void adminJson<Record<string, Array<Record<string, unknown>>>>(path).then((result) => {
-      if (cancelled) return
-      const item = result.data?.[collectionKey]?.find((row) => String(row.id) === id)
-      if (!item) return
-      const next: Record<string, string> = {}
-      for (const field of fields) {
-        next[field.key] = String(item[field.key] ?? '')
-      }
-      setDraft(next)
-      captureRef.current(next)
-    })
+    setReady(false)
+    void adminJson<Record<string, Array<Record<string, unknown>>>>(path)
+      .then((result) => {
+        if (cancelled) return
+        const item = result.data?.[collectionKey]?.find((row) => String(row.id) === id)
+        if (!item) return
+        const next: Record<string, string> = {}
+        for (const field of fields) {
+          next[field.key] = String(item[field.key] ?? '')
+        }
+        setDraft(next)
+        captureRef.current(next)
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -1876,38 +1978,42 @@ function CollectionEditor({
     capture()
   }
 
+  if (!ready) {
+    return <AdminFormSkeleton fields={fields.length} />
+  }
+
   return (
-    <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-4">
+    <form onSubmit={(event) => void save(event)} className="flex w-full min-w-0 flex-col gap-4 pb-24">
       <h1 className="title-l">
         {isNew ? 'New' : 'Edit'} {singular}
       </h1>
       {error ? <p className="content-s text-site-loss">{error}</p> : null}
       {fields.map((field) => (
-        <label key={field.key} className="text-sm font-medium">
+        <label key={field.key} className="flex min-w-0 flex-col gap-2 text-sm font-medium">
           {field.label}
           {field.type === 'textarea' ? (
             <textarea
-              className={`${fieldClass()} mt-2 min-h-32`}
+              className={`${fieldClass()} min-h-32`}
               value={draft[field.key] ?? ''}
               onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
             />
+          ) : field.type === 'date' ? (
+            <DateInput value={draft[field.key] ?? ''} onChange={(value) => setDraft({ ...draft, [field.key]: value })} />
           ) : (
             <input
               type={field.type ?? 'text'}
-              className={`${fieldClass()} mt-2`}
+              className={fieldClass()}
               value={draft[field.key] ?? ''}
               onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
             />
           )}
         </label>
       ))}
-      <div className="flex items-center gap-4">
-        <button type="submit" className="button-green cursor-pointer">
-          Save {singular}
-        </button>
+      <AdminStickyBar end>
         {!isNew ? (
           <DeleteControl
             singular={singular}
+            icon
             onConfirm={() => {
               void adminJson(`${path}/${id}`, { method: 'DELETE' }).then((result) => {
                 if (result.ok) {
@@ -1918,7 +2024,10 @@ function CollectionEditor({
             }}
           />
         ) : null}
-      </div>
+        <button type="submit" className="button-green cursor-pointer">
+          Save {singular}
+        </button>
+      </AdminStickyBar>
     </form>
   )
 }
@@ -1971,10 +2080,14 @@ function TrashScreen({
   columns: Array<{ key: string; label: string; className?: string; value?: (item: Record<string, unknown>) => string }>
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
-    void adminJson<Record<string, Array<Record<string, unknown>>>>(`${path}/trash`).then((result) => {
-      if (result.data?.[collectionKey]) setItems(result.data[collectionKey])
-    })
+    setLoading(true)
+    void adminJson<Record<string, Array<Record<string, unknown>>>>(`${path}/trash`)
+      .then((result) => {
+        if (result.data?.[collectionKey]) setItems(result.data[collectionKey])
+      })
+      .finally(() => setLoading(false))
   }, [path, collectionKey])
 
   return (
@@ -1987,6 +2100,7 @@ function TrashScreen({
       </div>
       <AdminTable
         caption={title}
+        loading={loading}
         columns={[
           ...columns.map((column) => ({ label: column.label, className: column.className })),
           { label: 'Actions', className: 'w-0 text-right' }
@@ -2158,7 +2272,7 @@ function SettingsScreen() {
       cancelled = true
     }
   }, [])
-  if (!settings) return <p>Loading…</p>
+  if (!settings) return <AdminFormSkeleton fields={6} />
   return (
     <form
       className="flex w-full min-w-0 flex-col gap-8 pb-24"
