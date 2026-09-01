@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "postbuild": "if [ \"${WORKERS_CI:-}\" = 1 ] && [ \"${WORKERS_CI_BRANCH:-}\" = main ]; then npm run migrate:remote; fi",
+    "media:upload": "vite-node scripts/upload-media-variants.ts",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -57,6 +57,8 @@ Update purchase costs on each product in `app/database/products.ts`. Those numbe
 
 Pushes to `main` are built by Cloudflare Workers Builds. `npm run build` typechecks and compiles; on Workers Builds for `main` it then applies pending D1 migrations before Wrangler publishes. Preview-branch builds skip that so they cannot change production schema.
 
+During the build, resized AVIF/WebP variants for seed media are uploaded to R2 when needed. A manifest on R2 tracks the seed files and encoding settings: the **first** main deploy uploads all variants (~360 files, slow once); later deploys skip upload in seconds unless seed media or variant settings change. Override with `HWC_SKIP_MEDIA_UPLOAD=1`. You can also run `npm run media:upload` manually after `npx wrangler login`.
+
 | Field             | Value                    |
 | ----------------- | ------------------------ |
 | Build command     | `npm run build`          |

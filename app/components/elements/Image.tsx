@@ -41,8 +41,8 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy')
   const isEager = resolvedLoading === 'eager'
   const local = isLocalRasterSrc(resolved)
-  const ready = !local || Boolean(resolvedSizes)
   const resolvedSizes = sizes ?? (layoutWidth > 0 ? `${layoutWidth}px` : isEager ? PRIORITY_IMAGE_SIZES : LAZY_SIZES)
+  const ready = !local || Boolean(resolvedSizes)
 
   useLayoutEffect(() => {
     if (isEager || sizes != null) return
