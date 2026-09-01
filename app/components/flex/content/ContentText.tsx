@@ -5,6 +5,7 @@ import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { resolveImageAlt } from '~/services/imageCopy'
+import { CONTENT_IMAGE_SIZES } from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
 
 export type ContentTextSection = {
@@ -113,6 +114,8 @@ export default function ContentText({
                   alt={resolveImageAlt(image, alt)}
                   width={1280}
                   height={960}
+                  sizes={CONTENT_IMAGE_SIZES}
+                  maxwidth={800}
                   className={cn(
                     'h-auto w-full object-contain max-h-100',
                     !hasSections && 'lg:absolute lg:inset-0 lg:left-0 lg:right-0 lg:mx-auto lg:h-full lg:w-auto'

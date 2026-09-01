@@ -3,6 +3,7 @@ import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { resolveImageAlt } from '~/services/imageCopy'
+import { CONTENT_IMAGE_SIZES } from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
 
 export default function ContentCta({
@@ -65,7 +66,8 @@ export default function ContentCta({
                 alt={resolveImageAlt(image, alt)}
                 width={1280}
                 height={960}
-                maxwidth={1200}
+                sizes={CONTENT_IMAGE_SIZES}
+                maxwidth={800}
                 className="sm:aspect-7/6 aspect-3/2 h-full w-full object-cover max-h-140"
               />
             </Animated>

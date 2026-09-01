@@ -19,6 +19,7 @@ import {
   resetCatalogSearchParams
 } from '~/services/productCatalog'
 import { applyPriceRangeSearchParams, catalogPriceBounds, parsePriceRangeParams, type PriceRange } from '~/services/productPriceFilter'
+import { CATALOG_IMAGE_SIZES } from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
 
 const productDelays = [
@@ -185,7 +186,8 @@ export default function ContentProducts({
                                 width={800}
                                 height={1120}
                                 aria-hidden
-                                maxwidth={1000}
+                                sizes={CATALOG_IMAGE_SIZES}
+                                maxwidth={600}
                                 className={
                                   product.images[1] ? 'product-hover-morph-front' : 'absolute inset-0 size-full object-contain p-5'
                                 }
@@ -198,8 +200,9 @@ export default function ContentProducts({
                                   width={800}
                                   height={1120}
                                   aria-hidden
+                                  sizes={CATALOG_IMAGE_SIZES}
+                                  maxwidth={600}
                                   className="product-hover-morph-back"
-                                  maxwidth={1000}
                                 />
                               )}
                             </>

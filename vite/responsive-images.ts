@@ -34,7 +34,10 @@ function contentType(format: ImageFormat): string {
 }
 
 async function uploadSeedMediaVariants(root: string, log = console.log): Promise<void> {
-  if (process.env.WORKERS_CI !== '1' || process.env.WORKERS_CI_BRANCH !== 'main') {
+  if (process.env.HWC_SKIP_MEDIA_UPLOAD === '1') {
+    return
+  }
+  if (process.env.WORKERS_CI === '1' && process.env.WORKERS_CI_BRANCH !== 'main') {
     return
   }
 

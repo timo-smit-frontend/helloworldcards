@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
 import { useCms, useCmsLoading } from '~/cms/context'
-import { ProductSkeleton } from '~/cms/loading'
 import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
@@ -22,8 +21,8 @@ export default function Product() {
 
   if (loading) {
     return (
-      <Layout>
-        <ProductSkeleton />
+      <Layout className="justify-center">
+        <ContentText heading="h1" title="Loading…" description="Fetching this card." />
       </Layout>
     )
   }

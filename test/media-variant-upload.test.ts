@@ -36,6 +36,18 @@ describe('media variants', () => {
     expect(variants.get('hero-w800.avif')?.byteLength).toBeGreaterThan(0)
   })
 
+  it('resizes variants to the requested width', async () => {
+    const fixture = await makeSeedFixture()
+    root = fixture.root
+    const variants = await encodeMediaVariants(path.join(fixture.seedDir, 'hero.jpg'), 'hero.jpg')
+    const avif400 = variants.get('hero-w400.avif')
+    const avif800 = variants.get('hero-w800.avif')
+    expect(avif400).toBeDefined()
+    expect(avif800).toBeDefined()
+    await expect(sharp(avif400!).metadata()).resolves.toMatchObject({ width: 400 })
+    await expect(sharp(avif800!).metadata()).resolves.toMatchObject({ width: 800 })
+  })
+
   it('stores variants in the media bucket under variant keys', async () => {
     const fixture = await makeSeedFixture()
     root = fixture.root

@@ -13,7 +13,9 @@ const FALLBACK_SRC_WIDTH = 800
 const PRELOAD_WIDTHS = [400, 800] as const
 
 export const PRIORITY_IMAGE_SIZES = '(min-width: 1024px) 50vw, 100vw'
-export const PRODUCT_IMAGE_SIZES = '(min-width: 1024px) 20rem, 16rem'
+export const PRODUCT_IMAGE_SIZES = PRIORITY_IMAGE_SIZES
+export const CATALOG_IMAGE_SIZES = '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw'
+export const CONTENT_IMAGE_SIZES = PRIORITY_IMAGE_SIZES
 
 export function srcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
   const widths = variantWidthsFor()

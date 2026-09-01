@@ -2455,13 +2455,17 @@ function SettingsScreen() {
                   className={fieldClass()}
                   value={item.label}
                   aria-label="Label"
-                  onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))}
+                  onChange={(event) =>
+                    setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))
+                  }
                 />
                 <input
                   className={fieldClass()}
                   value={item.href}
                   aria-label="Link"
-                  onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))}
+                  onChange={(event) =>
+                    setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))
+                  }
                 />
               </div>
               <div className="flex shrink-0 self-center sm:self-auto">

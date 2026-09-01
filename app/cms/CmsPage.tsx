@@ -4,7 +4,6 @@ import Pokemon from '~/components/elements/Pokemon'
 import Layout from '~/components/layout/Layout'
 import { CmsBlocks } from './CmsBlocks'
 import { useCms, useCmsLoading } from './context'
-import { PageSkeleton } from './loading'
 
 export default function CmsPage() {
   const cms = useCms()
@@ -13,7 +12,11 @@ export default function CmsPage() {
   if (loading) {
     return (
       <Layout>
-        <PageSkeleton />
+        <section className="section">
+          <div className="container-full">
+            <p className="content-l text-site-mantle">Loading…</p>
+          </div>
+        </section>
       </Layout>
     )
   }
