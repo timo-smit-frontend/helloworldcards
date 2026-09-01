@@ -1,4 +1,5 @@
 import type { CardLanguage, InventoryProduct } from '../../database/products'
+import { toMediaSrc } from '../imageCopy'
 import { parseListedPrice } from '../price'
 import { suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
 import { parseArticleListings } from './html'
@@ -80,7 +81,7 @@ export async function runCardmarketScan({
     const base: Omit<CardmarketProductReport, 'listings' | 'suggestion' | 'gone' | 'error'> = {
       id: product.id,
       title: product.title,
-      image: product.images[0] ?? null,
+      image: product.images[0] ? toMediaSrc(product.images[0]) : null,
       listed,
       url
     }
@@ -143,9 +144,12 @@ export function withProductFrontImages(report: CardmarketReport, products: Inven
   const fronts = new Map(products.map((product) => [product.id, product.images[0] ?? null]))
   return {
     ...report,
-    products: report.products.map((item) => ({
-      ...item,
-      image: item.image ?? fronts.get(item.id) ?? null
-    }))
+    products: report.products.map((item) => {
+      const src = fronts.get(item.id) ?? item.image
+      return {
+        ...item,
+        image: src ? toMediaSrc(src) : null
+      }
+    })
   }
 }

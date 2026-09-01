@@ -1,23 +1,21 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
-import { getProductBySlug } from '~/database/products'
+import { useCms } from '~/cms/context'
 
-function getMailContent(pathname: string): { subject: string; body: string } | undefined {
+function getMailContent(pathname: string, productTitle?: string): { subject: string; body: string } | undefined {
   const productMatch = pathname.match(/^\/products\/([^/]+)\/?$/)
-  const product = productMatch ? getProductBySlug(productMatch[1]) : undefined
-
-  if (!product) {
+  if (!productMatch || !productTitle) {
     return undefined
   }
 
   return {
-    subject: `Interested in ${product.title}`,
-    body: `Hey Hello World Cards,\n\nI am interested in your ${product.title} currently listed on your website. Is it still available? If so I would like to buy it.\n\nKind regards,\n\n[Your name]`
+    subject: `Interested in ${productTitle}`,
+    body: `Hey Hello World Cards,\n\nI am interested in your ${productTitle} currently listed on your website. Is it still available? If so I would like to buy it.\n\nKind regards,\n\n[Your name]`
   }
 }
 
-function composeMailto(href: string, pathname: string): string | undefined {
-  const content = getMailContent(pathname)
+function composeMailto(href: string, pathname: string, productTitle?: string): string | undefined {
+  const content = getMailContent(pathname, productTitle)
   if (!content) {
     return undefined
   }
@@ -28,6 +26,7 @@ function composeMailto(href: string, pathname: string): string | undefined {
 
 export default function Mailing() {
   const { pathname } = useLocation()
+  const productTitle = useCms()?.product?.title
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -45,7 +44,7 @@ export default function Mailing() {
         return
       }
 
-      const mailto = composeMailto(anchor.getAttribute('href') ?? '', pathname)
+      const mailto = composeMailto(anchor.getAttribute('href') ?? '', pathname, productTitle)
       if (!mailto) {
         return
       }
@@ -56,7 +55,7 @@ export default function Mailing() {
 
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
-  }, [pathname])
+  }, [pathname, productTitle])
 
   return null
 }

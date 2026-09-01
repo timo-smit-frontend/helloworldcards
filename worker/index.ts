@@ -1,6 +1,12 @@
+import { WorkerEntrypoint } from 'cloudflare:workers'
+import { handleAdminRequest } from './cms/admin-api'
+import { applyAdminRobots, injectCmsPayload } from './cms/html'
+import { handleMediaPublic } from './cms/media'
+import { handleLlms, handlePublicApi, handleSitemap } from './cms/public-api'
+import { buildPublicPayload } from './cms/public'
 import { handleDashboardRequest, isDashboardPath } from './dashboard-api'
+import { APEX_HOST, isAdminHost, isLocalHost, publicDashboardRedirect } from './hosts'
 
-const APEX_HOST = 'helloworldcards.com'
 const FILE_EXTENSION = /\.[a-zA-Z0-9]{1,8}$/
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -45,8 +51,7 @@ function withSecurityHeaders(response: Response, options?: { noindex?: boolean }
     for (const [name, value] of Object.entries(HTML_SECURITY_HEADERS)) {
       headers.set(name, value)
     }
-    // Hashed JS is deleted on deploy; cached HTML would 404 the previous bundle.
-    headers.set('Cache-Control', 'no-store')
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
   } else if (response.status >= 400) {
     headers.set('Cache-Control', 'no-store')
   }
@@ -63,19 +68,11 @@ function withSecurityHeaders(response: Response, options?: { noindex?: boolean }
   })
 }
 
-function applyDashboardRobots(html: string): string {
-  return html
-    .replace(/<meta name="robots" content="[^"]*"\s*\/?>/i, '<meta name="robots" content="noindex, nofollow, noarchive" />')
-    .replace(/<link rel="canonical"[^>]*>\s*/i, '')
-    .replace(/<meta property="og:url"[^>]*>\s*/i, '')
-    .replace(/<!-- Google Tag Manager \(noscript\) -->[\s\S]*?<!-- End Google Tag Manager \(noscript\) -->/i, '')
-}
-
 function canonicalRequestUrl(request: Request): URL | null {
   const url = new URL(request.url)
   let changed = false
 
-  if (url.protocol === 'http:') {
+  if (url.protocol === 'http:' && !isLocalHost(url.hostname)) {
     url.protocol = 'https:'
     changed = true
   }
@@ -85,7 +82,9 @@ function canonicalRequestUrl(request: Request): URL | null {
     changed = true
   }
 
+  const skipSlash = url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')
   const canSlash =
+    !skipSlash &&
     (request.method === 'GET' || request.method === 'HEAD') &&
     url.pathname !== '/' &&
     !url.pathname.endsWith('/') &&
@@ -99,8 +98,9 @@ function canonicalRequestUrl(request: Request): URL | null {
   return changed ? url : null
 }
 
-function redirectPermanently(url: URL): Response {
-  return withSecurityHeaders(Response.redirect(url.href, 301))
+function redirectPermanently(url: URL | string): Response {
+  const href = typeof url === 'string' ? url : url.href
+  return withSecurityHeaders(Response.redirect(href, 301))
 }
 
 function asPermanentRedirect(response: Response, request: Request, noindex = false): Response {
@@ -128,39 +128,105 @@ function shouldServeSpaFallback(request: Request, pathname: string): boolean {
   return !FILE_EXTENSION.test(pathname)
 }
 
+export class CachedMedia extends WorkerEntrypoint<Env> {
+  async fetch(request: Request): Promise<Response> {
+    const response = await handleMediaPublic(request, this.env, { ctx: this.ctx })
+    return (
+      response ??
+      new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+      })
+    )
+  }
+
+  async purgePath(pathname: string): Promise<void> {
+    await this.ctx.cache?.purge({ pathPrefixes: [pathname] })
+  }
+}
+
 export default {
-  async fetch(request, env): Promise<Response> {
+  async fetch(request, env, ctx): Promise<Response> {
     const redirectTo = canonicalRequestUrl(request)
     if (redirectTo) {
       return redirectPermanently(redirectTo)
     }
 
     const url = new URL(request.url)
+    const hostRedirect = publicDashboardRedirect(url)
+    if (hostRedirect) {
+      return redirectPermanently(hostRedirect)
+    }
+
+    const adminApi = await handleAdminRequest(request, env, {
+      purgeMediaCache: (pathname) => ctx.exports.CachedMedia.purgePath(pathname)
+    })
+    if (adminApi) {
+      return withSecurityHeaders(adminApi, { noindex: true })
+    }
+
     const dashboardApi = await handleDashboardRequest(request, env)
     if (dashboardApi) {
       return withSecurityHeaders(dashboardApi, { noindex: true })
     }
 
+    const publicApi = await handlePublicApi(request, env)
+    if (publicApi) {
+      return withSecurityHeaders(publicApi)
+    }
+
+    if (url.pathname.startsWith('/media/')) {
+      return withSecurityHeaders(await ctx.exports.CachedMedia.fetch(request))
+    }
+
+    const sitemap = await handleSitemap(request, env)
+    if (sitemap) {
+      return withSecurityHeaders(sitemap)
+    }
+
+    const llms = await handleLlms(request, env)
+    if (llms) {
+      return withSecurityHeaders(llms)
+    }
+
     const asset = await env.ASSETS.fetch(request)
+    const adminPage = isAdminHost(url.hostname)
     const dashboardPage = isDashboardPath(url.pathname)
 
     if (asset.status !== 404) {
-      return asPermanentRedirect(asset, request, dashboardPage)
+      return asPermanentRedirect(asset, request, adminPage || dashboardPage)
     }
 
     if (!shouldServeSpaFallback(request, url.pathname)) {
-      return withSecurityHeaders(asset, { noindex: dashboardPage })
+      return withSecurityHeaders(asset, { noindex: adminPage || dashboardPage })
     }
 
     const index = await env.ASSETS.fetch(new URL('/index.html', url.origin))
-    if (dashboardPage && isHtml(index)) {
-      const html = applyDashboardRobots(await index.text())
+    if (!isHtml(index)) {
+      return withSecurityHeaders(index, { noindex: adminPage })
+    }
+
+    let html = await index.text()
+    if (adminPage) {
+      html = applyAdminRobots(injectCmsPayload(html, null, { admin: true, path: url.pathname }))
       return withSecurityHeaders(
         new Response(html, {
           status: index.status,
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         }),
         { noindex: true }
+      )
+    }
+
+    if (env.DB) {
+      const payload = await buildPublicPayload(env.DB, url.pathname)
+      html = injectCmsPayload(html, payload, { path: url.pathname })
+      const status = payload.notFound ? 404 : index.status
+      return withSecurityHeaders(
+        new Response(html, {
+          status,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        })
       )
     }
 

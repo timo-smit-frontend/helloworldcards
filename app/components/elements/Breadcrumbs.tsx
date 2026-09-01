@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { getProductBySlug } from '~/database/products'
+import { useCms } from '~/cms/context'
 import { cn } from '~/services/utils'
 
 export type BreadcrumbItem = {
@@ -7,15 +7,7 @@ export type BreadcrumbItem = {
   url?: string
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  products: 'Products',
-  agenda: 'Agenda',
-  about: 'About',
-  contact: 'Contact',
-  privacy: 'Privacy statement'
-}
-
-function crumbsFromPath(pathname: string): BreadcrumbItem[] {
+function crumbsFromPath(pathname: string, pageTitle?: string, productTitle?: string): BreadcrumbItem[] {
   const path = pathname.replace(/\/+$/, '') || '/'
   if (path === '/') return []
 
@@ -25,13 +17,19 @@ function crumbsFromPath(pathname: string): BreadcrumbItem[] {
   segments.forEach((segment, index) => {
     const isLast = index === segments.length - 1
     const url = `/${segments.slice(0, index + 1).join('/')}/`
-    let title = PAGE_TITLES[segment]
+    let title: string | undefined
 
-    if (!title && segments[0] === 'products' && index === 1) {
-      title = getProductBySlug(segment)?.title ?? decodeURIComponent(segment)
+    if (segment === 'products' && index === 0) {
+      title = 'Products'
+    } else if (segments[0] === 'products' && index === 1) {
+      title = productTitle ?? decodeURIComponent(segment)
+    } else if (isLast) {
+      title = pageTitle ?? segment.replace(/-/g, ' ')
+    } else {
+      title = segment.replace(/-/g, ' ')
     }
 
-    crumbs.push(isLast ? { title: title ?? segment } : { title: title ?? segment.replace(/-/g, ' '), url })
+    crumbs.push(isLast ? { title } : { title, url })
   })
 
   return crumbs
@@ -39,7 +37,8 @@ function crumbsFromPath(pathname: string): BreadcrumbItem[] {
 
 export default function Breadcrumbs({ items, className }: { items?: BreadcrumbItem[]; className?: string }) {
   const { pathname } = useLocation()
-  const crumbs = items ?? crumbsFromPath(pathname)
+  const cms = useCms()
+  const crumbs = items ?? crumbsFromPath(pathname, cms?.page?.title, cms?.product?.title)
 
   if (crumbs.length === 0) {
     return null

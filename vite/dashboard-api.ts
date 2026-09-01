@@ -2,7 +2,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Plugin } from 'vite'
-import { handleDashboardRequest, isDashboardApiPath, normalizeDashboardPath } from '../worker/dashboard-api'
+import { seedMediaFiles } from '../app/cms/seed-media'
+import { handleAdminRequest } from '../worker/cms/admin-api'
+import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
+import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
+import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
+import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
 import { closePlaywrightCardmarketFetcher, fileCardmarketStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
 import { stripProductCosts } from './strip-product-costs'
 
@@ -104,20 +109,95 @@ async function sendFetchResponse(response: Response, res: ServerResponse): Promi
   res.end(Buffer.from(await response.arrayBuffer()))
 }
 
-function dashboardApiMiddleware(root: string) {
+function isCmsDevPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/dashboard/session') ||
+    pathname.startsWith('/dashboard/logout') ||
+    pathname.startsWith('/dashboard/ledger') ||
+    pathname.startsWith('/dashboard/cardmarket') ||
+    pathname === '/api/public' ||
+    pathname.startsWith('/media/') ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/llms.txt' ||
+    pathname === '/llms-full.txt'
+  )
+}
+
+async function seedLocalMediaBucket(media: MediaBucket, root = process.cwd()): Promise<void> {
+  const dir = path.join(root, 'seed/media')
+  for (const file of seedMediaFiles) {
+    if (await media.get(file.key)) {
+      continue
+    }
+    const bytes = fs.readFileSync(path.join(dir, file.filename))
+    await media.put(file.key, bytes, { httpMetadata: { contentType: file.contentType } })
+  }
+}
+
+type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void> }
+
+async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
+  try {
+    const { getPlatformProxy } = await import('wrangler')
+    const proxy = await Promise.race([
+      getPlatformProxy({ persist: true }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('getPlatformProxy timed out')), 8000)
+      })
+    ])
+    const env = proxy.env as {
+      DB?: import('../worker/cms/db').CmsDb & { exec?(query: string): Promise<unknown> }
+      MEDIA?: import('../worker/cms/media').MediaBucket
+    }
+    if (env.DB && env.MEDIA) {
+      await ensureCmsSchema(env.DB)
+      await seedLocalMediaBucket(env.MEDIA)
+      return {
+        db: env.DB,
+        media: env.MEDIA,
+        dispose: () => proxy.dispose()
+      }
+    }
+    await proxy.dispose()
+  } catch {
+    // Fall back to in-memory D1/R2 so `npm run dev` still works without Wrangler.
+  }
+
+  const media = memoryR2()
+  await seedLocalMediaBucket(media)
+  return {
+    db: createMemoryD1(),
+    media
+  }
+}
+
+let runtimePromise: Promise<ViteCmsRuntime> | null = null
+
+function viteCmsRuntime(): Promise<ViteCmsRuntime> {
+  runtimePromise ??= createViteCmsRuntime()
+  return runtimePromise
+}
+
+function cmsApiMiddleware(root: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
     try {
       const url = req.url?.split('?')[0] ?? ''
-      if (!isDashboardApiPath(url)) {
+      if (!isCmsDevPath(url)) {
         next()
         return
       }
 
       const request = await toFetchRequest(req)
-      const pathName = normalizeDashboardPath(url)
-      const runtime = { cardmarketStore: fileCardmarketStore(root) }
+      const cms = await viteCmsRuntime()
+      const runtime: DashboardRuntime = {
+        db: cms.db,
+        media: cms.media,
+        cardmarketStore: fileCardmarketStore(root)
+      }
+
       let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
-      if (pathName === '/dashboard/cardmarket/scan' && req.method === 'POST') {
+      if ((url === '/dashboard/cardmarket/scan' || url === '/api/admin/cardmarket/scan') && req.method === 'POST') {
         try {
           browser = await getPlaywrightCardmarketFetcher(root)
         } catch {
@@ -126,10 +206,20 @@ function dashboardApiMiddleware(root: string) {
       }
 
       try {
-        const response = await handleDashboardRequest(request, loadDashboardEnv(root), {
+        const env = loadDashboardEnv(root)
+        const withBrowser = {
           ...runtime,
           ...(browser ? { fetchCardmarketPage: browser.fetchPage } : {})
-        })
+        }
+
+        const response =
+          (await handleAdminRequest(request, env, withBrowser)) ??
+          (await handleDashboardRequest(request, env, withBrowser)) ??
+          (await handlePublicApi(request, env, withBrowser)) ??
+          (await handleMediaPublic(request, env, withBrowser)) ??
+          (await handleSitemap(request, env, withBrowser)) ??
+          (await handleLlms(request, env, withBrowser))
+
         if (!response) {
           next()
           return
@@ -149,12 +239,16 @@ function dashboardApiMiddleware(root: string) {
 
 export function dashboardApiPlugin(): Plugin {
   return {
-    name: 'dashboard-api',
+    name: 'cms-api',
     configureServer(server) {
-      server.middlewares.use(dashboardApiMiddleware(server.config.root))
+      server.middlewares.use(cmsApiMiddleware(server.config.root))
     },
     configurePreviewServer(server) {
-      server.middlewares.use(dashboardApiMiddleware(server.config.root))
+      server.middlewares.use(cmsApiMiddleware(server.config.root))
+    },
+    async closeBundle() {
+      const runtime = await runtimePromise
+      await runtime?.dispose?.()
     }
   }
 }

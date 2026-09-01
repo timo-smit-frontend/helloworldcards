@@ -153,9 +153,7 @@ export async function writeProductionVariants({
   try {
     const cachedKeys = await fs.readdir(cacheDir)
     await Promise.all(
-      cachedKeys
-        .filter((key) => !usedKeys.has(key))
-        .map((key) => fs.rm(path.join(cacheDir, key), { recursive: true, force: true }))
+      cachedKeys.filter((key) => !usedKeys.has(key)).map((key) => fs.rm(path.join(cacheDir, key), { recursive: true, force: true }))
     )
   } catch {
     // cache dir may not exist when every original is new and encode produced no files

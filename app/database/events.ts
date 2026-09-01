@@ -5,8 +5,6 @@ export type Event = {
   location: string
 }
 
-const events: Event[] = []
-
 function startOfDay(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate())
 }
@@ -16,18 +14,12 @@ function parseEventDate(date: string): Date {
   return new Date(year, month - 1, day)
 }
 
-function getAllEvents(): Event[] {
-  return [...events].sort((a, b) => a.date.localeCompare(b.date))
+export function upcomingEvents(events: Event[], now = new Date()): Event[] {
+  const today = startOfDay(now)
+  return [...events].filter((event) => parseEventDate(event.date) >= today).sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function getUpcomingEvents(): Event[] {
-  const today = startOfDay(new Date())
-
-  return getAllEvents().filter((event) => parseEventDate(event.date) >= today)
-}
-
-export function getEventsByIds(ids: Array<string | number>): Event[] {
+export function eventsByIds(events: Event[], ids: Array<string | number>): Event[] {
   const byId = new Map(events.map((event) => [String(event.id), event]))
-
   return ids.map((id) => byId.get(String(id))).filter((event): event is Event => event != null)
 }

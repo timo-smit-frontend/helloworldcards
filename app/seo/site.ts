@@ -3,7 +3,7 @@ export const SITE_NAME = 'Hello World Cards'
 export const SITE_LOCALE = 'en_GB'
 export const SITE_DESCRIPTION =
   'Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.'
-export const SITE_IMAGE = '/images/hero.jpg'
+export const SITE_IMAGE = '/media/hero.jpg'
 
 export function normalizePath(pathname: string): string {
   const path = pathname.split('?')[0]?.split('#')[0] ?? '/'

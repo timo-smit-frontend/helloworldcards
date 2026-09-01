@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { Markdown } from '~/cms/markdown'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
@@ -8,7 +9,7 @@ import { cn } from '~/services/utils'
 
 export type ContentTextSection = {
   title: string
-  body: ReactNode
+  body: ReactNode | string
 }
 
 export default function ContentText({
@@ -28,7 +29,7 @@ export default function ContentText({
   description?: string
   image?: string
   alt?: string
-  link?: { url: string; title: string; target?: string }
+  link?: { url?: string; title?: string; target?: string }
   heading?: 'h1' | 'h2'
   sections?: ContentTextSection[]
   updated?: string
@@ -78,7 +79,7 @@ export default function ContentText({
                             {section.title}
                           </h2>
                           <div className="content-m text-site-mantle [&_a]:underline [&_a]:underline-offset-4 [&_a]:transition-colors hover:[&_a]:text-site-envy">
-                            {section.body}
+                            {typeof section.body === 'string' ? <Markdown text={section.body} /> : section.body}
                           </div>
                         </section>
                       </Animated>

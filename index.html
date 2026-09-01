@@ -2,7 +2,7 @@
 <html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/images/logo.png" type="image/png" />
+    <link rel="icon" href="/media/logo.png" type="image/png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--app-font-start-->
     <!--app-font-end-->
@@ -29,7 +29,7 @@
       content="Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events."
     />
     <meta property="og:url" content="https://helloworldcards.com/" />
-    <meta property="og:image" content="https://helloworldcards.com/images/hero.jpg" />
+    <meta property="og:image" content="https://helloworldcards.com/media/hero.jpg" />
     <meta
       property="og:image:alt"
       content="A packed Pokémon card tournament in a convention hall, with a giant yellow Pikachu balloon hanging from the ceiling."
@@ -40,7 +40,7 @@
       name="twitter:description"
       content="Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events."
     />
-    <meta name="twitter:image" content="https://helloworldcards.com/images/hero.jpg" />
+    <meta name="twitter:image" content="https://helloworldcards.com/media/hero.jpg" />
     <meta
       name="twitter:image:alt"
       content="A packed Pokémon card tournament in a convention hall, with a giant yellow Pikachu balloon hanging from the ceiling."
@@ -53,10 +53,15 @@
             "@type": "Store",
             "@id": "https://helloworldcards.com/#organization",
             "name": "Hello World Cards",
+            "description": "Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.",
             "url": "https://helloworldcards.com",
             "email": "helloworldcards@outlook.com",
-            "image": "https://helloworldcards.com/images/hero.jpg",
-            "sameAs": ["https://www.instagram.com/helloworldcards/", "https://www.marktplaats.nl/u/hello-world-cards/25399885/"]
+            "image": "https://helloworldcards.com/media/hero.jpg",
+            "sameAs": ["https://www.instagram.com/helloworldcards/", "https://www.marktplaats.nl/u/hello-world-cards/25399885/"],
+            "founder": [
+              { "@type": "Person", "name": "Sam", "jobTitle": "Co-founder" },
+              { "@type": "Person", "name": "Timo", "jobTitle": "Co-founder" }
+            ]
           },
           {
             "@type": "WebSite",
@@ -79,12 +84,19 @@
       }
     </script>
     <!--app-seo-end-->
+    <!--app-cms-start-->
+    <script>
+      window.__CMS__ = null
+    </script>
+    <!--app-cms-end-->
     <!-- Google Tag Manager (loaded after idle so it does not contend with LCP) -->
     <script>
       window.dataLayer = window.dataLayer || []
       function loadGtm() {
         if (window.__gtmLoaded) return
+        if (location.hostname === 'admin.helloworldcards.com') return
         if (location.pathname.indexOf('/dashboard') === 0) return
+        if (location.pathname.indexOf('/admin') === 0) return
         window.__gtmLoaded = true
         window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })
         var first = document.getElementsByTagName('script')[0]

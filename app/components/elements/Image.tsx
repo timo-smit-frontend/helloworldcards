@@ -1,5 +1,5 @@
 import { forwardRef, useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type Ref } from 'react'
-import { resolveImageTitle } from '~/services/imageCopy'
+import { resolveImageTitle, toMediaSrc } from '~/services/imageCopy'
 import {
   DEFAULT_SRCSET_MAX_WIDTH,
   PRIORITY_IMAGE_SIZES,
@@ -19,7 +19,7 @@ type ImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'wid
 }
 
 function resolveSrc(src: string) {
-  return src.startsWith('/public/') ? src.slice('/public'.length) : src
+  return toMediaSrc(src)
 }
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {

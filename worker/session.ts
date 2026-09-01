@@ -107,20 +107,11 @@ export function readCookie(header: string | null, name: string): string | null {
 }
 
 export function sessionCookie(token: string, secure: boolean): string {
-  return [
-    `${SESSION_COOKIE}=${token}`,
-    'HttpOnly',
-    'SameSite=Strict',
-    'Path=/dashboard',
-    `Max-Age=${SESSION_TTL_SECONDS}`,
-    secure ? 'Secure' : ''
-  ]
+  return [`${SESSION_COOKIE}=${token}`, 'HttpOnly', 'SameSite=Strict', 'Path=/', `Max-Age=${SESSION_TTL_SECONDS}`, secure ? 'Secure' : '']
     .filter(Boolean)
     .join('; ')
 }
 
 export function clearSessionCookie(secure: boolean): string {
-  return [`${SESSION_COOKIE}=`, 'HttpOnly', 'SameSite=Strict', 'Path=/dashboard', 'Max-Age=0', secure ? 'Secure' : '']
-    .filter(Boolean)
-    .join('; ')
+  return [`${SESSION_COOKIE}=`, 'HttpOnly', 'SameSite=Strict', 'Path=/', 'Max-Age=0', secure ? 'Secure' : ''].filter(Boolean).join('; ')
 }

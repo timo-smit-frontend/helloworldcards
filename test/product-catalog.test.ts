@@ -78,9 +78,7 @@ describe('catalogFiltersActive', () => {
 
 describe('resetCatalogSearchParams', () => {
   it('clears catalog and price filters from the query string', () => {
-    const params = resetCatalogSearchParams(
-      new URLSearchParams('language=japanese&grader=psa&sort=price-desc&min=50&max=90&page=3')
-    )
+    const params = resetCatalogSearchParams(new URLSearchParams('language=japanese&grader=psa&sort=price-desc&min=50&max=90&page=3'))
 
     expect(params.toString()).toBe('')
   })
@@ -123,9 +121,7 @@ describe('applyCatalogListingParams', () => {
 describe('listCatalogProducts', () => {
   it('keeps items without language or price at the end when a filter is on', () => {
     expect(listCatalogProducts(sample, { language: 'english' }).map((product) => product.id)).toEqual([1, 3])
-    expect(
-      listCatalogProducts(sample, { range: { min: 50, max: 90 }, priceActive: true }).map((product) => product.id)
-    ).toEqual([2, 3])
+    expect(listCatalogProducts(sample, { range: { min: 50, max: 90 }, priceActive: true }).map((product) => product.id)).toEqual([2, 3])
   })
 
   it('hides items that have a conflicting language', () => {
@@ -133,9 +129,10 @@ describe('listCatalogProducts', () => {
   })
 
   it('sorts matching items first, then empty ones', () => {
-    expect(
-      listCatalogProducts(sample, { language: 'english', sort: 'title-asc' }).map((product) => product.title)
-    ).toEqual(['Mewtwo', 'Binder'])
+    expect(listCatalogProducts(sample, { language: 'english', sort: 'title-asc' }).map((product) => product.title)).toEqual([
+      'Mewtwo',
+      'Binder'
+    ])
   })
 
   it('defaults to A to Z', () => {
@@ -143,29 +140,13 @@ describe('listCatalogProducts', () => {
   })
 
   it('sorts by age, with missing years last', () => {
-    expect(listCatalogProducts(sample, { sort: 'age-asc' }).map((product) => product.title)).toEqual([
-      'Mewtwo',
-      'Zorua AR',
-      'Binder'
-    ])
-    expect(listCatalogProducts(sample, { sort: 'age-desc' }).map((product) => product.title)).toEqual([
-      'Zorua AR',
-      'Mewtwo',
-      'Binder'
-    ])
+    expect(listCatalogProducts(sample, { sort: 'age-asc' }).map((product) => product.title)).toEqual(['Mewtwo', 'Zorua AR', 'Binder'])
+    expect(listCatalogProducts(sample, { sort: 'age-desc' }).map((product) => product.title)).toEqual(['Zorua AR', 'Mewtwo', 'Binder'])
   })
 
   it('sorts by price, with missing prices last', () => {
-    expect(listCatalogProducts(sample, { sort: 'price-asc' }).map((product) => product.title)).toEqual([
-      'Zorua AR',
-      'Mewtwo',
-      'Binder'
-    ])
-    expect(listCatalogProducts(sample, { sort: 'price-desc' }).map((product) => product.title)).toEqual([
-      'Mewtwo',
-      'Zorua AR',
-      'Binder'
-    ])
+    expect(listCatalogProducts(sample, { sort: 'price-asc' }).map((product) => product.title)).toEqual(['Zorua AR', 'Mewtwo', 'Binder'])
+    expect(listCatalogProducts(sample, { sort: 'price-desc' }).map((product) => product.title)).toEqual(['Mewtwo', 'Zorua AR', 'Binder'])
   })
 })
 

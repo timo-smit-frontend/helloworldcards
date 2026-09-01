@@ -17,8 +17,30 @@
     "not_found_handling": "none",
     "run_worker_first": true
   },
+  "cache": {
+    "enabled": true
+  },
+  "exports": {
+    "default": { "type": "worker", "cache": { "enabled": false } },
+    "CachedMedia": { "type": "worker", "cache": { "enabled": true } }
+  },
   "routes": [
     { "pattern": "helloworldcards.com", "custom_domain": true },
-    { "pattern": "www.helloworldcards.com", "custom_domain": true }
+    { "pattern": "www.helloworldcards.com", "custom_domain": true },
+    { "pattern": "admin.helloworldcards.com", "custom_domain": true }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "helloworldcards",
+      "database_id": "b4654223-cb42-4b31-b1d7-0acaf0ed6a4a",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "helloworldcards-media"
+    }
   ]
 }

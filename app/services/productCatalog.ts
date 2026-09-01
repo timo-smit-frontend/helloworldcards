@@ -67,11 +67,7 @@ export function applyCatalogSearchParams(
   return params
 }
 
-export function catalogFiltersActive(query: {
-  language?: CardLanguage | null
-  sort?: ProductSort | null
-  priceActive?: boolean
-}): boolean {
+export function catalogFiltersActive(query: { language?: CardLanguage | null; sort?: ProductSort | null; priceActive?: boolean }): boolean {
   return query.language != null || query.priceActive === true || (query.sort != null && query.sort !== DEFAULT_PRODUCT_SORT)
 }
 

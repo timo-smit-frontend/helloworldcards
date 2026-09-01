@@ -5,7 +5,7 @@ import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
 import { ProductCatalogFilterFields, ProductCatalogFilterSheet, ProductCatalogPagination } from '~/components/elements/ProductFiltering'
-import { getAllProducts, getProductsByIds, getRandomProducts } from '~/database/products'
+import type { Product } from '~/database/products'
 import useCatalogPageSize from '~/hooks/useCatalogPageSize'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import {
@@ -34,12 +34,14 @@ export default function ContentProducts({
   title,
   description,
   id,
-  random
+  random,
+  products: provided
 }: {
   title?: string
   description?: string
   id?: string | number | Array<string | number>
   random?: number
+  products?: Product[]
 }) {
   const { ref, isFirst } = useLocationFinder()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,19 +49,23 @@ export default function ContentProducts({
   const ids = normalizeIds(id)
   const showFilters = ids == null && random == null
   const products = useMemo(() => {
-    if (random != null) return getRandomProducts(random)
-    if (ids) return getProductsByIds(ids)
-    return getAllProducts()
-  }, [random, ids])
+    const catalogProducts = provided ?? []
+    if (ids) {
+      const byId = new Map(catalogProducts.map((product) => [String(product.id), product]))
+      return ids.map((value) => byId.get(String(value))).filter((product): product is Product => product != null)
+    }
+    if (random != null) {
+      return catalogProducts.slice(0, random)
+    }
+    return catalogProducts
+  }, [random, ids, provided])
   const bounds = useMemo(() => (showFilters ? catalogPriceBounds(products) : null), [products, showFilters])
   const range = bounds ? parsePriceRangeParams(searchParams, bounds) : null
   const catalog = parseCatalogSearchParams(searchParams)
   const requestedPage = parseCatalogPageParam(searchParams)
   const priceActive = bounds != null && range != null && (range.min > bounds.min || range.max < bounds.max)
   const filtersActive = catalogFiltersActive({ ...catalog, priceActive })
-  const listedProducts = showFilters
-    ? listCatalogProducts(products, { ...catalog, range, priceActive })
-    : products
+  const listedProducts = showFilters ? listCatalogProducts(products, { ...catalog, range, priceActive }) : products
   const paged = showFilters ? paginateCatalogProducts(listedProducts, requestedPage, pageSize) : null
   const visibleProducts = paged?.items ?? listedProducts
   const Heading = ids || random != null ? 'h2' : 'h1'
@@ -180,7 +186,9 @@ export default function ContentProducts({
                                 height={1120}
                                 aria-hidden
                                 maxwidth={1000}
-                                className={product.images[1] ? 'product-hover-morph-front' : 'absolute inset-0 size-full object-contain p-5'}
+                                className={
+                                  product.images[1] ? 'product-hover-morph-front' : 'absolute inset-0 size-full object-contain p-5'
+                                }
                               />
                               {product.images[1] && (
                                 <Image

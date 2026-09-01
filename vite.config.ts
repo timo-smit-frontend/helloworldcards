@@ -3,9 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type IndexHtmlTransformContext, type Plugin } from 'vite'
 import { applySeoHead } from './app/seo/head'
-import { buildLlmsFullTxt, buildLlmsTxt } from './app/seo/llms'
 import { getSeoForPath } from './app/seo/pages'
-import { buildSitemapXml, writePrerenderedApp, writeSeoBuild, writeSeoPublic } from './vite/seo-prerender'
 import { dashboardApiPlugin, stripProductCostsPlugin } from './vite/dashboard-api'
 import { responsiveImagesPlugin } from './vite/responsive-images'
 
@@ -74,72 +72,10 @@ function fontPreloadPlugin(): Plugin {
 }
 
 function seoPlugin(): Plugin {
-  let publicDir = ''
-  let outDir = ''
-
   return {
-    name: 'seo-prerender',
-    configResolved(config) {
-      publicDir = config.publicDir
-      outDir = path.resolve(config.root, config.build.outDir)
-    },
-    configureServer(server) {
-      writeSeoPublic(publicDir)
-
-      server.middlewares.use((request, response, next) => {
-        const url = request.url?.split('?')[0]
-
-        if (url === '/sitemap.xml') {
-          response.setHeader('Content-Type', 'application/xml; charset=utf-8')
-          response.end(buildSitemapXml())
-          return
-        }
-
-        if (url === '/llms.txt') {
-          response.setHeader('Content-Type', 'text/plain; charset=utf-8')
-          response.end(buildLlmsTxt())
-          return
-        }
-
-        if (url === '/llms-full.txt') {
-          response.setHeader('Content-Type', 'text/plain; charset=utf-8')
-          response.end(buildLlmsFullTxt())
-          return
-        }
-
-        next()
-      })
-    },
+    name: 'seo-shell',
     transformIndexHtml(html) {
       return applySeoHead(html, getSeoForPath('/'))
-    },
-    buildStart() {
-      writeSeoPublic(publicDir)
-    },
-    async closeBundle() {
-      if (process.env.HWC_PRERENDER === '1') {
-        return
-      }
-
-      writeSeoBuild(outDir)
-
-      process.env.HWC_PRERENDER = '1'
-      const { createServer } = await import('vite')
-      const vite = await createServer({
-        server: { middlewareMode: true, hmr: false, watch: null },
-        appType: 'custom',
-        mode: 'production'
-      })
-
-      try {
-        const { render } = (await vite.ssrLoadModule('/app/entry-server.tsx')) as {
-          render: (url: string) => Promise<string>
-        }
-        await writePrerenderedApp(outDir, render)
-      } finally {
-        await vite.close()
-        delete process.env.HWC_PRERENDER
-      }
     }
   }
 }

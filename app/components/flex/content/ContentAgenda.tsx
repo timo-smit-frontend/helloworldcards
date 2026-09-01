@@ -1,7 +1,7 @@
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import Pokemon from '~/components/elements/Pokemon'
-import { getEventsByIds, getUpcomingEvents } from '~/database/events'
+import { eventsByIds, upcomingEvents, type Event } from '~/database/events'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
 
@@ -27,15 +27,17 @@ function formatEventDate(date: string): string {
 export default function ContentAgenda({
   title,
   description,
-  id
+  id,
+  events: provided
 }: {
   title?: string
   description?: string
   id?: string | number | Array<string | number>
+  events?: Event[]
 }) {
   const { ref, isFirst } = useLocationFinder()
   const ids = normalizeIds(id)
-  const events = ids ? getEventsByIds(ids) : getUpcomingEvents()
+  const events = provided ? (ids ? eventsByIds(provided, ids) : upcomingEvents(provided)) : []
   const Heading = ids ? 'h2' : 'h1'
   const EventHeading = ids ? 'h3' : 'h2'
 

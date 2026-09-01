@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { handleDashboardRequest, memoryCardmarketStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
+import { createMemoryD1 } from './helpers/memory-d1'
 
 const env = {
   DASHBOARD_USERNAME: 'sam',
   DASHBOARD_PASSWORD: 'correct-horse',
   DASHBOARD_SESSION_SECRET: 'session-secret-for-tests'
+}
+
+function seededRuntime(extra: Record<string, unknown> = {}) {
+  return { db: createMemoryD1(), ...extra }
 }
 
 function cookieFrom(response: Response): string {
@@ -42,6 +47,7 @@ describe('dashboard API', () => {
   })
 
   it('sets a session cookie for the env credentials and returns the ledger', async () => {
+    const runtime = seededRuntime()
     const login = await handleDashboardRequest(
       new Request('https://example.com/dashboard/session', {
         method: 'POST',
@@ -59,7 +65,8 @@ describe('dashboard API', () => {
       new Request('https://example.com/dashboard/ledger/', {
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
-      env
+      env,
+      runtime
     )
 
     expect(ledger?.status).toBe(200)
@@ -90,10 +97,9 @@ describe('dashboard API', () => {
     )
     const token = cookieFrom(login!)
     const store = memoryCardmarketStore()
+    const runtime = seededRuntime({ cardmarketStore: store })
 
-    const signedOut = await handleDashboardRequest(new Request('https://example.com/dashboard/cardmarket/report'), env, {
-      cardmarketStore: store
-    })
+    const signedOut = await handleDashboardRequest(new Request('https://example.com/dashboard/cardmarket/report'), env, runtime)
     expect(signedOut?.status).toBe(401)
 
     const signedIn = await handleDashboardRequest(
@@ -101,7 +107,7 @@ describe('dashboard API', () => {
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
       env,
-      { cardmarketStore: store }
+      runtime
     )
 
     expect(signedIn?.status).toBe(200)
@@ -120,23 +126,24 @@ describe('dashboard API', () => {
     const token = cookieFrom(login!)
     const store = memoryCardmarketStore()
     const urls: string[] = []
-
-    const scan = await handleDashboardRequest(
-      new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
-      env,
-      {
-        cardmarketStore: store,
-        fetchCardmarketPage: async (url) => {
-          urls.push(url)
-          return `
+    const runtime = seededRuntime({
+      cardmarketStore: store,
+      fetchCardmarketPage: async (url: string) => {
+        urls.push(url)
+        return `
             <div id="articleRow1" class="article-row">
               <a href="/en/Pokemon/Users/CatDoesThings">CatDoesThings</a>
               <span>PSA 10</span>
               <span>100,00 €</span>
             </div>
           `
-        }
       }
+    })
+
+    const scan = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      runtime
     )
 
     expect(scan?.status).toBe(200)
@@ -147,7 +154,7 @@ describe('dashboard API', () => {
       report: { products: Array<{ title: string; image: string | null; suggestion: { direction: string; target: number } | null }> }
     }
     const pokeKid = body.report.products.find((product) => product.title === 'Poke Kid')
-    expect(pokeKid?.image).toBe('/images/80573086_front.jpg')
+    expect(pokeKid?.image).toBe('/media/80573086_front.jpg')
     expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
   })
 

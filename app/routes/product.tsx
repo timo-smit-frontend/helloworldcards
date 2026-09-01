@@ -1,31 +1,43 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
+import { useCms } from '~/cms/context'
 import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
-import { getProductBySlug, getSimilarProducts, productBuyLink } from '~/database/products'
+import { productBuyLink } from '~/database/products'
 import { MARKTPLAATS_URL } from '~/services/contact'
 
 export default function Product() {
   const { slug } = useParams()
-  const product = slug ? getProductBySlug(slug) : undefined
-  const similarIds = useMemo(() => (product ? getSimilarProducts(product.id, 4).map((item) => item.id) : []), [product])
+  const cms = useCms()
+  const product = cms?.product && cms.product.slug === slug ? cms.product : undefined
+  const similarIds = cms?.similarProductIds ?? []
+  const shop = cms?.products ?? []
+  const marktplaats = cms?.settings.marktplaatsUrl ?? MARKTPLAATS_URL
 
-  if (!product) {
+  const buyLink = useMemo(() => (product ? productBuyLink(product) : null), [product])
+
+  if (!cms) {
+    return (
+      <Layout className="justify-center">
+        <ContentText heading="h1" title="Loading…" description="Fetching this card." />
+      </Layout>
+    )
+  }
+
+  if (!product || !buyLink) {
     return (
       <Layout className="justify-center">
         <ContentText
           heading="h1"
-          title="This product was not found"
+          title={cms.settings.notFoundTitle}
           description="This product does not exist or has been moved."
           link={{ url: '/products/', title: 'Back to all products' }}
         />
       </Layout>
     )
   }
-
-  const buyLink = productBuyLink(product)
 
   return (
     <Layout>
@@ -42,10 +54,10 @@ export default function Product() {
         id="content-text-marktplaats"
         title="We sell on Marktplaats"
         description="Hello World Cards sells its products on Marktplaats. View our stock there through the button below."
-        image="/images/wooper.png"
-        link={{ url: MARKTPLAATS_URL, title: 'Visit us on Marktplaats', target: '_blank' }}
+        image="/media/wooper.png"
+        link={{ url: marktplaats, title: 'Visit us on Marktplaats', target: '_blank' }}
       />
-      <ContentProducts title="More from the shop" id={similarIds} />
+      <ContentProducts title="More from the shop" id={similarIds} products={shop} />
     </Layout>
   )
 }

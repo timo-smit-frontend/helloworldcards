@@ -3,6 +3,7 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL, sendContactMessage } from '~/services/contact'
+import { useCms } from '~/cms/context'
 import { cn, isValidEmail } from '~/services/utils'
 
 const contactLinkClass = 'group flex w-fit items-center gap-2 transition-colors hover:text-site-envy'
@@ -62,18 +63,18 @@ function MarktplaatsIcon() {
   )
 }
 
-function ContactEmailLink() {
+function ContactEmailLink({ email }: { email: string }) {
   return (
-    <a href={`mailto:${CONTACT_EMAIL}`} className={contactLinkClass}>
+    <a href={`mailto:${email}`} className={contactLinkClass}>
       <MailIcon />
-      <span className="link-underline">{CONTACT_EMAIL}</span>
+      <span className="link-underline">{email}</span>
     </a>
   )
 }
 
-function ContactInstagramLink() {
+function ContactInstagramLink({ url }: { url: string }) {
   return (
-    <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer noopener" className={contactLinkClass}>
+    <a href={url} target="_blank" rel="noreferrer noopener" className={contactLinkClass}>
       <InstagramIcon />
       <span className="link-underline">Instagram</span>
       <span className="sr-only"> (opens in a new tab)</span>
@@ -81,9 +82,9 @@ function ContactInstagramLink() {
   )
 }
 
-function ContactMarktplaatsLink() {
+function ContactMarktplaatsLink({ url }: { url: string }) {
   return (
-    <a href={MARKTPLAATS_URL} target="_blank" rel="noreferrer noopener" className={contactLinkClass}>
+    <a href={url} target="_blank" rel="noreferrer noopener" className={contactLinkClass}>
       <MarktplaatsIcon />
       <span className="link-underline">Marktplaats</span>
       <span className="sr-only"> (opens in a new tab)</span>
@@ -92,6 +93,10 @@ function ContactMarktplaatsLink() {
 }
 
 export function FormContactLinks({ variant = 'stacked' }: { variant?: 'stacked' | 'split' }) {
+  const cms = useCms()
+  const email = cms?.settings.contactEmail ?? CONTACT_EMAIL
+  const instagram = cms?.settings.instagramUrl ?? INSTAGRAM_URL
+  const marktplaats = cms?.settings.marktplaatsUrl ?? MARKTPLAATS_URL
   const listClass = cn('mt-4 flex flex-col text-base font-medium leading-7', variant === 'split' ? 'sm:gap-2 gap-6' : 'gap-2')
 
   if (variant === 'split') {
@@ -101,7 +106,7 @@ export function FormContactLinks({ variant = 'stacked' }: { variant?: 'stacked' 
           <h2 className="text-lg font-bold leading-7">Contact</h2>
           <ul className={listClass}>
             <li>
-              <ContactEmailLink />
+              <ContactEmailLink email={email} />
             </li>
           </ul>
         </div>
@@ -109,10 +114,10 @@ export function FormContactLinks({ variant = 'stacked' }: { variant?: 'stacked' 
           <h2 className="text-lg font-bold leading-7">Follow us</h2>
           <ul className={listClass}>
             <li>
-              <ContactInstagramLink />
+              <ContactInstagramLink url={instagram} />
             </li>
             <li>
-              <ContactMarktplaatsLink />
+              <ContactMarktplaatsLink url={marktplaats} />
             </li>
           </ul>
         </div>
@@ -125,13 +130,13 @@ export function FormContactLinks({ variant = 'stacked' }: { variant?: 'stacked' 
       <h2 className="text-lg font-bold leading-7">Contact</h2>
       <ul className={listClass}>
         <li>
-          <ContactEmailLink />
+          <ContactEmailLink email={email} />
         </li>
         <li>
-          <ContactInstagramLink />
+          <ContactInstagramLink url={instagram} />
         </li>
         <li>
-          <ContactMarktplaatsLink />
+          <ContactMarktplaatsLink url={marktplaats} />
         </li>
       </ul>
     </div>
@@ -162,6 +167,8 @@ function applyEmailValidity(input: HTMLInputElement, value: string) {
 }
 
 function ContactForm() {
+  const cms = useCms()
+  const contactEmail = cms?.settings.contactEmail ?? CONTACT_EMAIL
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -208,7 +215,7 @@ function ContactForm() {
     setStatus('submitting')
 
     try {
-      await sendContactMessage({ name, email: email.trim(), message })
+      await sendContactMessage({ name, email: email.trim(), message, to: contactEmail })
       setName('')
       setEmail('')
       setMessage('')
@@ -345,8 +352,8 @@ function ContactForm() {
         {status === 'error' && (
           <p className="content-s text-site-mantle">
             Something went wrong. You can also email us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-site-envy">
-              {CONTACT_EMAIL}
+            <a href={`mailto:${contactEmail}`} className="underline hover:text-site-envy">
+              {contactEmail}
             </a>
             .
           </p>

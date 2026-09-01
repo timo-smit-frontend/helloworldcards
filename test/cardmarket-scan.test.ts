@@ -231,9 +231,33 @@ describe('withProductFrontImages', () => {
           }
         ]
       },
-      [{ ...pokeKid, images: ['/images/80573086_front.jpg', '/images/80573086_back.jpg'] }]
+      [{ ...pokeKid, images: ['/media/80573086_front.jpg', '/media/80573086_back.jpg'] }]
     )
 
-    expect(report.products[0]?.image).toBe('/images/80573086_front.jpg')
+    expect(report.products[0]?.image).toBe('/media/80573086_front.jpg')
+  })
+
+  it('replaces a stale /images/ report thumbnail with the live inventory front', () => {
+    const report = withProductFrontImages(
+      {
+        scannedAt: '2026-08-30T12:00:00.000Z',
+        products: [
+          {
+            id: 9,
+            title: 'Poke Kid',
+            image: '/images/80573086_front.jpg',
+            listed: 95,
+            url: pokeKid.cardmarketUrl!,
+            listings: [],
+            suggestion: null,
+            gone: [],
+            error: null
+          }
+        ]
+      },
+      [{ ...pokeKid, images: ['/media/80573086_front.jpg', '/media/80573086_back.jpg'] }]
+    )
+
+    expect(report.products[0]?.image).toBe('/media/80573086_front.jpg')
   })
 })

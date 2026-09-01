@@ -59,6 +59,34 @@
   }
 }
 
+@utility button-quiet {
+  @apply inline-flex min-h-10 w-full cursor-pointer items-center justify-center rounded-full border-2 border-site-mulled-wine bg-site-dark px-4 py-2 text-sm font-semibold text-site-gray-nurse smooth;
+
+  @media (hover: hover) {
+    &:hover {
+      @apply border-site-envy bg-site-gunmetal text-site-envy;
+    }
+  }
+
+  &:active {
+    @apply border-site-envy text-site-envy;
+  }
+}
+
+@utility button-danger {
+  @apply inline-flex min-h-10 w-full cursor-pointer items-center justify-center rounded-full border-2 border-site-loss px-4 py-2 text-sm font-semibold text-site-loss smooth;
+
+  @media (hover: hover) {
+    &:hover {
+      @apply bg-site-loss text-site-dark;
+    }
+  }
+
+  &:active {
+    @apply bg-site-loss text-site-dark;
+  }
+}
+
 @utility title-xl {
   @apply title-base text-4xl sm:text-5xl lg:text-6xl;
 }
@@ -112,7 +140,15 @@
 }
 
 @utility field {
-  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 py-3 text-base text-site-gray-nurse placeholder:text-site-mantle smooth;
+  @apply w-full resize-none rounded-button border-2 border-site-mulled-wine bg-site-dark px-4 text-base text-site-gray-nurse placeholder:text-site-mantle smooth;
+
+  &:not(textarea) {
+    @apply h-12 py-0 leading-none;
+  }
+
+  &:is(textarea) {
+    @apply py-3 leading-7;
+  }
 }
 
 @utility smooth {
@@ -199,6 +235,24 @@
   body {
     @apply min-h-screen max-w-full bg-site-dark font-site-outfit text-site-gray-nurse antialiased;
     color-scheme: dark;
+  }
+
+  html:has(.admin-shell),
+  html:has(.admin-shell) body {
+    @apply overflow-hidden overscroll-none;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: auto;
+  }
+
+  html:has(.admin-shell) body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
+
+  html:has(.admin-shell) #root {
+    @apply h-full overflow-hidden;
   }
 
   html {

@@ -1,9 +1,14 @@
 import { Animated } from '~/components/elements/Animated'
-import type { FaqItem } from '~/database/faq'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { cn } from '~/services/utils'
 
-export default function ContentFaq({ title = 'Questions people ask', items }: { title?: string; items: FaqItem[] }) {
+export default function ContentFaq({
+  title = 'Questions people ask',
+  items
+}: {
+  title?: string
+  items: Array<{ id: number; question: string; answer: string }>
+}) {
   const { ref, isFirst } = useLocationFinder()
 
   if (!items.length) {

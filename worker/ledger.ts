@@ -1,13 +1,13 @@
 import type { Ledger } from '../app/database/ledger-types'
-import { getInventory } from '../app/database/products'
+import type { InventoryProduct } from '../app/database/products'
 import { parseListedPrice } from '../app/services/price'
 
 export type { Ledger, LedgerItem, LedgerPeriod, LedgerTotals } from '../app/database/ledger-types'
 export { soldItemsForPeriod, summarizeLedger } from '../app/database/ledger'
 export { parseListedPrice }
 
-export function buildLedger(): Ledger {
-  const items = getInventory().map((product) => {
+export function buildLedger(inventory: InventoryProduct[]): Ledger {
+  const items = inventory.map((product) => {
     const spending = product.cost == null || !Number.isFinite(product.cost) ? null : product.cost
     const listed = parseListedPrice(product.price)
     const potentialGain = spending == null || listed == null ? null : listed - spending

@@ -1,40 +1,43 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes, useLocation } from 'react-router'
+import { AdminLoading } from '~/admin/AdminLoading'
+import { isAdminHost, isAdminPath } from '~/admin/runtime'
+import { CmsProvider } from '~/cms/context'
+import CmsPage from '~/cms/CmsPage'
 import Seo from '~/components/elements/Seo'
 import ScrollToTop from '~/components/layout/ScrollToTop'
 import { InitialDocumentProvider } from '~/hooks/initialDocument'
-import Root from '~/root'
-import Home from '~/routes/home'
 
-const About = lazy(() => import('~/routes/about'))
-const Dashboard = lazy(() => import('~/routes/dashboard'))
-const Agenda = lazy(() => import('~/routes/agenda'))
-const Contact = lazy(() => import('~/routes/contact'))
-const Privacy = lazy(() => import('~/routes/privacy'))
+const AdminApp = lazy(() => import('~/admin/AdminApp'))
 const Product = lazy(() => import('~/routes/product'))
-const Products = lazy(() => import('~/routes/products'))
-const ErrorPage = lazy(() => import('~/routes/error'))
 
 export function App() {
+  const location = useLocation()
+  const hostname = typeof window === 'undefined' ? 'helloworldcards.com' : window.location.hostname
+  const admin = isAdminPath(location.pathname, hostname)
+
   return (
     <>
       <ScrollToTop />
-      <Seo />
       <InitialDocumentProvider>
-        <Suspense fallback={null}>
-          <Routes>
-            <Route element={<Root />}>
-              <Route index element={<Home />} />
-              <Route path="products" element={<Products />} />
-              <Route path="agenda" element={<Agenda />} />
-              <Route path="about" element={<About />} />
-              <Route path="contact" element={<Contact />} />
-              <Route path="privacy" element={<Privacy />} />
-            </Route>
-            <Route path="products/:slug" element={<Product />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="*" element={<ErrorPage />} />
-          </Routes>
+        <Suspense fallback={admin ? <AdminLoading /> : null}>
+          {admin ? (
+            <>
+              <Seo admin />
+              <Routes>
+                <Route path={isAdminHost(hostname) ? '/*' : '/admin/*'} element={<AdminApp />} />
+              </Routes>
+            </>
+          ) : (
+            <CmsProvider>
+              <Seo />
+              <Routes>
+                <Route path="dashboard/*" element={<Navigate to="/admin/" replace />} />
+                <Route path="products/:slug" element={<Product />} />
+                <Route path="*" element={<CmsPage />} />
+              </Routes>
+            </CmsProvider>
+          )}
         </Suspense>
       </InitialDocumentProvider>
     </>

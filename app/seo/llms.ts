@@ -1,78 +1,115 @@
-import { getUpcomingEvents } from '../database/events'
-import { getAllFaqs } from '../database/faq'
-import { getAllProducts } from '../database/products'
 import { CONTACT_EMAIL, MARKTPLAATS_URL } from '../services/contact'
-import { getSeoForPath } from './pages'
 import { SITE_DESCRIPTION, SITE_NAME, canonicalUrl } from './site'
 
-const PAGE_PATHS = ['/', '/products', '/agenda', '/about', '/contact'] as const
-
-function pageName(path: string): string {
-  if (path === '/') return 'Home'
-  const seo = getSeoForPath(path)
-  return seo.title.replace(` | ${SITE_NAME}`, '')
+export type LlmsPage = {
+  path: string
+  title: string
+  seoTitle: string
+  seoDescription: string
 }
 
-function introMarkdown(): string {
+export type LlmsProduct = {
+  title: string
+  slug: string
+  subtitle: string
+  price?: string | number
+  description: string
+}
+
+export type LlmsEvent = {
+  title: string
+  date: string
+  location: string
+}
+
+export type LlmsFaq = {
+  question: string
+  answer: string
+}
+
+export type LlmsInput = {
+  siteName: string
+  siteDescription: string
+  contactEmail: string
+  marktplaatsUrl: string
+  pages: LlmsPage[]
+  products: LlmsProduct[]
+  events: LlmsEvent[]
+  faqs: LlmsFaq[]
+}
+
+const PAGE_ORDER = ['/', '/products', '/agenda', '/about', '/contact']
+
+function pageName(page: LlmsPage, siteName: string): string {
+  if (page.path === '/') return 'Home'
+  const suffix = ` | ${siteName}`
+  if (page.seoTitle.endsWith(suffix)) return page.seoTitle.slice(0, -suffix.length)
+  return page.title
+}
+
+function sortPages(pages: LlmsPage[]): LlmsPage[] {
+  return [...pages].sort((a, b) => {
+    const ai = PAGE_ORDER.indexOf(a.path)
+    const bi = PAGE_ORDER.indexOf(b.path)
+    if (ai === -1 && bi === -1) return a.path.localeCompare(b.path)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+}
+
+function introMarkdown(input: LlmsInput): string {
   return [
-    `# ${SITE_NAME}`,
-    `> ${SITE_DESCRIPTION}`,
+    `# ${input.siteName}`,
+    `> ${input.siteDescription}`,
     '',
-    `${SITE_NAME} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${MARKTPLAATS_URL}), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email ${CONTACT_EMAIL} about a card, an event, or anything else.`
+    `${input.siteName} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${input.marktplaatsUrl}), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email ${input.contactEmail} about a card, an event, or anything else.`
   ].join('\n')
 }
 
-function pagesSection(): string {
-  const items = PAGE_PATHS.map((path) => {
-    const seo = getSeoForPath(path)
-    return `- [${pageName(path)}](${canonicalUrl(path)}): ${seo.description}`
-  })
-
-  return ['## Pages', ...items].join('\n')
-}
-
-function productsSection(full: boolean): string {
-  const items = getAllProducts().map((product) => {
+export function buildLlmsDocument(input: LlmsInput, full = false): string {
+  const privacy = input.pages.find((page) => page.path === '/privacy')
+  const pages = sortPages(input.pages.filter((page) => page.path !== '/privacy'))
+  const pageLines = pages.map((page) => `- [${pageName(page, input.siteName)}](${canonicalUrl(page.path)}): ${page.seoDescription}`)
+  const productLines = input.products.map((product) => {
     const url = canonicalUrl(`/products/${product.slug}`)
     const bits = [product.subtitle, product.price != null ? String(product.price) : null].filter(Boolean)
     const summary = bits.join('. ')
     const detail = full && product.description ? `${summary}. ${product.description}` : summary
-
     return `- [${product.title}](${url}): ${detail}`
   })
-
-  return ['## Products', ...items].join('\n')
-}
-
-function eventsSection(): string {
-  const events = getUpcomingEvents()
   const agendaUrl = canonicalUrl('/agenda')
+  const eventLines = input.events.length
+    ? input.events.map((event) => `- [${event.title}](${agendaUrl}): ${event.date}, ${event.location}`)
+    : [`- [Upcoming events](${agendaUrl}): No next event planned yet.`]
+  const faqSection = full ? ['## FAQ', ...input.faqs.flatMap((item) => [`### ${item.question}`, item.answer, ''])].join('\n').trimEnd() : ''
+  const optional = privacy ? `## Optional\n- [Privacy statement](${canonicalUrl(privacy.path)}): ${privacy.seoDescription}` : ''
 
-  if (!events.length) {
-    return `## Events\n- [Upcoming events](${agendaUrl}): No next event planned yet.`
-  }
-
-  const items = events.map((event) => `- [${event.title}](${agendaUrl}): ${event.date}, ${event.location}`)
-
-  return ['## Events', ...items].join('\n')
-}
-
-function faqSection(): string {
-  const items = getAllFaqs().flatMap((item) => [`### ${item.question}`, item.answer, ''])
-
-  return ['## FAQ', ...items].join('\n').trimEnd()
-}
-
-function optionalSection(): string {
-  const seo = getSeoForPath('/privacy')
-
-  return `## Optional\n- [Privacy statement](${canonicalUrl('/privacy')}): ${seo.description}`
+  return (
+    [
+      introMarkdown(input),
+      ['## Pages', ...pageLines].join('\n'),
+      ...(faqSection ? [faqSection] : []),
+      ['## Products', ...productLines].join('\n'),
+      ['## Events', ...eventLines].join('\n'),
+      ...(optional ? [optional] : [])
+    ].join('\n\n') + '\n'
+  )
 }
 
 export function buildLlmsTxt(): string {
-  return [introMarkdown(), pagesSection(), productsSection(false), eventsSection(), optionalSection()].join('\n\n') + '\n'
+  return buildLlmsDocument({
+    siteName: SITE_NAME,
+    siteDescription: SITE_DESCRIPTION,
+    contactEmail: CONTACT_EMAIL,
+    marktplaatsUrl: MARKTPLAATS_URL,
+    pages: [],
+    products: [],
+    events: [],
+    faqs: []
+  })
 }
 
 export function buildLlmsFullTxt(): string {
-  return [introMarkdown(), pagesSection(), faqSection(), productsSection(true), eventsSection(), optionalSection()].join('\n\n') + '\n'
+  return buildLlmsTxt()
 }

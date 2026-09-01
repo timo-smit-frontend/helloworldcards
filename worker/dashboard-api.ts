@@ -1,6 +1,8 @@
-import { getInventory } from '../app/database/products'
 import type { CardmarketReport } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
+import { listLedgerInventory, type CmsDb } from './cms/db'
+import { json, normalizeApiPath } from './cms/http'
+import { ensureSeeded } from './cms/seed'
 import { buildLedger } from './ledger'
 import {
   clearSessionCookie,
@@ -16,6 +18,8 @@ export type DashboardEnv = {
   DASHBOARD_USERNAME?: string
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string
+  DB?: CmsDb
+  MEDIA?: import('./cms/media').MediaBucket
   CARDMARKET?: {
     get(key: string): Promise<string | null>
     put(key: string, value: string): Promise<void>
@@ -30,6 +34,11 @@ export type CardmarketStore = {
 export type DashboardRuntime = {
   fetchCardmarketPage?: (url: string) => Promise<string>
   cardmarketStore?: CardmarketStore
+  db?: CmsDb
+  media?: import('./cms/media').MediaBucket
+  mediaCache?: import('./cms/media').MediaCache
+  ctx?: { waitUntil(promise: Promise<unknown>): void }
+  purgeMediaCache?: (pathname: string) => Promise<void>
 }
 
 const MAX_BODY_BYTES = 4096
@@ -38,7 +47,12 @@ const API_PATHS = new Set([
   '/dashboard/logout',
   '/dashboard/ledger',
   '/dashboard/cardmarket/report',
-  '/dashboard/cardmarket/scan'
+  '/dashboard/cardmarket/scan',
+  '/api/admin/session',
+  '/api/admin/logout',
+  '/api/admin/ledger',
+  '/api/admin/cardmarket/report',
+  '/api/admin/cardmarket/scan'
 ])
 const CARDMARKET_REPORT_KEY = 'report'
 
@@ -67,11 +81,7 @@ export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
 }
 
 export function normalizeDashboardPath(pathname: string): string {
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    return pathname.slice(0, -1)
-  }
-
-  return pathname
+  return normalizeApiPath(pathname)
 }
 
 export function isDashboardApiPath(pathname: string): boolean {
@@ -83,19 +93,11 @@ export function isDashboardPath(pathname: string): boolean {
   return path === '/dashboard' || path.startsWith('/dashboard/')
 }
 
-function json(body: unknown, status = 200, headers?: Record<string, string>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'X-Robots-Tag': 'noindex, nofollow',
-      ...headers
-    }
-  })
-}
-
-function configured(env: DashboardEnv): env is Required<DashboardEnv> {
+function configured(env: DashboardEnv): env is DashboardEnv & {
+  DASHBOARD_USERNAME: string
+  DASHBOARD_PASSWORD: string
+  DASHBOARD_SESSION_SECRET: string
+} {
   return Boolean(env.DASHBOARD_USERNAME && env.DASHBOARD_PASSWORD && env.DASHBOARD_SESSION_SECRET)
 }
 
@@ -139,7 +141,13 @@ async function readCredentials(request: Request): Promise<{ username: string; pa
   return null
 }
 
-async function login(request: Request, env: Required<DashboardEnv>): Promise<Response> {
+type AuthEnv = DashboardEnv & {
+  DASHBOARD_USERNAME: string
+  DASHBOARD_PASSWORD: string
+  DASHBOARD_SESSION_SECRET: string
+}
+
+async function login(request: Request, env: AuthEnv): Promise<Response> {
   const credentials = await readCredentials(request)
   if (!credentials) {
     return json({ error: 'Wrong username or password' }, 401)
@@ -159,7 +167,7 @@ async function login(request: Request, env: Required<DashboardEnv>): Promise<Res
     return new Response(null, {
       status: 303,
       headers: {
-        Location: '/dashboard/',
+        Location: '/',
         'Set-Cookie': cookie,
         'Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow'
@@ -178,7 +186,7 @@ function logout(request: Request): Response {
     return new Response(null, {
       status: 303,
       headers: {
-        Location: '/dashboard/',
+        Location: '/',
         'Set-Cookie': cookie,
         'Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow'
@@ -189,7 +197,20 @@ function logout(request: Request): Response {
   return json({ ok: true }, 200, { 'Set-Cookie': cookie })
 }
 
-async function requireSession(request: Request, env: Required<DashboardEnv>): Promise<Response | null> {
+async function inventoryFor(env: DashboardEnv, runtime?: DashboardRuntime) {
+  const db = runtime?.db ?? env.DB
+  if (!db) {
+    return []
+  }
+  await ensureSeeded(db)
+  return listLedgerInventory(db)
+}
+
+export async function requireAdminSession(request: Request, env: DashboardEnv): Promise<Response | null> {
+  if (!configured(env)) {
+    return json({ error: 'Sign in is not available.' }, 503)
+  }
+
   const token = readCookie(request.headers.get('Cookie'), SESSION_COOKIE)
   if (!token) {
     return json({ error: 'Sign in required' }, 401)
@@ -203,13 +224,13 @@ async function requireSession(request: Request, env: Required<DashboardEnv>): Pr
   return null
 }
 
-async function ledger(request: Request, env: Required<DashboardEnv>): Promise<Response> {
-  const unauthorized = await requireSession(request, env)
+async function ledger(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
   }
 
-  return json(buildLedger())
+  return json(buildLedger(await inventoryFor(env, runtime)))
 }
 
 let fallbackStore: CardmarketStore | undefined
@@ -225,18 +246,19 @@ function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): Cardmarket
   return fallbackStore
 }
 
-async function cardmarketReport(request: Request, env: Required<DashboardEnv>, runtime?: DashboardRuntime): Promise<Response> {
-  const unauthorized = await requireSession(request, env)
+async function cardmarketReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
   }
 
+  const products = await inventoryFor(env, runtime)
   const report = await resolveStore(env, runtime).getReport()
-  return json({ report: report ? withProductFrontImages(report, getInventory()) : null })
+  return json({ report: report ? withProductFrontImages(report, products) : null })
 }
 
-async function cardmarketScan(request: Request, env: Required<DashboardEnv>, runtime?: DashboardRuntime): Promise<Response> {
-  const unauthorized = await requireSession(request, env)
+async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
   }
@@ -249,12 +271,16 @@ async function cardmarketScan(request: Request, env: Required<DashboardEnv>, run
   const fetchPage = runtime.fetchCardmarketPage
   const previous = await store.getReport()
   const report = await runCardmarketScan({
-    products: getInventory(),
+    products: await inventoryFor(env, runtime),
     previous,
     fetchPage
   })
   await store.putReport(report)
   return json({ report })
+}
+
+function routeKey(path: string): string {
+  return path.replace(/^\/api\/admin\//, '/dashboard/')
 }
 
 export async function handleDashboardRequest(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
@@ -267,23 +293,25 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
     return unconfigured()
   }
 
-  if (path === '/dashboard/session' && request.method === 'POST') {
+  const key = routeKey(path)
+
+  if (key === '/dashboard/session' && request.method === 'POST') {
     return login(request, env)
   }
 
-  if (path === '/dashboard/logout' && request.method === 'POST') {
+  if (key === '/dashboard/logout' && request.method === 'POST') {
     return logout(request)
   }
 
-  if (path === '/dashboard/ledger' && request.method === 'GET') {
-    return ledger(request, env)
+  if (key === '/dashboard/ledger' && request.method === 'GET') {
+    return ledger(request, env, runtime)
   }
 
-  if (path === '/dashboard/cardmarket/report' && request.method === 'GET') {
+  if (key === '/dashboard/cardmarket/report' && request.method === 'GET') {
     return cardmarketReport(request, env, runtime)
   }
 
-  if (path === '/dashboard/cardmarket/scan' && request.method === 'POST') {
+  if (key === '/dashboard/cardmarket/scan' && request.method === 'POST') {
     return cardmarketScan(request, env, runtime)
   }
 

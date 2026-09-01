@@ -1,8 +1,8 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import * as Select from '@radix-ui/react-select'
-import { Check, ChevronDown, X } from 'lucide'
+import { X } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import type { CardLanguage } from '~/database/products'
 import { formatShopPrice } from '~/services/price'
 import { applyCatalogListingParams, catalogFiltersActive, DEFAULT_PRODUCT_SORT, type ProductSort } from '~/services/productCatalog'
@@ -21,17 +21,8 @@ type CatalogDraft = {
   range: PriceRange | null
 }
 
-const EMPTY_VALUE = '__empty__'
 const paginationControlClass =
   'inline-flex h-11 items-center justify-center rounded-full text-sm font-medium smooth enabled:cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40'
-
-function toSelectValue(value: string) {
-  return value === '' ? EMPTY_VALUE : value
-}
-
-function fromSelectValue(value: string) {
-  return value === EMPTY_VALUE ? '' : value
-}
 
 function draftFromApplied(language: CardLanguage | null, sort: ProductSort, range: PriceRange | null): CatalogDraft {
   return { language, sort, range }
@@ -59,43 +50,7 @@ function ProductChoiceFilter({
       <label id={`${id}-label`} htmlFor={id} className="text-sm font-medium text-site-gray-nurse">
         {label}
       </label>
-      <Select.Root value={toSelectValue(value)} onValueChange={(next) => onChange(fromSelectValue(next))}>
-        <Select.Trigger
-          id={id}
-          aria-labelledby={`${id}-label`}
-          className="field flex h-11 cursor-pointer items-center justify-between gap-3 py-0 text-left hover:border-site-envy data-[state=open]:border-site-envy"
-        >
-          <Select.Value />
-          <Select.Icon className="shrink-0 text-site-mantle">
-            <MorphIcon icon={ChevronDown} size={18} strokeWidth={2.25} />
-          </Select.Icon>
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content
-            position="popper"
-            sideOffset={6}
-            className={cn(
-              'z-110 w-(--radix-select-trigger-width) overflow-hidden rounded-button border-2 border-site-mulled-wine bg-site-gunmetal shadow-card',
-              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
-            )}
-          >
-            <Select.Viewport className="p-1">
-              {options.map((option) => (
-                <Select.Item
-                  key={option.value || EMPTY_VALUE}
-                  value={toSelectValue(option.value)}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-[0.85rem] px-3 py-2.5 text-base text-site-gray-nurse outline-none select-none data-highlighted:bg-site-mid data-[state=checked]:text-site-summer-green"
-                >
-                  <Select.ItemText>{option.label}</Select.ItemText>
-                  <Select.ItemIndicator className="shrink-0 text-site-summer-green">
-                    <MorphIcon icon={Check} size={16} strokeWidth={2.5} />
-                  </Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+      <ChoiceSelect id={id} aria-labelledby={`${id}-label`} value={value} options={options} onChange={onChange} />
     </div>
   )
 }

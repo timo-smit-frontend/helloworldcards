@@ -55,7 +55,7 @@ Update purchase costs on each product in `app/database/products.ts`. Those numbe
 
 ## Deploy to Cloudflare
 
-Pushes to `main` are built by Cloudflare Workers Builds. In the project’s build settings:
+Pushes to `main` are built by Cloudflare Workers Builds. `npm run build` typechecks and compiles; on Workers Builds for `main` it then applies pending D1 migrations before Wrangler publishes. Preview-branch builds skip that so they cannot change production schema.
 
 | Field             | Value                    |
 | ----------------- | ------------------------ |
@@ -65,7 +65,7 @@ Pushes to `main` are built by Cloudflare Workers Builds. In the project’s buil
 | Root directory    | `/`                      |
 | Production branch | `main`                   |
 
-Set a build variable `NODE_VERSION` to `22`, and select a Cloudflare API token with permission to deploy Workers. You need Node 22 locally as well (`nvm use`).
+Set a build variable `NODE_VERSION` to `22`. The Builds API token needs Workers Scripts (edit) **and Cloudflare D1 (edit)** so migrations can run. You need Node 22 locally as well (`nvm use`).
 
 To publish from your machine after `npx wrangler login`:
 

@@ -6,9 +6,7 @@ export type PriceRange = {
 }
 
 export function catalogPriceBounds<T extends { price?: string | number }>(products: T[]): PriceRange | null {
-  const prices = products
-    .map((product) => parseListedPrice(product.price))
-    .filter((price): price is number => price != null)
+  const prices = products.map((product) => parseListedPrice(product.price)).filter((price): price is number => price != null)
 
   if (prices.length === 0) {
     return null
@@ -40,11 +38,7 @@ export function parsePriceRangeParams(searchParams: URLSearchParams, bounds: Pri
   return { min, max }
 }
 
-export function applyPriceRangeSearchParams(
-  current: URLSearchParams,
-  range: PriceRange,
-  bounds: PriceRange
-): URLSearchParams {
+export function applyPriceRangeSearchParams(current: URLSearchParams, range: PriceRange, bounds: PriceRange): URLSearchParams {
   const params = new URLSearchParams(current)
   params.delete('min')
   params.delete('max')
@@ -66,11 +60,7 @@ export function priceAtRatio(ratio: number, bounds: PriceRange): number {
   return Math.round(bounds.min + clamped * (bounds.max - bounds.min))
 }
 
-export function rangeAfterTrackClick(
-  ratio: number,
-  range: PriceRange,
-  bounds: PriceRange
-): { range: PriceRange; thumb: 'min' | 'max' } {
+export function rangeAfterTrackClick(ratio: number, range: PriceRange, bounds: PriceRange): { range: PriceRange; thumb: 'min' | 'max' } {
   const price = priceAtRatio(ratio, bounds)
 
   if (ratio < 0.5) {

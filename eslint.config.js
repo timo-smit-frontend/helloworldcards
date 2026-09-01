@@ -14,7 +14,7 @@ const compat = new FlatCompat({
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'worker/worker-configuration.d.ts']
+    ignores: ['dist/**', 'node_modules/**', 'worker/worker-configuration.d.ts', '.wrangler/**', '.vite-temp/**', '.cache/**']
   },
   ...compat.config({
     root: true,

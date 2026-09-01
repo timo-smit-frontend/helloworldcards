@@ -4,14 +4,22 @@ export const CONTACT_EMAIL = 'helloworldcards@outlook.com'
 export const INSTAGRAM_URL = 'https://www.instagram.com/helloworldcards/'
 export const MARKTPLAATS_URL = 'https://www.marktplaats.nl/u/hello-world-cards/25399885/'
 
-const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${CONTACT_EMAIL}`
-
-export async function sendContactMessage({ name, email, message }: { name: string; email: string; message: string }) {
+export async function sendContactMessage({
+  name,
+  email,
+  message,
+  to = CONTACT_EMAIL
+}: {
+  name: string
+  email: string
+  message: string
+  to?: string
+}) {
   if (!isValidEmail(email)) {
     throw new Error('Invalid email address')
   }
 
-  const response = await fetch(FORMSUBMIT_ENDPOINT, {
+  const response = await fetch(`https://formsubmit.co/ajax/${to}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

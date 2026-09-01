@@ -5,13 +5,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "if [ \"${WORKERS_CI:-}\" = 1 ] && [ \"${WORKERS_CI_BRANCH:-}\" = main ]; then npm run migrate:remote; fi",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "deploy": "npm run build && wrangler deploy",
+    "migrate:remote": "wrangler d1 migrations apply helloworldcards --remote",
+    "deploy": "npm run build && npm run migrate:remote && wrangler deploy",
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts"
   },
   "dependencies": {

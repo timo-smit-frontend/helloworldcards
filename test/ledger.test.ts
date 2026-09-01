@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { LedgerItem } from '~/database/ledger-types'
 import { buildLedger, parseListedPrice, soldItemsForPeriod, summarizeLedger } from '../worker/ledger'
+import { listInventory } from '../worker/cms/db'
+import { ensureSeeded } from '../worker/cms/seed'
+import { createMemoryD1 } from './helpers/memory-d1'
 
 const now = new Date('2026-08-29T12:00:00')
 
@@ -62,8 +65,10 @@ describe('parseListedPrice', () => {
 })
 
 describe('buildLedger', () => {
-  it('sums spendings and potential gain from current stock', () => {
-    const ledger = buildLedger()
+  it('sums spendings and potential gain from current stock', async () => {
+    const db = createMemoryD1()
+    await ensureSeeded(db)
+    const ledger = buildLedger(await listInventory(db))
     const spendingFromItems = ledger.items.reduce((total, item) => total + (item.spending ?? 0), 0)
     const gainFromItems = ledger.items.reduce((total, item) => total + (item.potentialGain ?? 0), 0)
 
@@ -73,8 +78,10 @@ describe('buildLedger', () => {
     expect(ledger.items.some((item) => item.potentialGain != null)).toBe(true)
   })
 
-  it('treats potential gain as listed price minus what was paid', () => {
-    const ledger = buildLedger()
+  it('treats potential gain as listed price minus what was paid', async () => {
+    const db = createMemoryD1()
+    await ensureSeeded(db)
+    const ledger = buildLedger(await listInventory(db))
     const withBoth = ledger.items.find((item) => item.spending != null && item.listed != null)
 
     expect(withBoth).toBeDefined()
