@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
-import { useCms } from '~/cms/context'
+import { useCms, useCmsLoading } from '~/cms/context'
+import { ProductSkeleton } from '~/cms/loading'
 import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
@@ -11,6 +12,7 @@ import { MARKTPLAATS_URL } from '~/services/contact'
 export default function Product() {
   const { slug } = useParams()
   const cms = useCms()
+  const loading = useCmsLoading()
   const product = cms?.product && cms.product.slug === slug ? cms.product : undefined
   const similarIds = cms?.similarProductIds ?? []
   const shop = cms?.products ?? []
@@ -18,20 +20,20 @@ export default function Product() {
 
   const buyLink = useMemo(() => (product ? productBuyLink(product) : null), [product])
 
-  if (!cms) {
+  if (loading) {
     return (
-      <Layout className="justify-center">
-        <ContentText heading="h1" title="Loading…" description="Fetching this card." />
+      <Layout>
+        <ProductSkeleton />
       </Layout>
     )
   }
 
-  if (!product || !buyLink) {
+  if (!cms || !product || !buyLink) {
     return (
       <Layout className="justify-center">
         <ContentText
           heading="h1"
-          title={cms.settings.notFoundTitle}
+          title={cms?.settings.notFoundTitle ?? 'Product not found'}
           description="This product does not exist or has been moved."
           link={{ url: '/products/', title: 'Back to all products' }}
         />
