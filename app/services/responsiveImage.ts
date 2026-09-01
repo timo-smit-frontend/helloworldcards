@@ -54,6 +54,19 @@ export function mediaVariantKey(originalKey: string, width: number, format: Imag
   return originalKey.replace(LOCAL_RASTER, `-w${width}.${format}`)
 }
 
+export function allMediaVariantKeys(originalKey: string): string[] {
+  if (!LOCAL_RASTER.test(originalKey)) {
+    return []
+  }
+  const keys: string[] = []
+  for (const width of BUILD_WIDTHS) {
+    for (const format of ['avif', 'webp'] as const) {
+      keys.push(mediaVariantKey(originalKey, width, format))
+    }
+  }
+  return keys
+}
+
 export function rasterVariantSrc(src: string, width: number, format: ImageFormat = 'webp'): string {
   return src.replace(LOCAL_RASTER, `-w${width}.${format}`)
 }

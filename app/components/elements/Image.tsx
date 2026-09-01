@@ -4,7 +4,6 @@ import {
   DEFAULT_SRCSET_MAX_WIDTH,
   PRIORITY_IMAGE_SIZES,
   isLocalRasterSrc,
-  rasterFallbackSrc,
   rasterSrcSet
 } from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
@@ -88,7 +87,7 @@ const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
       {ready && <source type="image/avif" srcSet={rasterSrcSet(resolved, maxWidth, 'avif')} sizes={resolvedSizes} />}
       {ready && <source type="image/webp" srcSet={rasterSrcSet(resolved, maxWidth, 'webp')} sizes={resolvedSizes} />}
       {/* eslint-disable-next-line no-restricted-syntax -- Image is the allowed primitive wrapper */}
-      <img {...imgProps} src={ready ? rasterFallbackSrc(resolved, maxWidth, 'webp') : undefined} alt={alt} />
+      <img {...imgProps} src={resolved} alt={alt} />
     </picture>
   )
 })

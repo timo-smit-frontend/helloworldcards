@@ -68,4 +68,16 @@ describe('handleMediaPublic variants', () => {
     expect(response?.headers.get('Content-Type')).toBe('image/webp')
     await expect(response!.arrayBuffer()).resolves.toHaveProperty('byteLength', body.byteLength)
   })
+
+  it('falls back to the original when a variant key is missing', async () => {
+    const { handleMediaPublic } = await import('../worker/cms/media')
+    const bucket = memoryR2()
+    const body = Buffer.from('jpeg-bytes')
+    await bucket.put('hero.jpg', body, { httpMetadata: { contentType: 'image/jpeg' } })
+
+    const response = await handleMediaPublic(new Request('https://helloworldcards.com/media/hero-w800.webp'), {}, { media: bucket })
+    expect(response?.status).toBe(200)
+    expect(response?.headers.get('Content-Type')).toBe('image/jpeg')
+    await expect(response!.arrayBuffer()).resolves.toHaveProperty('byteLength', body.byteLength)
+  })
 })
