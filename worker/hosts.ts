@@ -1,8 +1,33 @@
 export const APEX_HOST = 'helloworldcards.com'
 export const ADMIN_HOST = `admin.${APEX_HOST}`
 
+export function isPrivateNetworkHost(hostname: string): boolean {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname)
+  if (!match) {
+    return false
+  }
+
+  const octets = match.slice(1).map(Number)
+  if (octets.some((value) => value > 255)) {
+    return false
+  }
+
+  const [first, second] = octets
+  if (first === 10) {
+    return true
+  }
+  if (first === 172 && second >= 16 && second <= 31) {
+    return true
+  }
+  if (first === 192 && second === 168) {
+    return true
+  }
+
+  return false
+}
+
 export function isLocalHost(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || isPrivateNetworkHost(hostname)
 }
 
 export function isAdminHost(hostname: string): boolean {

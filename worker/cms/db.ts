@@ -174,6 +174,13 @@ export async function listInventory(db: CmsDb): Promise<InventoryProduct[]> {
   return results.map(rowToInventory)
 }
 
+export async function listAdminInventory(db: CmsDb): Promise<InventoryProduct[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY (acquired_at IS NULL), acquired_at DESC, id DESC')
+    .all<ProductRow>()
+  return results.map(rowToInventory)
+}
+
 export async function listLedgerInventory(db: CmsDb): Promise<InventoryProduct[]> {
   const { results } = await db.prepare('SELECT * FROM products WHERE deleted_at IS NULL OR sold = 1 ORDER BY id ASC').all<ProductRow>()
   return results.map(rowToInventory)

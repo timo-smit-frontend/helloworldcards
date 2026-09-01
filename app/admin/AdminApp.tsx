@@ -28,8 +28,10 @@ import { formatShopPrice, parseListedPrice } from '~/services/price'
 import { SITE_NAME, toAbsoluteUrl } from '~/seo/site'
 import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleton, remainingLoadingHold } from './AdminLoading'
 import { adminJson } from './api'
+import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { adminPrefix, adminTo } from './runtime'
+import { DialogCloseButton } from './DialogClose'
 import { UnsavedChangesProvider, useRequestLeave, useUnsavedDraft } from './UnsavedChanges'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
@@ -48,12 +50,12 @@ function fieldClass() {
   return 'field w-full'
 }
 
+function textareaClass(desktop = '') {
+  return `field w-full h-40 ${desktop ? ` ${desktop}` : ''}`
+}
+
 function DateInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return (
-    <span className="relative block w-full min-w-0 max-w-full overflow-hidden">
-      <input type="date" className={fieldClass()} value={value} onChange={(event) => onChange(event.target.value)} />
-    </span>
-  )
+  return <input type="date" className={fieldClass()} value={value} onChange={(event) => onChange(event.target.value)} />
 }
 
 function AdminCheck({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
@@ -103,7 +105,7 @@ function IconButton({
       aria-label={label}
       title={label}
       disabled={disabled}
-      className={`flex cursor-pointer items-center disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`flex shrink-0 cursor-pointer items-center justify-center p-2.5 disabled:cursor-not-allowed disabled:opacity-30 sm:p-0 ${
         danger ? 'text-site-loss hover:text-site-loss' : 'text-site-mantle hover:text-site-gray-nurse'
       }`}
       onClick={onClick}
@@ -175,8 +177,9 @@ function ConfirmDialog({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-100 w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-panel bg-site-gunmetal p-6 shadow-card ring-1 ring-site-mulled-wine focus:outline-none">
-          <DialogPrimitive.Title className="title-xs">{title}</DialogPrimitive.Title>
+        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-100 w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-panel bg-site-gunmetal p-6 pr-14 shadow-card ring-1 ring-site-mulled-wine focus:outline-none">
+          <DialogCloseButton />
+          <DialogPrimitive.Title className="title-xs md:mt-8">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Description className="content-s mt-3 text-site-mantle">{description}</DialogPrimitive.Description>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row-reverse sm:justify-start">
             <button
@@ -230,9 +233,13 @@ function useMediaLibrary(open: boolean) {
 }
 
 function mediaTileClass(selected: boolean) {
-  return `relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark p-1.5 ring-1 ${
+  return `relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 ${
     selected ? 'ring-site-envy' : 'ring-site-mulled-wine hover:ring-site-envy'
   }`
+}
+
+function mediaImageClass() {
+  return 'box-border size-full object-contain p-1'
 }
 
 function MediaLibraryShell({
@@ -257,15 +264,10 @@ function MediaLibraryShell({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-100 flex max-h-[min(90dvh,40rem)] w-[calc(100%-2.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine focus:outline-none">
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <DialogPrimitive.Title className="title-xs">{title}</DialogPrimitive.Title>
+          <DialogCloseButton />
+          <div className="px-5 py-4 pr-14">
+            <DialogPrimitive.Title className="title-xs md:mt-8">{title}</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">{description}</DialogPrimitive.Description>
-            <DialogPrimitive.Close
-              className="flex cursor-pointer items-center text-site-mantle hover:text-site-gray-nurse"
-              aria-label="Close"
-            >
-              <MorphIcon icon={X} size={20} strokeWidth={2.25} />
-            </DialogPrimitive.Close>
           </div>
           <div className="min-h-0 overflow-y-auto px-5 pt-1 pb-5">
             {items == null ? (
@@ -300,10 +302,10 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
           <button
             type="button"
             aria-label="Change media"
-            className="flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark p-1.5 ring-1 ring-site-mulled-wine hover:ring-site-envy"
+            className="flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 ring-site-mulled-wine hover:ring-site-envy"
             onClick={() => setOpen(true)}
           >
-            <Image src={value} alt="" width={96} height={96} maxwidth={192} className="size-full object-contain" />
+            <Image src={value} alt="" width={96} height={96} maxwidth={192} className={mediaImageClass()} />
           </button>
           <div className="flex min-w-0 flex-col gap-2">
             <p className="truncate text-sm text-site-mantle">{mediaLabel(current ?? { title: '', filename: '', url: value })}</p>
@@ -346,7 +348,7 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
                     width={160}
                     height={160}
                     maxwidth={200}
-                    className="size-full object-contain"
+                    className={mediaImageClass()}
                   />
                 </button>
               </li>
@@ -387,10 +389,10 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
               <button
                 type="button"
                 aria-label="Change images"
-                className="flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark p-1.5 ring-1 ring-site-mulled-wine hover:ring-site-envy"
+                className="flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 ring-site-mulled-wine hover:ring-site-envy"
                 onClick={openLibrary}
               >
-                <Image src={url} alt="" width={160} height={160} maxwidth={200} className="size-full object-contain" />
+                <Image src={url} alt="" width={160} height={160} maxwidth={200} className={mediaImageClass()} />
               </button>
               <button
                 type="button"
@@ -444,7 +446,7 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
                       width={160}
                       height={160}
                       maxwidth={200}
-                      className="size-full object-contain"
+                      className={mediaImageClass()}
                     />
                     {selected ? (
                       <span className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-site-envy text-site-dark">
@@ -466,8 +468,16 @@ function BlockPreviewThumb({ type }: { type: CmsBlockType }) {
   const src = CMS_BLOCK_PREVIEWS[type]
   if (!src) return null
   return (
-    <span className="block aspect-2/1 w-24 shrink-0 overflow-hidden rounded-panel bg-site-dark p-1 ring-1 ring-site-mulled-wine sm:w-40">
-      <Image src={src} alt="" width={160} height={80} maxwidth={320} sizes="10rem" className="size-full object-contain" />
+    <span className="block aspect-2/1 w-48 shrink-0 overflow-hidden rounded-panel bg-site-dark p-1 ring-1 ring-site-mulled-wine sm:w-40">
+      <Image
+        src={src}
+        alt=""
+        width={160}
+        height={80}
+        maxwidth={320}
+        sizes="(min-width: 640px) 10rem, 12rem"
+        className="size-full object-contain"
+      />
     </span>
   )
 }
@@ -505,16 +515,30 @@ function DeleteControl({
   )
 }
 
+function adminTableColumnPad(extra?: string) {
+  return ['max-sm:pr-2 sm:pr-4', extra].filter(Boolean).join(' ')
+}
+
+function adminTableCellPad(extra?: string) {
+  return ['py-3.5 max-sm:pr-2 sm:pr-4', extra].filter(Boolean).join(' ')
+}
+
+function adminTableCellTextClass(cellClassName?: string) {
+  return ['text-sm text-site-mantle sm:wrap-break-word', cellClassName].filter(Boolean).join(' ')
+}
+
 function AdminTable({
   caption,
   columns,
   children,
-  loading
+  loading,
+  tableClassName
 }: {
   caption: string
   columns: Array<{ label: string; className?: string }>
   children: ReactNode
   loading?: boolean
+  tableClassName?: string
 }) {
   if (loading) {
     return <AdminTableSkeleton columns={columns.length} />
@@ -522,7 +546,9 @@ function AdminTable({
 
   return (
     <div className="min-w-0 max-w-full [touch-action:pan-y]">
-      <table className="w-full max-w-full border-collapse text-left [&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4">
+      <table
+        className={`w-full max-w-full border-collapse text-left max-sm:[&_th:first-child]:pl-0 max-sm:[&_td:first-child]:pl-0 max-sm:[&_th:last-child]:pr-0 max-sm:[&_td:last-child]:pr-0 sm:[&_th:first-child]:pl-4 sm:[&_td:first-child]:pl-4 sm:[&_th:last-child]:pr-4 sm:[&_td:last-child]:pr-4 ${tableClassName ?? ''}`}
+      >
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-site-mulled-wine">
@@ -530,7 +556,7 @@ function AdminTable({
               <th
                 key={column.label}
                 scope="col"
-                className={`py-3 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase ${column.className ?? 'pr-4'}`}
+                className={`py-3 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase ${column.className ?? adminTableColumnPad()}`}
               >
                 {column.label}
               </th>
@@ -544,7 +570,7 @@ function AdminTable({
 }
 
 function adminRowClass() {
-  return 'relative cursor-pointer border-b border-site-mulled-wine [touch-action:pan-y] hover:bg-site-gunmetal'
+  return 'relative cursor-pointer border-b border-site-mulled-wine [touch-action:pan-y] [@media(hover:hover)]:hover:bg-site-gunmetal'
 }
 
 function AdminClickableRow({ to, children }: { to: string; children: ReactNode }) {
@@ -562,9 +588,9 @@ function AdminClickableRow({ to, children }: { to: string; children: ReactNode }
   )
 }
 
-function AdminRowLink({ to, children }: { to: string; children: ReactNode }) {
+function AdminRowLink({ to, children, className }: { to: string; children: ReactNode; className?: string }) {
   return (
-    <Link to={to} className="relative z-1 font-semibold [touch-action:pan-y]">
+    <Link to={to} className={`relative z-1 font-semibold [touch-action:pan-y] ${className ?? ''}`}>
       {children}
     </Link>
   )
@@ -666,7 +692,7 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
   const requestLeave = useRequestLeave()
 
   return (
-    <div className="admin-shell fixed inset-0 flex overflow-hidden bg-site-dark text-site-gray-nurse transform-[translateZ(0)]">
+    <div className="admin-shell fixed inset-0 flex overflow-hidden bg-site-dark text-site-gray-nurse">
       <SkipToMainContent />
       <aside className="hidden h-full w-56 shrink-0 overflow-hidden border-r border-site-mulled-wine lg:flex lg:flex-col">
         <div className="border-b border-site-mulled-wine px-5 py-4">
@@ -684,18 +710,14 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
           </button>
         </nav>
       </aside>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="shrink-0 border-b border-site-mulled-wine lg:hidden">
           <div className="flex items-center justify-between px-5 py-3">
             <AdminLogoLink className="h-12 w-auto" />
             <AdminMobileMenu onLogout={onLogout} submitting={submitting} />
           </div>
         </header>
-        <main
-          id="main"
-          className="min-h-0 flex-1 overflow-y-scroll p-5 sm:p-8 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
-          tabIndex={-1}
-        >
+        <main id="main" className="flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
           {children}
         </main>
       </div>
@@ -777,11 +799,15 @@ function DashboardScreen() {
   }, [])
 
   if (!ledger) {
-    return <p className="content-l text-site-mantle">Loading the stats…</p>
+    return (
+      <div className="admin-page">
+        <p className="content-l text-site-mantle">Loading the stats…</p>
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="admin-page flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="title-l">The stats</h1>
@@ -830,24 +856,24 @@ function PagesScreen() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-page flex flex-col gap-6">
       <AdminScreenHeader title="Pages" to={adminTo('/pages/new')} label="New page" trashTo={adminTo('/pages/trash')} />
       <AdminTable
         caption="Pages"
         loading={loading}
         columns={[
           { label: 'Title' },
-          { label: 'Path', className: 'pr-4 whitespace-nowrap' },
+          { label: 'Path', className: adminTableColumnPad('whitespace-nowrap') },
           { label: 'Status', className: 'whitespace-nowrap' }
         ]}
       >
         {pages.map((page) => (
           <AdminClickableRow key={page.id} to={adminTo(`/pages/${page.id}`)}>
-            <td className="py-3.5 pr-4">
+            <td className={adminTableCellPad()}>
               <AdminRowLink to={adminTo(`/pages/${page.id}`)}>{page.title}</AdminRowLink>
             </td>
-            <td className="py-3.5 pr-4 font-mono text-sm whitespace-nowrap text-site-mantle">{page.path}</td>
-            <td className="py-3.5 text-sm whitespace-nowrap text-site-mantle capitalize">{page.status}</td>
+            <td className={adminTableCellPad('font-mono text-sm whitespace-nowrap text-site-mantle')}>{page.path}</td>
+            <td className={adminTableCellPad('text-sm whitespace-nowrap text-site-mantle capitalize')}>{page.status}</td>
           </AdminClickableRow>
         ))}
       </AdminTable>
@@ -890,7 +916,7 @@ function PageEditor() {
     seoImage: '',
     blocks: []
   })
-  const [error, setError] = useState('')
+  const { feedback, formBodyRef, showSuccess, showError, clearFeedback } = useSaveFeedback()
   const [ready, setReady] = useState(isNew)
   const [expandedBlocks, setExpandedBlocks] = useState<ReadonlySet<string>>(() => new Set())
   const { capture, allowLeave } = useUnsavedDraft(page, { captured: isNew, subject: 'this page' })
@@ -937,13 +963,13 @@ function PageEditor() {
 
   async function save(event: FormEvent) {
     event.preventDefault()
-    setError('')
+    clearFeedback()
     const result = await adminJson<{ page: CmsPage; error?: string }>(isNew ? '/pages' : `/pages/${id}`, {
       method: isNew ? 'POST' : 'PUT',
       body: JSON.stringify(page)
     })
     if (!result.ok) {
-      setError((result.data as { error?: string } | null)?.error || 'Could not save this page.')
+      showError((result.data as { error?: string } | null)?.error || 'Could not save this page.')
       return
     }
     if (isNew && result.data?.page) {
@@ -956,140 +982,146 @@ function PageEditor() {
       return
     }
     capture()
+    showSuccess('Page saved.')
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-5">
-      <h1 className="title-l">{isNew ? 'New page' : 'Edit page'}</h1>
-      <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] xl:items-start">
-        <div className="flex min-w-0 flex-col gap-5">
-          <h2 className="title-xs">Components</h2>
-          <div className="flex flex-col gap-3">
-            {!ready ? <AdminBlocksSkeleton /> : null}
-            {ready
-              ? page.blocks.map((block, index) => {
-                  const collapsed = !expandedBlocks.has(block.id)
-                  const fieldsId = `${block.id}-fields`
-                  return (
-                    <div
-                      key={block.id}
-                      id={block.id}
-                      className="scroll-mt-4 overflow-hidden rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine"
-                    >
-                      <div className="flex min-w-0 items-center bg-site-mid">
-                        <button
-                          type="button"
-                          aria-expanded={!collapsed}
-                          aria-controls={fieldsId}
-                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-left [touch-action:pan-y]"
-                          onClick={() =>
-                            setExpandedBlocks((current) => {
-                              const next = new Set(current)
-                              if (next.has(block.id)) {
-                                next.delete(block.id)
-                              } else {
-                                next.add(block.id)
-                              }
-                              return next
-                            })
-                          }
-                        >
-                          <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-site-mantle">{index + 1}</span>
-                          <BlockPreviewThumb type={block.type} />
-                          <span className="title-base min-w-0 truncate text-base sm:text-lg lg:text-xl">
-                            {CMS_BLOCK_LABELS[block.type]}
-                          </span>
-                        </button>
-                        <div className="flex shrink-0 items-center gap-2 pr-4">
-                          <IconButton
-                            label="Move up"
-                            icon={ArrowUp}
-                            disabled={index === 0}
-                            onClick={() => setPage({ ...page, blocks: move(page.blocks, index, -1) })}
-                          />
-                          <IconButton
-                            label="Move down"
-                            icon={ArrowDown}
-                            disabled={index === page.blocks.length - 1}
-                            onClick={() => setPage({ ...page, blocks: move(page.blocks, index, 1) })}
-                          />
-                          <IconButton
-                            label="Remove"
-                            icon={Trash2}
-                            danger
-                            onClick={() => setPage({ ...page, blocks: page.blocks.filter((_, item) => item !== index) })}
+    <form onSubmit={(event) => void save(event)} className="admin-form">
+      <div ref={formBodyRef} className="admin-form-body flex flex-col gap-5">
+        <h1 className="title-l">{isNew ? 'New page' : 'Edit page'}</h1>
+        <AdminSaveFeedback feedback={feedback} />
+        <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] xl:items-start">
+          <div className="flex min-w-0 flex-col gap-5">
+            <h2 className="title-xs">Components</h2>
+            <div className="flex flex-col gap-3">
+              {!ready ? <AdminBlocksSkeleton /> : null}
+              {ready
+                ? page.blocks.map((block, index) => {
+                    const collapsed = !expandedBlocks.has(block.id)
+                    const fieldsId = `${block.id}-fields`
+                    return (
+                      <div
+                        key={block.id}
+                        id={block.id}
+                        className="scroll-mt-4 overflow-hidden rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine"
+                      >
+                        <div className="flex min-w-0 items-center bg-site-mid">
+                          <button
+                            type="button"
+                            aria-expanded={!collapsed}
+                            aria-controls={fieldsId}
+                            aria-label={CMS_BLOCK_LABELS[block.type]}
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2.5 text-left [touch-action:pan-y] sm:px-4 sm:py-3"
+                            onClick={() =>
+                              setExpandedBlocks((current) => {
+                                const next = new Set(current)
+                                if (next.has(block.id)) {
+                                  next.delete(block.id)
+                                } else {
+                                  next.add(block.id)
+                                }
+                                return next
+                              })
+                            }
+                          >
+                            <span className="w-5 shrink-0 text-center text-sm font-semibold tabular-nums text-site-mantle sm:w-6">
+                              {index + 1}
+                            </span>
+                            <BlockPreviewThumb type={block.type} />
+                            <span className="title-base min-w-0 flex-1 truncate text-lg max-sm:hidden lg:text-xl">
+                              {CMS_BLOCK_LABELS[block.type]}
+                            </span>
+                          </button>
+                          <div className="flex shrink-0 items-center gap-1 pr-2 sm:gap-2 sm:pr-4">
+                            <IconButton
+                              label="Move up"
+                              icon={ArrowUp}
+                              disabled={index === 0}
+                              onClick={() => setPage({ ...page, blocks: move(page.blocks, index, -1) })}
+                            />
+                            <IconButton
+                              label="Move down"
+                              icon={ArrowDown}
+                              disabled={index === page.blocks.length - 1}
+                              onClick={() => setPage({ ...page, blocks: move(page.blocks, index, 1) })}
+                            />
+                            <IconButton
+                              label="Remove"
+                              icon={Trash2}
+                              danger
+                              onClick={() => setPage({ ...page, blocks: page.blocks.filter((_, item) => item !== index) })}
+                            />
+                          </div>
+                        </div>
+                        <div id={fieldsId} hidden={collapsed} className="p-4">
+                          <BlockFields
+                            block={block}
+                            pagePath={page.path}
+                            onChange={(next) =>
+                              setPage({ ...page, blocks: page.blocks.map((item, itemIndex) => (itemIndex === index ? next : item)) })
+                            }
                           />
                         </div>
                       </div>
-                      <div id={fieldsId} hidden={collapsed} className="p-4">
-                        <BlockFields
-                          block={block}
-                          pagePath={page.path}
-                          onChange={(next) =>
-                            setPage({ ...page, blocks: page.blocks.map((item, itemIndex) => (itemIndex === index ? next : item)) })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )
-                })
-              : null}
+                    )
+                  })
+                : null}
+            </div>
           </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-5">
-          <h2 className="title-xs">Page settings</h2>
-          <label className="text-sm font-medium">
-            Title
-            <input
-              className={`${fieldClass()} mt-2`}
-              value={page.title}
-              onChange={(event) => setPage({ ...page, title: event.target.value })}
-            />
-          </label>
-          <label className="text-sm font-medium">
-            Path
-            <input
-              className={`${fieldClass()} mt-2`}
-              value={page.path}
-              onChange={(event) => setPage({ ...page, path: event.target.value })}
-            />
-          </label>
-          <div>
-            <label htmlFor="page-status" className="text-sm font-medium">
-              Status
+          <div className="flex min-w-0 flex-col gap-5">
+            <h2 className="title-xs">Page settings</h2>
+            <label className="text-sm font-medium">
+              Title
+              <input
+                className={`${fieldClass()} mt-2`}
+                value={page.title}
+                onChange={(event) => setPage({ ...page, title: event.target.value })}
+              />
             </label>
-            <ChoiceSelect
-              id="page-status"
-              className="mt-2"
-              value={page.status}
-              options={[
-                { value: 'draft', label: 'Draft' },
-                { value: 'published', label: 'Published' }
-              ]}
-              onChange={(status) => setPage({ ...page, status: status as CmsPage['status'] })}
-            />
+            <label className="text-sm font-medium">
+              Path
+              <input
+                className={`${fieldClass()} mt-2`}
+                value={page.path}
+                onChange={(event) => setPage({ ...page, path: event.target.value })}
+              />
+            </label>
+            <div>
+              <label htmlFor="page-status" className="text-sm font-medium">
+                Status
+              </label>
+              <ChoiceSelect
+                id="page-status"
+                className="mt-2"
+                value={page.status}
+                options={[
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'published', label: 'Published' }
+                ]}
+                onChange={(status) => setPage({ ...page, status: status as CmsPage['status'] })}
+              />
+            </div>
+            <label className="text-sm font-medium">
+              SEO title
+              <input
+                className={`${fieldClass()} mt-2`}
+                value={page.seoTitle}
+                onChange={(event) => setPage({ ...page, seoTitle: event.target.value })}
+              />
+            </label>
+            <label className="text-sm font-medium">
+              SEO description
+              <textarea
+                className={`${textareaClass('sm:min-h-24')} mt-2`}
+                value={page.seoDescription}
+                onChange={(event) => setPage({ ...page, seoDescription: event.target.value })}
+              />
+            </label>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">SEO image</p>
+              <MediaPicker value={page.seoImage ?? ''} onChange={(url) => setPage({ ...page, seoImage: url })} />
+            </div>
           </div>
-          <label className="text-sm font-medium">
-            SEO title
-            <input
-              className={`${fieldClass()} mt-2`}
-              value={page.seoTitle}
-              onChange={(event) => setPage({ ...page, seoTitle: event.target.value })}
-            />
-          </label>
-          <label className="text-sm font-medium">
-            SEO description
-            <textarea
-              className={`${fieldClass()} mt-2 min-h-24`}
-              value={page.seoDescription}
-              onChange={(event) => setPage({ ...page, seoDescription: event.target.value })}
-            />
-          </label>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">SEO image</p>
-            <MediaPicker value={page.seoImage ?? ''} onChange={(url) => setPage({ ...page, seoImage: url })} />
-          </div>
-          {error ? <p className="content-s text-site-loss">{error}</p> : null}
         </div>
       </div>
       <AdminStickyBar>
@@ -1165,7 +1197,7 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
       {'description' in block ? (
         <AdminField label="Description">
           <textarea
-            className={`${fieldClass()} min-h-24`}
+            className={textareaClass('sm:min-h-24')}
             value={block.description ?? ''}
             onChange={(event) => patch({ description: event.target.value })}
           />
@@ -1230,7 +1262,7 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
       {block.type === 'content_text' && privacyPage ? (
         <AdminField label="Subsections">
           <textarea
-            className={`${fieldClass()} min-h-32`}
+            className={textareaClass('sm:min-h-32')}
             value={(block.sections ?? []).map((section) => `${section.title} | ${section.body}`).join('\n')}
             onChange={(event) =>
               patch({
@@ -1246,7 +1278,7 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
       {block.type === 'content_about' ? (
         <AdminField label="People">
           <textarea
-            className={`${fieldClass()} min-h-32`}
+            className={textareaClass('sm:min-h-32')}
             value={JSON.stringify(block.people, null, 2)}
             onChange={(event) => {
               try {
@@ -1273,25 +1305,27 @@ function ProductsScreen() {
       .finally(() => setLoading(false))
   }, [])
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-page flex flex-col gap-6">
       <AdminScreenHeader title="Products" to={adminTo('/products/new')} label="New product" trashTo={adminTo('/products/trash')} />
       <AdminTable
         caption="Products"
         loading={loading}
         columns={[
           { label: 'Title' },
-          { label: 'Status', className: 'pr-4 whitespace-nowrap' },
-          { label: 'Price', className: 'whitespace-nowrap' }
+          { label: 'Price', className: adminTableColumnPad('whitespace-nowrap') },
+          { label: 'Status', className: 'whitespace-nowrap' }
         ]}
       >
         {products.map((product) => (
           <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
-            <td className="py-3.5 pr-4">
-              <AdminRowLink to={adminTo(`/products/${product.id}`)}>{product.title}</AdminRowLink>
-              {product.subtitle ? <p className="mt-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
+            <td className={adminTableCellPad()}>
+              <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
+                {product.title}
+              </AdminRowLink>
+              {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
             </td>
-            <td className="py-3.5 pr-4 text-sm whitespace-nowrap text-site-mantle capitalize">{productStatus(product)}</td>
-            <td className="py-3.5 text-sm whitespace-nowrap tabular-nums text-site-mantle">{product.price ?? '—'}</td>
+            <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
+            <td className={adminTableCellPad('text-sm whitespace-nowrap text-site-mantle capitalize')}>{productStatus(product)}</td>
           </AdminClickableRow>
         ))}
       </AdminTable>
@@ -1304,7 +1338,9 @@ function ProductEditor() {
   const navigate = useNavigate()
   const isNew = id === 'new'
   const [product, setProduct] = useState<Partial<InventoryProduct>>({ title: '', subtitle: '', description: '', images: [] })
-  const [error, setError] = useState('')
+  const productDraftRef = useRef(product)
+  productDraftRef.current = product
+  const { feedback, formBodyRef, showSuccess, showError, clearFeedback } = useSaveFeedback()
   const [ready, setReady] = useState(isNew)
   const { capture, allowLeave } = useUnsavedDraft(product, { captured: isNew, subject: 'this product' })
   const captureRef = useRef(capture)
@@ -1323,6 +1359,7 @@ function ProductEditor() {
           return
         }
         setProduct(result.data.product)
+        productDraftRef.current = result.data.product
         captureRef.current(result.data.product)
       })
       .finally(() => {
@@ -1335,29 +1372,47 @@ function ProductEditor() {
 
   async function save(event: FormEvent) {
     event.preventDefault()
-    setError('')
+    clearFeedback()
+    const draft = productDraftRef.current
     const result = await adminJson<{ product: InventoryProduct; error?: string }>(isNew ? '/products' : `/products/${id}`, {
       method: isNew ? 'POST' : 'PUT',
       body: JSON.stringify({
-        ...product,
-        images: (product.images ?? []).filter((src) => src.trim() !== '').slice(0, MAX_PRODUCT_IMAGES)
+        ...draft,
+        pokemonId: draft.pokemonId ?? null,
+        images: (draft.images ?? []).filter((src) => src.trim() !== '').slice(0, MAX_PRODUCT_IMAGES)
       })
     })
     if (!result.ok) {
-      setError('Could not save this product.')
+      showError('Could not save this product.')
       return
     }
     if (isNew && result.data?.product) {
       setProduct(result.data.product)
+      productDraftRef.current = result.data.product
       capture(result.data.product)
       allowLeave()
       navigate(adminTo(`/products/${result.data.product.id}`))
       return
     }
-    capture()
+    if (result.data?.product) {
+      setProduct(result.data.product)
+      productDraftRef.current = result.data.product
+      capture(result.data.product)
+    } else {
+      capture()
+    }
+    showSuccess('Product saved.')
   }
 
-  const set = (key: string, value: unknown) => setProduct({ ...product, [key]: value })
+  function patchProduct(patch: Partial<InventoryProduct> | ((current: Partial<InventoryProduct>) => Partial<InventoryProduct>)) {
+    setProduct((current) => {
+      const next = typeof patch === 'function' ? patch(current) : { ...current, ...patch }
+      productDraftRef.current = next
+      return next
+    })
+  }
+
+  const set = (key: string, value: unknown) => patchProduct({ [key]: value })
 
   function setNumber(key: string, raw: string) {
     if (raw.trim() === '') {
@@ -1365,7 +1420,7 @@ function ProductEditor() {
       return
     }
     const value = Number(raw)
-    set(key, Number.isFinite(value) ? value : raw)
+    set(key, Number.isFinite(value) ? value : undefined)
   }
 
   function setEuro(key: string, raw: string) {
@@ -1382,174 +1437,180 @@ function ProductEditor() {
   const listingStatus = productStatus(product)
 
   if (!ready) {
-    return <AdminFormSkeleton fields={8} />
+    return (
+      <div className="admin-page">
+        <AdminFormSkeleton fields={8} />
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-8">
-      <h1 className="title-l">{isNew ? 'New product' : 'Edit product'}</h1>
-      <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-8">
-          <div className="flex flex-col gap-5">
-            <h2 className="title-xs">General</h2>
-            <AdminField label="Title">
-              <input className={fieldClass()} value={product.title ?? ''} onChange={(event) => set('title', event.target.value)} />
-            </AdminField>
-            <AdminField label="Subtitle">
-              <input className={fieldClass()} value={product.subtitle ?? ''} onChange={(event) => set('subtitle', event.target.value)} />
-            </AdminField>
-            <AdminField label="Description">
-              <textarea
-                className={`${fieldClass()} h-36`}
-                value={product.description ?? ''}
-                onChange={(event) => set('description', event.target.value)}
-              />
-            </AdminField>
-            <AdminField label="Pokédex number">
-              <input
-                className={fieldClass()}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                value={product.pokemonId ?? ''}
-                onChange={(event) => setNumber('pokemonId', event.target.value)}
-              />
-            </AdminField>
-            <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Images</p>
-              <MediaImagesPicker value={product.images ?? []} onChange={(images) => setProduct({ ...product, images })} />
-            </div>
-          </div>
-          <div className="flex flex-col gap-5">
-            <h2 className="title-xs">Card</h2>
-            <div className="grid grid-cols-2 gap-5">
-              <AdminField label="Year">
+    <form onSubmit={(event) => void save(event)} className="admin-form">
+      <div ref={formBodyRef} className="admin-form-body flex flex-col gap-8">
+        <h1 className="title-l">{isNew ? 'New product' : 'Edit product'}</h1>
+        <AdminSaveFeedback feedback={feedback} />
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-8">
+            <div className="flex flex-col gap-5">
+              <h2 className="title-xs">General</h2>
+              <AdminField label="Title">
+                <input className={fieldClass()} value={product.title ?? ''} onChange={(event) => set('title', event.target.value)} />
+              </AdminField>
+              <AdminField label="Subtitle">
+                <input className={fieldClass()} value={product.subtitle ?? ''} onChange={(event) => set('subtitle', event.target.value)} />
+              </AdminField>
+              <AdminField label="Description">
+                <textarea
+                  className={textareaClass('sm:h-36')}
+                  value={product.description ?? ''}
+                  onChange={(event) => set('description', event.target.value)}
+                />
+              </AdminField>
+              <AdminField label="Pokédex number">
                 <input
                   className={fieldClass()}
                   type="number"
                   inputMode="numeric"
-                  value={product.year ?? ''}
-                  onChange={(event) => setNumber('year', event.target.value)}
-                />
-              </AdminField>
-              <div className="flex min-w-0 flex-col gap-2">
-                <label htmlFor="product-language" className="text-sm font-medium">
-                  Language
-                </label>
-                <ChoiceSelect
-                  id="product-language"
-                  value={product.language ?? ''}
-                  options={[
-                    { value: '', label: 'None' },
-                    { value: 'english', label: 'English' },
-                    { value: 'japanese', label: 'Japanese' }
-                  ]}
-                  onChange={(value) => set('language', value || undefined)}
-                />
-              </div>
-              <div className="flex min-w-0 flex-col gap-2">
-                <label htmlFor="product-grader" className="text-sm font-medium">
-                  Grader
-                </label>
-                <ChoiceSelect
-                  id="product-grader"
-                  value={product.grader ?? ''}
-                  options={[
-                    { value: '', label: 'None' },
-                    { value: 'psa', label: 'PSA' },
-                    { value: 'beckett', label: 'Beckett' }
-                  ]}
-                  onChange={(value) => set('grader', value || undefined)}
-                />
-              </div>
-              <AdminField label="Grade">
-                <input
-                  className={fieldClass()}
-                  type="number"
-                  inputMode="decimal"
                   min={1}
-                  max={10}
-                  step={0.5}
-                  value={product.grade ?? ''}
-                  onChange={(event) => setNumber('grade', event.target.value)}
+                  value={product.pokemonId ?? ''}
+                  onChange={(event) => setNumber('pokemonId', event.target.value)}
                 />
               </AdminField>
-              <AdminField label="Cardmarket URL" className="col-span-2">
-                <input
-                  className={fieldClass()}
-                  type="url"
-                  value={product.cardmarketUrl ?? ''}
-                  onChange={(event) => set('cardmarketUrl', event.target.value || undefined)}
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium">Images</p>
+                <MediaImagesPicker value={product.images ?? []} onChange={(images) => patchProduct({ images })} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-5">
+              <h2 className="title-xs">Card</h2>
+              <div className="grid grid-cols-2 gap-5">
+                <AdminField label="Year">
+                  <input
+                    className={fieldClass()}
+                    type="number"
+                    inputMode="numeric"
+                    value={product.year ?? ''}
+                    onChange={(event) => setNumber('year', event.target.value)}
+                  />
+                </AdminField>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <label htmlFor="product-language" className="text-sm font-medium">
+                    Language
+                  </label>
+                  <ChoiceSelect
+                    id="product-language"
+                    value={product.language ?? ''}
+                    options={[
+                      { value: '', label: 'None' },
+                      { value: 'english', label: 'English' },
+                      { value: 'japanese', label: 'Japanese' }
+                    ]}
+                    onChange={(value) => set('language', value || undefined)}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <label htmlFor="product-grader" className="text-sm font-medium">
+                    Grader
+                  </label>
+                  <ChoiceSelect
+                    id="product-grader"
+                    value={product.grader ?? ''}
+                    options={[
+                      { value: '', label: 'None' },
+                      { value: 'psa', label: 'PSA' },
+                      { value: 'beckett', label: 'Beckett' }
+                    ]}
+                    onChange={(value) => set('grader', value || undefined)}
+                  />
+                </div>
+                <AdminField label="Grade">
+                  <input
+                    className={fieldClass()}
+                    type="number"
+                    inputMode="decimal"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    value={product.grade ?? ''}
+                    onChange={(event) => setNumber('grade', event.target.value)}
+                  />
+                </AdminField>
+                <AdminField label="Cardmarket URL" className="col-span-2">
+                  <input
+                    className={fieldClass()}
+                    type="url"
+                    value={product.cardmarketUrl ?? ''}
+                    onChange={(event) => set('cardmarketUrl', event.target.value || undefined)}
+                  />
+                </AdminField>
+                <AdminCheck
+                  label="Reverse holo"
+                  checked={product.reverseHolo === true}
+                  onChange={(checked) => set('reverseHolo', checked || undefined)}
                 />
-              </AdminField>
-              <AdminCheck
-                label="Reverse holo"
-                checked={product.reverseHolo === true}
-                onChange={(checked) => set('reverseHolo', checked || undefined)}
-              />
-              <AdminCheck
-                label="First edition"
-                checked={product.firstEdition === true}
-                onChange={(checked) => set('firstEdition', checked || undefined)}
-              />
+                <AdminCheck
+                  label="First edition"
+                  checked={product.firstEdition === true}
+                  onChange={(checked) => set('firstEdition', checked || undefined)}
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex flex-col gap-5">
-          <h2 className="title-xs">Sale</h2>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="product-status" className="text-sm font-medium">
-              Status
-            </label>
-            <ChoiceSelect
-              id="product-status"
-              value={listingStatus}
-              options={[
-                { value: 'concept', label: 'Concept' },
-                { value: 'published', label: 'Published' },
-                { value: 'sold', label: 'Sold' }
-              ]}
-              onChange={(status) =>
-                setProduct({
-                  ...product,
-                  concept: status === 'concept' ? true : undefined,
-                  sold: status === 'sold' ? true : undefined
-                })
-              }
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-5">
-            <AdminField label="Cost">
+          <div className="flex flex-col gap-5">
+            <h2 className="title-xs">Sale</h2>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="product-status" className="text-sm font-medium">
+                Status
+              </label>
+              <ChoiceSelect
+                id="product-status"
+                value={listingStatus}
+                options={[
+                  { value: 'concept', label: 'Concept' },
+                  { value: 'published', label: 'Published' },
+                  { value: 'sold', label: 'Sold' }
+                ]}
+                onChange={(status) =>
+                  patchProduct((current) => ({
+                    ...current,
+                    concept: status === 'concept' ? true : undefined,
+                    sold: status === 'sold' ? true : undefined
+                  }))
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-5">
+              <AdminField label="Cost">
+                <input
+                  className={fieldClass()}
+                  inputMode="decimal"
+                  value={product.cost != null ? formatShopPrice(product.cost) : ''}
+                  onChange={(event) => setEuro('cost', event.target.value)}
+                />
+              </AdminField>
+              <AdminField label="Price">
+                <input
+                  className={fieldClass()}
+                  value={product.price ?? ''}
+                  onChange={(event) => set('price', event.target.value || undefined)}
+                />
+              </AdminField>
+            </div>
+            <AdminField label="Acquired at">
+              <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
+            </AdminField>
+            <AdminField label="Sold at">
+              <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />
+            </AdminField>
+            <AdminField label="Marktplaats URL">
               <input
                 className={fieldClass()}
-                inputMode="decimal"
-                value={product.cost != null ? formatShopPrice(product.cost) : ''}
-                onChange={(event) => setEuro('cost', event.target.value)}
-              />
-            </AdminField>
-            <AdminField label="Price">
-              <input
-                className={fieldClass()}
-                value={product.price ?? ''}
-                onChange={(event) => set('price', event.target.value || undefined)}
+                type="url"
+                value={product.marktplaatsUrl ?? ''}
+                onChange={(event) => set('marktplaatsUrl', event.target.value || undefined)}
               />
             </AdminField>
           </div>
-          <AdminField label="Acquired at">
-            <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
-          </AdminField>
-          <AdminField label="Sold at">
-            <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />
-          </AdminField>
-          <AdminField label="Marktplaats URL">
-            <input
-              className={fieldClass()}
-              type="url"
-              value={product.marktplaatsUrl ?? ''}
-              onChange={(event) => set('marktplaatsUrl', event.target.value || undefined)}
-            />
-          </AdminField>
-          {error ? <p className="content-s text-site-loss">{error}</p> : null}
         </div>
       </div>
       <AdminStickyBar end>
@@ -1649,7 +1710,7 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-4 md:mt-8">
       <label className="flex flex-col gap-1 text-xs font-semibold tracking-[0.18em] text-site-mantle uppercase">
         Title
         <input
@@ -1668,23 +1729,17 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
       <label className="flex flex-col gap-1 text-xs font-semibold tracking-[0.18em] text-site-mantle uppercase">
         Alt
         <textarea
-          className={`${fieldClass()} min-h-28`}
+          className={textareaClass('sm:min-h-28')}
           value={alt}
           onChange={(event) => setAlt(event.target.value)}
           onBlur={() => void saveCopy()}
         />
       </label>
-      <p className="truncate text-xs text-site-mantle" title={publicUrl}>
-        {publicUrl}
-      </p>
-      <div className="mt-auto flex flex-col gap-2">
+      <div className="mt-auto flex items-center gap-3">
+        <DeleteControl singular="image" forever icon onConfirm={onDelete} />
         <button type="button" className="button-quiet" onClick={() => void copyUrl()}>
           {copied ? 'Copied' : 'Copy URL'}
         </button>
-        <button type="button" className="button-danger" onClick={onDelete}>
-          Delete
-        </button>
-        <DialogPrimitive.Close className="button-quiet">Close</DialogPrimitive.Close>
       </div>
     </div>
   )
@@ -1733,7 +1788,7 @@ function MediaScreen() {
   const warn = r2?.warnings.length
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-page flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="title-l">Media</h1>
         <div>
@@ -1754,18 +1809,14 @@ function MediaScreen() {
           />
         </div>
       </div>
-      {r2 ? (
+      {warn && r2 ? (
         <div className="flex max-w-xl flex-col gap-3 rounded-panel bg-site-gunmetal p-4 ring-1 ring-site-mulled-wine">
-          <p className="text-sm font-semibold">R2 this month (Cloudflare free tier)</p>
-          {warn ? (
-            <p className={`content-s ${alert ? 'text-site-loss' : 'text-site-envy'}`}>
-              {alert
-                ? 'You are close to the free limit. Uploads still work; Cloudflare may start billing if this keeps climbing.'
-                : 'Usage is over half the free tier. Nothing is blocked.'}
-            </p>
-          ) : (
-            <p className="content-s text-site-mantle">Cached views do not count. The Cloudflare dashboard and Wrangler still can.</p>
-          )}
+          <p className="text-sm font-semibold">R2 this month</p>
+          <p className={`content-s ${alert ? 'text-site-loss' : 'text-site-envy'}`}>
+            {alert
+              ? 'You are close to the free limit. Uploads still work; Cloudflare may start billing if this keeps climbing.'
+              : 'Usage is over half the free tier. Nothing is blocked.'}
+          </p>
           <R2UsageMeter label="Storage" used={r2.storageBytes} limit={r2.limits.storageBytes} format={formatBytes} />
           <R2UsageMeter label="Class A (writes)" used={r2.classA} limit={r2.limits.classA} format={formatCount} />
           <R2UsageMeter label="Class B (origin reads)" used={r2.classB} limit={r2.limits.classB} format={formatCount} />
@@ -1787,7 +1838,7 @@ function MediaScreen() {
             <button
               type="button"
               aria-label={item.title || item.filename}
-              className={`flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark p-1.5 ring-1 smooth ${
+              className={`flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 smooth ${
                 selectedId === item.id ? 'ring-site-envy' : 'ring-site-mulled-wine hover:ring-site-envy'
               }`}
               onClick={() => openItem(item.id)}
@@ -1799,7 +1850,7 @@ function MediaScreen() {
                 width={200}
                 height={200}
                 maxwidth={200}
-                className="size-full object-contain"
+                className={mediaImageClass()}
               />
             </button>
           </li>
@@ -1816,6 +1867,7 @@ function MediaScreen() {
           {selected ? (
             <DialogPrimitive.Content
               className="fixed top-1/2 left-1/2 z-100 grid max-h-[min(90dvh,56rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine outline-none md:grid-cols-[minmax(0,1.5fr)_20rem]"
+              onOpenAutoFocus={(event) => event.preventDefault()}
               onPointerDownOutside={(event) => {
                 if (ignoreOutsideClick.current) event.preventDefault()
               }}
@@ -1823,6 +1875,7 @@ function MediaScreen() {
                 if (ignoreOutsideClick.current) event.preventDefault()
               }}
             >
+              <DialogCloseButton />
               <DialogPrimitive.Title className="sr-only">{selected.title || selected.filename}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">Edit title, alt text, and URL for this image.</DialogPrimitive.Description>
               <div className="flex min-h-64 items-center justify-center bg-site-dark p-4 md:min-h-[28rem] md:p-8">
@@ -1857,18 +1910,28 @@ function MediaScreen() {
   )
 }
 
+type CollectionColumn = {
+  key: string
+  label: string
+  className?: string
+  cellClassName?: string
+  value?: (item: Record<string, unknown>) => string
+}
+
 function CollectionScreen({
   title,
   path,
   collectionKey,
   newLabel,
-  columns
+  columns,
+  tableClassName
 }: {
   title: string
   path: string
   collectionKey: string
   newLabel: string
-  columns: Array<{ key: string; label: string; className?: string }>
+  columns: CollectionColumn[]
+  tableClassName?: string
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(true)
@@ -1882,21 +1945,24 @@ function CollectionScreen({
   }, [path, collectionKey])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-page flex flex-col gap-6">
       <AdminScreenHeader title={title} to={adminTo(`${path}/new`)} label={newLabel} trashTo={adminTo(`${path}/trash`)} />
       <AdminTable
         caption={title}
         loading={loading}
+        tableClassName={tableClassName}
         columns={columns.map((column) => ({ label: column.label, className: column.className }))}
       >
         {items.map((item) => (
           <AdminClickableRow key={String(item.id)} to={adminTo(`${path}/${item.id}`)}>
             {columns.map((column, index) => (
-              <td key={column.key} className={`py-3.5 ${column.className ?? 'pr-4'}`}>
+              <td key={column.key} className={adminTableCellPad(column.className)}>
                 {index === 0 ? (
-                  <AdminRowLink to={adminTo(`${path}/${item.id}`)}>{String(item[column.key] ?? '')}</AdminRowLink>
+                  <AdminRowLink to={adminTo(`${path}/${item.id}`)} className={column.cellClassName}>
+                    {String(item[column.key] ?? '')}
+                  </AdminRowLink>
                 ) : (
-                  <span className="text-sm wrap-break-word text-site-mantle">{String(item[column.key] ?? '')}</span>
+                  <span className={adminTableCellTextClass(column.cellClassName)}>{String(item[column.key] ?? '')}</span>
                 )}
               </td>
             ))}
@@ -1922,7 +1988,7 @@ function CollectionEditor({
   const navigate = useNavigate()
   const isNew = id === 'new'
   const [draft, setDraft] = useState<Record<string, string>>({})
-  const [error, setError] = useState('')
+  const { feedback, formBodyRef, showSuccess, showError, clearFeedback } = useSaveFeedback()
   const [ready, setReady] = useState(isNew)
   const { capture, allowLeave } = useUnsavedDraft(draft, { captured: isNew, subject: `this ${singular}` })
   const captureRef = useRef(capture)
@@ -1957,13 +2023,13 @@ function CollectionEditor({
 
   async function save(event: FormEvent) {
     event.preventDefault()
-    setError('')
+    clearFeedback()
     const result = await adminJson<Record<string, Record<string, unknown>>>(isNew ? path : `${path}/${id}`, {
       method: isNew ? 'POST' : 'PUT',
       body: JSON.stringify(draft)
     })
     if (!result.ok) {
-      setError(`Could not save this ${singular}.`)
+      showError(`Could not save this ${singular}.`)
       return
     }
     if (isNew) {
@@ -1976,39 +2042,46 @@ function CollectionEditor({
       return
     }
     capture()
+    showSuccess(`${singular.charAt(0).toUpperCase()}${singular.slice(1)} saved.`)
   }
 
   if (!ready) {
-    return <AdminFormSkeleton fields={fields.length} />
+    return (
+      <div className="admin-page">
+        <AdminFormSkeleton fields={fields.length} />
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="admin-form-scroll gap-4">
-      <h1 className="title-l">
-        {isNew ? 'New' : 'Edit'} {singular}
-      </h1>
-      {error ? <p className="content-s text-site-loss">{error}</p> : null}
-      {fields.map((field) => (
-        <label key={field.key} className="flex min-w-0 flex-col gap-2 text-sm font-medium">
-          {field.label}
-          {field.type === 'textarea' ? (
-            <textarea
-              className={`${fieldClass()} min-h-32`}
-              value={draft[field.key] ?? ''}
-              onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
-            />
-          ) : field.type === 'date' ? (
-            <DateInput value={draft[field.key] ?? ''} onChange={(value) => setDraft({ ...draft, [field.key]: value })} />
-          ) : (
-            <input
-              type={field.type ?? 'text'}
-              className={fieldClass()}
-              value={draft[field.key] ?? ''}
-              onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
-            />
-          )}
-        </label>
-      ))}
+    <form onSubmit={(event) => void save(event)} className="admin-form">
+      <div ref={formBodyRef} className="admin-form-body flex flex-col gap-4">
+        <h1 className="title-l">
+          {isNew ? 'New' : 'Edit'} {singular}
+        </h1>
+        <AdminSaveFeedback feedback={feedback} />
+        {fields.map((field) => (
+          <label key={field.key} className="flex min-w-0 flex-col gap-2 text-sm font-medium">
+            {field.label}
+            {field.type === 'textarea' ? (
+              <textarea
+                className={textareaClass('sm:min-h-32')}
+                value={draft[field.key] ?? ''}
+                onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
+              />
+            ) : field.type === 'date' ? (
+              <DateInput value={draft[field.key] ?? ''} onChange={(value) => setDraft({ ...draft, [field.key]: value })} />
+            ) : (
+              <input
+                type={field.type ?? 'text'}
+                className={fieldClass()}
+                value={draft[field.key] ?? ''}
+                onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
+              />
+            )}
+          </label>
+        ))}
+      </div>
       <AdminStickyBar end>
         {!isNew ? (
           <DeleteControl
@@ -2045,13 +2118,23 @@ const FAQ_FIELDS = [
 
 const EVENT_COLUMNS = [
   { key: 'title', label: 'Title' },
-  { key: 'date', label: 'Date', className: 'pr-4 whitespace-nowrap' },
+  { key: 'date', label: 'Date', className: adminTableColumnPad('whitespace-nowrap') },
   { key: 'location', label: 'Location' }
 ]
 
-const FAQ_COLUMNS = [
-  { key: 'question', label: 'Question', className: 'pr-4 align-top' },
-  { key: 'answer', label: 'Answer', className: 'pr-4 align-top' }
+const FAQ_COLUMNS: CollectionColumn[] = [
+  {
+    key: 'question',
+    label: 'Question',
+    className: adminTableColumnPad('align-top max-sm:w-[40%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden max-sm:!pr-4'),
+    cellClassName: 'block max-sm:line-clamp-2 max-sm:overflow-hidden'
+  },
+  {
+    key: 'answer',
+    label: 'Answer',
+    className: adminTableColumnPad('align-top max-sm:w-[60%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden'),
+    cellClassName: 'block max-sm:line-clamp-3 max-sm:overflow-hidden'
+  }
 ]
 
 function EventsScreen() {
@@ -2059,7 +2142,16 @@ function EventsScreen() {
 }
 
 function FaqsScreen() {
-  return <CollectionScreen title="FAQs" path="/faqs" collectionKey="faqs" newLabel="New FAQ" columns={FAQ_COLUMNS} />
+  return (
+    <CollectionScreen
+      title="FAQs"
+      path="/faqs"
+      collectionKey="faqs"
+      newLabel="New FAQ"
+      columns={FAQ_COLUMNS}
+      tableClassName="max-sm:table-fixed"
+    />
+  )
 }
 
 function TrashScreen({
@@ -2069,7 +2161,8 @@ function TrashScreen({
   path,
   collectionKey,
   singular,
-  columns
+  columns,
+  tableClassName
 }: {
   title: string
   backLabel: string
@@ -2077,7 +2170,8 @@ function TrashScreen({
   path: string
   collectionKey: string
   singular: string
-  columns: Array<{ key: string; label: string; className?: string; value?: (item: Record<string, unknown>) => string }>
+  columns: CollectionColumn[]
+  tableClassName?: string
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(true)
@@ -2091,7 +2185,7 @@ function TrashScreen({
   }, [path, collectionKey])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-page flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <h1 className="title-l">{title}</h1>
         <Link to={backTo} className="cursor-pointer text-sm font-semibold text-site-mantle hover:text-site-gray-nurse">
@@ -2101,6 +2195,7 @@ function TrashScreen({
       <AdminTable
         caption={title}
         loading={loading}
+        tableClassName={tableClassName}
         columns={[
           ...columns.map((column) => ({ label: column.label, className: column.className })),
           { label: 'Actions', className: 'w-0 text-right' }
@@ -2116,13 +2211,13 @@ function TrashScreen({
           items.map((item) => (
             <tr key={String(item.id)} className="border-b border-site-mulled-wine">
               {columns.map((column) => (
-                <td key={column.key} className={`py-3.5 ${column.className ?? 'pr-4'}`}>
-                  <span className="text-sm wrap-break-word text-site-mantle">
+                <td key={column.key} className={adminTableCellPad(column.className)}>
+                  <span className={adminTableCellTextClass(column.cellClassName)}>
                     {column.value ? column.value(item) : String(item[column.key] ?? '')}
                   </span>
                 </td>
               ))}
-              <td className="py-3.5 pl-4 text-right whitespace-nowrap">
+              <td className={adminTableCellPad('max-sm:pl-0 sm:pl-4 text-right whitespace-nowrap')}>
                 <div className="flex justify-end gap-4">
                   <button
                     type="button"
@@ -2165,7 +2260,7 @@ function PagesTrashScreen() {
       singular="page"
       columns={[
         { key: 'title', label: 'Title' },
-        { key: 'path', label: 'Path', className: 'pr-4 whitespace-nowrap' },
+        { key: 'path', label: 'Path', className: adminTableColumnPad('whitespace-nowrap') },
         { key: 'status', label: 'Status', className: 'whitespace-nowrap' }
       ]}
     />
@@ -2182,14 +2277,14 @@ function ProductsTrashScreen() {
       collectionKey="products"
       singular="product"
       columns={[
-        { key: 'title', label: 'Title' },
+        { key: 'title', label: 'Title', cellClassName: 'line-clamp-1 font-semibold' },
+        { key: 'price', label: 'Price', className: adminTableColumnPad('whitespace-nowrap'), value: (item) => String(item.price ?? '—') },
         {
           key: 'status',
           label: 'Status',
-          className: 'pr-4 whitespace-nowrap',
+          className: 'whitespace-nowrap',
           value: (item) => productStatus(item as unknown as InventoryProduct)
-        },
-        { key: 'price', label: 'Price', className: 'whitespace-nowrap', value: (item) => String(item.price ?? '—') }
+        }
       ]}
     />
   )
@@ -2219,6 +2314,7 @@ function FaqsTrashScreen() {
       collectionKey="faqs"
       singular="FAQ"
       columns={FAQ_COLUMNS}
+      tableClassName="max-sm:table-fixed"
     />
   )
 }
@@ -2252,6 +2348,7 @@ function mirroredNav(items: CmsNavItem[]): Array<Omit<CmsNavItem, 'id'>> {
 function SettingsScreen() {
   const [settings, setSettings] = useState<CmsSettings | null>(null)
   const [nav, setNav] = useState<CmsNavItem[]>([])
+  const { feedback, formBodyRef, showSuccess, showError, clearFeedback } = useSaveFeedback()
   const draft = { settings, nav }
   const { capture } = useUnsavedDraft(draft, { subject: 'site settings' })
   const captureRef = useRef(capture)
@@ -2272,90 +2369,103 @@ function SettingsScreen() {
       cancelled = true
     }
   }, [])
-  if (!settings) return <AdminFormSkeleton fields={6} />
+  if (!settings) {
+    return (
+      <div className="admin-page">
+        <AdminFormSkeleton fields={6} />
+      </div>
+    )
+  }
   return (
     <form
-      className="admin-form-scroll gap-8"
+      className="admin-form"
       onSubmit={(event) => {
         event.preventDefault()
+        clearFeedback()
         void adminJson('/settings', { method: 'PUT', body: JSON.stringify({ ...settings, nav: mirroredNav(nav) }) }).then((result) => {
           if (result.ok) {
             capture()
+            showSuccess('Settings saved.')
+            return
           }
+          showError('Could not save settings.')
         })
       }}
     >
-      <h1 className="title-l">Settings</h1>
-      <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
-        {(
-          [
-            ['siteDescription', 'Description'],
-            ['siteImage', 'Default image'],
-            ['siteImageAlt', 'Default image alt'],
-            ['contactEmail', 'Email'],
-            ['instagramUrl', 'Instagram'],
-            ['marktplaatsUrl', 'Marktplaats'],
-            ['notFoundTitle', '404 title'],
-            ['notFoundDescription', '404 text'],
-            ['notFoundCta', '404 button']
-          ] as const
-        ).map(([key, label]) =>
-          key === 'siteImage' ? (
-            <div key={key} className="flex min-w-0 flex-col gap-2">
-              <p className="text-sm font-medium">{label}</p>
-              <MediaPicker value={settings.siteImage} onChange={(url) => setSettings({ ...settings, siteImage: url })} />
-            </div>
-          ) : (
-            <AdminField key={key} label={label} className={key === 'siteDescription' ? 'sm:col-span-2' : undefined}>
-              {key === 'siteDescription' || key === 'siteImageAlt' ? (
-                <textarea
-                  className={`${fieldClass()} h-24`}
-                  value={settings[key]}
-                  onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
-                />
-              ) : (
-                <input
-                  className={fieldClass()}
-                  value={settings[key]}
-                  onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
-                />
-              )}
-            </AdminField>
-          )
-        )}
-      </div>
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="title-xs">Navigation</h2>
-          <button
-            type="button"
-            className="flex cursor-pointer items-center gap-3 py-0 font-semibold text-site-mantle hover:text-site-gray-nurse"
-            onClick={() => setNav([...nav, { id: 0, location: 'header', label: 'New link', href: '/', sort: nav.length }])}
-          >
-            Add link
-            <MorphIcon icon={Plus} size={18} strokeWidth={2.25} />
-          </button>
+      <div ref={formBodyRef} className="admin-form-body flex flex-col gap-8">
+        <h1 className="title-l">Settings</h1>
+        <AdminSaveFeedback feedback={feedback} />
+        <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
+          {(
+            [
+              ['siteDescription', 'Description'],
+              ['siteImage', 'Default image'],
+              ['siteImageAlt', 'Default image alt'],
+              ['contactEmail', 'Email'],
+              ['instagramUrl', 'Instagram'],
+              ['marktplaatsUrl', 'Marktplaats'],
+              ['notFoundTitle', '404 title'],
+              ['notFoundDescription', '404 text'],
+              ['notFoundCta', '404 button']
+            ] as const
+          ).map(([key, label]) =>
+            key === 'siteImage' ? (
+              <div key={key} className="flex min-w-0 flex-col gap-2">
+                <p className="text-sm font-medium">{label}</p>
+                <MediaPicker value={settings.siteImage} onChange={(url) => setSettings({ ...settings, siteImage: url })} />
+              </div>
+            ) : (
+              <AdminField key={key} label={label} className={key === 'siteDescription' ? 'sm:col-span-2' : undefined}>
+                {key === 'siteDescription' || key === 'siteImageAlt' ? (
+                  <textarea
+                    className={textareaClass('sm:h-24')}
+                    value={settings[key]}
+                    onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
+                  />
+                ) : (
+                  <input
+                    className={fieldClass()}
+                    value={settings[key]}
+                    onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
+                  />
+                )}
+              </AdminField>
+            )
+          )}
         </div>
-        {nav.map((item, index) => (
-          <div
-            key={item.id || index}
-            className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"
-          >
-            <input
-              className={fieldClass()}
-              value={item.label}
-              aria-label="Label"
-              onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))}
-            />
-            <input
-              className={fieldClass()}
-              value={item.href}
-              aria-label="Link"
-              onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))}
-            />
-            <IconButton label="Remove" icon={Trash2} danger onClick={() => setNav(nav.filter((_, rowIndex) => rowIndex !== index))} />
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="title-xs">Navigation</h2>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-3 py-0 font-semibold text-site-mantle hover:text-site-gray-nurse"
+              onClick={() => setNav([...nav, { id: 0, location: 'header', label: 'New link', href: '/', sort: nav.length }])}
+            >
+              Add link
+              <MorphIcon icon={Plus} size={18} strokeWidth={2.25} />
+            </button>
           </div>
-        ))}
+          {nav.map((item, index) => (
+            <div
+              key={item.id || index}
+              className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"
+            >
+              <input
+                className={fieldClass()}
+                value={item.label}
+                aria-label="Label"
+                onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, label: event.target.value } : row)))}
+              />
+              <input
+                className={fieldClass()}
+                value={item.href}
+                aria-label="Link"
+                onChange={(event) => setNav(nav.map((row, rowIndex) => (rowIndex === index ? { ...row, href: event.target.value } : row)))}
+              />
+              <IconButton label="Remove" icon={Trash2} danger onClick={() => setNav(nav.filter((_, rowIndex) => rowIndex !== index))} />
+            </div>
+          ))}
+        </div>
       </div>
       <AdminStickyBar end>
         <button type="submit" className="button-green cursor-pointer">
