@@ -6,6 +6,7 @@ import { handleLlms, handlePublicApi, handleSitemap } from './cms/public-api'
 import { buildPublicPayload } from './cms/public'
 import { handleDashboardRequest, isDashboardPath } from './dashboard-api'
 import { APEX_HOST, isAdminHost, isLocalHost, publicDashboardRedirect } from './hosts'
+import { isHtmlResponse, shouldServeSpaFallback } from './spa'
 
 const FILE_EXTENSION = /\.[a-zA-Z0-9]{1,8}$/
 
@@ -37,7 +38,7 @@ const HTML_SECURITY_HEADERS: Record<string, string> = {
 }
 
 function isHtml(response: Response): boolean {
-  return (response.headers.get('content-type') ?? '').includes('text/html')
+  return isHtmlResponse(response)
 }
 
 function withSecurityHeaders(response: Response, options?: { noindex?: boolean }): Response {
@@ -116,18 +117,6 @@ function asPermanentRedirect(response: Response, request: Request, noindex = fal
   return redirectPermanently(new URL(location, request.url))
 }
 
-function shouldServeSpaFallback(request: Request, pathname: string): boolean {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return false
-  }
-
-  if (request.headers.get('Sec-Fetch-Mode') === 'navigate') {
-    return !FILE_EXTENSION.test(pathname)
-  }
-
-  return !FILE_EXTENSION.test(pathname)
-}
-
 export class CachedMedia extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const response = await handleMediaPublic(request, this.env, { ctx: this.ctx })
@@ -193,43 +182,48 @@ export default {
     const adminPage = isAdminHost(url.hostname)
     const dashboardPage = isDashboardPath(url.pathname)
 
-    if (asset.status !== 404) {
-      return asPermanentRedirect(asset, request, adminPage || dashboardPage)
-    }
+    if (shouldServeSpaFallback(request, url.pathname)) {
+      const index = isHtml(asset) ? asset : await env.ASSETS.fetch(new URL('/index.html', url.origin))
+      if (!isHtml(index)) {
+        return withSecurityHeaders(index, { noindex: adminPage })
+      }
 
-    if (!shouldServeSpaFallback(request, url.pathname)) {
-      return withSecurityHeaders(asset, { noindex: adminPage || dashboardPage })
-    }
+      let html = await index.text()
+      if (adminPage) {
+        html = applyAdminRobots(injectCmsPayload(html, null, { admin: true, path: url.pathname }))
+        return withSecurityHeaders(
+          new Response(html, {
+            status: index.status,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }),
+          { noindex: true }
+        )
+      }
 
-    const index = await env.ASSETS.fetch(new URL('/index.html', url.origin))
-    if (!isHtml(index)) {
-      return withSecurityHeaders(index, { noindex: adminPage })
-    }
+      if (env.DB) {
+        const payload = await buildPublicPayload(env.DB, url.pathname)
+        html = injectCmsPayload(html, payload, { path: url.pathname })
+        const status = payload.notFound ? 404 : index.status
+        return withSecurityHeaders(
+          new Response(html, {
+            status,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          })
+        )
+      }
 
-    let html = await index.text()
-    if (adminPage) {
-      html = applyAdminRobots(injectCmsPayload(html, null, { admin: true, path: url.pathname }))
       return withSecurityHeaders(
         new Response(html, {
           status: index.status,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        }),
-        { noindex: true }
-      )
-    }
-
-    if (env.DB) {
-      const payload = await buildPublicPayload(env.DB, url.pathname)
-      html = injectCmsPayload(html, payload, { path: url.pathname })
-      const status = payload.notFound ? 404 : index.status
-      return withSecurityHeaders(
-        new Response(html, {
-          status,
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         })
       )
     }
 
-    return withSecurityHeaders(index)
+    if (asset.status !== 404) {
+      return asPermanentRedirect(asset, request, adminPage || dashboardPage)
+    }
+
+    return withSecurityHeaders(asset, { noindex: adminPage || dashboardPage })
   }
 } satisfies ExportedHandler<Env>

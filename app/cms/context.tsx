@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useLocation } from 'react-router'
 import { normalizePagePath } from '../../worker/hosts'
 import { setCmsMediaCopy } from '~/services/imageCopy'
-import { isCmsReadyForPath } from './ready'
+import { readCachedCmsPayload, writeCachedCmsPayload } from './cache'
 import type { PublicCmsPayload } from './types'
 
 type CmsContextValue = {
@@ -16,14 +16,6 @@ function applyMediaCopy(payload: PublicCmsPayload | null) {
   setCmsMediaCopy(payload?.mediaCopy)
 }
 
-function initialResolvedPath(): string | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  return window.__CMS__ ? normalizePagePath(window.location.pathname) : null
-}
-
 export function useCms(): PublicCmsPayload | null {
   return useContext(CmsContext).payload
 }
@@ -35,16 +27,23 @@ export function useCmsLoading(): boolean {
 export function CmsProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const currentPath = normalizePagePath(location.pathname)
-  const [payload, setPayload] = useState<PublicCmsPayload | null>(() => {
+  const [cache, setCache] = useState(() => {
     const initial = typeof window === 'undefined' ? null : (window.__CMS__ ?? null)
     applyMediaCopy(initial)
-    return initial
+
+    if (!initial) {
+      return new Map<string, PublicCmsPayload>()
+    }
+
+    return writeCachedCmsPayload(new Map(), window.location.pathname, initial)
   })
-  const [resolvedPath, setResolvedPath] = useState<string | null>(initialResolvedPath)
-  const loading = !isCmsReadyForPath(payload, resolvedPath, currentPath)
+  const payload = readCachedCmsPayload(cache, currentPath)
+  const loading = payload == null
 
   useEffect(() => {
-    if (isCmsReadyForPath(payload, resolvedPath, currentPath)) {
+    applyMediaCopy(payload)
+
+    if (payload) {
       return
     }
 
@@ -58,8 +57,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
         }
 
         applyMediaCopy(next)
-        setPayload(next)
-        setResolvedPath(currentPath)
+        setCache((current) => writeCachedCmsPayload(current, currentPath, next))
         if (typeof window !== 'undefined') {
           window.__CMS__ = next
         }
@@ -69,7 +67,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [currentPath, payload, resolvedPath])
+  }, [currentPath, payload])
 
   const value = useMemo(
     () => ({
