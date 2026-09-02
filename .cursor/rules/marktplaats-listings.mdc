@@ -12,11 +12,20 @@ Do not post a card that is `concept` or not in stock. Do not change prices on ot
 ## Chat triggers — do this immediately
 
 - **Go live / list {card}:** pre-flight → fill the form → **stop and wait** for the user to check it → only then publish. After they confirm, drop `concept` and set `marktplaatsUrl`. Shop shows **View on Marktplaats**.
-- **Change price / lower price / set price to €X** (for a card): **shop first** (`price` in seed/CMS), then **always** update Marktplaats when the card has a `marktplaatsUrl`. See **Shop vs Marktplaats price** below. Do not skip Marktplaats because the shop was updated in code alone.
+- **Change price / lower price / set price to €X** (for a card): follow **cms-inventory** (seed + D1 push, or CMS pull) then **always** update Marktplaats when the card has a `marktplaatsUrl`. See **Shop vs Marktplaats price** below.
 - **{card} is sold for €X** (or “sold for X euros”): **shop first**, then delete the Marktplaats ad as sold. See Sold below.
 - **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the ad as **not** sold.
 
 Until a card is live it stays `concept: true` with no listing URL.
+
+## Live CMS (D1)
+
+See **`.cursor/rules/cms-inventory.mdc`** for the full seed ↔ D1 sync contract. Short version for price/listing work:
+
+1. Chat-driven change → edit seed → **`npm run cms:sync-products:remote`** → Marktplaats if listed.
+2. Admin CMS change → live site is already updated → **`npm run cms:pull-products:remote`** to refresh seed → Marktplaats if price/listing changed.
+
+Never treat the seed file alone as “live”.
 
 ## Listing URLs
 
@@ -38,7 +47,7 @@ Use `marktplaatsEditUrlFromListingUrl(product.marktplaatsUrl)` from `app/service
 
 ### Change price on Marktplaats
 
-1. Shop first (`app/cms/seed-products.ts` and/or CMS; update tests if they assert `price`).
+1. Shop first — seed file + **D1 sync** (see **Live CMS (D1)**); update tests if they assert `price`.
 2. If the product has `marktplaatsUrl`, navigate to `marktplaatsEditUrlFromListingUrl(marktplaatsUrl)` (fallback: seller view → **Wijzig**).
 3. Set **Vraagprijs** to `marktplaatsVraagprijsFromShop(shop price)` — not the shop amount.
 4. **Opslaan**. Confirm the seller view shows the Marktplaats price (e.g. `€ 99,99`).

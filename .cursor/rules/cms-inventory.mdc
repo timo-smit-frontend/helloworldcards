@@ -1,0 +1,41 @@
+---
+description: Keep shop inventory in sync between seed file, live D1 CMS, and Marktplaats
+alwaysApply: true
+---
+
+# CMS inventory sync
+
+Live website + admin CMS read **Cloudflare D1**. `app/cms/seed-products.ts` is the repo mirror. Editing only one side leaves the other stale.
+
+## Two paths — always finish both sides of the mirror
+
+### A. User asks in chat to change inventory (price, sold, concept, copy, Marktplaats URL, …)
+
+Do **all** of these before saying done — never stop after the seed file:
+
+1. Edit `app/cms/seed-products.ts` (+ tests that assert those fields).
+2. **Push to production D1 immediately:** `npm run cms:sync-products:remote` (needs `npx wrangler login`).
+   - Also run `npm run cms:sync-products` if local persisted D1 is in use.
+3. If the card has `marktplaatsUrl` and price/listing status changed → update or delete Marktplaats per `marktplaats-listings` rules (Vraagprijs = shop − €0,01).
+
+### B. User changed something in the admin CMS
+
+Admin saves already update **live D1 / website**. Seed can still be stale. Before any later seed→D1 sync, and whenever the user says they edited the CMS:
+
+1. **Pull live into seed:** `npm run cms:pull-products:remote`
+2. Update tests if assertions no longer match.
+3. If they changed **price** (or took a listing down) on a card with `marktplaatsUrl` → still update Marktplaats the same way as path A. CMS does not touch Marktplaats.
+
+## Commands
+
+| Command | Direction |
+| --- | --- |
+| `npm run cms:sync-products:remote` | seed → production D1 |
+| `npm run cms:pull-products:remote` | production D1 → seed |
+| `npm run cms:sync-products` / `cms:pull-products` | same for local persisted D1 |
+
+## Do not
+
+- Stop after editing `seed-products.ts` alone.
+- Run seed→D1 sync when seed is behind CMS without pulling first (that overwrites live CMS edits).
+- Assume deploy alone refreshed product rows (only empty DB seed + one-shot `cmsSeedVersion` migrations do that).

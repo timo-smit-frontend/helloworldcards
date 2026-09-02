@@ -15,6 +15,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "migrate:remote": "wrangler d1 migrations apply helloworldcards --remote",
+    "cms:sync-products": "npx vite-node scripts/sync-seed-products.mts",
+    "cms:sync-products:remote": "npx vite-node scripts/sync-seed-products.mts --remote",
+    "cms:pull-products": "npx vite-node scripts/pull-seed-products.mts",
+    "cms:pull-products:remote": "npx vite-node scripts/pull-seed-products.mts --remote",
     "deploy": "npm run build && npm run migrate:remote && wrangler deploy",
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts"
   },

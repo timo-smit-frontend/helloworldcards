@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
@@ -47,6 +47,8 @@ export default function ContentProducts({
   const { ref, isFirst } = useLocationFinder()
   const [searchParams, setSearchParams] = useSearchParams()
   const pageSize = useCatalogPageSize()
+  const gridRef = useRef<HTMLUListElement>(null)
+  const shouldScrollToGridRef = useRef(false)
   const ids = normalizeIds(id)
   const showFilters = ids == null && random == null
   const products = useMemo(() => {
@@ -79,14 +81,29 @@ export default function ContentProducts({
     setSearchParams(applyCatalogPageSearchParams(searchParams, paged.page), { replace: true })
   }, [paged, requestedPage, searchParams, setSearchParams, showFilters])
 
+  useEffect(() => {
+    if (!shouldScrollToGridRef.current || gridRef.current == null) {
+      return
+    }
+
+    shouldScrollToGridRef.current = false
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    gridRef.current.focus({ preventScroll: true })
+    gridRef.current.scrollIntoView({ behavior, block: 'start' })
+  }, [paged?.page])
+
   function handlePriceRangeChange(next: PriceRange) {
     if (!bounds) return
     setSearchParams(applyPriceRangeSearchParams(searchParams, next, bounds), { replace: true })
   }
 
   function handlePageChange(page: number) {
+    if (paged != null && page === paged.page) {
+      return
+    }
+
+    shouldScrollToGridRef.current = true
     setSearchParams(applyCatalogPageSearchParams(searchParams, page), { replace: true })
-    document.getElementById('content-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function handleCatalogChange(next: Partial<typeof catalog>) {
@@ -167,7 +184,11 @@ export default function ContentProducts({
           )}
 
           {listedProducts.length > 0 ? (
-            <ul className="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
+            <ul
+              ref={gridRef}
+              tabIndex={-1}
+              className="m-0 grid list-none grid-cols-1 gap-5 p-0 outline-none sm:grid-cols-2 lg:grid-cols-4"
+            >
               {visibleProducts.map((product, index) => (
                 <li key={product.id} className="flex w-full min-w-0">
                   <Animated delay={productDelays[Math.min(index, productDelays.length - 1)]} className="flex w-full min-w-0">
