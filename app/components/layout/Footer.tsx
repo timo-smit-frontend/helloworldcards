@@ -29,7 +29,7 @@ export default function Footer() {
               <h2 className="text-lg font-bold leading-7">Menu</h2>
               <ul className="mt-4 flex flex-col sm:gap-2 gap-6 text-base font-medium leading-7">
                 {menu.map((item) => (
-                  <li key={item.to} className="min-w-60">
+                  <li key={`${item.to}:${item.title}`} className="min-w-60">
                     <Link
                       to={item.to}
                       className="link-underline transition-colors hover:text-site-envy aria-[current=page]:text-site-envy"

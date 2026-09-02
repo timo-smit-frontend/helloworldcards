@@ -10,6 +10,7 @@ import {
   insertMediaIfAbsent,
   insertPage,
   insertProduct,
+  listNav,
   putSettings,
   replaceNav,
   updateProduct,
@@ -17,7 +18,10 @@ import {
 } from './db'
 
 const SEED_MEDIA_CREATED_AT = '2026-09-01T00:00:00.000Z'
-export const CMS_SEED_VERSION = 2
+export const CMS_SEED_VERSION = 3
+
+/** Serialize ensureSeeded within one isolate so parallel requests cannot double-seed. */
+let seedGate: Promise<void> = Promise.resolve()
 
 async function rewriteLegacyImagePaths(db: CmsDb): Promise<void> {
   await db.prepare("UPDATE products SET images = REPLACE(images, '/images/', '/media/')").run()
@@ -59,6 +63,32 @@ export async function syncSeedProducts(db: CmsDb): Promise<void> {
   }
 }
 
+async function dedupeNavItems(db: CmsDb): Promise<void> {
+  const nav = await listNav(db)
+  const seen = new Set<string>()
+  const unique: Array<Omit<(typeof nav)[number], 'id'>> = []
+
+  for (const item of nav) {
+    const key = `${item.location}\0${item.href}\0${item.label}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    unique.push({ location: item.location, label: item.label, href: item.href, sort: item.sort })
+  }
+
+  if (unique.length === nav.length) {
+    return
+  }
+
+  const sorted = (['header', 'footer'] as const).flatMap((location) =>
+    unique
+      .filter((item) => item.location === location)
+      .map((item, index) => ({ ...item, sort: index }))
+  )
+  await replaceNav(db, sorted)
+}
+
 const seedMigrations: Record<number, (db: CmsDb) => Promise<void>> = {
   1: async (db) => {
     await rewriteLegacyImagePaths(db)
@@ -67,12 +97,20 @@ const seedMigrations: Record<number, (db: CmsDb) => Promise<void>> = {
   2: async (db) => {
     await seedMediaLibrary(db)
     await syncSeedProducts(db)
+  },
+  3: async (db) => {
+    await dedupeNavItems(db)
   }
 }
 
-export async function ensureSeeded(db: CmsDb): Promise<void> {
-  if (!(await getSettings(db))) {
-    await putSettings(db, { ...seedSettings, cmsSeedVersion: CMS_SEED_VERSION })
+async function ensureSeededUnlocked(db: CmsDb): Promise<void> {
+  // Claim empty DB atomically so a second isolate cannot also run the initial seed.
+  const claim = await db
+    .prepare('INSERT OR IGNORE INTO settings (id, json) VALUES (1, ?)')
+    .bind(JSON.stringify({ ...seedSettings, cmsSeedVersion: CMS_SEED_VERSION }))
+    .run()
+
+  if (claim.meta.changes === 1) {
     await replaceNav(db, seedNavItems)
 
     for (const product of seedProductRecords) {
@@ -98,5 +136,19 @@ export async function ensureSeeded(db: CmsDb): Promise<void> {
       await seedMigrations[next]?.(db)
     }
     await putSettings(db, { ...settings, cmsSeedVersion: CMS_SEED_VERSION })
+  }
+}
+
+export async function ensureSeeded(db: CmsDb): Promise<void> {
+  const previous = seedGate
+  let release!: () => void
+  seedGate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await previous
+  try {
+    await ensureSeededUnlocked(db)
+  } finally {
+    release()
   }
 }

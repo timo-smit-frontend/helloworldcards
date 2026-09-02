@@ -2359,7 +2359,16 @@ const NAV_LOCATIONS = ['header', 'footer'] as const
 
 function sharedNav(items: CmsNavItem[]): CmsNavItem[] {
   const header = items.filter((item) => item.location === 'header')
-  return header.length > 0 ? header : items.filter((item) => item.location === 'footer')
+  const source = header.length > 0 ? header : items.filter((item) => item.location === 'footer')
+  const seen = new Set<string>()
+  return source.filter((item) => {
+    const key = `${item.href}\0${item.label}`
+    if (seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
 }
 
 function mirroredNav(items: CmsNavItem[]): Array<Omit<CmsNavItem, 'id'>> {

@@ -87,7 +87,7 @@ function MobileMenuSheet({
             </div>
             <nav aria-label="Primary" className="flex flex-col gap-6 py-10 sm:gap-8">
               {items.map((item) => (
-                <MobileNavLink key={item.href} to={item.href} pathname={pathname} onNavigate={() => onOpenChange(false)}>
+                <MobileNavLink key={`${item.href}:${item.label}`} to={item.href} pathname={pathname} onNavigate={() => onOpenChange(false)}>
                   {item.label}
                 </MobileNavLink>
               ))}
@@ -138,7 +138,7 @@ export default function Header() {
             <nav aria-label="Primary" className="hidden items-center gap-12 lg:flex">
               {items.map((item) => (
                 <Link
-                  key={item.href}
+                  key={`${item.href}:${item.label}`}
                   to={item.href}
                   className={navLinkClass}
                   aria-current={isCurrentPath(location.pathname, item.href) ? 'page' : undefined}
