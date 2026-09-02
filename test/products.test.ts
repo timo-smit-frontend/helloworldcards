@@ -60,10 +60,10 @@ describe('product inventory', () => {
     }
   })
 
-  it('marks Latias and Poke Kid as concept inventory without listing URLs', async () => {
+  it('marks Poke Kid as concept inventory without listing URLs', async () => {
     const { inventory, products } = await seededShop()
-    const liveIds = [1, 2, 3, 4, 5, 6, 8]
-    const conceptIds = [7, 9]
+    const liveIds = [1, 2, 3, 4, 5, 6, 7, 8]
+    const conceptIds = [9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -179,7 +179,9 @@ describe('product inventory', () => {
 
     expect(product?.title).toBe('Mega Latias ex')
     expect(product?.price).toBe('€120')
+    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438256231')
     expect(inventory.find((item) => item.id === 7)?.cost).toBe(72)
+    expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()
   })
 
   it('lists the Brilliant Stars Trainer Gallery Zekrom with slab photos', async () => {

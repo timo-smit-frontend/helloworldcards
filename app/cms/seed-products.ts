@@ -123,10 +123,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2025,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438256231',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181',
     cost: 72,
-    acquiredAt: '2026-08-30',
-    concept: true
+    acquiredAt: '2026-08-30'
   },
   {
     id: 8,
