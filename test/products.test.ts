@@ -60,10 +60,10 @@ describe('product inventory', () => {
     }
   })
 
-  it('marks Arceus, Latias, Zekrom, and Poke Kid as concept inventory without listing URLs', async () => {
+  it('marks Latias and Poke Kid as concept inventory without listing URLs', async () => {
     const { inventory, products } = await seededShop()
-    const liveIds = [1, 2, 3, 4, 5]
-    const conceptIds = [6, 7, 8, 9]
+    const liveIds = [1, 2, 3, 4, 5, 6, 8]
+    const conceptIds = [7, 9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -168,8 +168,9 @@ describe('product inventory', () => {
 
     expect(product?.title).toBe('Arceus V')
     expect(product?.price).toBe('€50')
+    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244195')
     expect(inventory.find((item) => item.id === 6)?.cost).toBe(28)
-    expect(inventory.find((item) => item.id === 6)?.concept).toBe(true)
+    expect(inventory.find((item) => item.id === 6)?.concept).toBeUndefined()
   })
 
   it('lists the Mega Evolution Mega Latias ex SIR with slab photos', async () => {
@@ -187,7 +188,9 @@ describe('product inventory', () => {
 
     expect(product?.title).toBe('Zekrom')
     expect(product?.price).toBe('€60')
+    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244101')
     expect(inventory.find((item) => item.id === 8)?.cost).toBe(28)
+    expect(inventory.find((item) => item.id === 8)?.concept).toBeUndefined()
   })
 
   it('lists the Shiny Star V Japanese Poke Kid FA with slab photos', async () => {
@@ -215,7 +218,7 @@ describe('product inventory', () => {
 
   it('uses a disabled concept CTA when there is no listing URL', async () => {
     const { products } = await seededShop()
-    const product = products.find((item) => item.slug === 'zekrom-2022-brilliant-stars-tg05')
+    const product = products.find((item) => item.slug === 'poke-kid-2020-shiny-star-v-japanese-197')
     expect(product?.marktplaatsUrl).toBeUndefined()
     expect(productBuyLink(product!)).toEqual({ title: 'Not yet available to buy' })
   })

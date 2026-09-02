@@ -105,10 +105,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2022,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244195',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Arceus-V-V2-BRS165',
     cost: 28,
-    acquiredAt: '2026-08-30',
-    concept: true
+    acquiredAt: '2026-08-30'
   },
   {
     id: 7,
@@ -141,10 +141,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2022,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244101',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Zekrom-BRSTG05',
     cost: 28,
-    acquiredAt: '2026-08-30',
-    concept: true
+    acquiredAt: '2026-08-30'
   },
   {
     id: 9,
