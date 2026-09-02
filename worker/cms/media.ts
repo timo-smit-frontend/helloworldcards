@@ -51,12 +51,30 @@ async function edgeCache(runtime?: DashboardRuntime): Promise<MediaCache | undef
   return cachesRef?.default
 }
 
-function mediaHeaders(contentType: string, key: string): Headers {
+function mediaHeaders(contentType: string, key: string, servedKey = key): Headers {
   return new Headers({
     'Content-Type': contentType,
     'Cache-Control': MEDIA_CACHE_CONTROL,
-    'Cache-Tag': `media,media-${key}`
+    'Cache-Tag': `media,media-${key}`,
+    'X-Media-Served-Key': servedKey
   })
+}
+
+function expectedVariantContentType(key: string): string | null {
+  if (key.endsWith('.avif')) return 'image/avif'
+  if (key.endsWith('.webp')) return 'image/webp'
+  return null
+}
+
+function isStaleVariantCache(key: string, cached: Response): boolean {
+  const expected = expectedVariantContentType(key)
+  if (!expected) {
+    return false
+  }
+  if (cached.headers.get('X-Media-Served-Key') === key) {
+    return false
+  }
+  return cached.headers.get('Content-Type') !== expected
 }
 
 async function resolveMediaObject(
@@ -126,7 +144,7 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
   const cacheKey = cacheRequest(new URL(`/media/${key}`, url.origin).href)
   const cache = await edgeCache(runtime)
   const cached = await cache?.match(cacheKey)
-  if (cached) {
+  if (cached && !isStaleVariantCache(key, cached)) {
     return cached
   }
 
@@ -147,7 +165,7 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
   const { object, servedKey } = resolved
   const type = object.httpMetadata?.contentType ?? 'application/octet-stream'
   const body = request.method === 'HEAD' ? null : await object.arrayBuffer()
-  const response = new Response(body, { headers: mediaHeaders(type, servedKey) })
+  const response = new Response(body, { headers: mediaHeaders(type, key, servedKey) })
   if (cache && request.method === 'GET') {
     const stored = response.clone()
     const put = cache.put(cacheKey, stored)

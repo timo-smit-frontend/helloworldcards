@@ -90,6 +90,41 @@ describe('handleMediaPublic variants', () => {
     const response = await handleMediaPublic(new Request('https://helloworldcards.com/media/hero-w800.webp'), {}, { media: bucket })
     expect(response?.status).toBe(200)
     expect(response?.headers.get('Content-Type')).toBe('image/jpeg')
+    expect(response?.headers.get('X-Media-Served-Key')).toBe('hero.jpg')
     await expect(response!.arrayBuffer()).resolves.toHaveProperty('byteLength', body.byteLength)
+  })
+
+  it('ignores stale cached fallbacks after the variant is uploaded', async () => {
+    const { handleMediaPublic } = await import('../worker/cms/media')
+    const bucket = memoryR2()
+    const jpeg = Buffer.from('jpeg-bytes')
+    const webp = Buffer.from('webp-bytes')
+    await bucket.put('hero.jpg', jpeg, { httpMetadata: { contentType: 'image/jpeg' } })
+    await bucket.put('hero-w800.webp', webp, { httpMetadata: { contentType: 'image/webp' } })
+
+    const stale = new Response(jpeg, {
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'X-Media-Served-Key': 'hero.jpg'
+      }
+    })
+    const cache = {
+      async match() {
+        return stale
+      },
+      async put() {},
+      async delete() {
+        return true
+      }
+    }
+
+    const response = await handleMediaPublic(new Request('https://helloworldcards.com/media/hero-w800.webp'), {}, {
+      media: bucket,
+      mediaCache: cache
+    })
+    expect(response?.status).toBe(200)
+    expect(response?.headers.get('Content-Type')).toBe('image/webp')
+    expect(response?.headers.get('X-Media-Served-Key')).toBe('hero-w800.webp')
+    await expect(response!.arrayBuffer()).resolves.toHaveProperty('byteLength', webp.byteLength)
   })
 })

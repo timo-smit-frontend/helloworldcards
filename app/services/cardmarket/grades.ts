@@ -17,7 +17,8 @@ export type PriceSuggestion = {
 }
 
 const CLUSTER = 0.15
-const SLAB_START = /^(PSA|BGS|Beckett)\s+(\d+(?:\.\d+)?)\b/i
+/** Sellers often write `Psa9` / `PSA9` without a space. */
+const SLAB_START = /^(PSA|BGS|Beckett)\s*(\d+(?:\.\d+)?)\b/i
 const NOT_A_SLAB = /\bcontender\b|\bwould be\b|\blooks like\b|\bcould be\b|\bcandidate\b|\bnot a\s+(psa|bgs)\b|^\s*no\s+(psa|bgs)\b/i
 
 export function parseSlabComment(comment: string): { grader: CardGrader; grade: number } | null {
@@ -59,6 +60,28 @@ function graderLabel(grader: CardGrader): string {
   return grader === 'psa' ? 'PSA' : 'BGS'
 }
 
+export function marketFloorPrice({
+  grader,
+  grade,
+  listings
+}: {
+  grader: CardGrader
+  grade: number
+  listings: MarketListing[]
+}): { floor: number; basis: MarketListing[] } | null {
+  const anchors = listings.filter((item) => item.grader === grader && item.grade === grade)
+  if (anchors.length === 0) {
+    return null
+  }
+
+  const floor = Math.min(...anchors.map((item) => item.price))
+  const basis = listings.filter((item) => (item.grader === grader && item.grade === grade) || inCluster(item.price, floor))
+  return {
+    floor: Math.min(...basis.map((item) => item.price)),
+    basis
+  }
+}
+
 export function suggestListedPrice({
   grader,
   grade,
@@ -70,17 +93,16 @@ export function suggestListedPrice({
   listed: number
   listings: MarketListing[]
 }): PriceSuggestion | null {
-  const anchors = listings.filter((item) => item.grader === grader && item.grade === grade)
-  if (anchors.length === 0) {
+  const market = marketFloorPrice({ grader, grade, listings })
+  if (!market) {
     return null
   }
 
-  const floor = Math.min(...anchors.map((item) => item.price))
-  const basis = listings.filter((item) => (item.grader === grader && item.grade === grade) || inCluster(item.price, floor))
-  const target = Math.min(...basis.map((item) => item.price))
+  const target = market.floor
+  const basis = market.basis
 
   const notes = listings
-    .filter((item) => item.grade > grade && item.price < listed && !inCluster(item.price, floor))
+    .filter((item) => item.grade > grade && item.price < listed && !inCluster(item.price, market.floor))
     .map((item) => `${graderLabel(item.grader)} ${item.grade} from ${item.seller} at ${formatEuro(item.price)} is below your price`)
 
   if (target === listed) {

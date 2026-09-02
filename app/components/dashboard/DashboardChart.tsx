@@ -5,6 +5,8 @@ import Image from '~/components/elements/Image'
 import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
+import { buildDealDisplayTitle } from '~/services/marktplaats-deals/titles'
+import { sortMarktplaatsDeals, type MarktplaatsDealRow, type MarktplaatsDealsReport, type MarktplaatsSearchLogEntry } from '~/services/marktplaats-deals/report'
 
 function formatEuros(value: number): string {
   return new Intl.NumberFormat('nl-NL', {
@@ -88,11 +90,33 @@ function formatListedEuros(value: number): string {
   return formatEuros(Math.ceil(value))
 }
 
-function PriceFigure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function PriceFigure({ label, value, tone, href }: { label: string; value: string; tone?: string; href?: string }) {
+  const valueClass = `font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="group -mx-2 -my-1.5 flex min-w-16 flex-col items-end gap-1 rounded-md px-2 py-1.5 text-right smooth hover:bg-site-mid focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-site-summer-green"
+      >
+        <p className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase transition-colors group-hover:text-site-gray-nurse">
+          {label}
+        </p>
+        <span
+          className={`${valueClass} underline decoration-site-mantle/40 underline-offset-2 transition-colors group-hover:text-site-gray-nurse group-hover:decoration-site-gray-nurse/70`}
+        >
+          {value}
+        </span>
+      </a>
+    )
+  }
+
   return (
     <div className="flex min-w-16 flex-col items-end gap-1 text-right">
       <p className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{label}</p>
-      <p className={`font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`}>{value}</p>
+      <p className={valueClass}>{value}</p>
     </div>
   )
 }
@@ -208,6 +232,155 @@ function PriceSuggestions({
   )
 }
 
+function dealRowTitle(item: MarktplaatsDealRow): string {
+  return buildDealDisplayTitle({
+    title: item.title,
+    grade: item.grade,
+    cardmarketUrl: item.cardmarketUrl
+  })
+}
+
+function DealRow({ item, showEdge }: { item: MarktplaatsDealRow; showEdge: boolean }) {
+  const priced = item.marketFloor != null && item.edge != null
+
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 py-4 sm:items-center sm:gap-6">
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-site-gray-nurse">{dealRowTitle(item)}</p>
+        {item.pricingNote ? <p className="mt-1 text-sm text-site-foil">{item.pricingNote}</p> : null}
+      </div>
+      <div className="flex justify-end gap-5 sm:gap-8">
+        <PriceFigure label="Asking price" value={formatListedEuros(item.ask)} href={item.marktplaatsUrl} />
+        <PriceFigure
+          label="Lowest listed"
+          value={priced ? formatListedEuros(item.marketFloor!) : 'No comps'}
+          href={item.cardmarketUrl}
+        />
+        {showEdge ? (
+          <PriceFigure
+            label="Edge"
+            value={priced ? formatSignedEuros(item.edge!) : '—'}
+            tone={priced && !item.pricingNote ? 'text-site-envy' : undefined}
+          />
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+function SearchLogRow({ item }: { item: MarktplaatsSearchLogEntry }) {
+  const outcomeLabel =
+    item.outcome === 'deal' ? 'deal' : item.outcome === 'no-edge' ? 'no edge' : item.reason ?? 'skip'
+
+  return (
+    <li className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-6">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-site-gray-nurse">{item.title}</p>
+        <p className="mt-1 text-xs text-site-mantle">
+          {item.source === 'vinted' ? 'Vinted' : 'Marktplaats'} · {outcomeLabel}
+          {item.edge != null ? ` · edge €${item.edge}` : ''}
+        </p>
+        {item.psaQuery ? (
+          <p className="mt-1 truncate font-mono text-xs text-site-mantle" title={item.psaQuery}>
+            {item.psaQuery}
+          </p>
+        ) : null}
+        {item.ocrText ? (
+          <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-snug text-site-mantle/80" title={item.ocrText}>
+            {item.ocrText}
+          </p>
+        ) : null}
+        <p className="mt-1 text-xs text-site-mantle">
+          <a href={item.listingUrl} target="_blank" rel="noreferrer" className="underline smooth hover:text-site-gray-nurse">
+            Listing
+          </a>
+          {item.googleUrl ? (
+            <>
+              {' · '}
+              <a href={item.googleUrl} target="_blank" rel="noreferrer" className="underline smooth hover:text-site-gray-nurse">
+                Google
+              </a>
+            </>
+          ) : null}
+          {item.cardmarketUrl ? (
+            <>
+              {' · '}
+              <a href={item.cardmarketUrl} target="_blank" rel="noreferrer" className="underline smooth hover:text-site-gray-nurse">
+                Cardmarket
+              </a>
+            </>
+          ) : null}
+        </p>
+      </div>
+      <p className="text-sm tabular-nums text-site-mantle">{formatListedEuros(item.ask)}</p>
+    </li>
+  )
+}
+
+function MarktplaatsDeals({
+  report,
+  scanning,
+  scanError,
+  onScan
+}: {
+  report: MarktplaatsDealsReport | null
+  scanning: boolean
+  scanError: string | null
+  onScan: () => void
+}) {
+  const deals = sortMarktplaatsDeals(report?.deals ?? [])
+  const searches = (report?.searches ?? []).filter((item) => item.outcome !== 'deal')
+  const showEdge = deals.some((item) => item.edge != null)
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Find deals</h2>
+        <button
+          type="button"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={scanning ? 'Scanning listings' : 'Scan Marktplaats and Vinted'}
+          onClick={onScan}
+          disabled={scanning}
+        >
+          <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
+        </button>
+      </div>
+      {scanError ? <p className="content-m text-site-loss">{scanError}</p> : null}
+      {report?.errors.map((error) => (
+        <p key={error} className="content-m text-site-loss">
+          {error}
+        </p>
+      ))}
+      {scanning && deals.length === 0 ? (
+        <p className="content-m text-site-mantle">Scanning Marktplaats, Vinted, and Cardmarket…</p>
+      ) : deals.length === 0 ? (
+        <p className="content-m text-site-mantle">
+          {report ? 'No matches to review.' : 'Scan Marktplaats and Vinted to find PSA listings priced below Cardmarket.'}
+        </p>
+      ) : (
+        <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+          {deals.map((item) => (
+            <DealRow key={item.marktplaatsUrl} item={item} showEdge={showEdge} />
+          ))}
+        </ol>
+      )}
+      {searches.length > 0 ? (
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">
+            Search log ({searches.length})
+          </summary>
+          <ol className="m-0 mt-3 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+            {searches.map((item) => (
+              <SearchLogRow key={`${item.source}-${item.listingUrl}`} item={item} />
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </section>
+  )
+}
+
 function SoldRow({ item }: { item: LedgerItem }) {
   const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
@@ -230,7 +403,11 @@ export default function DashboardChart({
   report = null,
   scanning = false,
   scanError = null,
-  onScan
+  onScan,
+  dealsReport = null,
+  dealsScanning = false,
+  dealsScanError = null,
+  onScanDeals
 }: {
   ledger: Ledger
   period: LedgerPeriod
@@ -238,6 +415,10 @@ export default function DashboardChart({
   scanning?: boolean
   scanError?: string | null
   onScan?: () => void
+  dealsReport?: MarktplaatsDealsReport | null
+  dealsScanning?: boolean
+  dealsScanError?: string | null
+  onScanDeals?: () => void
 }) {
   const totals = useMemo(() => summarizeLedger(ledger.items, period), [ledger.items, period])
   const soldItems = useMemo(() => soldItemsForPeriod(ledger.items, period), [ledger.items, period])
@@ -305,6 +486,10 @@ export default function DashboardChart({
 
       {import.meta.env.DEV && onScan ? (
         <PriceSuggestions report={report} scanning={scanning} scanError={scanError} onScan={onScan} />
+      ) : null}
+
+      {import.meta.env.DEV && onScanDeals ? (
+        <MarktplaatsDeals report={dealsReport} scanning={dealsScanning} scanError={dealsScanError} onScan={onScanDeals} />
       ) : null}
 
       <section className="flex flex-col gap-4">

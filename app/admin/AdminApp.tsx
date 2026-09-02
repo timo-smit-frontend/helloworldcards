@@ -11,6 +11,7 @@ import Logo from '~/components/elements/Logo'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
+import type { MarktplaatsDealsReport } from '~/services/marktplaats-deals/scan'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -782,6 +783,9 @@ function DashboardScreen() {
   const [report, setReport] = useState<CardmarketReport | null>(null)
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
+  const [dealsReport, setDealsReport] = useState<MarktplaatsDealsReport | null>(null)
+  const [dealsScanning, setDealsScanning] = useState(false)
+  const [dealsScanError, setDealsScanError] = useState<string | null>(null)
 
   useEffect(() => {
     void adminJson<Ledger>('/ledger').then((result) => {
@@ -793,6 +797,11 @@ function DashboardScreen() {
       void adminJson<{ report: CardmarketReport | null }>('/cardmarket/report').then((result) => {
         if (result.ok) {
           setReport(result.data?.report ?? null)
+        }
+      })
+      void adminJson<{ report: MarktplaatsDealsReport | null }>('/marktplaats-deals/report').then((result) => {
+        if (result.ok) {
+          setDealsReport(result.data?.report ?? null)
         }
       })
     }
@@ -825,14 +834,33 @@ function DashboardScreen() {
           onScan={() => {
             setScanning(true)
             setScanError(null)
-            void adminJson<{ report: CardmarketReport }>('/cardmarket/scan', { method: 'POST' }).then((result) => {
+            void adminJson<{ report: CardmarketReport; error?: string }>('/cardmarket/scan', { method: 'POST' }).then((result) => {
               setScanning(false)
-              if (!result.ok || !result.data) {
-                setScanError('The Cardmarket scan could not be started. Try again.')
+              const body = result.data
+              if (!result.ok || !body?.report) {
+                setScanError(body?.error ?? 'The Cardmarket scan could not be started. Try again.')
                 return
               }
-              setReport(result.data.report)
+              setReport(body.report)
             })
+          }}
+          dealsReport={dealsReport}
+          dealsScanning={dealsScanning}
+          dealsScanError={dealsScanError}
+          onScanDeals={() => {
+            setDealsScanning(true)
+            setDealsScanError(null)
+            void adminJson<{ report: MarktplaatsDealsReport; error?: string }>('/marktplaats-deals/scan', { method: 'POST' }).then(
+              (result) => {
+                setDealsScanning(false)
+                const body = result.data
+                if (!result.ok || !body?.report) {
+                  setDealsScanError(body?.error ?? 'The Marktplaats deals scan could not be started. Try again.')
+                  return
+                }
+                setDealsReport(body.report)
+              }
+            )
           }}
         />
       ) : (

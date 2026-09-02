@@ -1,5 +1,7 @@
-import type { CardmarketReport } from '../app/services/cardmarket/scan'
+import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
+import type { MarktplaatsDealsReport } from '../app/services/marktplaats-deals/scan'
+import { runMarktplaatsDealsScan } from '../app/services/marktplaats-deals/scan'
 import { listLedgerInventory, type CmsDb } from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
 import { ensureSeeded } from './cms/seed'
@@ -31,9 +33,16 @@ export type CardmarketStore = {
   putReport(report: CardmarketReport): Promise<void>
 }
 
+export type MarktplaatsDealsStore = {
+  getReport(): Promise<MarktplaatsDealsReport | null>
+  putReport(report: MarktplaatsDealsReport): Promise<void>
+}
+
 export type DashboardRuntime = {
-  fetchCardmarketPage?: (url: string) => Promise<string>
+  fetchCardmarketPage?: FetchCardmarketPage
+  scanBrowserError?: string
   cardmarketStore?: CardmarketStore
+  marktplaatsDealsStore?: MarktplaatsDealsStore
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -48,13 +57,18 @@ const API_PATHS = new Set([
   '/dashboard/ledger',
   '/dashboard/cardmarket/report',
   '/dashboard/cardmarket/scan',
+  '/dashboard/marktplaats-deals/report',
+  '/dashboard/marktplaats-deals/scan',
   '/api/admin/session',
   '/api/admin/logout',
   '/api/admin/ledger',
   '/api/admin/cardmarket/report',
-  '/api/admin/cardmarket/scan'
+  '/api/admin/cardmarket/scan',
+  '/api/admin/marktplaats-deals/report',
+  '/api/admin/marktplaats-deals/scan'
 ])
 const CARDMARKET_REPORT_KEY = 'report'
+const MARKTPLAATS_DEALS_REPORT_KEY = 'marktplaats-deals'
 
 export function memoryCardmarketStore(): CardmarketStore {
   let report: CardmarketReport | null = null
@@ -76,6 +90,30 @@ export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
     },
     async putReport(report) {
       await kv.put(CARDMARKET_REPORT_KEY, JSON.stringify(report))
+    }
+  }
+}
+
+export function memoryMarktplaatsDealsStore(): MarktplaatsDealsStore {
+  let report: MarktplaatsDealsReport | null = null
+  return {
+    async getReport() {
+      return report
+    },
+    async putReport(next) {
+      report = next
+    }
+  }
+}
+
+export function kvMarktplaatsDealsStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): MarktplaatsDealsStore {
+  return {
+    async getReport() {
+      const raw = await kv.get(MARKTPLAATS_DEALS_REPORT_KEY)
+      return raw ? (JSON.parse(raw) as MarktplaatsDealsReport) : null
+    },
+    async putReport(report) {
+      await kv.put(MARKTPLAATS_DEALS_REPORT_KEY, JSON.stringify(report))
     }
   }
 }
@@ -234,6 +272,7 @@ async function ledger(request: Request, env: DashboardEnv, runtime?: DashboardRu
 }
 
 let fallbackStore: CardmarketStore | undefined
+let fallbackDealsStore: MarktplaatsDealsStore | undefined
 
 function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): CardmarketStore {
   if (runtime?.cardmarketStore) {
@@ -244,6 +283,17 @@ function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): Cardmarket
   }
   fallbackStore ??= memoryCardmarketStore()
   return fallbackStore
+}
+
+function resolveDealsStore(env: DashboardEnv, runtime?: DashboardRuntime): MarktplaatsDealsStore {
+  if (runtime?.marktplaatsDealsStore) {
+    return runtime.marktplaatsDealsStore
+  }
+  if (env.CARDMARKET) {
+    return kvMarktplaatsDealsStore(env.CARDMARKET)
+  }
+  fallbackDealsStore ??= memoryMarktplaatsDealsStore()
+  return fallbackDealsStore
 }
 
 async function cardmarketReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
@@ -264,19 +314,53 @@ async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: Das
   }
 
   if (!runtime?.fetchCardmarketPage) {
-    return json({ error: 'Cardmarket scan is only available locally.' }, 404)
+    return json({ error: runtime?.scanBrowserError ?? 'Cardmarket scan is only available locally.' }, 404)
   }
 
   const store = resolveStore(env, runtime)
   const fetchPage = runtime.fetchCardmarketPage
   const previous = await store.getReport()
-  const report = await runCardmarketScan({
-    products: await inventoryFor(env, runtime),
-    previous,
-    fetchPage
-  })
-  await store.putReport(report)
+  try {
+    const report = await runCardmarketScan({
+      products: await inventoryFor(env, runtime),
+      previous,
+      fetchPage
+    })
+    await store.putReport(report)
+    return json({ report })
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Cardmarket scan failed.' }, 500)
+  }
+}
+
+async function marktplaatsDealsReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+
+  const report = await resolveDealsStore(env, runtime).getReport()
   return json({ report })
+}
+
+async function marktplaatsDealsScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+
+  if (!runtime?.fetchCardmarketPage) {
+    return json({ error: runtime?.scanBrowserError ?? 'Marktplaats deals scan is only available locally.' }, 404)
+  }
+
+  const store = resolveDealsStore(env, runtime)
+  try {
+    const report = await runMarktplaatsDealsScan({ fetchPage: runtime.fetchCardmarketPage })
+    await store.putReport(report)
+    return json({ report })
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Marktplaats deals scan failed.' }, 500)
+  }
 }
 
 function routeKey(path: string): string {
@@ -313,6 +397,14 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
 
   if (key === '/dashboard/cardmarket/scan' && request.method === 'POST') {
     return cardmarketScan(request, env, runtime)
+  }
+
+  if (key === '/dashboard/marktplaats-deals/report' && request.method === 'GET') {
+    return marktplaatsDealsReport(request, env, runtime)
+  }
+
+  if (key === '/dashboard/marktplaats-deals/scan' && request.method === 'POST') {
+    return marktplaatsDealsScan(request, env, runtime)
   }
 
   return json({ error: 'Method not allowed' }, 405)

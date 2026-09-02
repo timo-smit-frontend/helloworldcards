@@ -1,7 +1,7 @@
-import type { CardLanguage, InventoryProduct } from '../../database/products'
+import type { CardGrader, CardLanguage, InventoryProduct } from '../../database/products'
 import { toMediaSrc } from '../imageCopy'
 import { parseListedPrice } from '../price'
-import { suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
+import { marketFloorPrice, suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
 import { parseArticleListings } from './html'
 
 export type CardmarketProductReport = {
@@ -21,17 +21,33 @@ export type CardmarketReport = {
   products: CardmarketProductReport[]
 }
 
+/** Optional Cardmarket "Load more" behaviour for high-liquidity offer tables. */
+export type FetchCardmarketPageOptions = {
+  maxLoadMore?: number
+  stopWhen?: (html: string) => boolean
+}
+
+export type FetchCardmarketPage = (url: string, options?: FetchCardmarketPageOptions) => Promise<string>
+
+const DEFAULT_OFFERS_LOAD_MORE = 10
+
+/** True when the offers HTML already contains a same-grade PSA/BGS floor. */
+export function htmlHasMarketFloor(html: string, grader: CardGrader, grade: number): boolean {
+  return marketFloorPrice({ grader, grade, listings: parseArticleListings(html) }) != null
+}
+
 const CHALLENGE =
   /even geduld|just a moment|attention required|sorry, you have been blocked|beveiliging wordt geverifieerd|cf-browser-verification|cf-error-details|checking your browser/i
 
 export function cardmarketOffersUrl(
   url: string,
   language: CardLanguage,
-  extras?: { reverseHolo?: boolean; firstEdition?: boolean }
+  extras?: { reverseHolo?: boolean; firstEdition?: boolean; grade?: number | null }
 ): string {
   const parsed = new URL(url)
   parsed.searchParams.set('language', language === 'japanese' ? '7' : '1')
-  parsed.searchParams.set('minCondition', '2')
+  // Mint (1) for PSA 10 — fewer raw Near Mint rows to scroll. Near Mint (2) otherwise.
+  parsed.searchParams.set('minCondition', extras?.grade === 10 ? '1' : '2')
   if (extras?.reverseHolo) {
     parsed.searchParams.set('extra[isReverseHolo]', 'Y')
   }
@@ -65,7 +81,7 @@ export async function runCardmarketScan({
 }: {
   products: InventoryProduct[]
   previous: CardmarketReport | null
-  fetchPage: (url: string) => Promise<string>
+  fetchPage: FetchCardmarketPage
   now?: Date
 }): Promise<CardmarketReport> {
   const watched = watchableInventory(products)
@@ -76,7 +92,8 @@ export async function runCardmarketScan({
     const listed = parseListedPrice(product.price)!
     const url = cardmarketOffersUrl(product.cardmarketUrl!, product.language!, {
       reverseHolo: product.reverseHolo,
-      firstEdition: product.firstEdition
+      firstEdition: product.firstEdition,
+      grade: product.grade
     })
     const base: Omit<CardmarketProductReport, 'listings' | 'suggestion' | 'gone' | 'error'> = {
       id: product.id,
@@ -87,7 +104,10 @@ export async function runCardmarketScan({
     }
 
     try {
-      const html = await fetchPage(url)
+      const html = await fetchPage(url, {
+        maxLoadMore: DEFAULT_OFFERS_LOAD_MORE,
+        stopWhen: (pageHtml) => htmlHasMarketFloor(pageHtml, product.grader!, product.grade!)
+      })
       if (isCardmarketChallenge(html)) {
         productsReport.push({
           ...base,

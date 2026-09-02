@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { handleDashboardRequest, memoryCardmarketStore } from '../worker/dashboard-api'
+import { handleDashboardRequest, memoryCardmarketStore, memoryMarktplaatsDealsStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
 
@@ -148,7 +148,8 @@ describe('dashboard API', () => {
 
     expect(scan?.status).toBe(200)
     expect(urls.length).toBeGreaterThan(0)
-    expect(urls.every((url) => url.includes('minCondition=2'))).toBe(true)
+    expect(urls.every((url) => /minCondition=[12]/.test(url))).toBe(true)
+    expect(urls.some((url) => url.includes('minCondition=1'))).toBe(true)
 
     const body = (await scan!.json()) as {
       report: { products: Array<{ title: string; image: string | null; suggestion: { direction: string; target: number } | null }> }
@@ -188,5 +189,54 @@ describe('dashboard API', () => {
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+
+  it('returns an empty Marktplaats deals report until a scan has run', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+    const store = memoryMarktplaatsDealsStore()
+    const runtime = seededRuntime({ marktplaatsDealsStore: store })
+
+    const response = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/marktplaats-deals/report', {
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      runtime
+    )
+
+    expect(response?.status).toBe(200)
+    await expect(response?.json()).resolves.toEqual({ report: null })
+  })
+
+  it('does not scan Marktplaats deals on the live worker without a local page fetcher', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+
+    const scan = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/marktplaats-deals/scan', {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      { marktplaatsDealsStore: memoryMarktplaatsDealsStore() }
+    )
+
+    expect(scan?.status).toBe(404)
+    await expect(scan?.json()).resolves.toEqual({ error: 'Marktplaats deals scan is only available locally.' })
   })
 })

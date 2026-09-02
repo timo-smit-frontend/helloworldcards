@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { parseSlabComment, suggestListedPrice, type MarketListing } from '~/services/cardmarket/grades'
+import { parseSlabComment, marketFloorPrice, suggestListedPrice, type MarketListing } from '~/services/cardmarket/grades'
 
 describe('parseSlabComment', () => {
   it('reads a slab that is the whole comment', () => {
     expect(parseSlabComment('PSA 9')).toEqual({ grader: 'psa', grade: 9 })
     expect(parseSlabComment('PSA 10')).toEqual({ grader: 'psa', grade: 10 })
+    expect(parseSlabComment('Psa9')).toEqual({ grader: 'psa', grade: 9 })
+    expect(parseSlabComment('PSA9')).toEqual({ grader: 'psa', grade: 9 })
     expect(parseSlabComment('BGS 9.5')).toEqual({ grader: 'beckett', grade: 9.5 })
     expect(parseSlabComment('Beckett 9.5 Gem Mint')).toEqual({ grader: 'beckett', grade: 9.5 })
   })
@@ -33,6 +35,23 @@ function listing(overrides: Partial<MarketListing> & Pick<MarketListing, 'id' | 
     ...overrides
   }
 }
+
+describe('marketFloorPrice', () => {
+  it('returns the cheapest same-grade cluster', () => {
+    const market = marketFloorPrice({
+      grader: 'psa',
+      grade: 9,
+      listings: [
+        listing({ id: 'a', grader: 'psa', grade: 9, price: 70 }),
+        listing({ id: 'b', grader: 'psa', grade: 9, price: 110 }),
+        listing({ id: 'c', grader: 'psa', grade: 10, price: 40 })
+      ]
+    })
+
+    expect(market).toMatchObject({ floor: 70 })
+    expect(market?.basis.every((item) => item.grade === 9 || item.price >= 59.5)).toBe(true)
+  })
+})
 
 describe('suggestListedPrice', () => {
   it('suggests up to the cheapest same-grade listing', () => {

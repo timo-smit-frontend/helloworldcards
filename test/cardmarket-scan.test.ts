@@ -17,12 +17,14 @@ describe('parseArticleListings', () => {
       ROW('1', 'DinoHut', 'PSA 9', '34,95 €'),
       ROW('2', 'CatDoesThings', 'PSA 10', '100,00 €'),
       ROW('3', 'RawSeller', 'No PSA 10 contender', '12,00 €'),
-      ROW('4', 'AceShop', 'ACE 10', '49,99 €')
+      ROW('4', 'AceShop', 'ACE 10', '49,99 €'),
+      ROW('5', 'Randyheinderson', 'Psa9', '150,00 €')
     ].join('')
 
     expect(parseArticleListings(html)).toEqual([
       { id: '1', seller: 'DinoHut', comment: 'PSA 9', grader: 'psa', grade: 9, price: 34.95 },
-      { id: '2', seller: 'CatDoesThings', comment: 'PSA 10', grader: 'psa', grade: 10, price: 100 }
+      { id: '2', seller: 'CatDoesThings', comment: 'PSA 10', grader: 'psa', grade: 10, price: 100 },
+      { id: '5', seller: 'Randyheinderson', comment: 'PSA 9', grader: 'psa', grade: 9, price: 150 }
     ])
   })
 })
@@ -31,6 +33,26 @@ describe('cardmarketOffersUrl', () => {
   it('sets Japanese Near Mint on a Japanese card', () => {
     expect(cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197', 'japanese')).toBe(
       'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197?language=7&minCondition=2'
+    )
+  })
+
+  it('uses Mint min condition for PSA 10 to keep the offers list short', () => {
+    expect(
+      cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Umbreon-VMAX-V1', 'english', {
+        grade: 10
+      })
+    ).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Umbreon-VMAX-V1?language=1&minCondition=1'
+    )
+  })
+
+  it('keeps Near Mint for PSA 9', () => {
+    expect(
+      cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Hidden-Fates/Charizard-GX-V1-SM211', 'english', {
+        grade: 9
+      })
+    ).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Hidden-Fates/Charizard-GX-V1-SM211?language=1&minCondition=2'
     )
   })
 

@@ -8,7 +8,7 @@ import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/med
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
-import { closePlaywrightCardmarketFetcher, fileCardmarketStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
+import { closePlaywrightCardmarketFetcher, fileCardmarketStore, fileMarktplaatsDealsStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
 import { seedMediaWithVariants } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
@@ -117,6 +117,7 @@ function isCmsDevPath(pathname: string): boolean {
     pathname.startsWith('/dashboard/logout') ||
     pathname.startsWith('/dashboard/ledger') ||
     pathname.startsWith('/dashboard/cardmarket') ||
+    pathname.startsWith('/dashboard/marktplaats-deals') ||
     pathname === '/api/public' ||
     pathname.startsWith('/media/') ||
     pathname === '/sitemap.xml' ||
@@ -195,15 +196,23 @@ function cmsApiMiddleware(root: string) {
       const runtime: DashboardRuntime = {
         db: cms.db,
         media: cms.media,
-        cardmarketStore: fileCardmarketStore(root)
+        cardmarketStore: fileCardmarketStore(root),
+        marktplaatsDealsStore: fileMarktplaatsDealsStore(root)
       }
 
       let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
-      if ((url === '/dashboard/cardmarket/scan' || url === '/api/admin/cardmarket/scan') && req.method === 'POST') {
+      let scanBrowserError: string | undefined
+      const needsBrowser =
+        (url === '/dashboard/cardmarket/scan' || url === '/api/admin/cardmarket/scan' ||
+          url === '/dashboard/marktplaats-deals/scan' || url === '/api/admin/marktplaats-deals/scan') &&
+        req.method === 'POST'
+      if (needsBrowser) {
         try {
           browser = await getPlaywrightCardmarketFetcher(root)
-        } catch {
+        } catch (error) {
           browser = null
+          scanBrowserError = error instanceof Error ? error.message : 'Could not start Chrome for scanning.'
+          console.error('[dashboard-api]', scanBrowserError)
         }
       }
 
@@ -211,7 +220,8 @@ function cmsApiMiddleware(root: string) {
         const env = loadDashboardEnv(root)
         const withBrowser = {
           ...runtime,
-          ...(browser ? { fetchCardmarketPage: browser.fetchPage } : {})
+          ...(browser ? { fetchCardmarketPage: browser.fetchPage } : {}),
+          ...(scanBrowserError ? { scanBrowserError } : {})
         }
 
         const response =
