@@ -187,7 +187,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   )
 }
 
-function PriceSuggestions({
+export function PriceSuggestions({
   report,
   scanning,
   scanError,
@@ -317,7 +317,7 @@ function SearchLogRow({ item }: { item: MarktplaatsSearchLogEntry }) {
   )
 }
 
-function MarktplaatsDeals({
+export function MarktplaatsDeals({
   report,
   scanning,
   scanError,
@@ -397,29 +397,7 @@ function SoldRow({ item }: { item: LedgerItem }) {
   )
 }
 
-export default function DashboardChart({
-  ledger,
-  period,
-  report = null,
-  scanning = false,
-  scanError = null,
-  onScan,
-  dealsReport = null,
-  dealsScanning = false,
-  dealsScanError = null,
-  onScanDeals
-}: {
-  ledger: Ledger
-  period: LedgerPeriod
-  report?: CardmarketReport | null
-  scanning?: boolean
-  scanError?: string | null
-  onScan?: () => void
-  dealsReport?: MarktplaatsDealsReport | null
-  dealsScanning?: boolean
-  dealsScanError?: string | null
-  onScanDeals?: () => void
-}) {
+export default function DashboardChart({ ledger, period }: { ledger: Ledger; period: LedgerPeriod }) {
   const totals = useMemo(() => summarizeLedger(ledger.items, period), [ledger.items, period])
   const soldItems = useMemo(() => soldItemsForPeriod(ledger.items, period), [ledger.items, period])
 
@@ -483,14 +461,6 @@ export default function DashboardChart({
           tone={moneyTone(totals.potentialProfit)}
         />
       </dl>
-
-      {import.meta.env.DEV && onScan ? (
-        <PriceSuggestions report={report} scanning={scanning} scanError={scanError} onScan={onScan} />
-      ) : null}
-
-      {import.meta.env.DEV && onScanDeals ? (
-        <MarktplaatsDeals report={dealsReport} scanning={dealsScanning} scanError={dealsScanError} onScan={onScanDeals} />
-      ) : null}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Recently sold</h2>

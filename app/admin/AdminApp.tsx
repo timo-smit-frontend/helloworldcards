@@ -3,7 +3,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { ArrowDown, ArrowUp, Check, Plus, Trash2, X } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
-import DashboardChart, { PeriodToggle } from '~/components/dashboard/DashboardChart'
+import DashboardChart, { MarktplaatsDeals, PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
@@ -38,13 +38,15 @@ import { UnsavedChangesProvider, useRequestLeave, useUnsavedDraft } from './Unsa
 type Status = 'loading' | 'login' | 'ready' | 'error'
 
 const NAV = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/pages', label: 'Pages' },
-  { to: '/media', label: 'Media' },
-  { to: '/products', label: 'Products' },
-  { to: '/events', label: 'Events' },
-  { to: '/faqs', label: 'FAQs' },
-  { to: '/settings', label: 'Settings' }
+  { to: '/', label: 'Dashboard', dev: false },
+  { to: '/pages', label: 'Pages', dev: false },
+  { to: '/media', label: 'Media', dev: false },
+  { to: '/products', label: 'Products', dev: false },
+  { to: '/events', label: 'Events', dev: false },
+  { to: '/faqs', label: 'FAQs', dev: false },
+  { to: '/price-suggestions', label: 'Price suggestions', dev: true },
+  { to: '/price-check', label: 'Price check', dev: true },
+  { to: '/settings', label: 'Settings', dev: false }
 ] as const
 
 function fieldClass() {
@@ -615,7 +617,7 @@ function AdminNavLinks({ onNavigate, large }: { onNavigate?: () => void; large?:
   const location = useLocation()
   const prefix = adminPrefix()
 
-  return NAV.map((item) => {
+  return NAV.filter((item) => !item.dev || import.meta.env.DEV).map((item) => {
     const href = adminTo(item.to)
     const current = isAdminNavCurrent(location.pathname, prefix, item.to)
     return (
@@ -780,12 +782,6 @@ function Login({
 function DashboardScreen() {
   const [ledger, setLedger] = useState<Ledger | null>(null)
   const [period, setPeriod] = useState<LedgerPeriod>('all')
-  const [report, setReport] = useState<CardmarketReport | null>(null)
-  const [scanning, setScanning] = useState(false)
-  const [scanError, setScanError] = useState<string | null>(null)
-  const [dealsReport, setDealsReport] = useState<MarktplaatsDealsReport | null>(null)
-  const [dealsScanning, setDealsScanning] = useState(false)
-  const [dealsScanError, setDealsScanError] = useState<string | null>(null)
 
   useEffect(() => {
     void adminJson<Ledger>('/ledger').then((result) => {
@@ -793,18 +789,6 @@ function DashboardScreen() {
         setLedger(result.data)
       }
     })
-    if (import.meta.env.DEV) {
-      void adminJson<{ report: CardmarketReport | null }>('/cardmarket/report').then((result) => {
-        if (result.ok) {
-          setReport(result.data?.report ?? null)
-        }
-      })
-      void adminJson<{ report: MarktplaatsDealsReport | null }>('/marktplaats-deals/report').then((result) => {
-        if (result.ok) {
-          setDealsReport(result.data?.report ?? null)
-        }
-      })
-    }
   }, [])
 
   if (!ledger) {
@@ -824,48 +808,97 @@ function DashboardScreen() {
         </div>
         <PeriodToggle period={period} onChange={setPeriod} />
       </div>
-      {import.meta.env.DEV ? (
-        <DashboardChart
-          ledger={ledger}
-          period={period}
-          report={report}
-          scanning={scanning}
-          scanError={scanError}
-          onScan={() => {
-            setScanning(true)
-            setScanError(null)
-            void adminJson<{ report: CardmarketReport; error?: string }>('/cardmarket/scan', { method: 'POST' }).then((result) => {
-              setScanning(false)
+      <DashboardChart ledger={ledger} period={period} />
+    </div>
+  )
+}
+
+function PriceSuggestionsScreen() {
+  const [report, setReport] = useState<CardmarketReport | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+    void adminJson<{ report: CardmarketReport | null }>('/cardmarket/report').then((result) => {
+      if (result.ok) {
+        setReport(result.data?.report ?? null)
+      }
+    })
+  }, [])
+
+  if (!import.meta.env.DEV) {
+    return <Navigate to={adminTo('/')} replace />
+  }
+
+  return (
+    <div className="admin-page">
+      <PriceSuggestions
+        report={report}
+        scanning={scanning}
+        scanError={scanError}
+        onScan={() => {
+          setScanning(true)
+          setScanError(null)
+          void adminJson<{ report: CardmarketReport; error?: string }>('/cardmarket/scan', { method: 'POST' }).then((result) => {
+            setScanning(false)
+            const body = result.data
+            if (!result.ok || !body?.report) {
+              setScanError(body?.error ?? 'The Cardmarket scan could not be started. Try again.')
+              return
+            }
+            setReport(body.report)
+          })
+        }}
+      />
+    </div>
+  )
+}
+
+function PriceCheckScreen() {
+  const [dealsReport, setDealsReport] = useState<MarktplaatsDealsReport | null>(null)
+  const [dealsScanning, setDealsScanning] = useState(false)
+  const [dealsScanError, setDealsScanError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+    void adminJson<{ report: MarktplaatsDealsReport | null }>('/marktplaats-deals/report').then((result) => {
+      if (result.ok) {
+        setDealsReport(result.data?.report ?? null)
+      }
+    })
+  }, [])
+
+  if (!import.meta.env.DEV) {
+    return <Navigate to={adminTo('/')} replace />
+  }
+
+  return (
+    <div className="admin-page">
+      <MarktplaatsDeals
+        report={dealsReport}
+        scanning={dealsScanning}
+        scanError={dealsScanError}
+        onScan={() => {
+          setDealsScanning(true)
+          setDealsScanError(null)
+          void adminJson<{ report: MarktplaatsDealsReport; error?: string }>('/marktplaats-deals/scan', { method: 'POST' }).then(
+            (result) => {
+              setDealsScanning(false)
               const body = result.data
               if (!result.ok || !body?.report) {
-                setScanError(body?.error ?? 'The Cardmarket scan could not be started. Try again.')
+                setDealsScanError(body?.error ?? 'The Marktplaats deals scan could not be started. Try again.')
                 return
               }
-              setReport(body.report)
-            })
-          }}
-          dealsReport={dealsReport}
-          dealsScanning={dealsScanning}
-          dealsScanError={dealsScanError}
-          onScanDeals={() => {
-            setDealsScanning(true)
-            setDealsScanError(null)
-            void adminJson<{ report: MarktplaatsDealsReport; error?: string }>('/marktplaats-deals/scan', { method: 'POST' }).then(
-              (result) => {
-                setDealsScanning(false)
-                const body = result.data
-                if (!result.ok || !body?.report) {
-                  setDealsScanError(body?.error ?? 'The Marktplaats deals scan could not be started. Try again.')
-                  return
-                }
-                setDealsReport(body.report)
-              }
-            )
-          }}
-        />
-      ) : (
-        <DashboardChart ledger={ledger} period={period} />
-      )}
+              setDealsReport(body.report)
+            }
+          )
+        }}
+      />
     </div>
   )
 }
@@ -2636,6 +2669,10 @@ export default function AdminApp() {
       <Route path="faqs/trash/" element={<FaqsTrashScreen />} />
       <Route path="faqs/:id" element={<FaqEditor />} />
       <Route path="faqs/:id/" element={<FaqEditor />} />
+      <Route path="price-suggestions" element={<PriceSuggestionsScreen />} />
+      <Route path="price-suggestions/" element={<PriceSuggestionsScreen />} />
+      <Route path="price-check" element={<PriceCheckScreen />} />
+      <Route path="price-check/" element={<PriceCheckScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="settings/" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to={adminTo('/')} replace />} />
