@@ -355,7 +355,10 @@ async function marktplaatsDealsScan(request: Request, env: DashboardEnv, runtime
 
   const store = resolveDealsStore(env, runtime)
   try {
-    const report = await runMarktplaatsDealsScan({ fetchPage: runtime.fetchCardmarketPage })
+    const report = await runMarktplaatsDealsScan({
+      fetchPage: runtime.fetchCardmarketPage,
+      ownListings: await inventoryFor(env, runtime)
+    })
     await store.putReport(report)
     return json({ report })
   } catch (error) {

@@ -109,6 +109,11 @@ export async function ensureCmsSchema(
   } catch {
     await db.exec?.(fs.readFileSync(path.join(dir, '0004_trash.sql'), 'utf8'))
   }
+  try {
+    await db.prepare('SELECT vinted_url FROM products LIMIT 1').first()
+  } catch {
+    await db.exec?.(fs.readFileSync(path.join(dir, '0005_vinted_url.sql'), 'utf8'))
+  }
 }
 
 export function createMemoryD1(): MemoryD1 {

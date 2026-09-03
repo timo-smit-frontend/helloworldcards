@@ -13,6 +13,30 @@ export type CardmarketLinkHint = {
   language: 'english' | 'japanese'
   cardNumber: string | null
   setCode?: string | null
+  /** Pokémon name parsed from the listing title, e.g. "Ekans" — scores down links for a
+   *  different Pokémon so a matching card number in an unrelated set can't outrank it. */
+  pokemonName?: string | null
+}
+
+function normalizeForSlugMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** True when every significant word of `name` appears in the product slug, e.g. "Ekans" in "Ekans-TR56". */
+function slugMatchesPokemonName(productSlug: string, name: string): boolean {
+  const words = normalizeForSlugMatch(name)
+    .split('-')
+    .filter((word) => word.length > 2)
+  if (words.length === 0) {
+    return false
+  }
+  const normalizedSlug = normalizeForSlugMatch(productSlug)
+  return words.every((word) => normalizedSlug.includes(word))
 }
 
 export function cleanCardmarketUrl(url: string): string {
@@ -41,6 +65,11 @@ function scoreCardmarketLink(setSlug: string, productSlug: string, hint?: Cardma
 
   if (/black-star-promos/i.test(setSlug)) {
     score += 8
+  }
+
+  if (hint?.pokemonName) {
+    // A matching card number in the wrong Pokémon's set must never outrank the right card.
+    score += slugMatchesPokemonName(productSlug, hint.pokemonName) ? 30 : -40
   }
 
   if (hint?.cardNumber) {

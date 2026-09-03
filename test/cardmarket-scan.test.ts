@@ -73,6 +73,24 @@ describe('cardmarketOffersUrl', () => {
       })
     ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56?language=1&minCondition=2&extra%5BisFirstEd%5D=Y')
   })
+
+  it('sets First Edition No for an unlimited card from a set that also had 1st edition prints', () => {
+    // Regression: Kingdra NG8 (Neo Genesis) is unlimited, but leaving the filter unset let
+    // Cardmarket's floor include far pricier 1st Edition comps, inflating the "deal" edge.
+    expect(
+      cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8', 'english', {
+        firstEdition: false
+      })
+    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8?language=1&minCondition=2&extra%5BisFirstEd%5D=N')
+  })
+
+  it('omits the First Edition filter for a set that never had 1st edition prints', () => {
+    expect(
+      cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51', 'english', {
+        firstEdition: false
+      })
+    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51?language=1&minCondition=2')
+  })
 })
 
 const pokeKid: InventoryProduct = {

@@ -79,6 +79,7 @@ function parseProduct(body: Record<string, unknown>, id: number): ProductRecord 
     ...(grader && (CARD_GRADERS as readonly string[]).includes(grader) ? { grader: grader as ProductRecord['grader'] } : {}),
     ...(asNumber(body.year) != null ? { year: asNumber(body.year) } : {}),
     ...(asString(body.marktplaatsUrl) ? { marktplaatsUrl: asString(body.marktplaatsUrl) } : {}),
+    ...(asString(body.vintedUrl) ? { vintedUrl: asString(body.vintedUrl) } : {}),
     ...(cost != null ? { cost } : {}),
     ...(asBool(body.sold) ? { sold: true } : {}),
     ...(asBool(body.concept) ? { concept: true } : {}),

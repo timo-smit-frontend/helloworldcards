@@ -17,7 +17,8 @@ export default function BannerCarousel({
   description,
   images,
   pokemonId,
-  link
+  link,
+  secondaryLink
 }: {
   title?: string
   subtitle?: string
@@ -26,6 +27,7 @@ export default function BannerCarousel({
   images?: string[]
   pokemonId?: number
   link?: { url?: string; target?: string; title?: string }
+  secondaryLink?: { url?: string; target?: string; title?: string }
 }) {
   const { ref, isFirst } = useLocationFinder()
   const slides = images?.filter(Boolean) ?? []
@@ -68,21 +70,32 @@ export default function BannerCarousel({
                 )}
                 {link?.title && (
                   <Animated delay={400}>
-                    <div>
+                    <div className="flex flex-wrap gap-3 mt-auto">
                       {link.url ? (
                         <a
                           href={link.url}
                           target={link.target}
                           rel={link.target === '_blank' ? 'noreferrer noopener' : undefined}
-                          className="button-green mt-auto"
+                          className="button-green"
                         >
                           {link.title}
                           {link.target === '_blank' ? <span className="sr-only"> (opens in a new tab)</span> : null}
                         </a>
                       ) : (
-                        <button type="button" disabled className="button-green mt-auto">
+                        <button type="button" disabled className="button-green">
                           {link.title}
                         </button>
+                      )}
+                      {secondaryLink?.url && (
+                        <a
+                          href={secondaryLink.url}
+                          target={secondaryLink.target}
+                          rel={secondaryLink.target === '_blank' ? 'noreferrer noopener' : undefined}
+                          className="button-green"
+                        >
+                          {secondaryLink.title}
+                          {secondaryLink.target === '_blank' ? <span className="sr-only"> (opens in a new tab)</span> : null}
+                        </a>
                       )}
                     </div>
                   </Animated>

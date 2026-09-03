@@ -43,6 +43,7 @@ describe('parsePsaLabelOcr', () => {
       cardNumber: '51',
       reverseHolo: true,
       japanese: false,
+      firstEdition: false,
       unsupportedLanguage: false
     })
   })
@@ -95,6 +96,27 @@ CHANSEY
     expect(parsePsaLabelOcr('unreadable slab photo')).toBeNull()
   })
 
+  it('flags a 1st Edition row so it is never priced against unlimited comps', () => {
+    expect(
+      parsePsaLabelOcr(`
+1999 POKEMON GAME
+1ST EDITION HOLO
+CHARIZARD-HOLO 9
+`)
+    ).toMatchObject({ firstEdition: true })
+    expect(
+      parsePsaLabelOcr(`
+2000 POKEMON TEAM ROCKET #56
+EKANS MINT
+1ST EDITION 9
+`)
+    ).toMatchObject({ firstEdition: true })
+  })
+
+  it('leaves firstEdition false for ordinary unlimited-print labels', () => {
+    expect(parsePsaLabelOcr(mewtwoOcr)).toMatchObject({ firstEdition: false })
+  })
+
   it('flags German and other non EN/JP PSA labels', () => {
     expect(
       parsePsaLabelOcr(`
@@ -123,6 +145,7 @@ describe('buildGoogleCardmarketQuery', () => {
         cardNumber: '51',
         reverseHolo: true,
         japanese: false,
+        firstEdition: false,
         unsupportedLanguage: false
       })
     ).toBe('2016 POKEMON XY MEWTWO-REV.FOIL EVOLUTIONS #51 cardmarket')
@@ -147,6 +170,7 @@ VAPOREON VMAX PREM.COLL
         cardNumber: '182',
         reverseHolo: false,
         japanese: false,
+        firstEdition: false,
         unsupportedLanguage: false
       })
     ).toBe('2021 POKEMON SWSH BSP VAPOREON VMAX VAPOREON VMAX #182 cardmarket')

@@ -32,6 +32,7 @@ function syncRemoteWithWrangler(): void {
     'grader',
     'year',
     'marktplaats_url',
+    'vinted_url',
     'slug',
     'cost',
     'sold',

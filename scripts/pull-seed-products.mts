@@ -72,6 +72,7 @@ function asProductRows(rows: Array<Record<string, unknown>>): ProductRecord[] {
       grader: row.grader == null ? null : String(row.grader),
       year: row.year == null ? null : Number(row.year),
       marktplaats_url: row.marktplaats_url == null ? null : String(row.marktplaats_url),
+      vinted_url: row.vinted_url == null ? null : String(row.vinted_url),
       slug: String(row.slug),
       cost: row.cost == null ? null : Number(row.cost),
       sold: Number(row.sold ?? 0),

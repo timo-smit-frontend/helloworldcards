@@ -66,6 +66,7 @@ type ProductRow = {
   grader: string | null
   year: number | null
   marktplaats_url: string | null
+  vinted_url: string | null
   slug: string
   cost: number | null
   sold: number
@@ -106,6 +107,7 @@ export function rowToRecord(row: ProductRow): ProductRecord {
     ...(row.grader ? { grader: row.grader as ProductRecord['grader'] } : {}),
     ...(row.year != null ? { year: row.year } : {}),
     ...(row.marktplaats_url ? { marktplaatsUrl: row.marktplaats_url } : {}),
+    ...(row.vinted_url ? { vintedUrl: row.vinted_url } : {}),
     ...(row.cost != null ? { cost: row.cost } : {}),
     ...(asBool(row.sold) ? { sold: true } : {}),
     ...(asBool(row.concept) ? { concept: true } : {}),
@@ -227,6 +229,7 @@ export function productWriteValues(product: ProductRecord & { slug: string }) {
     product.grader ?? null,
     product.year ?? null,
     product.marktplaatsUrl ?? null,
+    product.vintedUrl ?? null,
     product.slug,
     product.cost ?? null,
     product.sold ? 1 : 0,
@@ -240,11 +243,11 @@ export function productWriteValues(product: ProductRecord & { slug: string }) {
   ]
 }
 
-const PRODUCT_COLUMNS = `title, subtitle, description, images, pokemon_id, price, language, grader, year, marktplaats_url, slug, cost, sold, concept, sold_at, acquired_at, grade, cardmarket_url, reverse_holo, first_edition`
+const PRODUCT_COLUMNS = `title, subtitle, description, images, pokemon_id, price, language, grader, year, marktplaats_url, vinted_url, slug, cost, sold, concept, sold_at, acquired_at, grade, cardmarket_url, reverse_holo, first_edition`
 
 export async function insertProduct(db: CmsDb, product: ProductRecord & { slug: string }): Promise<number> {
   const result = await db
-    .prepare(`INSERT INTO products (${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .prepare(`INSERT INTO products (${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(...productWriteValues(product))
     .run()
   return result.meta.last_row_id
@@ -253,7 +256,7 @@ export async function insertProduct(db: CmsDb, product: ProductRecord & { slug: 
 export async function updateProduct(db: CmsDb, id: number, product: ProductRecord & { slug: string }): Promise<void> {
   await db
     .prepare(
-      `UPDATE products SET title = ?, subtitle = ?, description = ?, images = ?, pokemon_id = ?, price = ?, language = ?, grader = ?, year = ?, marktplaats_url = ?, slug = ?, cost = ?, sold = ?, concept = ?, sold_at = ?, acquired_at = ?, grade = ?, cardmarket_url = ?, reverse_holo = ?, first_edition = ? WHERE id = ?`
+      `UPDATE products SET title = ?, subtitle = ?, description = ?, images = ?, pokemon_id = ?, price = ?, language = ?, grader = ?, year = ?, marktplaats_url = ?, vinted_url = ?, slug = ?, cost = ?, sold = ?, concept = ?, sold_at = ?, acquired_at = ?, grade = ?, cardmarket_url = ?, reverse_holo = ?, first_edition = ? WHERE id = ?`
     )
     .bind(...productWriteValues(product), id)
     .run()

@@ -22,6 +22,13 @@ const UNSUPPORTED_CARD_LANGUAGE =
 
 const JAPANESE_LANGUAGE = /\b(?:JP|JPN|Japanese|Japonais|Japonés|Japones|Japanse|Giapponese)\b/i
 
+/** Seller-written "1st edition" in a Marktplaats/Vinted title — WOTC-era listings only. */
+const FIRST_EDITION_TITLE = /\b1st\s*ed(?:ition)?\.?\b|\bfirst\s+edition\b|\b1e\s*editie\b|\beerste\s+editie\b/i
+
+export function isFirstEditionListing(title: string): boolean {
+  return FIRST_EDITION_TITLE.test(title)
+}
+
 const GRADE_RE = /\bPSA\s+(9|10)\b/i
 const CARD_FRACTION_RE = /\b(\d{1,3}\/\d{1,3})\b/
 const CARD_CODE_RE = /\b([A-Z]{2,4}\d{1,4})\b/

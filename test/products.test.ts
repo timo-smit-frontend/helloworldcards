@@ -60,22 +60,14 @@ describe('product inventory', () => {
     }
   })
 
-  it('marks Poke Kid as concept inventory without listing URLs', async () => {
-    const { inventory, products } = await seededShop()
-    const liveIds = [1, 2, 3, 4, 5, 6, 7, 8]
-    const conceptIds = [9]
+  it('has no concept inventory left without listing URLs', async () => {
+    const { inventory } = await seededShop()
+    const liveIds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
       expect(item?.concept).toBeUndefined()
       expect(item?.marktplaatsUrl).toMatch(/^https:\/\/www\.marktplaats\.nl\//)
-    }
-
-    for (const id of conceptIds) {
-      const item = inventory.find((product) => product.id === id)
-      expect(item?.concept).toBe(true)
-      expect(item?.marktplaatsUrl).toBeUndefined()
-      expect(products.some((product) => product.id === id)).toBe(true)
     }
 
     expect(inventory.every((item) => !(item.concept && item.marktplaatsUrl))).toBe(true)
@@ -202,8 +194,8 @@ describe('product inventory', () => {
 
     expect(product?.title).toBe('Poke Kid')
     expect(product?.price).toBe('€95')
-    expect(product?.marktplaatsUrl).toBeUndefined()
-    expect(record?.concept).toBe(true)
+    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
+    expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)
     expect(record?.cost).toBe(61)
   })
@@ -214,15 +206,35 @@ describe('product inventory', () => {
     expect(productBuyLink(product!)).toEqual({
       url: 'https://www.marktplaats.nl/seller/view/m2436737465',
       title: 'View on Marktplaats',
-      target: '_blank'
+      target: '_blank',
+      secondary: { url: 'https://www.vinted.nl/items/9878696344', title: 'View on Vinted', target: '_blank' }
     })
   })
 
-  it('uses a disabled concept CTA when there is no listing URL', async () => {
-    const { products } = await seededShop()
-    const product = products.find((item) => item.slug === 'poke-kid-2020-shiny-star-v-japanese-197')
-    expect(product?.marktplaatsUrl).toBeUndefined()
-    expect(productBuyLink(product!)).toEqual({ title: 'Not yet available to buy' })
+  it('uses a disabled concept CTA when there is no listing URL', () => {
+    expect(productBuyLink({})).toEqual({ title: 'Not yet available to buy' })
+  })
+
+  it('adds Vinted as a secondary link alongside the Marktplaats CTA', () => {
+    expect(
+      productBuyLink({
+        marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
+        vintedUrl: 'https://www.vinted.nl/items/1234567'
+      })
+    ).toEqual({
+      url: 'https://www.marktplaats.nl/seller/view/m2436737465',
+      title: 'View on Marktplaats',
+      target: '_blank',
+      secondary: { url: 'https://www.vinted.nl/items/1234567', title: 'View on Vinted', target: '_blank' }
+    })
+  })
+
+  it('uses Vinted as the primary CTA when there is no Marktplaats listing', () => {
+    expect(productBuyLink({ vintedUrl: 'https://www.vinted.nl/items/1234567' })).toEqual({
+      url: 'https://www.vinted.nl/items/1234567',
+      title: 'View on Vinted',
+      target: '_blank'
+    })
   })
 
   it('strips private fields when converting inventory to a public product', async () => {

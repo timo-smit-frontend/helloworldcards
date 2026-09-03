@@ -1638,6 +1638,14 @@ function ProductEditor() {
                 onChange={(event) => set('marktplaatsUrl', event.target.value || undefined)}
               />
             </AdminField>
+            <AdminField label="Vinted URL">
+              <input
+                className={fieldClass()}
+                type="url"
+                value={product.vintedUrl ?? ''}
+                onChange={(event) => set('vintedUrl', event.target.value || undefined)}
+              />
+            </AdminField>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import {
   buildTitleFallbackQuery,
   filterMarktplaatsCandidates,
   formatDealDisplayTitle,
+  isFirstEditionListing,
   parseCardmarketProductName,
   parseCardmarketProductSlug,
   parseMarktplaatsTitle,
@@ -22,6 +23,18 @@ function listing(
     ...overrides
   }
 }
+
+describe('isFirstEditionListing', () => {
+  it('recognizes 1st edition wording in a seller title', () => {
+    expect(isFirstEditionListing('Ekans Team Rocket 1st Edition PSA 9')).toBe(true)
+    expect(isFirstEditionListing('Charizard Base Set First Edition PSA 9')).toBe(true)
+    expect(isFirstEditionListing('Charizard Base Set 1e editie PSA 9')).toBe(true)
+  })
+
+  it('leaves ordinary unlimited-print titles unflagged', () => {
+    expect(isFirstEditionListing('Charizard GX SM211 PSA 9 MINT Pokémon Kaart')).toBe(false)
+  })
+})
 
 describe('parseMarktplaatsTitle', () => {
   it('extracts pokemon name, card number, set name, and grade', () => {

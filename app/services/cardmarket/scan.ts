@@ -39,6 +39,28 @@ export function htmlHasMarketFloor(html: string, grader: CardGrader, grade: numb
 const CHALLENGE =
   /even geduld|just a moment|attention required|sorry, you have been blocked|beveiliging wordt geverifieerd|cf-browser-verification|cf-error-details|checking your browser/i
 
+/** WOTC-era sets Cardmarket sold with a genuine "1st Edition" print run — the e-Card era
+ *  (Expedition onward) and everything since never had one, so the filter doesn't apply there. */
+const FIRST_EDITION_SET_SLUGS = new Set([
+  'Base-Set',
+  'Jungle',
+  'Fossil',
+  'Team-Rocket',
+  'Gym-Heroes',
+  'Gym-Challenge',
+  'Neo-Genesis',
+  'Neo-Discovery',
+  'Neo-Revelation',
+  'Neo-Destiny'
+])
+
+/** True when the Cardmarket product URL's set is one that actually shipped 1st Edition slabs
+ *  — only then does explicitly filtering isFirstEd=Y/N mean anything instead of returning zero rows. */
+function setHasFirstEditionPrint(url: string): boolean {
+  const slug = url.match(/\/Products\/Singles\/([^/]+)\//i)?.[1]
+  return slug != null && FIRST_EDITION_SET_SLUGS.has(slug)
+}
+
 export function cardmarketOffersUrl(
   url: string,
   language: CardLanguage,
@@ -51,8 +73,11 @@ export function cardmarketOffersUrl(
   if (extras?.reverseHolo) {
     parsed.searchParams.set('extra[isReverseHolo]', 'Y')
   }
-  if (extras?.firstEdition) {
-    parsed.searchParams.set('extra[isFirstEd]', 'Y')
+  // Explicitly filter Y or N — leaving it unset (the old behaviour) let Cardmarket return
+  // both 1st Edition and unlimited listings together, so an unlimited card's floor could be
+  // dragged way up by pricier 1st Edition comps mixed into the same offers list.
+  if (setHasFirstEditionPrint(url)) {
+    parsed.searchParams.set('extra[isFirstEd]', extras?.firstEdition ? 'Y' : 'N')
   }
   return parsed.href
 }

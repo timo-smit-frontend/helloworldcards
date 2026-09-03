@@ -7,6 +7,8 @@ export type PsaLabelData = {
   cardNumber: string | null
   reverseHolo: boolean
   japanese: boolean
+  /** WOTC-era slabs print a "1ST EDITION" row — must not be priced against unlimited comps. */
+  firstEdition: boolean
   /** True when the PSA label names a language other than English/Japanese. */
   unsupportedLanguage: boolean
 }
@@ -16,6 +18,9 @@ const CARD_NUMBER = /#\s*([A-Z0-9]*\d[A-Z0-9]*(?:\/[A-Z0-9]{1,4})?)\b/i
 
 /** English labels say POKEMON; Japanese slabs often print P.M. / PM. */
 const POKEMON_MARKER = /\b(?:POKEMON|P\.?\s*M\.?)\b/i
+
+/** WOTC-era PSA labels print this as its own row, e.g. "1ST EDITION". */
+const FIRST_EDITION = /\b1ST\s*ED(?:ITION)?\.?\b|\bFIRST\s+EDITION\b/i
 
 /** PSA prints these when the card is not EN/JP. */
 const UNSUPPORTED_LABEL_LANGUAGE = /\b(?:GERMAN|FRENCH|ITALIAN|SPANISH|DUTCH|KOREAN|CHINESE|PORTUGUESE|RUSSIAN|POLISH|SWEDISH)\b/i
@@ -143,6 +148,7 @@ export function parsePsaLabelOcr(ocrText: string): PsaLabelData | null {
     cardNumber,
     reverseHolo: /REV\.?\s*FOIL|REVERSE|REV\s*HOL/i.test(blob) || /REV\.?\s*FOIL|REVERSE|REV\s*HOL/i.test(ocrText),
     japanese: /\bJAPANESE\b|\bJPN\b|\bJP\b/i.test(blob) || /\bJAPANESE\b|\bJPN\b|\bJP\b/i.test(ocrText),
+    firstEdition: FIRST_EDITION.test(blob) || FIRST_EDITION.test(ocrText),
     unsupportedLanguage: UNSUPPORTED_LABEL_LANGUAGE.test(ocrText) || UNSUPPORTED_LABEL_LANG_CODE.test(ocrText)
   }
 }

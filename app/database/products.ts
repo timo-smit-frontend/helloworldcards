@@ -18,6 +18,7 @@ export type Product = {
   grader?: CardGrader
   year?: number
   marktplaatsUrl?: string
+  vintedUrl?: string
   slug: string
 }
 
@@ -46,11 +47,19 @@ export type ProductBuyLink = {
   title: string
   url?: string
   target?: '_blank'
+  /** Vinted only shows as a secondary link when Marktplaats is the primary CTA. */
+  secondary?: { url: string; title: string; target: '_blank' }
 }
 
-export function productBuyLink(product: Pick<Product, 'marktplaatsUrl'>): ProductBuyLink {
+export function productBuyLink(product: Pick<Product, 'marktplaatsUrl' | 'vintedUrl'>): ProductBuyLink {
+  const secondary = product.vintedUrl ? { url: product.vintedUrl, title: 'View on Vinted', target: '_blank' as const } : undefined
+
   if (product.marktplaatsUrl) {
-    return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' }
+    return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank', ...(secondary ? { secondary } : {}) }
+  }
+
+  if (product.vintedUrl) {
+    return { url: product.vintedUrl, title: 'View on Vinted', target: '_blank' }
   }
 
   return { title: 'Not yet available to buy' }
@@ -92,7 +101,8 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
     ...(product.language ? { language: product.language } : {}),
     ...(product.grader ? { grader: product.grader } : {}),
     ...(product.year != null ? { year: product.year } : {}),
-    ...(product.marktplaatsUrl ? { marktplaatsUrl: product.marktplaatsUrl } : {})
+    ...(product.marktplaatsUrl ? { marktplaatsUrl: product.marktplaatsUrl } : {}),
+    ...(product.vintedUrl ? { vintedUrl: product.vintedUrl } : {})
   }
 }
 

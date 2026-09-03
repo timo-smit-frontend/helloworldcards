@@ -85,6 +85,83 @@ describe('runMarktplaatsDealsScan', () => {
     expect(report.skipped.some((row) => row.reason === 'Could not read PSA label and no card number in title')).toBe(true)
   })
 
+  it('excludes our own store listings instead of reporting them back as deals', async () => {
+    const ownOverview = `
+"listings":[
+  {"title":"Charizard GX SM211 PSA 9 MINT Pokémon Kaart","vipUrl":"/v/hobby/m2436738700-charizard","priceInfo":{"priceCents":3500,"priceType":"MIN_BID"},"sellerInformation":{"sellerName":"Seller"},"pictures":[{"largeUrl":"https://images.example/charizard.jpg"}]}
+]
+`
+    const report = await runMarktplaatsDealsScan({
+      delayMs: 0,
+      searchUrl: 'https://example.com/search',
+      ownListings: [{ marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700' }],
+      fetchImage: async () => new Uint8Array([1, 2, 3]),
+      ocrImage: async () => `2019 POKEMON SM\nCHARIZARD-GX SM211\nHIDDEN FATES #SM211`,
+      fetchPage: async (url) => {
+        if (url.includes('example.com/search') || url.includes('vinted.nl/catalog')) {
+          return url.includes('vinted.nl/catalog') ? '' : ownOverview
+        }
+        if (url.includes('google.com')) {
+          return googleHtml
+        }
+        return offersRow('70,00 €')
+      }
+    })
+
+    expect(report.deals).toHaveLength(0)
+    expect(report.searches).toHaveLength(0)
+    expect(report.skipped.some((row) => row.reason === 'Our own listing')).toBe(true)
+  })
+
+  it('filters Cardmarket comps to first edition when the PSA label says 1ST EDITION', async () => {
+    const urls: string[] = []
+    const teamRocketHtml = `<a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56">Ekans</a>`
+    await runMarktplaatsDealsScan({
+      delayMs: 0,
+      searchUrl: 'https://example.com/search',
+      fetchImage: async () => new Uint8Array([1, 2, 3]),
+      ocrImage: async () => `2000 POKEMON TEAM ROCKET #56\nEKANS MINT\n1ST EDITION`,
+      fetchPage: async (url) => {
+        urls.push(url)
+        if (url.includes('example.com/search') || url.includes('vinted.nl/catalog')) {
+          return url.includes('vinted.nl/catalog') ? '' : overviewFixture
+        }
+        if (url.includes('google.com')) {
+          return teamRocketHtml
+        }
+        return offersRow('70,00 €')
+      }
+    })
+
+    expect(urls.some((url) => url.includes('extra%5BisFirstEd%5D=Y'))).toBe(true)
+  })
+
+  it('filters Cardmarket comps to unlimited (isFirstEd=N) for an unlimited card from a 1st-edition-era set', async () => {
+    // Regression for Kingdra NG8 (Neo Genesis): not first edition, but the set did print 1st
+    // Edition slabs — leaving the filter unset let far pricier 1st Edition comps into the floor.
+    const urls: string[] = []
+    const neoGenesisHtml = `<a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8">Kingdra</a>`
+    await runMarktplaatsDealsScan({
+      delayMs: 0,
+      searchUrl: 'https://example.com/search',
+      fetchImage: async () => new Uint8Array([1, 2, 3]),
+      ocrImage: async () => `2000 POKEMON NEO GENESIS #8\nKINGDRA MINT`,
+      fetchPage: async (url) => {
+        urls.push(url)
+        if (url.includes('example.com/search') || url.includes('vinted.nl/catalog')) {
+          return url.includes('vinted.nl/catalog') ? '' : overviewFixture
+        }
+        if (url.includes('google.com')) {
+          return neoGenesisHtml
+        }
+        return offersRow('70,00 €')
+      }
+    })
+
+    expect(urls.some((url) => url.includes('extra%5BisFirstEd%5D=N'))).toBe(true)
+    expect(urls.some((url) => url.includes('extra%5BisFirstEd%5D=Y'))).toBe(false)
+  })
+
   it('shows rows that matched Cardmarket but have no PSA comps', async () => {
     const report = await runMarktplaatsDealsScan({
       delayMs: 0,

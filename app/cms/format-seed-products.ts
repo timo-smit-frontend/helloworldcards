@@ -34,6 +34,7 @@ const FIELD_ORDER: Array<keyof ProductRecord> = [
   'grade',
   'year',
   'marktplaatsUrl',
+  'vintedUrl',
   'cardmarketUrl',
   'reverseHolo',
   'firstEdition',

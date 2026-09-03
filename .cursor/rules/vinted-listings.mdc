@@ -1,0 +1,42 @@
+---
+description: How to post Hello World Cards listings on Vinted, mirroring Marktplaats
+alwaysApply: true
+---
+
+# Vinted listings
+
+Use Playwright MCP (`user-playwright`) on the seller's already-logged-in Vinted session. Never ask for or type the password. Cursor's built-in browser is a different session — do not use it for this. If the session is not logged in as the seller, stop and ask the user to log in.
+
+Do not change prices on other live listings.
+
+Post to Vinted **only when a card goes live** — same moment it goes live on Marktplaats, never for a `concept` card or one that's out of stock. This is part of the **Go live / list {card}** flow in `marktplaats-listings.mdc`: do it right after the Marktplaats ad is confirmed and published, not as a separate standalone trigger.
+
+## New listing
+
+**https://www.vinted.nl/items/new**
+
+Reuse the title, description, and photos already drafted for the Marktplaats ad (see `marktplaats-listings.mdc` → Title / Description) — do not rewrite them for Vinted.
+
+- **Photos:** same order as Marktplaats — slab front first, slab back second.
+- **Title:** same as the Marktplaats title.
+- **Beschrijving:** same as the Marktplaats description.
+- **Categorie:** Losse ruilkaarten.
+- **Merk:** Pokémon.
+- **Staat:** Nieuw zonder prijskaartje.
+- **Prijs:** the same amount currently shown on the Marktplaats ad (e.g. `€94,99`) — copy it as-is, don't recompute from the shop price. Vinted's shipping-size recommendation sometimes flips to **Middel** on higher prices; always click back to **Klein** regardless of what it suggests.
+- **Verzending:** Klein (smallest package size).
+
+**Stop** before publishing — same rule as Marktplaats: tell the user the form is ready and wait for them to check it. Only after they confirm, publish. Copy the resulting item URL (`https://www.vinted.nl/items/{id}`) onto the product's `vintedUrl` field. The shop then shows **View on Vinted** as a secondary link next to the Marktplaats CTA.
+
+## Sold / delete
+
+Follow the same triggers as Marktplaats (see `marktplaats-listings.mdc`), applied to both listings together:
+
+- **Sold for €X:** update the shop first (per that rule), then delete the Marktplaats ad as sold, then delete the Vinted listing too.
+- **Delete without a sale:** set `concept: true`, remove both `marktplaatsUrl` and `vintedUrl`, do not set `sold`.
+
+Vinted's delete/sold confirmation is an in-page choice, not a native `alert`/`confirm` — do not call `dialog.accept()`; click through whatever Vinted shows.
+
+## Price changes
+
+Vinted price always matches the current Marktplaats price exactly. When the Marktplaats Vraagprijs changes on a card with a `vintedUrl`, edit that Vinted listing's price to match — see **cms-inventory.mdc** for the sync-then-marketplace order of operations.

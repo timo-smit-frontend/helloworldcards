@@ -1,5 +1,5 @@
 ---
-description: Keep shop inventory in sync between seed file, live D1 CMS, and Marktplaats
+description: Keep shop inventory in sync between seed file, live D1 CMS, Marktplaats, and Vinted
 alwaysApply: true
 ---
 
@@ -9,7 +9,7 @@ Live website + admin CMS read **Cloudflare D1**. `app/cms/seed-products.ts` is t
 
 ## Two paths — always finish both sides of the mirror
 
-### A. User asks in chat to change inventory (price, sold, concept, copy, Marktplaats URL, …)
+### A. User asks in chat to change inventory (price, sold, concept, copy, Marktplaats/Vinted URL, …)
 
 Do **all** of these before saying done — never stop after the seed file:
 
@@ -17,6 +17,7 @@ Do **all** of these before saying done — never stop after the seed file:
 2. **Push to production D1 immediately:** `npm run cms:sync-products:remote` (needs `npx wrangler login`).
    - Also run `npm run cms:sync-products` if local persisted D1 is in use.
 3. If the card has `marktplaatsUrl` and price/listing status changed → update or delete Marktplaats per `marktplaats-listings` rules (Vraagprijs = shop − €0,01).
+4. If the card has `vintedUrl` and price/listing status changed → update or delete the Vinted listing per `vinted-listings` rules (same price as the current Marktplaats Vraagprijs).
 
 ### B. User changed something in the admin CMS
 
@@ -24,7 +25,7 @@ Admin saves already update **live D1 / website**. Seed can still be stale. Befor
 
 1. **Pull live into seed:** `npm run cms:pull-products:remote`
 2. Update tests if assertions no longer match.
-3. If they changed **price** (or took a listing down) on a card with `marktplaatsUrl` → still update Marktplaats the same way as path A. CMS does not touch Marktplaats.
+3. If they changed **price** (or took a listing down) on a card with `marktplaatsUrl` or `vintedUrl` → still update Marktplaats/Vinted the same way as path A. CMS does not touch either marketplace.
 
 ## Commands
 

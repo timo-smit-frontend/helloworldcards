@@ -210,6 +210,7 @@ export type CmsProductRecord = {
   grader?: CardGrader
   year?: number
   marktplaatsUrl?: string
+  vintedUrl?: string
   slug: string
   cost?: number
   sold: boolean
@@ -234,6 +235,7 @@ export type PublicProduct = {
   grader?: CardGrader
   year?: number
   marktplaatsUrl?: string
+  vintedUrl?: string
   slug: string
 }
 

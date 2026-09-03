@@ -10,6 +10,7 @@ import {
 import { pickCardmarketProductUrl, googleSearchUrl } from './google-search'
 import { isMarktplaatsChallenge, parseMarktplaatsOverview, type MarktplaatsOverviewListing } from './html'
 import { ocrImageBytes } from './ocr'
+import { ownListingIds, splitOwnListings, type OwnListingRef } from './own-listings'
 import {
   buildGoogleCardmarketQuery,
   extractCardNumberFromOcr,
@@ -25,8 +26,18 @@ import {
   type MarktplaatsSearchLogEntry,
   type MarktplaatsSkippedRow
 } from './report'
-import { buildTitleFallbackQuery, buildDealDisplayTitle, filterMarktplaatsCandidates, formatDealDisplayTitle, type ParsedMarktplaatsTitle } from './titles'
+import {
+  buildTitleFallbackQuery,
+  buildDealDisplayTitle,
+  filterMarktplaatsCandidates,
+  formatDealDisplayTitle,
+  isFirstEditionListing,
+  type ParsedMarktplaatsTitle
+} from './titles'
 import { isVintedChallenge, parseVintedOverview } from './vinted-html'
+
+export { ownListingIds } from './own-listings'
+export type { OwnListingIds, OwnListingRef } from './own-listings'
 
 export type {
   DealSource,
@@ -48,6 +59,7 @@ type SearchPlan = {
   matchConfidence: 'high' | 'medium'
   language: 'english' | 'japanese'
   reverseHolo: boolean
+  firstEdition: boolean
   cardNumber: string | null
   setCode: string | null
 }
@@ -104,6 +116,7 @@ function planFromLabel(label: PsaLabelData, parsed: ParsedMarktplaatsTitle): Sea
     matchConfidence: 'high',
     language: label.japanese || parsed.language === 'japanese' ? 'japanese' : 'english',
     reverseHolo: label.reverseHolo,
+    firstEdition: label.firstEdition,
     cardNumber: label.cardNumber ?? parsed.cardNumber,
     setCode: inferSetCodeFromLabelRows(label.rows) ?? parsed.setName
   }
@@ -116,6 +129,7 @@ function planFromTitle(parsed: ParsedMarktplaatsTitle, psaQuery: string): Search
     matchConfidence: 'medium',
     language: parsed.language,
     reverseHolo: false,
+    firstEdition: false,
     cardNumber: parsed.cardNumber,
     setCode: parsed.setName
   }
@@ -252,7 +266,9 @@ async function evaluateCandidate({
     return
   }
 
-  const plan = resolved
+  // The seller's own title is a second, independent signal — OCR can miss the "1ST EDITION"
+  // row (e.g. when it fell outside the 3-row cap), so combine both instead of trusting one.
+  const plan: SearchPlan = { ...resolved, firstEdition: resolved.firstEdition || isFirstEditionListing(candidate.title) }
   psaQuery = plan.psaQuery
   googleUrl = googleSearchUrl(plan.psaQuery)
 
@@ -261,7 +277,8 @@ async function evaluateCandidate({
   const productUrl = pickCardmarketProductUrl(googleHtml, {
     language: plan.language,
     cardNumber: plan.cardNumber,
-    setCode: plan.setCode
+    setCode: plan.setCode,
+    pokemonName: candidate.parsed.pokemonName
   })
   if (!productUrl) {
     recordSkip('No Cardmarket link in Google results')
@@ -271,6 +288,7 @@ async function evaluateCandidate({
   cardmarketUrl = productUrl
   const offersUrl = cardmarketOffersUrl(productUrl, plan.language, {
     reverseHolo: plan.reverseHolo,
+    firstEdition: plan.firstEdition,
     grade: candidate.parsed.grade
   })
   await sleep(delayMs)
@@ -355,7 +373,8 @@ export async function runMarktplaatsDealsScan({
   searchUrl = MARKTPLAATS_PSA_SEARCH_URL,
   vintedSearchUrl = VINTED_PSA_SEARCH_URL,
   now = new Date(),
-  delayMs = CARDMARKET_FETCH_DELAY_MS
+  delayMs = CARDMARKET_FETCH_DELAY_MS,
+  ownListings = []
 }: {
   fetchPage: FetchCardmarketPage
   fetchImage?: (url: string) => Promise<Uint8Array>
@@ -364,12 +383,16 @@ export async function runMarktplaatsDealsScan({
   vintedSearchUrl?: string
   now?: Date
   delayMs?: number
+  /** Our own inventory (marktplaatsUrl/vintedUrl) — scanned but excluded from candidates,
+   *  so the deal finder never reports our own listings back to us as deals to buy. */
+  ownListings?: OwnListingRef[]
 }): Promise<MarktplaatsDealsReport> {
   const errors: string[] = []
   const skipped: MarktplaatsSkippedRow[] = []
   const searches: MarktplaatsSearchLogEntry[] = []
   const deals: MarktplaatsDealRow[] = []
   const candidates: DealCandidate[] = []
+  const ownIds = ownListingIds(ownListings)
 
   const overviewHtml = await fetchPage(searchUrl)
   if (isMarktplaatsChallenge(overviewHtml)) {
@@ -379,7 +402,9 @@ export async function runMarktplaatsDealsScan({
     if (overview.length === 0) {
       errors.push('No Marktplaats listings found in the overview.')
     } else {
-      const { candidates: marktplaatsCandidates, skipped: filteredOut } = filterMarktplaatsCandidates(overview)
+      const { kept, skipped: ownSkipped } = splitOwnListings(overview, 'marktplaats', ownIds)
+      skipped.push(...ownSkipped.map((row) => ({ ...row, source: 'marktplaats' as const })))
+      const { candidates: marktplaatsCandidates, skipped: filteredOut } = filterMarktplaatsCandidates(kept)
       skipped.push(...filteredOut.map((row) => ({ ...row, source: 'marktplaats' as const })))
       candidates.push(...marktplaatsCandidates.map((candidate) => ({ ...candidate, source: 'marktplaats' as const })))
     }
@@ -403,7 +428,9 @@ export async function runMarktplaatsDealsScan({
     if (vintedOverview.length === 0) {
       errors.push('No Vinted listings found in the overview.')
     } else {
-      const { candidates: vintedCandidates, skipped: filteredOut } = filterMarktplaatsCandidates(vintedOverview)
+      const { kept, skipped: ownSkipped } = splitOwnListings(vintedOverview, 'vinted', ownIds)
+      skipped.push(...ownSkipped.map((row) => ({ ...row, source: 'vinted' as const })))
+      const { candidates: vintedCandidates, skipped: filteredOut } = filterMarktplaatsCandidates(kept)
       skipped.push(...filteredOut.map((row) => ({ ...row, source: 'vinted' as const })))
       candidates.push(...vintedCandidates.map((candidate) => ({ ...candidate, source: 'vinted' as const })))
     }

@@ -63,6 +63,20 @@ describe('pickCardmarketProductUrl', () => {
     ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-Trading-Card-Game-Classic-Venusaur-Lugia-ex-Deck/Chansey-CLV015')
   })
 
+  it('never picks a different Pokémon just because its card number happens to match', () => {
+    const html = `
+      <a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Dark-Blastoise-TR56">Dark Blastoise</a>
+      <a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56b">Ekans</a>
+    `
+    expect(
+      pickCardmarketProductUrl(html, {
+        language: 'english',
+        cardNumber: '56',
+        pokemonName: 'Ekans'
+      })
+    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56b')
+  })
+
   it('prefers the SWSH promo single over an online-code page for premium-collection Vaporeon', () => {
     const html = `
       <a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Sword-Shield-Products/Online-Code-Card-Vaporeon-VMAX-Premium-Collection">code</a>
