@@ -8,7 +8,14 @@ import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/med
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
-import { closePlaywrightCardmarketFetcher, fileCardmarketStore, fileMarktplaatsDealsStore, getPlaywrightCardmarketFetcher } from './cardmarket-browser'
+import {
+  closePlaywrightCardmarketFetcher,
+  fileCardmarketStore,
+  fileDealFinderStore,
+  getPlaywrightCardmarketFetcher
+} from './cardmarket-browser'
+import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
+import { createSlabReader } from './deal-finder-vision'
 import { seedMediaWithVariants } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
@@ -35,6 +42,21 @@ function parseDotEnv(source: string): Record<string, string> {
   }
 
   return env
+}
+
+/**
+ * Keys the deal finder needs, read from `.dev.vars` like the dashboard login.
+ * Both are optional: without ANTHROPIC_API_KEY the scan falls back to reading the
+ * listing text only, and without PSA_API_TOKEN it trusts the label it read.
+ */
+export function loadScanSecrets(root = process.cwd()): { ANTHROPIC_API_KEY?: string; PSA_API_TOKEN?: string } {
+  const filePath = path.join(root, '.dev.vars')
+  const fromFile = fs.existsSync(filePath) ? parseDotEnv(fs.readFileSync(filePath, 'utf8')) : {}
+
+  return {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? fromFile.ANTHROPIC_API_KEY,
+    PSA_API_TOKEN: process.env.PSA_API_TOKEN ?? fromFile.PSA_API_TOKEN
+  }
 }
 
 export function loadDashboardEnv(root = process.cwd()): {
@@ -117,7 +139,7 @@ function isCmsDevPath(pathname: string): boolean {
     pathname.startsWith('/dashboard/logout') ||
     pathname.startsWith('/dashboard/ledger') ||
     pathname.startsWith('/dashboard/cardmarket') ||
-    pathname.startsWith('/dashboard/marktplaats-deals') ||
+    pathname.startsWith('/dashboard/deal-finder') ||
     pathname === '/api/public' ||
     pathname.startsWith('/media/') ||
     pathname === '/sitemap.xml' ||
@@ -193,18 +215,23 @@ function cmsApiMiddleware(root: string) {
 
       const request = await toFetchRequest(req)
       const cms = await viteCmsRuntime()
+      const secrets = loadScanSecrets(root)
       const runtime: DashboardRuntime = {
         db: cms.db,
         media: cms.media,
         cardmarketStore: fileCardmarketStore(root),
-        marktplaatsDealsStore: fileMarktplaatsDealsStore(root)
+        dealFinderStore: fileDealFinderStore(root),
+        ...(secrets.ANTHROPIC_API_KEY ? { readSlabs: createSlabReader({ apiKey: secrets.ANTHROPIC_API_KEY }) } : {}),
+        ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
       }
 
       let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
       let scanBrowserError: string | undefined
       const needsBrowser =
-        (url === '/dashboard/cardmarket/scan' || url === '/api/admin/cardmarket/scan' ||
-          url === '/dashboard/marktplaats-deals/scan' || url === '/api/admin/marktplaats-deals/scan') &&
+        (url === '/dashboard/cardmarket/scan' ||
+          url === '/api/admin/cardmarket/scan' ||
+          url === '/dashboard/deal-finder/scan' ||
+          url === '/api/admin/deal-finder/scan') &&
         req.method === 'POST'
       if (needsBrowser) {
         try {

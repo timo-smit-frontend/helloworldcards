@@ -1,17 +1,19 @@
-import { FormEvent, useEffect, useRef, useState, type ReactNode } from 'react'
+import { FormEvent, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { ArrowDown, ArrowUp, Check, Plus, Trash2, X } from 'lucide'
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
-import DashboardChart, { MarktplaatsDeals, PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
+import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
+import DealFinder from '~/components/dashboard/DealFinder'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
 import Logo from '~/components/elements/Logo'
+import { rasterVariantSrc } from '~/services/responsiveImage'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
-import type { MarktplaatsDealsReport } from '~/services/marktplaats-deals/scan'
+import type { DealFinderReport } from '~/services/deal-finder/types'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -33,6 +35,8 @@ import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { adminPrefix, adminTo } from './runtime'
 import { DialogCloseButton } from './DialogClose'
+import { MediaImageEditor, canEditImage } from './MediaImageEditor'
+import { appendUploadVariants } from './media-variants'
 import { UnsavedChangesProvider, useRequestLeave, useUnsavedDraft } from './UnsavedChanges'
 
 type Status = 'loading' | 'login' | 'ready' | 'error'
@@ -45,7 +49,7 @@ const NAV = [
   { to: '/events', label: 'Events', dev: false },
   { to: '/faqs', label: 'FAQs', dev: false },
   { to: '/price-suggestions', label: 'Price suggestions', dev: true },
-  { to: '/price-check', label: 'Price check', dev: true },
+  { to: '/deal-finder', label: 'Deal finder', dev: true },
   { to: '/settings', label: 'Settings', dev: false }
 ] as const
 
@@ -308,7 +312,7 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
             className="flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 ring-site-mulled-wine hover:ring-site-envy"
             onClick={() => setOpen(true)}
           >
-            <Image src={value} alt="" width={96} height={96} maxwidth={192} className={mediaImageClass()} />
+            <Image src={value} alt="" width={96} height={96} maxwidth={400} className={mediaImageClass()} />
           </button>
           <div className="flex min-w-0 flex-col gap-2">
             <p className="truncate text-sm text-site-mantle">{mediaLabel(current ?? { title: '', filename: '', url: value })}</p>
@@ -350,7 +354,7 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
                     alt={item.alt || mediaLabel(item)}
                     width={160}
                     height={160}
-                    maxwidth={200}
+                    maxwidth={400}
                     className={mediaImageClass()}
                   />
                 </button>
@@ -395,7 +399,7 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
                 className="flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 ring-site-mulled-wine hover:ring-site-envy"
                 onClick={openLibrary}
               >
-                <Image src={url} alt="" width={160} height={160} maxwidth={200} className={mediaImageClass()} />
+                <Image src={url} alt="" width={160} height={160} maxwidth={400} className={mediaImageClass()} />
               </button>
               <button
                 type="button"
@@ -448,7 +452,7 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
                       alt={item.alt || mediaLabel(item)}
                       width={160}
                       height={160}
-                      maxwidth={200}
+                      maxwidth={400}
                       className={mediaImageClass()}
                     />
                     {selected ? (
@@ -857,18 +861,18 @@ function PriceSuggestionsScreen() {
   )
 }
 
-function PriceCheckScreen() {
-  const [dealsReport, setDealsReport] = useState<MarktplaatsDealsReport | null>(null)
-  const [dealsScanning, setDealsScanning] = useState(false)
-  const [dealsScanError, setDealsScanError] = useState<string | null>(null)
+function DealFinderScreen() {
+  const [report, setReport] = useState<DealFinderReport | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!import.meta.env.DEV) {
       return
     }
-    void adminJson<{ report: MarktplaatsDealsReport | null }>('/marktplaats-deals/report').then((result) => {
+    void adminJson<{ report: DealFinderReport | null }>('/deal-finder/report').then((result) => {
       if (result.ok) {
-        setDealsReport(result.data?.report ?? null)
+        setReport(result.data?.report ?? null)
       }
     })
   }, [])
@@ -879,24 +883,22 @@ function PriceCheckScreen() {
 
   return (
     <div className="admin-page">
-      <MarktplaatsDeals
-        report={dealsReport}
-        scanning={dealsScanning}
-        scanError={dealsScanError}
+      <DealFinder
+        report={report}
+        scanning={scanning}
+        scanError={scanError}
         onScan={() => {
-          setDealsScanning(true)
-          setDealsScanError(null)
-          void adminJson<{ report: MarktplaatsDealsReport; error?: string }>('/marktplaats-deals/scan', { method: 'POST' }).then(
-            (result) => {
-              setDealsScanning(false)
-              const body = result.data
-              if (!result.ok || !body?.report) {
-                setDealsScanError(body?.error ?? 'The Marktplaats deals scan could not be started. Try again.')
-                return
-              }
-              setDealsReport(body.report)
+          setScanning(true)
+          setScanError(null)
+          void adminJson<{ report: DealFinderReport; error?: string }>('/deal-finder/scan', { method: 'POST' }).then((result) => {
+            setScanning(false)
+            const body = result.data
+            if (!result.ok || !body?.report) {
+              setScanError(body?.error ?? 'The deal finder could not start. Try again.')
+              return
             }
-          )
+            setReport(body.report)
+          })
         }}
       />
     </div>
@@ -1750,6 +1752,10 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
   const [title, setTitle] = useState(item.title)
   const [alt, setAlt] = useState(item.alt)
   const [copied, setCopied] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [replaceError, setReplaceError] = useState('')
+  const [replacing, setReplacing] = useState(false)
+  const replaceInput = useRef<HTMLInputElement>(null)
   const publicUrl = toAbsoluteUrl(item.url)
 
   useEffect(() => {
@@ -1772,6 +1778,20 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
     }
   }
 
+  async function replaceFile(file: File) {
+    setReplacing(true)
+    setReplaceError('')
+    const body = new FormData()
+    body.append('file', file)
+    const result = await adminJson<{ media?: CmsMedia; error?: string }>(`/media/${item.id}/file`, { method: 'POST', body })
+    setReplacing(false)
+    if (result.data?.media) {
+      onChange(result.data.media)
+      return
+    }
+    setReplaceError(result.data?.error ?? 'Could not replace this image.')
+  }
+
   async function copyUrl() {
     await navigator.clipboard.writeText(publicUrl)
     setCopied(true)
@@ -1779,7 +1799,7 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 md:mt-8">
+    <div className="flex h-full flex-col gap-4">
       <label className="flex flex-col gap-1 text-xs font-semibold tracking-[0.18em] text-site-mantle uppercase">
         Title
         <input
@@ -1804,12 +1824,111 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
           onBlur={() => void saveCopy()}
         />
       </label>
-      <div className="mt-auto flex items-center gap-3">
-        <DeleteControl singular="image" forever icon onConfirm={onDelete} />
-        <button type="button" className="button-quiet" onClick={() => void copyUrl()}>
+      {replaceError ? <p className="content-s text-site-loss">{replaceError}</p> : null}
+      <div className="mt-auto flex flex-col items-start gap-2 border-t border-site-mulled-wine pt-4 md:flex-row md:items-center">
+        <button type="button" className="button-quiet md:order-2" onClick={() => void copyUrl()}>
           {copied ? 'Copied' : 'Copy URL'}
         </button>
+        <div className="flex w-full items-center gap-2 md:contents">
+          <button type="button" className="button-quiet md:order-1" disabled={replacing} onClick={() => replaceInput.current?.click()}>
+            {replacing ? 'Replacing…' : 'Replace image'}
+          </button>
+          <span className="ml-auto md:order-3">
+            <DeleteControl singular="image" forever icon onConfirm={onDelete} />
+          </span>
+        </div>
+        <input
+          ref={replaceInput}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          aria-label="Replace image"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (file) setPendingFile(file)
+          }}
+        />
       </div>
+      <ConfirmDialog
+        open={pendingFile != null}
+        title="Replace image"
+        description={`Every page that uses this image will show ${pendingFile?.name ?? 'the new file'} instead. The old file is removed and cannot be restored.`}
+        confirmLabel="Replace image"
+        onOpenChange={(open) => {
+          if (!open) setPendingFile(null)
+        }}
+        onConfirm={() => {
+          if (pendingFile) void replaceFile(pendingFile)
+        }}
+      />
+    </div>
+  )
+}
+
+function MediaStepButton({
+  label,
+  icon,
+  disabled,
+  onClick
+}: {
+  label: string
+  icon: typeof ArrowUp
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex w-14 cursor-pointer items-center justify-center border-l border-site-mulled-wine text-site-mantle smooth hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-site-mantle"
+    >
+      <MorphIcon icon={icon} size={20} strokeWidth={2.25} />
+    </button>
+  )
+}
+
+// The detail dialog never shows more than half a screen, so it asks for a mid-size
+// rendition, and the neighbours either side are fetched off-screen so the arrows step
+// through the library without a wait.
+const DETAIL_MAX_WIDTH = 1000
+const DETAIL_IMAGE_SIZES = '(min-width: 768px) 50vw, 90vw'
+const DETAIL_NEIGHBOURS = 2
+const THUMB_MAX_WIDTH = 400
+
+// The grid already loaded the small rendition of every image, so painting it as the
+// background of the detail image shows the picture the instant you step to it, with the
+// full-size one drawing over it as soon as it arrives.
+function detailPlaceholderStyle(url: string): CSSProperties {
+  const avif = rasterVariantSrc(url, THUMB_MAX_WIDTH, 'avif')
+  const webp = rasterVariantSrc(url, THUMB_MAX_WIDTH, 'webp')
+  return {
+    backgroundImage: `image-set(url("${avif}") type("image/avif"), url("${webp}") type("image/webp"))`,
+    backgroundSize: 'contain',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat'
+  }
+}
+
+function mediaNeighbours(items: CmsMedia[], index: number): CmsMedia[] {
+  const around: CmsMedia[] = []
+  for (let offset = 1; offset <= DETAIL_NEIGHBOURS; offset += 1) {
+    for (const candidate of [items[index - offset], items[index + offset]]) {
+      if (candidate) around.push(candidate)
+    }
+  }
+  return around
+}
+
+function MediaNeighbourPrefetch({ items }: { items: CmsMedia[] }) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute size-px overflow-hidden opacity-0">
+      {items.map((item) => (
+        <Image key={item.id} src={item.url} alt="" width={900} height={1200} maxwidth={DETAIL_MAX_WIDTH} sizes={DETAIL_IMAGE_SIZES} />
+      ))}
     </div>
   )
 }
@@ -1821,7 +1940,37 @@ function MediaScreen() {
   const [r2, setR2] = useState<R2UsageSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const selected = media.find((item) => item.id === selectedId) ?? null
+  const [editing, setEditing] = useState(false)
+  const selectedIndex = media.findIndex((item) => item.id === selectedId)
+  const selected = selectedIndex >= 0 ? media[selectedIndex] : null
+
+  function step(delta: number) {
+    const next = media[selectedIndex + delta]
+    if (next) setSelectedId(next.id)
+  }
+
+  // The header arrows are duplicated on the keyboard, the way a photo viewer works.
+  useEffect(() => {
+    if (selected == null || editing) {
+      return
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      if (target?.isContentEditable || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return
+      }
+      const next = media[selectedIndex + (event.key === 'ArrowLeft' ? -1 : 1)]
+      if (next) {
+        event.preventDefault()
+        setSelectedId(next.id)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selected, editing, media, selectedIndex])
 
   function openItem(id: number) {
     ignoreOutsideClick.current = true
@@ -1843,6 +1992,7 @@ function MediaScreen() {
   async function upload(file: File) {
     const body = new FormData()
     body.append('file', file)
+    await appendUploadVariants(body, file)
     const result = await adminJson<{ media: CmsMedia; r2?: R2UsageSnapshot }>('/media', { method: 'POST', body })
     if (result.data?.media) {
       setMedia((current) => sortMediaLibrary([result.data!.media, ...current]))
@@ -1918,7 +2068,7 @@ function MediaScreen() {
                 title={item.title || undefined}
                 width={200}
                 height={200}
-                maxwidth={200}
+                maxwidth={400}
                 className={mediaImageClass()}
               />
             </button>
@@ -1928,14 +2078,17 @@ function MediaScreen() {
       <DialogPrimitive.Root
         open={selected != null}
         onOpenChange={(open) => {
-          if (!open) setSelectedId(null)
+          if (!open) {
+            setSelectedId(null)
+            setEditing(false)
+          }
         }}
       >
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           {selected ? (
             <DialogPrimitive.Content
-              className="fixed top-1/2 left-1/2 z-100 grid max-h-[min(90dvh,56rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine outline-none md:grid-cols-[minmax(0,1.5fr)_20rem]"
+              className="fixed top-1/2 left-1/2 z-100 grid max-h-[min(90dvh,56rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-panel bg-site-gunmetal ring-1 ring-site-mulled-wine outline-none md:grid-cols-[minmax(0,1.5fr)_24rem]"
               onOpenAutoFocus={(event) => event.preventDefault()}
               onPointerDownOutside={(event) => {
                 if (ignoreOutsideClick.current) event.preventDefault()
@@ -1944,21 +2097,50 @@ function MediaScreen() {
                 if (ignoreOutsideClick.current) event.preventDefault()
               }}
             >
-              <DialogCloseButton />
-              <DialogPrimitive.Title className="sr-only">{selected.title || selected.filename}</DialogPrimitive.Title>
-              <DialogPrimitive.Description className="sr-only">Edit title, alt text, and URL for this image.</DialogPrimitive.Description>
-              <div className="flex min-h-64 items-center justify-center bg-site-dark p-4 md:min-h-[28rem] md:p-8">
+              <div className="sticky top-0 z-20 flex items-stretch justify-between border-b border-site-mulled-wine bg-site-gunmetal md:col-span-2">
+                <DialogPrimitive.Title className="title-xs self-center px-5 py-4">Media details</DialogPrimitive.Title>
+                <DialogPrimitive.Description className="sr-only">
+                  Edit title, alt text, and URL for this image, or step through the library.
+                </DialogPrimitive.Description>
+                <div className="flex items-stretch">
+                  <MediaStepButton label="Previous image" icon={ChevronLeft} disabled={selectedIndex <= 0} onClick={() => step(-1)} />
+                  <MediaStepButton
+                    label="Next image"
+                    icon={ChevronRight}
+                    disabled={selectedIndex < 0 || selectedIndex >= media.length - 1}
+                    onClick={() => step(1)}
+                  />
+                  <DialogPrimitive.Close
+                    aria-label="Close"
+                    className="flex w-14 cursor-pointer items-center justify-center border-l border-site-mulled-wine text-site-mantle smooth hover:text-site-gray-nurse"
+                  >
+                    <MorphIcon icon={X} size={20} strokeWidth={2.25} />
+                  </DialogPrimitive.Close>
+                </div>
+              </div>
+              <div className="relative flex min-h-64 items-center justify-center bg-site-dark p-4 md:min-h-[28rem] md:p-8">
                 <Image
                   src={selected.url}
                   alt={selected.alt || selected.title || selected.filename}
                   title={selected.title || undefined}
                   width={900}
                   height={1200}
-                  maxwidth={1600}
-                  sizes="(min-width: 768px) 50vw, 90vw"
+                  maxwidth={DETAIL_MAX_WIDTH}
+                  sizes={DETAIL_IMAGE_SIZES}
                   priority
+                  style={detailPlaceholderStyle(selected.url)}
                   className="max-h-[min(70dvh,40rem)] w-auto object-contain"
                 />
+                <MediaNeighbourPrefetch items={mediaNeighbours(media, selectedIndex)} />
+                {canEditImage(selected.contentType) ? (
+                  <button
+                    type="button"
+                    className="button-quiet absolute bottom-4 left-4 w-fit bg-site-dark/85 md:bottom-6 md:left-6"
+                    onClick={() => setEditing(true)}
+                  >
+                    Edit image
+                  </button>
+                ) : null}
               </div>
               <div className="flex flex-col p-5">
                 <MediaEditor
@@ -1971,6 +2153,12 @@ function MediaScreen() {
                   }}
                 />
               </div>
+              <MediaImageEditor
+                item={selected}
+                open={editing}
+                onOpenChange={setEditing}
+                onSaved={(next) => setMedia((current) => current.map((row) => (row.id === next.id ? next : row)))}
+              />
             </DialogPrimitive.Content>
           ) : null}
         </DialogPrimitive.Portal>
@@ -2671,8 +2859,8 @@ export default function AdminApp() {
       <Route path="faqs/:id/" element={<FaqEditor />} />
       <Route path="price-suggestions" element={<PriceSuggestionsScreen />} />
       <Route path="price-suggestions/" element={<PriceSuggestionsScreen />} />
-      <Route path="price-check" element={<PriceCheckScreen />} />
-      <Route path="price-check/" element={<PriceCheckScreen />} />
+      <Route path="deal-finder" element={<DealFinderScreen />} />
+      <Route path="deal-finder/" element={<DealFinderScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="settings/" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to={adminTo('/')} replace />} />

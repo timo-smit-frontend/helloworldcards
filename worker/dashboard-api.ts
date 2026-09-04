@@ -1,7 +1,7 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
-import type { MarktplaatsDealsReport } from '../app/services/marktplaats-deals/scan'
-import { runMarktplaatsDealsScan } from '../app/services/marktplaats-deals/scan'
+import type { CertLookup, DealFinderCache, DealFinderReport, SlabReader } from '../app/services/deal-finder/scan'
+import { runDealFinderScan } from '../app/services/deal-finder/scan'
 import { listLedgerInventory, type CmsDb } from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
 import { ensureSeeded } from './cms/seed'
@@ -33,16 +33,23 @@ export type CardmarketStore = {
   putReport(report: CardmarketReport): Promise<void>
 }
 
-export type MarktplaatsDealsStore = {
-  getReport(): Promise<MarktplaatsDealsReport | null>
-  putReport(report: MarktplaatsDealsReport): Promise<void>
+export type DealFinderStore = {
+  getReport(): Promise<DealFinderReport | null>
+  putReport(report: DealFinderReport): Promise<void>
+  /** What we already know about each listing, so a re-scan only does new work. */
+  getCache(): Promise<DealFinderCache | null>
+  putCache(cache: DealFinderCache): Promise<void>
 }
 
 export type DashboardRuntime = {
   fetchCardmarketPage?: FetchCardmarketPage
   scanBrowserError?: string
   cardmarketStore?: CardmarketStore
-  marktplaatsDealsStore?: MarktplaatsDealsStore
+  dealFinderStore?: DealFinderStore
+  /** Reads PSA labels off listing photos; without it the scan falls back to the listing text. */
+  readSlabs?: SlabReader
+  /** Resolves a certification number against PSA's own records. */
+  lookupCert?: CertLookup
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -57,18 +64,19 @@ const API_PATHS = new Set([
   '/dashboard/ledger',
   '/dashboard/cardmarket/report',
   '/dashboard/cardmarket/scan',
-  '/dashboard/marktplaats-deals/report',
-  '/dashboard/marktplaats-deals/scan',
+  '/dashboard/deal-finder/report',
+  '/dashboard/deal-finder/scan',
   '/api/admin/session',
   '/api/admin/logout',
   '/api/admin/ledger',
   '/api/admin/cardmarket/report',
   '/api/admin/cardmarket/scan',
-  '/api/admin/marktplaats-deals/report',
-  '/api/admin/marktplaats-deals/scan'
+  '/api/admin/deal-finder/report',
+  '/api/admin/deal-finder/scan'
 ])
 const CARDMARKET_REPORT_KEY = 'report'
-const MARKTPLAATS_DEALS_REPORT_KEY = 'marktplaats-deals'
+const DEAL_FINDER_REPORT_KEY = 'deal-finder'
+const DEAL_FINDER_CACHE_KEY = 'deal-finder-cache'
 
 export function memoryCardmarketStore(): CardmarketStore {
   let report: CardmarketReport | null = null
@@ -94,26 +102,40 @@ export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
   }
 }
 
-export function memoryMarktplaatsDealsStore(): MarktplaatsDealsStore {
-  let report: MarktplaatsDealsReport | null = null
+export function memoryDealFinderStore(): DealFinderStore {
+  let report: DealFinderReport | null = null
+  let cache: DealFinderCache | null = null
   return {
     async getReport() {
       return report
     },
     async putReport(next) {
       report = next
+    },
+    async getCache() {
+      return cache
+    },
+    async putCache(next) {
+      cache = next
     }
   }
 }
 
-export function kvMarktplaatsDealsStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): MarktplaatsDealsStore {
+export function kvDealFinderStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): DealFinderStore {
   return {
     async getReport() {
-      const raw = await kv.get(MARKTPLAATS_DEALS_REPORT_KEY)
-      return raw ? (JSON.parse(raw) as MarktplaatsDealsReport) : null
+      const raw = await kv.get(DEAL_FINDER_REPORT_KEY)
+      return raw ? (JSON.parse(raw) as DealFinderReport) : null
     },
     async putReport(report) {
-      await kv.put(MARKTPLAATS_DEALS_REPORT_KEY, JSON.stringify(report))
+      await kv.put(DEAL_FINDER_REPORT_KEY, JSON.stringify(report))
+    },
+    async getCache() {
+      const raw = await kv.get(DEAL_FINDER_CACHE_KEY)
+      return raw ? (JSON.parse(raw) as DealFinderCache) : null
+    },
+    async putCache(cache) {
+      await kv.put(DEAL_FINDER_CACHE_KEY, JSON.stringify(cache))
     }
   }
 }
@@ -272,7 +294,7 @@ async function ledger(request: Request, env: DashboardEnv, runtime?: DashboardRu
 }
 
 let fallbackStore: CardmarketStore | undefined
-let fallbackDealsStore: MarktplaatsDealsStore | undefined
+let fallbackDealsStore: DealFinderStore | undefined
 
 function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): CardmarketStore {
   if (runtime?.cardmarketStore) {
@@ -285,14 +307,14 @@ function resolveStore(env: DashboardEnv, runtime?: DashboardRuntime): Cardmarket
   return fallbackStore
 }
 
-function resolveDealsStore(env: DashboardEnv, runtime?: DashboardRuntime): MarktplaatsDealsStore {
-  if (runtime?.marktplaatsDealsStore) {
-    return runtime.marktplaatsDealsStore
+function resolveDealsStore(env: DashboardEnv, runtime?: DashboardRuntime): DealFinderStore {
+  if (runtime?.dealFinderStore) {
+    return runtime.dealFinderStore
   }
   if (env.CARDMARKET) {
-    return kvMarktplaatsDealsStore(env.CARDMARKET)
+    return kvDealFinderStore(env.CARDMARKET)
   }
-  fallbackDealsStore ??= memoryMarktplaatsDealsStore()
+  fallbackDealsStore ??= memoryDealFinderStore()
   return fallbackDealsStore
 }
 
@@ -333,7 +355,7 @@ async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: Das
   }
 }
 
-async function marktplaatsDealsReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+async function dealFinderReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
   const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
@@ -343,26 +365,30 @@ async function marktplaatsDealsReport(request: Request, env: DashboardEnv, runti
   return json({ report })
 }
 
-async function marktplaatsDealsScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
   const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
   }
 
   if (!runtime?.fetchCardmarketPage) {
-    return json({ error: runtime?.scanBrowserError ?? 'Marktplaats deals scan is only available locally.' }, 404)
+    return json({ error: runtime?.scanBrowserError ?? 'The deal finder only runs locally.' }, 404)
   }
 
   const store = resolveDealsStore(env, runtime)
   try {
-    const report = await runMarktplaatsDealsScan({
+    const { report, cache } = await runDealFinderScan({
       fetchPage: runtime.fetchCardmarketPage,
+      readSlabs: runtime.readSlabs,
+      lookupCert: runtime.lookupCert,
+      cache: await store.getCache(),
       ownListings: await inventoryFor(env, runtime)
     })
     await store.putReport(report)
+    await store.putCache(cache)
     return json({ report })
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Marktplaats deals scan failed.' }, 500)
+    return json({ error: error instanceof Error ? error.message : 'The deal finder scan failed.' }, 500)
   }
 }
 
@@ -402,12 +428,12 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
     return cardmarketScan(request, env, runtime)
   }
 
-  if (key === '/dashboard/marktplaats-deals/report' && request.method === 'GET') {
-    return marktplaatsDealsReport(request, env, runtime)
+  if (key === '/dashboard/deal-finder/report' && request.method === 'GET') {
+    return dealFinderReport(request, env, runtime)
   }
 
-  if (key === '/dashboard/marktplaats-deals/scan' && request.method === 'POST') {
-    return marktplaatsDealsScan(request, env, runtime)
+  if (key === '/dashboard/deal-finder/scan' && request.method === 'POST') {
+    return dealFinderScan(request, env, runtime)
   }
 
   return json({ error: 'Method not allowed' }, 405)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { handleDashboardRequest, memoryCardmarketStore, memoryMarktplaatsDealsStore } from '../worker/dashboard-api'
+import { handleDashboardRequest, memoryCardmarketStore, memoryDealFinderStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
 
@@ -191,7 +191,7 @@ describe('dashboard API', () => {
     }
   })
 
-  it('returns an empty Marktplaats deals report until a scan has run', async () => {
+  it('returns an empty deal finder report until a scan has run', async () => {
     const login = await handleDashboardRequest(
       new Request('https://example.com/dashboard/session', {
         method: 'POST',
@@ -201,11 +201,11 @@ describe('dashboard API', () => {
       env
     )
     const token = cookieFrom(login!)
-    const store = memoryMarktplaatsDealsStore()
-    const runtime = seededRuntime({ marktplaatsDealsStore: store })
+    const store = memoryDealFinderStore()
+    const runtime = seededRuntime({ dealFinderStore: store })
 
     const response = await handleDashboardRequest(
-      new Request('https://example.com/dashboard/marktplaats-deals/report', {
+      new Request('https://example.com/dashboard/deal-finder/report', {
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
       env,
@@ -216,7 +216,7 @@ describe('dashboard API', () => {
     await expect(response?.json()).resolves.toEqual({ report: null })
   })
 
-  it('does not scan Marktplaats deals on the live worker without a local page fetcher', async () => {
+  it('does not run the deal finder on the live worker without a local page fetcher', async () => {
     const login = await handleDashboardRequest(
       new Request('https://example.com/dashboard/session', {
         method: 'POST',
@@ -228,15 +228,15 @@ describe('dashboard API', () => {
     const token = cookieFrom(login!)
 
     const scan = await handleDashboardRequest(
-      new Request('https://example.com/dashboard/marktplaats-deals/scan', {
+      new Request('https://example.com/dashboard/deal-finder/scan', {
         method: 'POST',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
       env,
-      { marktplaatsDealsStore: memoryMarktplaatsDealsStore() }
+      { dealFinderStore: memoryDealFinderStore() }
     )
 
     expect(scan?.status).toBe(404)
-    await expect(scan?.json()).resolves.toEqual({ error: 'Marktplaats deals scan is only available locally.' })
+    await expect(scan?.json()).resolves.toEqual({ error: 'The deal finder only runs locally.' })
   })
 })

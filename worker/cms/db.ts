@@ -432,6 +432,42 @@ export async function updateMedia(db: CmsDb, id: number, fields: { title: string
   return { ...existing, title: fields.title, alt: fields.alt }
 }
 
+// Media URLs are served immutable for a year, so a replacement has to live under a new
+// key; every stored reference to the old URL is repointed in the same pass.
+const MEDIA_REFERENCE_COLUMNS: ReadonlyArray<{ table: string; column: string }> = [
+  { table: 'pages', column: 'blocks' },
+  { table: 'pages', column: 'seo_image' },
+  { table: 'products', column: 'images' },
+  { table: 'settings', column: 'json' }
+]
+
+export async function replaceMediaFile(
+  db: CmsDb,
+  id: number,
+  fields: { key: string; filename: string; contentType: string; bytes: number }
+): Promise<{ media: CmsMedia; previous: CmsMedia } | null> {
+  const existing = await getMediaById(db, id)
+  if (!existing) {
+    return null
+  }
+  await db
+    .prepare('UPDATE media SET key = ?, filename = ?, content_type = ?, bytes = ?, width = NULL, height = NULL WHERE id = ?')
+    .bind(fields.key, fields.filename, fields.contentType, fields.bytes, id)
+    .run()
+
+  const previousUrl = `/media/${existing.key}`
+  const nextUrl = `/media/${fields.key}`
+  for (const { table, column } of MEDIA_REFERENCE_COLUMNS) {
+    await db
+      .prepare(`UPDATE ${table} SET ${column} = REPLACE(${column}, ?, ?) WHERE ${column} LIKE ?`)
+      .bind(previousUrl, nextUrl, `%${previousUrl}%`)
+      .run()
+  }
+
+  const media = await getMediaById(db, id)
+  return media ? { media, previous: existing } : null
+}
+
 export async function deleteMedia(db: CmsDb, id: number): Promise<CmsMedia | null> {
   const existing = await getMediaById(db, id)
   if (!existing) {

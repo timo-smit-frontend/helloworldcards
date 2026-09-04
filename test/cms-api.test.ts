@@ -199,6 +199,41 @@ describe('CMS API', () => {
     expect(usage.r2.warnings).toEqual([])
   })
 
+  it('stores the resized copies sent with an upload and serves them for AVIF too', async () => {
+    const db = createMemoryD1()
+    const media = memoryR2()
+    const token = await signIn(db as unknown as CmsDb)
+    const form = new FormData()
+    form.append('file', new File([new Uint8Array([137, 80, 78, 71])], 'card.png', { type: 'image/png' }))
+    form.append('variant', new File([new Uint8Array([1, 2, 3])], 'w400.webp', { type: 'image/webp' }))
+    form.append('variant', new File([new Uint8Array([4])], 'w123.webp', { type: 'image/webp' }))
+
+    const uploaded = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/media`, {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` },
+        body: form
+      }),
+      env,
+      { db, media }
+    )
+    const body = (await uploaded!.json()) as { media: { key: string; url: string } }
+    const stem = body.media.url.replace(/\.png$/, '')
+
+    const webp = await handleMediaPublic(new Request(`https://helloworldcards.com${stem}-w400.webp`), env, { db, media })
+    expect(webp?.headers.get('Content-Type')).toBe('image/webp')
+    expect(webp?.headers.get('X-Media-Served-Key')).toBe(`${body.media.key.replace(/\.png$/, '')}-w400.webp`)
+
+    // Canvas cannot encode AVIF, so the WebP of the same width stands in for it.
+    const avif = await handleMediaPublic(new Request(`https://helloworldcards.com${stem}-w400.avif`), env, { db, media })
+    expect(avif?.headers.get('Content-Type')).toBe('image/webp')
+    expect(new Uint8Array(await avif!.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
+
+    // A width the build never makes is ignored, so the original answers instead.
+    const unknown = await handleMediaPublic(new Request(`https://helloworldcards.com${stem}-w123.webp`), env, { db, media })
+    expect(unknown?.headers.get('Content-Type')).toBe('image/png')
+  })
+
   it('catalogues the shop photos in the media library', async () => {
     const db = createMemoryD1()
     const token = await signIn(db as unknown as CmsDb)
@@ -254,6 +289,63 @@ describe('CMS API', () => {
       title: 'Tournament hall',
       alt: 'A packed card hall with a Pikachu balloon.'
     })
+  })
+
+  it('replaces a media file and repoints every reference to the new URL', async () => {
+    const db = createMemoryD1()
+    const media = memoryR2()
+    const token = await signIn(db as unknown as CmsDb)
+    const listed = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/media`, { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      { db, media }
+    )
+    const body = (await listed!.json()) as { media: Array<{ id: number; key: string; url: string }> }
+    const hero = body.media.find((item) => item.key === 'hero.jpg')!
+
+    const variantKey = 'hero-w400.webp'
+    await media.put(variantKey, new Uint8Array([1, 2]), { httpMetadata: { contentType: 'image/webp' } })
+    await db
+      .prepare("UPDATE pages SET blocks = ? WHERE path = '/'")
+      .bind(JSON.stringify([{ type: 'banner_figcaption', image: hero.url }]))
+      .run()
+
+    const purged: string[] = []
+    const form = new FormData()
+    form.append('file', new File([new Uint8Array([255, 216, 255, 224, 0])], 'other.jpg', { type: 'image/jpeg' }))
+    const replaced = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/media/${hero.id}/file`, {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` },
+        body: form
+      }),
+      env,
+      { db, media, purgeMediaCache: async (path: string) => void purged.push(path) }
+    )
+    expect(replaced?.status).toBe(200)
+    const saved = (await replaced!.json()) as {
+      media: { id: number; key: string; url: string; filename: string; contentType: string; bytes: number }
+    }
+    expect(saved.media.id).toBe(hero.id)
+    expect(saved.media.key).not.toBe(hero.key)
+    expect(saved.media.url).toBe(`/media/${saved.media.key}`)
+    expect(saved.media.filename).toBe('other.jpg')
+    expect(saved.media.contentType).toBe('image/jpeg')
+    expect(saved.media.bytes).toBe(5)
+
+    // The old original and its variants are gone from R2 and purged from the edge.
+    expect(await media.get(hero.key)).toBeNull()
+    expect(await media.get(variantKey)).toBeNull()
+    expect(purged).toContain(`/media/${hero.key}`)
+    expect(purged).toContain(`/media/${variantKey}`)
+
+    const page = await db.prepare("SELECT blocks FROM pages WHERE path = '/'").first<{ blocks: string }>()
+    expect(page!.blocks).toContain(saved.media.url)
+    expect(page!.blocks).not.toContain(hero.url)
+
+    const served = await handleMediaPublic(new Request(`https://helloworldcards.com${saved.media.url}`), env, { db, media })
+    expect(served?.status).toBe(200)
+    expect(served?.headers.get('Content-Type')).toBe('image/jpeg')
   })
 
   it('does not count a cached media hit as an R2 Class B read', async () => {

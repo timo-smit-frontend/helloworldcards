@@ -4,12 +4,15 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { Browser, BrowserContext, Page } from 'playwright'
 import type { CardmarketReport, FetchCardmarketPage, FetchCardmarketPageOptions } from '../app/services/cardmarket/scan'
-import type { MarktplaatsDealsReport } from '../app/services/marktplaats-deals/scan'
-import type { CardmarketStore, MarktplaatsDealsStore } from '../worker/dashboard-api'
+import { CardmarketBlockedError } from '../app/services/deal-finder/cardmarket'
+import type { DealFinderCache } from '../app/services/deal-finder/cache'
+import type { DealFinderReport } from '../app/services/deal-finder/types'
+import type { CardmarketStore, DealFinderStore } from '../worker/dashboard-api'
 
 const execFileAsync = promisify(execFile)
 const REPORT_FILE = path.join('.cache', 'cardmarket-report.json')
-const DEALS_REPORT_FILE = path.join('.cache', 'marktplaats-deals-report.json')
+const DEALS_REPORT_FILE = path.join('.cache', 'deal-finder-report.json')
+const DEALS_CACHE_FILE = path.join('.cache', 'deal-finder-cache.json')
 const BROWSER_PROFILE = path.join('.cache', 'cardmarket-chrome')
 const CDP_URL = process.env.CARDMARKET_CDP_URL ?? 'http://127.0.0.1:9333'
 
@@ -43,23 +46,38 @@ export function fileCardmarketStore(root: string): CardmarketStore {
   }
 }
 
-export function fileMarktplaatsDealsStore(root: string): MarktplaatsDealsStore {
-  const filePath = path.join(root, DEALS_REPORT_FILE)
+function readJson<T>(filePath: string): T | null {
+  if (!fs.existsSync(filePath)) {
+    return null
+  }
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
+  } catch {
+    return null
+  }
+}
+
+function writeJson(filePath: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, JSON.stringify(value))
+}
+
+export function fileDealFinderStore(root: string): DealFinderStore {
+  const reportPath = path.join(root, DEALS_REPORT_FILE)
+  const cachePath = path.join(root, DEALS_CACHE_FILE)
 
   return {
     async getReport() {
-      if (!fs.existsSync(filePath)) {
-        return null
-      }
-      try {
-        return JSON.parse(fs.readFileSync(filePath, 'utf8')) as MarktplaatsDealsReport
-      } catch {
-        return null
-      }
+      return readJson<DealFinderReport>(reportPath)
     },
     async putReport(report) {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true })
-      fs.writeFileSync(filePath, JSON.stringify(report))
+      writeJson(reportPath, report)
+    },
+    async getCache() {
+      return readJson<DealFinderCache>(cachePath)
+    },
+    async putCache(cache) {
+      writeJson(cachePath, cache)
     }
   }
 }
@@ -134,26 +152,6 @@ async function waitFor(predicate: () => Promise<boolean>, timeout: number): Prom
 function spawnScanChrome(executable: string, port: number, userDataDir: string) {
   const child = spawn(executable, chromeLaunchArgs(port, userDataDir), { detached: true, stdio: 'ignore' })
   child.unref()
-}
-
-async function ensureScanChrome(root: string): Promise<void> {
-  if (await isCdpReady()) {
-    return
-  }
-
-  const executable = chromeExecutable()
-  if (!executable) {
-    throw new Error('Google Chrome is not installed.')
-  }
-
-  const userDataDir = path.join(root, BROWSER_PROFILE)
-  fs.mkdirSync(userDataDir, { recursive: true })
-  spawnScanChrome(executable, cdpPort(), userDataDir)
-
-  const ready = await waitFor(() => isCdpReady(), 20_000)
-  if (!ready) {
-    throw new Error('Could not start the Cardmarket Chrome window.')
-  }
 }
 
 const BOT_CHALLENGE =
@@ -267,14 +265,7 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
 
   return {
     async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-      await waitForBotChallengeClear(page, new URL(url).hostname)
-
-      if (url.includes('cardmarket.com')) {
-        await page.waitForSelector('[id^="articleRow"]', { timeout: 25_000 }).catch(() => undefined)
-        await loadMoreCardmarketArticles(page, options)
-      }
-      return await page.content()
+      return await fetchWithBotChecks(page, url, options)
     },
     async close() {
       if (mode === 'persistent') {
@@ -287,52 +278,93 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
   }
 }
 
-async function loadMoreCardmarketArticles(page: Page, options?: FetchCardmarketPageOptions): Promise<void> {
-  const maxLoadMore = options?.maxLoadMore ?? 0
-  if (maxLoadMore <= 0) {
-    return
+/**
+ * Cardmarket's bot check does not only fire on a reload: clicking "Show more" can
+ * drop the page into a spinner that never resolves. The only way out is to reload
+ * the page and let the user tick "I am not a bot" again — so that is exactly what
+ * this does, and it then re-expands the offers from the top so the card still gets
+ * checked instead of being silently skipped.
+ */
+const CARDMARKET_ATTEMPTS = 3
+
+async function fetchWithBotChecks(page: Page, url: string, options?: FetchCardmarketPageOptions): Promise<string> {
+  const host = new URL(url).hostname
+  const isOffers = url.includes('cardmarket.com')
+
+  for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    const cleared = await waitForBotChallengeClear(page, host)
+
+    if (!isOffers) {
+      return await page.content()
+    }
+
+    if (cleared) {
+      await page.waitForSelector('[id^="articleRow"]', { timeout: 25_000 }).catch(() => undefined)
+      const outcome = await expandOffers(page, options)
+      if (outcome === 'complete') {
+        return await page.content()
+      }
+
+      // Stalled part-way: if the rows we already have answer the question, take them.
+      const html = await page.content()
+      if (options?.stopWhen?.(html)) {
+        return html
+      }
+    }
+
+    if (attempt < CARDMARKET_ATTEMPTS) {
+      console.info(`[cardmarket-browser] Reloading ${url} so the bot check can be cleared (attempt ${attempt + 1})`)
+    }
   }
 
-  for (let i = 0; i < maxLoadMore; i++) {
-    let html = await page.content()
+  throw new CardmarketBlockedError(`Cardmarket kept blocking ${url} after ${CARDMARKET_ATTEMPTS} attempts.`)
+}
+
+/**
+ * Click "Show more" until the whole offer list is loaded, the caller has what it
+ * needs, or the page stalls. Returns `stalled` when only a reload can recover.
+ */
+async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): Promise<'complete' | 'stalled'> {
+  const maxLoadMore = options?.maxLoadMore ?? 0
+  if (maxLoadMore <= 0) {
+    return 'complete'
+  }
+
+  for (let index = 0; index < maxLoadMore; index += 1) {
+    const html = await page.content()
     if (pageLooksChallenged(await page.title().catch(() => ''), html)) {
-      const cleared = await waitForBotChallengeClear(page, 'Cardmarket load more')
-      if (!cleared) {
-        return
-      }
-      html = await page.content()
+      return 'stalled'
     }
     if (options?.stopWhen?.(html)) {
-      return
+      return 'complete'
     }
 
     const button = page.locator('#loadMoreButton')
     if ((await button.count()) === 0 || !(await button.isVisible().catch(() => false))) {
-      return
+      // No button left — this is the bottom of the list.
+      return 'complete'
     }
 
     const rowsBefore = await page.locator('[id^="articleRow"]').count()
     await button.click().catch(() => undefined)
 
     const grew = await page
-      .waitForFunction(
-        (before) => document.querySelectorAll('[id^="articleRow"]').length > before,
-        rowsBefore,
-        { timeout: 8_000 }
-      )
+      .waitForFunction((before) => document.querySelectorAll('[id^="articleRow"]').length > before, rowsBefore, {
+        timeout: 15_000
+      })
       .then(() => true)
       .catch(() => false)
 
-    const afterHtml = await page.content()
-    if (pageLooksChallenged(await page.title().catch(() => ''), afterHtml)) {
-      await waitForBotChallengeClear(page, 'Cardmarket load more')
-      // Don't keep hammering Load more after a challenge — use whatever rows we already have.
-      return
+    if (pageLooksChallenged(await page.title().catch(() => ''), await page.content())) {
+      return 'stalled'
     }
 
-    // Button spun / no new rows: stop instead of clicking up to 10× and hammering Cloudflare.
+    // The button spun without adding rows — the infinite-load state.
     if (!grew) {
-      return
+      return 'stalled'
     }
   }
+
+  return 'complete'
 }

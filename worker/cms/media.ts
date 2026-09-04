@@ -1,9 +1,15 @@
 import { json, normalizeApiPath, readJson } from './http'
-import { deleteMedia, insertMedia, listMedia, updateMedia, type CmsDb } from './db'
+import { deleteMedia, insertMedia, listMedia, replaceMediaFile, updateMedia, type CmsDb } from './db'
 import { getR2Usage, incrementR2Usage } from './r2-usage'
 import { ensureSeeded } from './seed'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
-import { allMediaVariantKeys, parseRasterVariant } from '../../app/services/responsiveImage'
+import {
+  BUILD_WIDTHS,
+  allMediaVariantKeys,
+  mediaVariantKey,
+  parseRasterVariant,
+  type ImageFormat
+} from '../../app/services/responsiveImage'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
@@ -71,10 +77,13 @@ function isStaleVariantCache(key: string, cached: Response): boolean {
   if (!expected) {
     return false
   }
-  if (cached.headers.get('X-Media-Served-Key') === key) {
-    return false
+  const served = cached.headers.get('X-Media-Served-Key')
+  if (!served) {
+    return cached.headers.get('Content-Type') !== expected
   }
-  return cached.headers.get('Content-Type') !== expected
+  // A cached resize stays good even when it is a WebP standing in for AVIF; only a
+  // cached original has to be dropped once the real resizes land in R2.
+  return served !== key && expectedVariantContentType(served) === null
 }
 
 async function resolveMediaObject(
@@ -92,6 +101,14 @@ async function resolveMediaObject(
   }
 
   const base = variant.stem.replace(/^.*\//, '')
+  // Only WebP resizes are made on upload, so an AVIF request is served the WebP of the
+  // same width before falling back to the much heavier original.
+  if (variant.format === 'avif') {
+    const sibling = await bucket.get(`${base}-w${variant.width}.webp`)
+    if (sibling) {
+      return { object: sibling, servedKey: `${base}-w${variant.width}.webp` }
+    }
+  }
   for (const extension of ORIGINAL_EXTENSIONS) {
     const originalKey = `${base}${extension}`
     const object = await bucket.get(originalKey)
@@ -125,6 +142,74 @@ export function memoryR2(): MediaBucket {
       files.delete(key)
     }
   }
+}
+
+function validateUpload(file: unknown): { file: File; contentType: string } | Response {
+  if (!(file instanceof File)) {
+    return json({ error: 'Choose an image to upload.' }, 400)
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return json({ error: 'That image is too large.' }, 400)
+  }
+  const contentType = file.type || 'application/octet-stream'
+  if (!ALLOWED_TYPES.has(contentType)) {
+    return json({ error: 'Upload a JPEG, PNG, WebP, GIF, or SVG.' }, 400)
+  }
+  return { file, contentType }
+}
+
+const VARIANT_UPLOAD_NAME = /^w(\d+)\.(webp|avif)$/
+const VARIANT_WIDTHS = new Set<number>(BUILD_WIDTHS)
+
+// The admin re-encodes every upload into the same widths the site build produces and
+// sends them along, so thumbnails and the detail view never pull the full original.
+async function storeUploadedVariants(form: FormData, key: string, bucket: MediaBucket, db: CmsDb): Promise<void> {
+  let stored = 0
+  for (const entry of form.getAll('variant')) {
+    if (!(entry instanceof File) || entry.size > MAX_UPLOAD_BYTES) {
+      continue
+    }
+    const parsed = entry.name.match(VARIANT_UPLOAD_NAME)
+    if (!parsed || !VARIANT_WIDTHS.has(Number(parsed[1]))) {
+      continue
+    }
+    const format = parsed[2] as ImageFormat
+    const variantKey = mediaVariantKey(key, Number(parsed[1]), format)
+    if (variantKey === key) {
+      continue
+    }
+    await bucket.put(variantKey, await entry.arrayBuffer(), {
+      httpMetadata: { contentType: format === 'avif' ? 'image/avif' : 'image/webp' }
+    })
+    stored += 1
+  }
+  if (stored > 0) {
+    await incrementR2Usage(db, { classA: stored })
+  }
+}
+
+// Replacing or deleting a key must clear the original and every derived variant from
+// R2 and the edge, otherwise stale renditions keep being served under the same URL.
+async function dropMediaCopies(
+  key: string,
+  requestUrl: string,
+  bucket: MediaBucket,
+  runtime: DashboardRuntime | undefined,
+  options: { deleteOriginal: boolean }
+): Promise<void> {
+  const cache = await edgeCache(runtime)
+  const purge = async (objectKey: string, removeObject: boolean) => {
+    if (removeObject) {
+      await bucket.delete(objectKey)
+    }
+    const pathname = `/media/${objectKey}`
+    await runtime?.purgeMediaCache?.(pathname)
+    await cache?.delete?.(cacheRequest(new URL(pathname, requestUrl).href))
+  }
+  for (const variantKey of allMediaVariantKeys(key)) {
+    await purge(variantKey, true)
+  }
+  await purge(key, options.deleteOriginal)
 }
 
 export async function handleMediaPublic(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
@@ -197,21 +282,16 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
 
   if (path === '/api/admin/media' && request.method === 'POST') {
     const form = await request.formData()
-    const file = form.get('file')
-    if (!(file instanceof File)) {
-      return json({ error: 'Choose an image to upload.' }, 400)
+    const validated = validateUpload(form.get('file'))
+    if (validated instanceof Response) {
+      return validated
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return json({ error: 'That image is too large.' }, 400)
-    }
-    const contentType = file.type || 'application/octet-stream'
-    if (!ALLOWED_TYPES.has(contentType)) {
-      return json({ error: 'Upload a JPEG, PNG, WebP, GIF, or SVG.' }, 400)
-    }
+    const { file, contentType } = validated
     const key = slugKey(file.name)
     const bytes = await file.arrayBuffer()
     await bucket.put(key, bytes, { httpMetadata: { contentType } })
     await incrementR2Usage(db, { classA: 1 })
+    await storeUploadedVariants(form, key, bucket, db)
     const createdAt = new Date().toISOString()
     const media = {
       key,
@@ -237,6 +317,34 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     )
   }
 
+  const fileMatch = path.match(/^\/api\/admin\/media\/(\d+)\/file$/)
+  if (fileMatch && request.method === 'POST') {
+    const form = await request.formData()
+    const validated = validateUpload(form.get('file'))
+    if (validated instanceof Response) {
+      return validated
+    }
+    const { file, contentType } = validated
+    const bytes = await file.arrayBuffer()
+    const key = slugKey(file.name)
+    // A fresh key means caches can never serve the old picture; every page, product,
+    // and setting that pointed at the old URL is repointed to this one.
+    const replaced = await replaceMediaFile(db, Number(fileMatch[1]), {
+      key,
+      filename: file.name,
+      contentType,
+      bytes: bytes.byteLength
+    })
+    if (!replaced) {
+      return json({ error: 'Not found' }, 404)
+    }
+    await bucket.put(key, bytes, { httpMetadata: { contentType } })
+    await incrementR2Usage(db, { classA: 1 })
+    await storeUploadedVariants(form, key, bucket, db)
+    await dropMediaCopies(replaced.previous.key, request.url, bucket, runtime, { deleteOriginal: true })
+    return json({ media: replaced.media })
+  }
+
   const match = path.match(/^\/api\/admin\/media\/(\d+)$/)
   if (match && request.method === 'PUT') {
     const body = await readJson<Record<string, unknown>>(request)
@@ -257,17 +365,7 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     if (!removed) {
       return json({ error: 'Not found' }, 404)
     }
-    await bucket.delete(removed.key)
-    const cache = await edgeCache(runtime)
-    for (const variantKey of allMediaVariantKeys(removed.key)) {
-      await bucket.delete(variantKey)
-      const variantPath = `/media/${variantKey}`
-      await runtime?.purgeMediaCache?.(variantPath)
-      await cache?.delete?.(cacheRequest(new URL(variantPath, request.url).href))
-    }
-    const pathname = `/media/${removed.key}`
-    await runtime?.purgeMediaCache?.(pathname)
-    await cache?.delete?.(cacheRequest(new URL(pathname, request.url).href))
+    await dropMediaCopies(removed.key, request.url, bucket, runtime, { deleteOriginal: true })
     return json({ ok: true })
   }
 
