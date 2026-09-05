@@ -106,10 +106,13 @@ const VINTED_PHOTO = /https:\/\/images\d*\.vinted\.net\/(?:t|tc)\/[^\s"'\\<>]+/g
  */
 export function vintedPhotoArea(url: string): number {
   const size = url.match(/\/(\d{2,4})x(\d{2,4})\//)
-  if (!size) {
-    return 0
+  if (size) {
+    return Number(size[1]) * Number(size[2])
   }
-  return Number(size[1]) * Number(size[2])
+  // The full-size photo is named by its width alone (`/f800/`) and is the one the
+  // label reader needs, so score it as a square of that width rather than as zero.
+  const full = url.match(/\/f(\d{2,4})\//)
+  return full ? Number(full[1]) * Number(full[1]) : 0
 }
 
 export function parseVintedDetail(html: string): { description: string | null; imageUrls: string[] } {
@@ -164,6 +167,12 @@ function detailDescription(html: string): string | null {
 
 export const VINTED_CHALLENGE = /just a moment|attention required|cf-browser-verification|cf-error-details|checking your browser/i
 
+/** Vinted also bounces requests it does not trust into a `/session-refresh` page that never resolves. */
+export const VINTED_SESSION_REFRESH = /<title>\s*Session refresh\s*<\/title>/i
+
 export function isVintedChallenge(html: string): boolean {
-  return VINTED_CHALLENGE.test(html) && !html.includes('product-item-id-')
+  if (html.includes('product-item-id-')) {
+    return false
+  }
+  return VINTED_CHALLENGE.test(html) || VINTED_SESSION_REFRESH.test(html)
 }

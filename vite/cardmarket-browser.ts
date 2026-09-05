@@ -154,6 +154,28 @@ function spawnScanChrome(executable: string, port: number, userDataDir: string) 
   child.unref()
 }
 
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+
+export function isVintedHost(host: string): boolean {
+  return /(?:^|\.)vinted\.[a-z.]+$/i.test(host)
+}
+
+export async function fetchVintedPage(url: string, request: typeof fetch = fetch): Promise<string> {
+  const response = await request(url, {
+    headers: {
+      'user-agent': BROWSER_USER_AGENT,
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'accept-language': 'nl-NL,nl;q=0.9,en;q=0.8'
+    },
+    redirect: 'follow'
+  })
+  if (!response.ok) {
+    throw new Error(`Vinted returned ${response.status} for ${url}.`)
+  }
+  return await response.text()
+}
+
 const BOT_CHALLENGE =
   /attention required|even geduld|just a moment|sorry, you have been blocked|i.?m not a (?:robot|bot)|unusual traffic|are you a robot|cf-browser-verification|checking your browser|beveiliging wordt geverifieerd/i
 
@@ -290,6 +312,13 @@ const CARDMARKET_ATTEMPTS = 3
 async function fetchWithBotChecks(page: Page, url: string, options?: FetchCardmarketPageOptions): Promise<string> {
   const host = new URL(url).hostname
   const isOffers = url.includes('cardmarket.com')
+
+  // Vinted redirects the automated Chrome profile into a /session-refresh page that
+  // never resolves, so the scan only ever saw the interstitial. The same pages come
+  // back in full for a plain HTTP request, which is what we use instead.
+  if (isVintedHost(host)) {
+    return await fetchVintedPage(url)
+  }
 
   for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })

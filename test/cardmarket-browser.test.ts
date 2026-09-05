@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   chromeLaunchArgs,
+  fetchVintedPage,
+  isVintedHost,
   closePlaywrightCardmarketFetcher,
   getPlaywrightCardmarketFetcher,
   nextChromeAction,
@@ -61,5 +63,32 @@ describe('nextChromeAction', () => {
       '--no-default-browser-check',
       '--disable-blink-features=AutomationControlled'
     ])
+  })
+})
+
+describe('isVintedHost', () => {
+  it('recognises the Vinted domains the scan visits', () => {
+    expect(isVintedHost('www.vinted.nl')).toBe(true)
+    expect(isVintedHost('vinted.com')).toBe(true)
+    expect(isVintedHost('www.marktplaats.nl')).toBe(false)
+  })
+})
+
+describe('fetchVintedPage', () => {
+  it('asks for the page as a browser would, without the automated Chrome profile', async () => {
+    let headers: Record<string, string> = {}
+    const request = (async (_url: string, init: RequestInit) => {
+      headers = init.headers as Record<string, string>
+      return { ok: true, status: 200, text: async () => '<html></html>' }
+    }) as unknown as typeof fetch
+
+    expect(await fetchVintedPage('https://www.vinted.nl/catalog', request)).toBe('<html></html>')
+    expect(headers['user-agent']).toContain('Chrome')
+  })
+
+  it('reports a refusal instead of returning an error page as results', async () => {
+    const request = (async () => ({ ok: false, status: 403, text: async () => '' })) as unknown as typeof fetch
+
+    await expect(fetchVintedPage('https://www.vinted.nl/catalog', request)).rejects.toThrow('403')
   })
 })

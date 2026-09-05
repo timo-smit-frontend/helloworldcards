@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { marktplaatsPhotoUrl, parseMarktplaatsDetail, parseMarktplaatsOverview } from '~/services/deal-finder/marktplaats'
-import { parseVintedDetail, parseVintedHoverTitle, parseVintedOverview, titleFromVintedSlug } from '~/services/deal-finder/vinted'
+import {
+  isVintedChallenge,
+  parseVintedDetail,
+  parseVintedHoverTitle,
+  parseVintedOverview,
+  titleFromVintedSlug,
+  vintedPhotoArea
+} from '~/services/deal-finder/vinted'
 
 const MARKTPLAATS_OVERVIEW = `<html><body><script>window.__STATE__ = {"listings":[
   {"itemId":"m2438948556","title":"Pokémon Charmander 168/165 Scarlet & Violet 151 PSA 9",
@@ -117,5 +124,24 @@ describe('parseVintedDetail', () => {
       'https://images1.vinted.net/t/06_y/800x1200/b.webp?s=3'
     ])
     expect(detail.description).toBe('Umbreon VMAX PSA 10, s8b 245')
+  })
+})
+
+describe('vintedPhotoArea', () => {
+  it('prefers the full-size photo over the catalogue thumbnail', () => {
+    const full = 'https://images1.vinted.net/t/02_01a93_abc/f800/1788640130.webp'
+    const thumb = 'https://images1.vinted.net/t/02_01a93_abc/310x430/1788640130.webp'
+
+    expect(vintedPhotoArea(full)).toBeGreaterThan(vintedPhotoArea(thumb))
+  })
+})
+
+describe('isVintedChallenge', () => {
+  it('flags the session-refresh interstitial Vinted serves instead of results', () => {
+    expect(isVintedChallenge('<html><head><title>Session refresh</title></head><body></body></html>')).toBe(true)
+  })
+
+  it('does not flag a page that actually has listings on it', () => {
+    expect(isVintedChallenge('<a data-testid="product-item-id-1--overlay-link"></a>')).toBe(false)
   })
 })
