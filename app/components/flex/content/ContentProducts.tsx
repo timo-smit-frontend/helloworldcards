@@ -184,11 +184,7 @@ export default function ContentProducts({
           )}
 
           {listedProducts.length > 0 ? (
-            <ul
-              ref={gridRef}
-              tabIndex={-1}
-              className="m-0 grid list-none grid-cols-1 gap-5 p-0 outline-none sm:grid-cols-2 lg:grid-cols-4"
-            >
+            <ul ref={gridRef} tabIndex={-1} className="m-0 grid list-none grid-cols-1 gap-5 p-0 outline-none sm:grid-cols-2 lg:grid-cols-4">
               {visibleProducts.map((product, index) => (
                 <li key={product.id} className="flex w-full min-w-0">
                   <Animated delay={productDelays[Math.min(index, productDelays.length - 1)]} className="flex w-full min-w-0">

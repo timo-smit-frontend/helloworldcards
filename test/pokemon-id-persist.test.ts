@@ -83,7 +83,13 @@ describe('product pokemonId', () => {
       new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ id: mewtwo.id, title: mewtwo.title, subtitle: mewtwo.subtitle, description: mewtwo.description, images: mewtwo.images })
+        body: JSON.stringify({
+          id: mewtwo.id,
+          title: mewtwo.title,
+          subtitle: mewtwo.subtitle,
+          description: mewtwo.description,
+          images: mewtwo.images
+        })
       }),
       env,
       { db }

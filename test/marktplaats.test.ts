@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  extractMarktplaatsItemId,
-  marktplaatsEditUrlFromListingUrl,
-  marktplaatsSellerViewUrl
-} from '../app/services/marktplaats'
+import { extractMarktplaatsItemId, marktplaatsEditUrlFromListingUrl, marktplaatsSellerViewUrl } from '../app/services/marktplaats'
 
 describe('extractMarktplaatsItemId', () => {
   it('reads item ids from seller view URLs', () => {

@@ -1,0 +1,368 @@
+{
+  "settings": {
+    "siteDescription": "Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.",
+    "siteImage": "/media/hero.jpg",
+    "siteImageAlt": "A packed Pokémon card tournament in a convention hall, with a giant yellow Pikachu balloon hanging from the ceiling.",
+    "contactEmail": "helloworldcards@outlook.com",
+    "instagramUrl": "https://www.instagram.com/helloworldcards/",
+    "marktplaatsUrl": "https://www.marktplaats.nl/u/hello-world-cards/25399885/",
+    "notFoundTitle": "This page was not found",
+    "notFoundDescription": "This page does not exist or has been moved.",
+    "notFoundCta": "Back to home"
+  },
+  "nav": [
+    {
+      "location": "footer",
+      "label": "Products",
+      "href": "/products/",
+      "sort": 0
+    },
+    {
+      "location": "footer",
+      "label": "Agenda",
+      "href": "/agenda/",
+      "sort": 1
+    },
+    {
+      "location": "footer",
+      "label": "About",
+      "href": "/about/",
+      "sort": 2
+    },
+    {
+      "location": "footer",
+      "label": "Contact",
+      "href": "/contact/",
+      "sort": 3
+    },
+    {
+      "location": "header",
+      "label": "Products",
+      "href": "/products/",
+      "sort": 0
+    },
+    {
+      "location": "header",
+      "label": "Agenda",
+      "href": "/agenda/",
+      "sort": 1
+    },
+    {
+      "location": "header",
+      "label": "About",
+      "href": "/about/",
+      "sort": 2
+    },
+    {
+      "location": "header",
+      "label": "Contact",
+      "href": "/contact/",
+      "sort": 3
+    }
+  ],
+  "pages": [
+    {
+      "path": "/",
+      "status": "published",
+      "title": "Home",
+      "seoTitle": "Hello World Cards | Pokémon cards and events",
+      "seoDescription": "Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "home-banner",
+          "type": "banner_figcaption",
+          "title": "Hello World Cards",
+          "srTitle": "Hello World Cards: Pokémon cards, custom binders, and events",
+          "description": "Welcome. We sell Pokémon cards and custom handpainted binders. Have a look around, and let us know if you need anything.",
+          "image": "/media/hero.jpg",
+          "link": {
+            "url": "/products/",
+            "title": "Have a look around"
+          },
+          "figcaption": "This is our little corner of the world"
+        },
+        {
+          "id": "home-hello",
+          "type": "content_text",
+          "title": "<Hello world />",
+          "srTitle": "Sam and Timo, the programmers behind Hello World Cards",
+          "description": "We're Sam and Timo, a couple of programmers who never quite grew out of Pokémon. Sam works on the backend, Timo on the frontend, which is why the shop is called Hello World.",
+          "image": "/media/wooper.png",
+          "link": {
+            "url": "/about/",
+            "title": "Learn more about us"
+          }
+        },
+        {
+          "id": "home-products",
+          "type": "content_products",
+          "title": "Our newest products",
+          "description": "A few cards from the shop. What you see here is the same stock we list on Marktplaats.",
+          "random": true
+        },
+        {
+          "id": "home-stall",
+          "type": "content_text",
+          "title": "Cards in the shop, binders at the stall",
+          "description": "We list Pokémon cards here and on Marktplaats. Sam paints custom binders that we show on the site as well. You can look at them here, but we only sell them in person at events.",
+          "image": "/media/wooper.png",
+          "link": {
+            "url": "/agenda/",
+            "title": "See upcoming events"
+          }
+        },
+        {
+          "id": "home-cta",
+          "type": "content_cta",
+          "title": "Want to get in touch?",
+          "description": "Questions about a card, an event, a binder at a stall, or anything else? Send us an email. We read everything.",
+          "image": "/media/hero.jpg",
+          "link": {
+            "url": "mailto:helloworldcards@outlook.com?subject=Question%20from%20Hello%20World%20Cards",
+            "title": "Get in touch"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/about",
+      "status": "published",
+      "title": "About",
+      "seoTitle": "About | Hello World Cards",
+      "seoDescription": "We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "about-banner",
+          "type": "banner_figcaption",
+          "title": "Hello, we're Hello World Cards",
+          "description": "We're a couple who turned a Pokémon hobby into this little shop. You'll find cards online, the events we're heading to, and a stall when we're out.",
+          "image": "/media/hero.jpg",
+          "figcaption": "This is us in our natural habitat."
+        },
+        {
+          "id": "about-people",
+          "type": "content_about",
+          "title": "A hobby that turned into a little shop",
+          "description": "Hello World Cards is us: Sam and Timo. We never quite grew out of Pokémon, and we both write software, which is why the shop is called Hello World. We list cards here and on Marktplaats, and we write up the events we're heading to.",
+          "peopleCaption": "Two nerds who never quite outgrew Pokémon.",
+          "people": [
+            {
+              "name": "Sam",
+              "pokemonIds": [194, 195, 143, 151, 54, 79],
+              "description": "Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Snorlax too: same sleepy energy as Sam. Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events."
+            },
+            {
+              "name": "Timo",
+              "pokemonIds": [94, 280, 186, 330, 285, 150],
+              "description": "Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs are a forever chase. Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should. A Gengar or Ralts full art almost never gets walked past at a table. Timo also builds this shop, from the listings to the site itself."
+            }
+          ]
+        },
+        {
+          "id": "about-stall",
+          "type": "content_text",
+          "title": "What we bring to a stall",
+          "description": "We bring cards from the shop, and Sam's custom handpainted binders. The binders are on the site so you can see them. We only sell them in person at the next event.",
+          "image": "/media/wooper.png",
+          "link": {
+            "url": "/agenda/",
+            "title": "See upcoming events"
+          }
+        },
+        {
+          "id": "about-faq",
+          "type": "content_faq",
+          "faqIds": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "about-cta",
+          "type": "content_cta",
+          "title": "Want to get in touch?",
+          "description": "Questions about a card, an event, a binder at a stall, or anything else? Send us a message.",
+          "image": "/media/hero.jpg",
+          "link": {
+            "url": "/contact/",
+            "title": "Get in touch"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/agenda",
+      "status": "published",
+      "title": "Agenda",
+      "seoTitle": "Upcoming events | Hello World Cards",
+      "seoDescription": "When we have a stall at a Pokémon event in the Netherlands or Belgium, the date and place will be here.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "agenda-list",
+          "type": "content_agenda",
+          "title": "Upcoming Pokémon events",
+          "description": "When we have a stall at a Pokémon event, the date and place will be here. Come say hi, browse the cards, and have a look at Sam's handpainted binders."
+        },
+        {
+          "id": "agenda-stall",
+          "type": "content_text",
+          "title": "What you'll find at the stall",
+          "description": "We bring cards from the shop and Sam's custom handpainted binders. You can look at the binders on this site, but we only sell them in person. Cards are listed here and on Marktplaats if you want to browse before you come. If you have a question before an event, email is always fine.",
+          "image": "/media/wooper.png",
+          "link": {
+            "url": "/products/",
+            "title": "See our products"
+          }
+        },
+        {
+          "id": "agenda-cta",
+          "type": "content_cta",
+          "title": "Want to get in touch?",
+          "description": "Questions about a card, an event, a binder at a stall, or anything else? Send us a message.",
+          "image": "/media/hero.jpg",
+          "link": {
+            "url": "/contact/",
+            "title": "Get in touch"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/contact",
+      "status": "published",
+      "title": "Contact",
+      "seoTitle": "Contact | Hello World Cards",
+      "seoDescription": "Questions about a card, an event, a binder at a stall, or anything else? Send us a message.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "contact-form",
+          "type": "form_contact",
+          "title": "Get in touch with us",
+          "description": "Questions about a card, an event, a binder at a stall, or anything else? Send us a message. Email is always fine, even if a card is also on Marktplaats."
+        },
+        {
+          "id": "contact-faq",
+          "type": "content_faq",
+          "faqIds": [6, 7, 8, 9]
+        }
+      ]
+    },
+    {
+      "path": "/privacy",
+      "status": "published",
+      "title": "Privacy",
+      "seoTitle": "Privacy statement | Hello World Cards",
+      "seoDescription": "How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "privacy-text",
+          "type": "content_text",
+          "heading": "h1",
+          "title": "Our privacy statement",
+          "description": "Hello World Cards is a small Pokémon shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message, including the contact form.",
+          "image": "/media/wooper.png",
+          "updated": "17 August 2026",
+          "sections": [
+            {
+              "title": "Who we are",
+              "body": "Hello World Cards is Sam and Timo. We list Pokémon cards here and on Marktplaats, and we write about events we go to. You can reach us at [helloworldcards@outlook.com](mailto:helloworldcards@outlook.com)."
+            },
+            {
+              "title": "Messages you send us",
+              "body": "If you use the contact form or email us, we receive your name, email address, and message so we can reply. We do not sell that information or use it for ads. If you want a message deleted, email us and we will remove it."
+            },
+            {
+              "title": "Google Tag Manager",
+              "body": "We use Google Tag Manager to add measurement tools to the site. It may set cookies and load other Google tags. See [Google's privacy policy](https://policies.google.com/privacy)."
+            },
+            {
+              "title": "Microsoft Clarity",
+              "body": "We use Microsoft Clarity to see how people move around the shop. Clarity uses cookies. See [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) and [Clarity's terms](https://clarity.microsoft.com/terms)."
+            },
+            {
+              "title": "Cookies",
+              "body": "Google Tag Manager and Microsoft Clarity may store cookies in your browser. You can block or delete cookies in your browser settings. The shop will still work."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/products",
+      "status": "published",
+      "title": "Shop",
+      "seoTitle": "Shop | Hello World Cards",
+      "seoDescription": "Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.",
+      "seoImage": "/media/hero.jpg",
+      "blocks": [
+        {
+          "id": "products-grid",
+          "type": "content_products",
+          "title": "All the products we currently have in stock",
+          "description": "Pokémon cards we have right now. They are listed here and on Marktplaats, so you can browse on the site and buy through the listing when one is up."
+        },
+        {
+          "id": "products-cta",
+          "type": "content_cta",
+          "title": "Looking for a binder?",
+          "description": "Sam's handpainted binders are on the site so you can see them, but they are not for sale here. They are one-off pieces we sell in person at events.",
+          "image": "/media/hero.jpg",
+          "link": {
+            "url": "/agenda/",
+            "title": "See upcoming events"
+          }
+        }
+      ]
+    }
+  ],
+  "faqs": [
+    {
+      "id": 1,
+      "question": "What is Hello World Cards?",
+      "answer": "A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. There is no walk-in storefront."
+    },
+    {
+      "id": 2,
+      "question": "Who runs Hello World Cards?",
+      "answer": "Sam and Timo, a couple of programmers who collect Pokémon. Sam is a backend developer who collects Wooper and Quagsire and paints the binders. Timo is a frontend developer who chases Gengar and Ralts. The name Hello World is the programmer joke."
+    },
+    {
+      "id": 3,
+      "question": "Why is it called Hello World Cards?",
+      "answer": "Because we both write software. Sam does backend, Timo does frontend. Hello World is the first thing you print when you learn to code, so it felt like the right name for a shop that is still a hobby at heart."
+    },
+    {
+      "id": 4,
+      "question": "Do you have a physical shop?",
+      "answer": "No walk-in storefront. We sell cards online and on Marktplaats, and in person when we have a stall at Pokémon events in the Netherlands and Belgium."
+    },
+    {
+      "id": 5,
+      "question": "What do you sell?",
+      "answer": "Pokémon cards, including graded cards. They are listed here and on Marktplaats. Sam also makes custom handpainted binders. We display those on the site so you can see them, and we sell them in person at events."
+    },
+    {
+      "id": 6,
+      "question": "How do I buy a card?",
+      "answer": "Browse the shop on this site. If a product has a View on Marktplaats button, that is the listing — you buy it there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying those cards."
+    },
+    {
+      "id": 7,
+      "question": "Can I buy a binder on the website?",
+      "answer": "You can look at them here, but we do not sell binders through the site. Sam paints them as one-off pieces. Come to an event if you want to buy one."
+    },
+    {
+      "id": 8,
+      "question": "How can I get in touch?",
+      "answer": "Use the form on this page, email us, Instagram @helloworldcards, or our Marktplaats page. Email is the one that always works, for cards, events, binders at a stall, or anything else."
+    },
+    {
+      "id": 9,
+      "question": "Where can I meet you in person?",
+      "answer": "When we have a stall at a Pokémon event. Those dates go on the agenda. We do not have a next event planned yet. We bring cards from the shop and Sam's handpainted binders."
+    }
+  ],
+  "events": []
+}

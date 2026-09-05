@@ -405,6 +405,6 @@ describe('runDealFinderScan', () => {
 
     expect(report.deals).toHaveLength(1)
     expect(report.deals[0]?.card.confidence).toBe('medium')
-    expect(report.errors[0]).toContain('ANTHROPIC_API_KEY')
+    expect(report.errors[0]).toContain('No PSA label reader configured')
   })
 })

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatMarktplaatsVraagprijs,
-  marktplaatsListingEuros,
-  marktplaatsVraagprijsFromShop
-} from '../app/services/price'
+import { formatMarktplaatsVraagprijs, marktplaatsListingEuros, marktplaatsVraagprijsFromShop } from '../app/services/price'
 
 describe('marktplaatsListingEuros', () => {
   it('subtracts one cent from the shop price', () => {

@@ -84,35 +84,79 @@ export function schemaSql(root = process.cwd()): string {
     .join('\n')
 }
 
-export async function ensureCmsSchema(
-  db: { prepare(query: string): { first(): Promise<unknown> }; exec?(query: string): Promise<unknown> },
-  root = process.cwd()
-): Promise<void> {
+const MIGRATION_LEDGER = '_applied_migrations'
+
+/** Every migration file, in the order Wrangler would apply them. */
+export function migrationFiles(root = process.cwd()): string[] {
   const dir = path.join(root, 'migrations')
-  try {
-    await db.prepare('SELECT 1 FROM settings LIMIT 1').first()
-  } catch {
-    await db.exec?.(fs.readFileSync(path.join(dir, '0001_schema.sql'), 'utf8'))
+  return fs
+    .readdirSync(dir)
+    .filter((entry) => entry.endsWith('.sql'))
+    .sort()
+}
+
+export function splitSqlStatements(sql: string): string[] {
+  return sql
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function isAlreadyApplied(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /duplicate column name|already exists|SQLITE_ERROR: .*already/i.test(message)
+}
+
+type SchemaStatement = {
+  all?(): Promise<{ results: Array<{ name: string }> }>
+  run?(): Promise<unknown>
+}
+
+type SchemaDb = {
+  prepare(query: string): SchemaStatement
+}
+
+/**
+ * Bring a local or scratch database up to the committed migrations.
+ *
+ * Wrangler only applies migrations to the remote database, so the local D1 that `npm run
+ * dev` and the sync scripts use has to be caught up here. Applied files are recorded in a
+ * ledger table instead of being guessed at column by column, so adding a migration needs
+ * no matching edit in this file. Statements a database has already had applied — one
+ * created before the ledger existed — are ignored rather than fatal.
+ */
+export async function ensureCmsSchema(db: SchemaDb, root = process.cwd()): Promise<void> {
+  const dir = path.join(root, 'migrations')
+  // D1's exec() takes one statement per line, so every statement goes through prepare().
+  const execute = async (sql: string) => {
+    await db.prepare(sql).run?.()
   }
+
+  await execute(`CREATE TABLE IF NOT EXISTS ${MIGRATION_LEDGER} (name TEXT PRIMARY KEY)`)
+
+  let applied = new Set<string>()
   try {
-    await db.prepare('SELECT bytes FROM media LIMIT 1').first()
+    const rows = (await db.prepare(`SELECT name FROM ${MIGRATION_LEDGER}`).all?.())?.results ?? []
+    applied = new Set(rows.map((row) => row.name))
   } catch {
-    await db.exec?.(fs.readFileSync(path.join(dir, '0002_r2_usage.sql'), 'utf8'))
+    // Unreadable ledger: fall through and let the already-applied guard do the work.
   }
-  try {
-    await db.prepare('SELECT title FROM media LIMIT 1').first()
-  } catch {
-    await db.exec?.(fs.readFileSync(path.join(dir, '0003_media_copy.sql'), 'utf8'))
-  }
-  try {
-    await db.prepare('SELECT deleted_at FROM products LIMIT 1').first()
-  } catch {
-    await db.exec?.(fs.readFileSync(path.join(dir, '0004_trash.sql'), 'utf8'))
-  }
-  try {
-    await db.prepare('SELECT vinted_url FROM products LIMIT 1').first()
-  } catch {
-    await db.exec?.(fs.readFileSync(path.join(dir, '0005_vinted_url.sql'), 'utf8'))
+
+  for (const name of migrationFiles(root)) {
+    if (applied.has(name)) {
+      continue
+    }
+    const sql = fs.readFileSync(path.join(dir, name), 'utf8')
+    for (const statement of splitSqlStatements(sql)) {
+      try {
+        await execute(statement)
+      } catch (error) {
+        if (!isAlreadyApplied(error)) {
+          throw error
+        }
+      }
+    }
+    await execute(`INSERT OR IGNORE INTO ${MIGRATION_LEDGER} (name) VALUES ('${name}')`)
   }
 }
 

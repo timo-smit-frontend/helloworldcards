@@ -15,7 +15,7 @@ import {
   getPlaywrightCardmarketFetcher
 } from './cardmarket-browser'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
-import { createSlabReader } from './deal-finder-vision'
+import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
 import { seedMediaWithVariants } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
@@ -46,15 +46,14 @@ function parseDotEnv(source: string): Record<string, string> {
 
 /**
  * Keys the deal finder needs, read from `.dev.vars` like the dashboard login.
- * Both are optional: without ANTHROPIC_API_KEY the scan falls back to reading the
- * listing text only, and without PSA_API_TOKEN it trusts the label it read.
+ * The label reader runs locally and needs nothing; PSA_API_TOKEN is optional too,
+ * and without it the scan trusts the label it read off the photos.
  */
-export function loadScanSecrets(root = process.cwd()): { ANTHROPIC_API_KEY?: string; PSA_API_TOKEN?: string } {
+export function loadScanSecrets(root = process.cwd()): { PSA_API_TOKEN?: string } {
   const filePath = path.join(root, '.dev.vars')
   const fromFile = fs.existsSync(filePath) ? parseDotEnv(fs.readFileSync(filePath, 'utf8')) : {}
 
   return {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? fromFile.ANTHROPIC_API_KEY,
     PSA_API_TOKEN: process.env.PSA_API_TOKEN ?? fromFile.PSA_API_TOKEN
   }
 }
@@ -221,7 +220,7 @@ function cmsApiMiddleware(root: string) {
         media: cms.media,
         cardmarketStore: fileCardmarketStore(root),
         dealFinderStore: fileDealFinderStore(root),
-        ...(secrets.ANTHROPIC_API_KEY ? { readSlabs: createSlabReader({ apiKey: secrets.ANTHROPIC_API_KEY }) } : {}),
+        readSlabs: createSlabReader({ root }),
         ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
       }
 
@@ -268,6 +267,7 @@ function cmsApiMiddleware(root: string) {
       } finally {
         if (browser) {
           await closePlaywrightCardmarketFetcher()
+          await closeSlabReader()
         }
       }
     } catch (error) {

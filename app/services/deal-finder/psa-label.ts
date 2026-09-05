@@ -91,7 +91,7 @@ export function normalizePsaLabel(raw: RawLabel): PsaLabel {
       ? (declared as CardLanguage | 'other')
       : (fromLine.language ?? (setLine ? 'english' : null))
 
-  const grade = Number(raw.grade)
+  const grade = raw.grade == null || raw.grade === '' ? null : Number(raw.grade)
   const cert = clean(typeof raw.certNumber === 'string' ? raw.certNumber : null)?.replace(/\D/g, '') ?? null
 
   return {
@@ -103,7 +103,7 @@ export function normalizePsaLabel(raw: RawLabel): PsaLabel {
     cardNumber: normalizeCardNumber(clean(typeof raw.cardNumber === 'string' ? raw.cardNumber : null)),
     language,
     languageLabel: fromLine.token ?? (typeof raw.languageLabel === 'string' ? clean(raw.languageLabel) : null),
-    grade: Number.isFinite(grade) ? grade : null,
+    grade: grade != null && Number.isFinite(grade) ? grade : null,
     reverseHolo: raw.reverseHolo === true || REVERSE_HOLO.test(blob),
     firstEdition: raw.firstEdition === true || FIRST_EDITION.test(blob)
   }

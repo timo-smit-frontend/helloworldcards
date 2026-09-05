@@ -59,11 +59,7 @@ export default function Seo({ admin }: { admin?: boolean }) {
 
   useEffect(() => {
     const seo =
-      admin || isAdminPath(pathname, hostname)
-        ? adminSeo()
-        : cms && !cmsLoading
-          ? getSeoForPayload(pathname, cms)
-          : getSeoForPath(pathname)
+      admin || isAdminPath(pathname, hostname) ? adminSeo() : cms && !cmsLoading ? getSeoForPayload(pathname, cms) : getSeoForPath(pathname)
 
     document.title = seo.title
     upsertMeta('name', 'description', seo.description)

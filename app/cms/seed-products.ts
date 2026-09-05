@@ -8,6 +8,7 @@ export const seedProductRecords: ProductRecord[] = [
     description:
       'A reverse holo from the 2016 XY Evolutions set, number 51/108. Evolutions reprints the original Base Set art with an XY-era reverse holo finish. This copy is graded PSA 9 Mint, cert 148651617. The PSA population is 1,857.',
     images: ['/media/148651617_front.jpg', '/media/148651617_back.jpg'],
+    pokemonId: 150,
     price: '€95',
     language: 'english',
     grader: 'psa',
@@ -18,8 +19,7 @@ export const seedProductRecords: ProductRecord[] = [
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51',
     reverseHolo: true,
     cost: 55,
-    acquiredAt: '2026-08-16',
-    pokemonId: 150
+    acquiredAt: '2026-08-16'
   },
   {
     id: 2,

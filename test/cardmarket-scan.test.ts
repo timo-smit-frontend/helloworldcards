@@ -41,9 +41,7 @@ describe('cardmarketOffersUrl', () => {
       cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Umbreon-VMAX-V1', 'english', {
         grade: 10
       })
-    ).toBe(
-      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Umbreon-VMAX-V1?language=1&minCondition=1'
-    )
+    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Umbreon-VMAX-V1?language=1&minCondition=1')
   })
 
   it('keeps Near Mint for PSA 9', () => {
@@ -51,9 +49,7 @@ describe('cardmarketOffersUrl', () => {
       cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Hidden-Fates/Charizard-GX-V1-SM211', 'english', {
         grade: 9
       })
-    ).toBe(
-      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Hidden-Fates/Charizard-GX-V1-SM211?language=1&minCondition=2'
-    )
+    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Hidden-Fates/Charizard-GX-V1-SM211?language=1&minCondition=2')
   })
 
   it('sets Reverse Holo Yes for a reverse holo card', () => {
@@ -81,7 +77,9 @@ describe('cardmarketOffersUrl', () => {
       cardmarketOffersUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8', 'english', {
         firstEdition: false
       })
-    ).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8?language=1&minCondition=2&extra%5BisFirstEd%5D=N')
+    ).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Products/Singles/Neo-Genesis/Kingdra-NG8?language=1&minCondition=2&extra%5BisFirstEd%5D=N'
+    )
   })
 
   it('omits the First Edition filter for a set that never had 1st edition prints', () => {

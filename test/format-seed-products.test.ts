@@ -22,7 +22,7 @@ describe('formatSeedProductsSource', () => {
     ]
 
     const source = formatSeedProductsSource(products)
-    expect(source).toContain("price: \"€95\"")
+    expect(source).toContain('price: "€95"')
     expect(source).toContain('reverseHolo: true')
     expect(source).not.toContain('sold:')
     expect(source).not.toContain('concept:')

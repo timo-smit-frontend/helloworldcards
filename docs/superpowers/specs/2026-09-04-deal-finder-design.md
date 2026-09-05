@@ -37,8 +37,11 @@ Three signals, in order of authority:
 1. **PSA cert lookup** — when a certification number is readable, PSA's public API
    returns the authoritative year, set, subject, card number and grade.
    Free tier, 100 lookups a day, `PSA_API_TOKEN` in `.dev.vars`.
-2. **The PSA label** — read from the listing photos by Claude
-   (`ANTHROPIC_API_KEY` in `.dev.vars`). Rows, as PSA prints them:
+2. **The PSA label** — read from the listing photos by a local Tesseract OCR pass
+   (`vite/deal-finder-ocr.ts`), so a scan costs nothing and needs no API key. Each
+   photo is upscaled, greyed and contrast-stretched, then read twice: the default
+   layout pass groups the rows, and a sparse-text pass recovers the right-hand
+   column the first one drops. Rows, as PSA prints them:
 
    | Row | Left                                                                                     | Right                          |
    | --- | ---------------------------------------------------------------------------------------- | ------------------------------ |

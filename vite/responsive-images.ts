@@ -4,7 +4,7 @@ import type { Plugin } from 'vite'
 import { parseRasterVariant, type ImageFormat } from '../app/services/responsiveImage'
 import { findSeedMediaOriginal } from './media-variants'
 import { resizeToFormat, writeProductionVariants } from './responsive-image-build'
-import { uploadSeedMediaVariants } from './upload-seed-media'
+import { uploadSeedMediaVariants } from './media-sync'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 
@@ -46,9 +46,14 @@ export function responsiveImagesPlugin(): Plugin {
     return buffer
   }
 
+  let isBuild = false
+
   return {
     name: 'responsive-images',
     configResolved(config) {
+      // vite-node loads this config to run a script, and its teardown fires closeBundle
+      // too. Without this the media upload would reach production R2 from any script run.
+      isBuild = config.command === 'build'
       publicDir = config.publicDir
       root = config.root
       outDir = path.resolve(config.root, config.build.outDir)
@@ -85,7 +90,7 @@ export function responsiveImagesPlugin(): Plugin {
       })
     },
     async closeBundle() {
-      if (process.env.HWC_PRERENDER === '1') {
+      if (!isBuild || process.env.HWC_PRERENDER === '1') {
         return
       }
 

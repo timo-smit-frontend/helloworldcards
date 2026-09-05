@@ -24,7 +24,7 @@ export { groupProblems, sortDeals, sortNoComps } from './report'
 export { ownListingIds } from './filters'
 export { displayTitle } from './identify'
 
-/** Reads every PSA label it can find across a listing's photos. */
+/** Reads every PSA label it can find across a listing's photos, locally with OCR. */
 export type SlabReader = (input: { listing: SourceListing; imageUrls: string[] }) => Promise<SlabReading>
 
 /** Resolves a certification number against PSA's own records. */
@@ -184,7 +184,7 @@ export async function runDealFinderScan({
   if (!readSlabs) {
     // Without the label reader we are back to guessing from the seller's words alone,
     // which is exactly what used to go wrong — so say so rather than quietly degrading.
-    report.errors.push('No PSA label reader configured — set ANTHROPIC_API_KEY in .dev.vars to read the slabs in the photos.')
+    report.errors.push('No PSA label reader configured — the scan is going on the listing text alone.')
   }
 
   const deals: DealRow[] = []

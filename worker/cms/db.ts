@@ -262,6 +262,21 @@ export async function updateProduct(db: CmsDb, id: number, product: ProductRecor
     .run()
 }
 
+// Seed syncs address products by the id in the seed file, so the write has to keep that
+// id. A plain insert would take a fresh autoincrement id and the next sync would miss the
+// row again and insert a second copy.
+export async function upsertProductWithId(db: CmsDb, id: number, product: ProductRecord & { slug: string }): Promise<void> {
+  const assignments = PRODUCT_COLUMNS.split(', ')
+    .map((column) => `${column} = excluded.${column}`)
+    .join(', ')
+  await db
+    .prepare(
+      `INSERT INTO products (id, ${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET ${assignments}, deleted_at = NULL`
+    )
+    .bind(id, ...productWriteValues(product))
+    .run()
+}
+
 export async function nextProductSlug(db: CmsDb, product: ProductRecord): Promise<string> {
   const { results } = await db.prepare('SELECT id, title, subtitle FROM products').all<ProductRecord>()
   return uniqueProductSlug(product, results)
@@ -317,6 +332,24 @@ export async function updateFaq(db: CmsDb, id: number, faq: Omit<CmsFaq, 'id'>):
   await db.prepare('UPDATE faqs SET question = ?, answer = ? WHERE id = ?').bind(faq.question, faq.answer, id).run()
 }
 
+export async function upsertFaqWithId(db: CmsDb, id: number, faq: Omit<CmsFaq, 'id'>): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO faqs (id, question, answer) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET question = excluded.question, answer = excluded.answer, deleted_at = NULL'
+    )
+    .bind(id, faq.question, faq.answer)
+    .run()
+}
+
+export async function upsertEventWithId(db: CmsDb, id: number, event: Omit<CmsEvent, 'id'>): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO events (id, title, date, location) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, date = excluded.date, location = excluded.location, deleted_at = NULL'
+    )
+    .bind(id, event.title, event.date, event.location)
+    .run()
+}
+
 export async function listPages(db: CmsDb): Promise<CmsPage[]> {
   const { results } = await db.prepare('SELECT * FROM pages WHERE deleted_at IS NULL ORDER BY path ASC').all<PageRow>()
   return results.map(rowToPage)
@@ -350,6 +383,20 @@ export async function insertPage(db: CmsDb, page: Omit<CmsPage, 'id'>): Promise<
     .bind(page.path, page.status, page.title, page.seoTitle, page.seoDescription, page.seoImage, JSON.stringify(page.blocks))
     .run()
   return result.meta.last_row_id
+}
+
+// Pages have no stable id across environments, so a synced page is addressed by its
+// unique path. Restoring `deleted_at` keeps a push authoritative: what the snapshot holds
+// is what the target ends up with.
+export async function upsertPageByPath(db: CmsDb, page: Omit<CmsPage, 'id'>): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO pages (path, status, title, seo_title, seo_description, seo_image, blocks) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(path) DO UPDATE SET status = excluded.status, title = excluded.title, seo_title = excluded.seo_title,
+       seo_description = excluded.seo_description, seo_image = excluded.seo_image, blocks = excluded.blocks, deleted_at = NULL`
+    )
+    .bind(page.path, page.status, page.title, page.seoTitle, page.seoDescription, page.seoImage, JSON.stringify(page.blocks))
+    .run()
 }
 
 export async function updatePage(db: CmsDb, id: number, page: Omit<CmsPage, 'id'>): Promise<void> {

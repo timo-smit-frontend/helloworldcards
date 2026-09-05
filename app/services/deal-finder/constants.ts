@@ -34,7 +34,5 @@ export const IDENTITY_TTL_MS = 30 * 24 * 60 * 60 * 1000
 /** Cardmarket prices move, so a cached floor is only reused for half a day. */
 export const PRICE_TTL_MS = 12 * 60 * 60 * 1000
 
-/** Photos handed to the vision model per listing — the label is rarely past the fourth. */
+/** Photos handed to the label reader per listing — the label is rarely past the fourth. */
 export const MAX_PHOTOS_PER_LISTING = 4
-
-export const VISION_MODEL = 'claude-opus-5'

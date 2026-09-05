@@ -118,10 +118,14 @@ describe('handleMediaPublic variants', () => {
       }
     }
 
-    const response = await handleMediaPublic(new Request('https://helloworldcards.com/media/hero-w800.webp'), {}, {
-      media: bucket,
-      mediaCache: cache
-    })
+    const response = await handleMediaPublic(
+      new Request('https://helloworldcards.com/media/hero-w800.webp'),
+      {},
+      {
+        media: bucket,
+        mediaCache: cache
+      }
+    )
     expect(response?.status).toBe(200)
     expect(response?.headers.get('Content-Type')).toBe('image/webp')
     expect(response?.headers.get('X-Media-Served-Key')).toBe('hero-w800.webp')

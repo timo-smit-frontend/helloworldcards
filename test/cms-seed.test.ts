@@ -14,7 +14,9 @@ describe('ensureSeeded cmsSeedVersion', () => {
 
     await ensureSeeded(db)
 
-    const updateCalls = prepare.mock.calls.filter(([query]) => typeof query === 'string' && query.includes("REPLACE(images, '/images/', '/media/')"))
+    const updateCalls = prepare.mock.calls.filter(
+      ([query]) => typeof query === 'string' && query.includes("REPLACE(images, '/images/', '/media/')")
+    )
     expect(updateCalls).toHaveLength(0)
   })
 
@@ -40,12 +42,8 @@ describe('ensureSeeded cmsSeedVersion', () => {
   it('dedupes nav items when the CMS seed version bumps to 3', async () => {
     const db = createMemoryD1()
     await ensureSeeded(db)
-    await db
-      .prepare("INSERT INTO nav_items (location, label, href, sort) VALUES ('header', 'Products', '/products/', 0)")
-      .run()
-    await db
-      .prepare("INSERT INTO nav_items (location, label, href, sort) VALUES ('footer', 'Products', '/products/', 0)")
-      .run()
+    await db.prepare("INSERT INTO nav_items (location, label, href, sort) VALUES ('header', 'Products', '/products/', 0)").run()
+    await db.prepare("INSERT INTO nav_items (location, label, href, sort) VALUES ('footer', 'Products', '/products/', 0)").run()
 
     const settings = (await getSettings(db))!
     await putSettings(db, { ...settings, cmsSeedVersion: 2 })

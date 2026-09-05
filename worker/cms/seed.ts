@@ -4,16 +4,14 @@ import { seedProductRecords } from '../../app/cms/seed-products'
 import { imageCopyFor } from '../../app/services/imageCopy'
 import {
   fillEmptyMediaCopy,
-  getProductById,
   getSettings,
-  insertFaq,
   insertMediaIfAbsent,
   insertPage,
-  insertProduct,
   listNav,
   putSettings,
   replaceNav,
-  updateProduct,
+  upsertFaqWithId,
+  upsertProductWithId,
   type CmsDb
 } from './db'
 
@@ -50,16 +48,15 @@ async function seedMediaLibrary(db: CmsDb): Promise<void> {
   }
 }
 
-/** Push seed inventory into an existing CMS database (by product id). Used after seed file edits. */
+/**
+ * Push seed inventory into an existing CMS database, keeping each product's seed id.
+ * The write is an upsert on that id: a product added to the seed file is created rather
+ * than skipped, and one that is already there — including one sitting in the trash — is
+ * updated in place instead of being duplicated under a fresh autoincrement id.
+ */
 export async function syncSeedProducts(db: CmsDb): Promise<void> {
   for (const product of seedProductRecords) {
-    const seeded = seedProductWithSlug(product)
-    const existing = await getProductById(db, product.id)
-    if (existing) {
-      await updateProduct(db, product.id, seeded)
-    } else {
-      await insertProduct(db, seeded)
-    }
+    await upsertProductWithId(db, product.id, seedProductWithSlug(product))
   }
 }
 
@@ -82,9 +79,7 @@ async function dedupeNavItems(db: CmsDb): Promise<void> {
   }
 
   const sorted = (['header', 'footer'] as const).flatMap((location) =>
-    unique
-      .filter((item) => item.location === location)
-      .map((item, index) => ({ ...item, sort: index }))
+    unique.filter((item) => item.location === location).map((item, index) => ({ ...item, sort: index }))
   )
   await replaceNav(db, sorted)
 }
@@ -113,12 +108,14 @@ async function ensureSeededUnlocked(db: CmsDb): Promise<void> {
   if (claim.meta.changes === 1) {
     await replaceNav(db, seedNavItems)
 
+    // Seed rows carry the ids the seed files and page blocks refer to, so they are
+    // written explicitly rather than left to autoincrement.
     for (const product of seedProductRecords) {
-      await insertProduct(db, seedProductWithSlug(product))
+      await upsertProductWithId(db, product.id, seedProductWithSlug(product))
     }
 
     for (const faq of seedFaqs) {
-      await insertFaq(db, { question: faq.question, answer: faq.answer })
+      await upsertFaqWithId(db, faq.id, { question: faq.question, answer: faq.answer })
     }
 
     for (const page of seedPages) {
