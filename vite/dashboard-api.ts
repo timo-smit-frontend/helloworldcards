@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { Plugin } from 'vite'
 import { seedMediaFiles } from '../app/cms/seed-media'
 import { handleAdminRequest } from '../worker/cms/admin-api'
+import { autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
 import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
@@ -157,7 +158,9 @@ function seedLocalMediaVariantsInBackground(media: MediaBucket, root = process.c
   })
 }
 
-type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void> }
+/** `persistent` marks the real Wrangler-backed state; the in-memory fallback is a fresh
+ * seed every time and must never be published over production. */
+type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void>; persistent: boolean }
 
 async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
   try {
@@ -179,6 +182,7 @@ async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
       return {
         db: env.DB,
         media: env.MEDIA,
+        persistent: true,
         dispose: () => proxy.dispose()
       }
     }
@@ -192,11 +196,48 @@ async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
   seedLocalMediaVariantsInBackground(media)
   return {
     db: createMemoryD1(),
-    media
+    media,
+    persistent: false
   }
 }
 
 let runtimePromise: Promise<ViteCmsRuntime> | null = null
+let autoSyncPromise: Promise<CmsAutoSync | null> | null = null
+
+/**
+ * Keeping the two environments in step is part of running the CMS, not a command to
+ * remember, so the dev server reconciles at startup and publishes every admin change.
+ */
+function cmsAutoSync(root: string): Promise<CmsAutoSync | null> {
+  autoSyncPromise ??= (async () => {
+    if (!autoSyncEnabled()) {
+      return null
+    }
+    const cms = await viteCmsRuntime()
+    if (!cms.persistent || !cms.db || !cms.media) {
+      console.warn('[cms-sync] no local Wrangler state, so nothing is synced with production')
+      return null
+    }
+    const sync = createCmsAutoSync({ root, db: cms.db, media: cms.media })
+    sync.start()
+    return sync
+  })()
+  return autoSyncPromise
+}
+
+const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+/** Admin routes that keep their own files and never touch the CMS database or bucket. */
+const NON_CMS_ADMIN = ['/api/admin/cardmarket', '/api/admin/deal-finder']
+
+function changesCms(url: string, method: string, status: number): boolean {
+  return (
+    url.startsWith('/api/admin/') &&
+    !READ_ONLY_METHODS.has(method) &&
+    status < 400 &&
+    !NON_CMS_ADMIN.some((prefix) => url.startsWith(prefix))
+  )
+}
 
 function viteCmsRuntime(): Promise<ViteCmsRuntime> {
   runtimePromise ??= createViteCmsRuntime()
@@ -264,6 +305,9 @@ function cmsApiMiddleware(root: string) {
         }
 
         await sendFetchResponse(response, res)
+        if (changesCms(url, req.method ?? 'GET', response.status)) {
+          void cmsAutoSync(root).then((sync) => sync?.noteWrite())
+        }
       } finally {
         if (browser) {
           await closePlaywrightCardmarketFetcher()
@@ -281,11 +325,17 @@ export function dashboardApiPlugin(): Plugin {
     name: 'cms-api',
     configureServer(server) {
       server.middlewares.use(cmsApiMiddleware(server.config.root))
+      // `vite-node` boots a Vite server of its own to transform modules, and the sync
+      // runs through `vite-node`: starting the sync there would have it spawn itself.
+      if (!server.config.server.middlewareMode) {
+        void cmsAutoSync(server.config.root)
+      }
     },
     configurePreviewServer(server) {
       server.middlewares.use(cmsApiMiddleware(server.config.root))
     },
     async closeBundle() {
+      ;(await autoSyncPromise)?.stop()
       const runtime = await runtimePromise
       await runtime?.dispose?.()
     }

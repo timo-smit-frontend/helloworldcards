@@ -2,39 +2,36 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import prettier from 'prettier'
 import { fileURLToPath } from 'node:url'
-import { formatSeedProductsSource } from '../app/cms/format-seed-products'
-import { seedProductRecords } from '../app/cms/seed-products'
-import type { ProductRecord } from '../app/database/products'
-import { formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
-import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
-import { rowToRecord, type CmsDb } from '../worker/cms/db'
+import { parseContentSnapshot, pushContent } from '../worker/cms/content-sync'
+import { parseMediaSnapshot, pushMediaLibrary } from '../worker/cms/media-library-sync'
+import { trashRowsMissingFrom, type CmsDb } from '../worker/cms/db'
 import { ensureSeeded } from '../worker/cms/seed'
 import { ensureCmsSchema } from '../test/helpers/memory-d1'
 import { formatGeneratedFile, openLocalCms, pushSeedProducts, remoteCmsDb, type LocalCms, type RemoteCmsDb } from '../vite/cms-sync'
+import { readCmsState, renderCmsState, seedFilePath, writeSeedFiles, type CmsSeedPart } from '../vite/cms-state'
 import { bucketMediaSource, publicMediaSource, syncLocalMedia, syncRemoteMedia, type MediaSourceReader } from '../vite/media-sync'
+import { cachedMediaSource, firstMediaSource } from '../vite/media-originals'
 import { formatSeedMediaSource, readSeedMediaDir } from '../vite/seed-media-source'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const args = new Set(process.argv.slice(2))
+const argv = process.argv.slice(2)
+const args = new Set(argv)
+
+/** Where to write the state a pull read, for a caller that wants it without the files. */
+function flagValue(name: string): string | undefined {
+  const index = argv.indexOf(name)
+  return index >= 0 ? argv[index + 1] : undefined
+}
 
 const remote = args.has('--remote')
 const direction = args.has('--pull') ? 'pull' : 'push'
 const dryRun = args.has('--dry-run')
+const dumpPath = flagValue('--dump')
 const only = ['content', 'products', 'media'].filter((part) => args.has(`--${part}`))
-const parts = new Set(only.length > 0 ? only : ['content', 'products', 'media'])
+const parts = new Set<CmsSeedPart>((only.length > 0 ? only : ['content', 'products', 'media']) as CmsSeedPart[])
 
-const snapshotPath = path.join(root, 'seed/cms-content.json')
-const mediaSnapshotPath = path.join(root, 'seed/cms-media.json')
-const productsPath = path.join(root, 'app/cms/seed-products.ts')
 const seedMediaPath = path.join(root, 'app/cms/seed-media.ts')
 const where = remote ? 'remote' : 'local'
-
-async function readProducts(db: CmsDb): Promise<ProductRecord[]> {
-  const { results } = await db
-    .prepare('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC')
-    .all<Parameters<typeof rowToRecord>[0]>()
-  return results.map(rowToRecord)
-}
 
 /** Regenerate the seed media library from disk so a new or replaced file is never missed. */
 async function refreshSeedMediaSource(): Promise<void> {
@@ -58,14 +55,14 @@ async function refreshSeedMediaSource(): Promise<void> {
 }
 
 /**
- * An image uploaded through the local admin has no file in the repo and no copy in
- * production, so a remote push reads its original straight out of the local bucket. The
- * bucket is opened only if such an image actually turns up.
+ * An image uploaded through an admin has no file in the repo, so its original is read
+ * from the on-disk cache the dev server keeps. Opening the local Wrangler state is only a
+ * last resort, because the dev server holds it while it is running.
  */
 let fallbackCms: LocalCms | null = null
 let fallbackOpened = false
 
-const localMediaSource: MediaSourceReader = async (key) => {
+const localBucketSource: MediaSourceReader = async (key) => {
   if (!fallbackOpened) {
     fallbackOpened = true
     try {
@@ -92,31 +89,17 @@ async function run(): Promise<void> {
     }
 
     if (direction === 'pull') {
-      if (parts.has('content')) {
-        const snapshot = await pullContent(db)
-        if (!dryRun) {
-          await fs.writeFile(snapshotPath, formatContentSnapshot(snapshot))
-          formatGeneratedFile(snapshotPath)
-        }
-        console.log(
-          `cms-sync: pulled ${snapshot.pages.length} pages, ${snapshot.faqs.length} FAQs, ${snapshot.events.length} events, ${snapshot.nav.length} nav items and settings from ${where}`
-        )
+      const state = await readCmsState(db)
+      if (dumpPath) {
+        await fs.writeFile(dumpPath, JSON.stringify(state))
       }
-      if (parts.has('products')) {
-        const products = await readProducts(db)
-        if (!dryRun) {
-          await fs.writeFile(productsPath, formatSeedProductsSource(products))
-          formatGeneratedFile(productsPath)
-        }
-        console.log(`cms-sync: pulled ${products.length} products from ${where}`)
-      }
-      if (parts.has('media')) {
-        const library = await pullMediaLibrary(db)
-        if (!dryRun) {
-          await fs.writeFile(mediaSnapshotPath, formatMediaSnapshot(library))
-          formatGeneratedFile(mediaSnapshotPath)
-        }
-        console.log(`cms-sync: pulled ${library.media.length} media rows from ${where}; the image bytes stay in R2`)
+      const rendered = await renderCmsState(root, state)
+      const changed = dryRun ? [] : await writeSeedFiles(root, rendered, [...parts])
+      console.log(
+        `cms-sync: pulled ${state.content.pages.length} pages, ${state.content.faqs.length} FAQs, ${state.content.events.length} events, ${state.content.nav.length} nav items, ${state.products.length} products and ${state.media.media.length} media rows from ${where}`
+      )
+      if (!dryRun) {
+        console.log(changed.length > 0 ? `cms-sync: updated ${changed.join(', ')}` : 'cms-sync: seed files were already up to date')
       }
       return
     }
@@ -127,7 +110,7 @@ async function run(): Promise<void> {
     const verb = dryRun ? 'would push' : 'pushed'
 
     if (parts.has('content')) {
-      const snapshot = parseContentSnapshot(await fs.readFile(snapshotPath, 'utf8'))
+      const snapshot = parseContentSnapshot(await fs.readFile(seedFilePath(root, 'content'), 'utf8'))
       if (applyWrites) {
         await pushContent(db, snapshot)
       }
@@ -136,15 +119,22 @@ async function run(): Promise<void> {
       )
     }
     if (parts.has('products')) {
+      const { seedProductRecords } = await import('../app/cms/seed-products')
       if (applyWrites) {
-        await pushSeedProducts(db)
+        await pushSeedProducts(db, seedProductRecords)
+        await trashRowsMissingFrom(
+          db,
+          'products',
+          'id',
+          seedProductRecords.map((product) => product.id)
+        )
       }
       console.log(`cms-sync: ${verb} ${seedProductRecords.length} products to ${where}`)
     }
 
     // The library rows have to be queued before the flush, so the bucket reconcile that
-    // follows works from a database that already knows about the new keys.
-    const library = parts.has('media') ? parseMediaSnapshot(await fs.readFile(mediaSnapshotPath, 'utf8')) : null
+    // follows works from a database that already knows the new keys.
+    const library = parts.has('media') ? parseMediaSnapshot(await fs.readFile(seedFilePath(root, 'media'), 'utf8')) : null
     if (library) {
       if (applyWrites) {
         await pushMediaLibrary(db, library)
@@ -163,9 +153,16 @@ async function run(): Promise<void> {
 
     if (library) {
       const mediaRowKeys = library.media.map((entry) => entry.key)
+      const cached = cachedMediaSource(root)
       const result = remote
-        ? await syncRemoteMedia({ root, mediaRowKeys, dryRun, fallback: localMediaSource })
-        : await syncLocalMedia({ root, bucket: local!.media, mediaRowKeys, dryRun, fallback: publicMediaSource() })
+        ? await syncRemoteMedia({ root, mediaRowKeys, dryRun, fallback: firstMediaSource(cached, localBucketSource) })
+        : await syncLocalMedia({
+            root,
+            bucket: local!.media,
+            mediaRowKeys,
+            dryRun,
+            fallback: firstMediaSource(cached, publicMediaSource())
+          })
       const mediaVerb = dryRun ? 'would sync' : 'synced'
       console.log(
         `cms-sync: ${mediaVerb} ${where} media — ${result.encoded.length} images re-encoded, ${result.uploaded} objects uploaded, ${result.removed.length} removed, ${result.unchanged} unchanged`

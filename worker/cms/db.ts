@@ -565,3 +565,25 @@ export async function deleteMediaExcept(db: CmsDb, keys: string[]): Promise<void
     .bind(...keys)
     .run()
 }
+
+/**
+ * Move the rows a snapshot no longer carries into the trash, so deleting something in one
+ * admin removes it from the other instead of quietly living on. The rows are trashed
+ * rather than dropped, which leaves the same undo the admin itself offers. An empty list
+ * is treated as a broken read and trashes nothing.
+ */
+export async function trashRowsMissingFrom(
+  db: CmsDb,
+  table: TrashTable,
+  column: 'id' | 'path',
+  keep: Array<string | number>
+): Promise<void> {
+  if (keep.length === 0) {
+    return
+  }
+  const placeholders = keep.map(() => '?').join(', ')
+  await db
+    .prepare(`UPDATE ${table} SET deleted_at = ? WHERE deleted_at IS NULL AND ${column} NOT IN (${placeholders})`)
+    .bind(new Date().toISOString(), ...keep)
+    .run()
+}

@@ -7,6 +7,7 @@ import {
   listPages,
   putSettings,
   replaceNav,
+  trashRowsMissingFrom,
   upsertEventWithId,
   upsertFaqWithId,
   upsertPageByPath,
@@ -77,6 +78,27 @@ export async function pushContent(db: CmsDb, snapshot: CmsContentSnapshot): Prom
   for (const event of snapshot.events) {
     await upsertEventWithId(db, event.id, { title: event.title, date: event.date, location: event.location })
   }
+
+  // A page, FAQ or event deleted in one admin is absent from the snapshot rather than
+  // marked, so the target has to trash whatever the snapshot stopped carrying.
+  await trashRowsMissingFrom(
+    db,
+    'pages',
+    'path',
+    snapshot.pages.map((page) => page.path)
+  )
+  await trashRowsMissingFrom(
+    db,
+    'faqs',
+    'id',
+    snapshot.faqs.map((faq) => faq.id)
+  )
+  await trashRowsMissingFrom(
+    db,
+    'events',
+    'id',
+    snapshot.events.map((event) => event.id)
+  )
 
   return {
     nav: snapshot.nav.length,

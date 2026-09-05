@@ -6,7 +6,8 @@ import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import { seedProductRecords } from '../app/cms/seed-products'
 import { contentSnapshotsMatch, formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
 import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
-import { listInventory, listMedia, listPages, replaceMediaFile } from '../worker/cms/db'
+import { listFaqs, listInventory, listMedia, listPages, replaceMediaFile, trashRecord } from '../worker/cms/db'
+import { readCmsState, writeCmsState } from '../vite/cms-state'
 import { ensureSeeded, syncSeedProducts } from '../worker/cms/seed'
 import { inlineParams } from '../vite/cms-sync'
 import { formatSeedMediaSource, readSeedMediaDir } from '../vite/seed-media-source'
@@ -74,6 +75,35 @@ describe('cms content sync', () => {
   })
 
   /**
+   * A deleted page or FAQ is simply absent from the snapshot, so the push has to notice
+   * what stopped being there or a deletion never leaves the environment it was made in.
+   */
+  it('trashes a page the snapshot no longer carries', async () => {
+    const db = await seededDb()
+    const snapshot = await pullContent(db)
+    await pushContent(db, { ...snapshot, pages: snapshot.pages.filter((page) => page.path !== '/privacy') })
+
+    expect((await listPages(db)).some((page) => page.path === '/privacy')).toBe(false)
+  })
+
+  it('trashes an FAQ the snapshot no longer carries', async () => {
+    const db = await seededDb()
+    const snapshot = await pullContent(db)
+    const dropped = snapshot.faqs[0]
+    await pushContent(db, { ...snapshot, faqs: snapshot.faqs.filter((faq) => faq.id !== dropped.id) })
+
+    expect((await listFaqs(db)).some((faq) => faq.id === dropped.id)).toBe(false)
+  })
+
+  it('leaves everything alone when a snapshot arrives empty', async () => {
+    const db = await seededDb()
+    const snapshot = await pullContent(db)
+    await pushContent(db, { ...snapshot, pages: [], faqs: [], events: [] })
+
+    expect((await listPages(db)).length).toBeGreaterThan(0)
+  })
+
+  /**
    * The committed snapshot is whatever the admin last pulled, so it drifts from the code
    * seed the moment content is edited. What has to keep holding is that pushing it into a
    * database leaves that database describing exactly the same content.
@@ -89,6 +119,28 @@ describe('cms content sync', () => {
     const file = path.join(process.cwd(), 'seed/cms-content.json')
     const source = fs.readFileSync(file, 'utf8')
     expect(await formatted(formatContentSnapshot(parseContentSnapshot(source)), file)).toBe(source)
+  })
+})
+
+describe('whole state sync', () => {
+  it('leaves a second database holding exactly the same CMS', async () => {
+    const source = await seededDb()
+    const target = await seededDb()
+
+    await writeCmsState(target, await readCmsState(source))
+
+    expect(await readCmsState(target)).toEqual(await readCmsState(source))
+  })
+
+  it('carries a deleted product across instead of leaving it behind', async () => {
+    const source = await seededDb()
+    const target = await seededDb()
+    const dropped = (await listInventory(source))[0]
+    await trashRecord(source, 'products', dropped.id)
+
+    await writeCmsState(target, await readCmsState(source))
+
+    expect((await listInventory(target)).some((product) => product.id === dropped.id)).toBe(false)
   })
 })
 
