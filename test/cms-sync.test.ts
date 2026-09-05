@@ -4,8 +4,9 @@ import prettier from 'prettier'
 import { describe, expect, it } from 'vitest'
 import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import { seedProductRecords } from '../app/cms/seed-products'
-import { formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
-import { listInventory, listPages } from '../worker/cms/db'
+import { contentSnapshotsMatch, formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
+import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
+import { listInventory, listMedia, listPages, replaceMediaFile } from '../worker/cms/db'
 import { ensureSeeded, syncSeedProducts } from '../worker/cms/seed'
 import { inlineParams } from '../vite/cms-sync'
 import { formatSeedMediaSource, readSeedMediaDir } from '../vite/seed-media-source'
@@ -72,10 +73,87 @@ describe('cms content sync', () => {
     expect(() => parseContentSnapshot('{"nope":true}')).toThrow()
   })
 
-  it('keeps seed/cms-content.json in step with app/cms/seed-content.ts', async () => {
+  /**
+   * The committed snapshot is whatever the admin last pulled, so it drifts from the code
+   * seed the moment content is edited. What has to keep holding is that pushing it into a
+   * database leaves that database describing exactly the same content.
+   */
+  it('applies the committed seed/cms-content.json without losing anything', async () => {
+    const snapshot = parseContentSnapshot(fs.readFileSync(path.join(process.cwd(), 'seed/cms-content.json'), 'utf8'))
     const db = await seededDb()
+    await pushContent(db, snapshot)
+    expect(contentSnapshotsMatch(await pullContent(db), snapshot)).toBe(true)
+  })
+
+  it('formats the committed snapshot the way a pull writes it', async () => {
     const file = path.join(process.cwd(), 'seed/cms-content.json')
-    expect(await formatted(formatContentSnapshot(await pullContent(db)), file)).toBe(fs.readFileSync(file, 'utf8'))
+    const source = fs.readFileSync(file, 'utf8')
+    expect(await formatted(formatContentSnapshot(parseContentSnapshot(source)), file)).toBe(source)
+  })
+})
+
+describe('media library sync', () => {
+  it('round-trips the library through a database', async () => {
+    const source = await seededDb()
+    const library = await pullMediaLibrary(source)
+
+    const target = await seededDb()
+    await pushMediaLibrary(target, library)
+
+    expect(await pullMediaLibrary(target)).toEqual(library)
+  })
+
+  /**
+   * Replacing a file gives the image a new key, so a database that only ever saw the old
+   * one has to learn the new row and forget the old, or the live site keeps pointing at a
+   * picture that is gone.
+   */
+  it('carries a replaced image to a database that still holds the old key', async () => {
+    const source = await seededDb()
+    const original = (await listMedia(source)).find((media) => media.key === 'wooper.png')!
+    await replaceMediaFile(source, original.id, {
+      key: 'abc123-wooper.png',
+      filename: 'wooper.png',
+      contentType: 'image/png',
+      bytes: 4242
+    })
+
+    const target = await seededDb()
+    await pushMediaLibrary(target, await pullMediaLibrary(source))
+
+    const keys = (await listMedia(target)).map((media) => media.key)
+    expect(keys).toContain('abc123-wooper.png')
+    expect(keys).not.toContain('wooper.png')
+  })
+
+  it('never empties a library from a snapshot that has no rows', async () => {
+    const db = await seededDb()
+    await pushMediaLibrary(db, { media: [] })
+    expect((await listMedia(db)).length).toBeGreaterThan(0)
+  })
+
+  it('parses only a real snapshot', () => {
+    expect(() => parseMediaSnapshot('{"nope":true}')).toThrow()
+  })
+
+  it('formats the committed seed/cms-media.json the way a pull writes it', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8')
+    expect(formatMediaSnapshot(parseMediaSnapshot(source))).toBe(source)
+  })
+
+  /**
+   * Every image the content points at has to be a row in the library, because the library
+   * is what tells a bucket sync which originals to carry across.
+   */
+  it('has a media row behind every image the seed files reference', () => {
+    const keys = new Set(
+      parseMediaSnapshot(fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8')).media.map((entry) => entry.key)
+    )
+    const sources = ['seed/cms-content.json', 'app/cms/seed-products.ts'].map((file) =>
+      fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+    )
+    const referenced = new Set(sources.flatMap((source) => [...source.matchAll(/\/media\/([\w.-]+)/g)].map((match) => match[1])))
+    expect([...referenced].filter((key) => !keys.has(key))).toEqual([])
   })
 })
 

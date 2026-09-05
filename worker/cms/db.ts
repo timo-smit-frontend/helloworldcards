@@ -523,3 +523,45 @@ export async function deleteMedia(db: CmsDb, id: number): Promise<CmsMedia | nul
   await db.prepare('DELETE FROM media WHERE id = ?').bind(id).run()
   return existing
 }
+
+/**
+ * Write one media row addressed by its key rather than its id, so a library snapshot
+ * pulled from one environment can be applied to another whose autoincrement ids differ.
+ */
+export async function upsertMediaByKey(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         filename = excluded.filename,
+         content_type = excluded.content_type,
+         width = excluded.width,
+         height = excluded.height,
+         bytes = excluded.bytes,
+         title = excluded.title,
+         alt = excluded.alt,
+         created_at = excluded.created_at`
+    )
+    .bind(
+      media.key,
+      media.filename,
+      media.contentType,
+      media.width,
+      media.height,
+      media.bytes,
+      media.title ?? '',
+      media.alt ?? '',
+      media.createdAt
+    )
+    .run()
+}
+
+/** Drop the rows a library snapshot no longer holds: a replaced or a deleted image. */
+export async function deleteMediaExcept(db: CmsDb, keys: string[]): Promise<void> {
+  const placeholders = keys.map(() => '?').join(', ')
+  await db
+    .prepare(`DELETE FROM media WHERE key NOT IN (${placeholders})`)
+    .bind(...keys)
+    .run()
+}

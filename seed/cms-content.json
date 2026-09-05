@@ -88,7 +88,7 @@
           "title": "<Hello world />",
           "srTitle": "Sam and Timo, the programmers behind Hello World Cards",
           "description": "We're Sam and Timo, a couple of programmers who never quite grew out of Pokémon. Sam works on the backend, Timo on the frontend, which is why the shop is called Hello World.",
-          "image": "/media/wooper.png",
+          "image": "/media/mtoudmwh-wooper.png",
           "link": {
             "url": "/about/",
             "title": "Learn more about us"
@@ -106,7 +106,7 @@
           "type": "content_text",
           "title": "Cards in the shop, binders at the stall",
           "description": "We list Pokémon cards here and on Marktplaats. Sam paints custom binders that we show on the site as well. You can look at them here, but we only sell them in person at events.",
-          "image": "/media/wooper.png",
+          "image": "/media/mtoudmwh-wooper.png",
           "link": {
             "url": "/agenda/",
             "title": "See upcoming events"
@@ -165,7 +165,7 @@
           "type": "content_text",
           "title": "What we bring to a stall",
           "description": "We bring cards from the shop, and Sam's custom handpainted binders. The binders are on the site so you can see them. We only sell them in person at the next event.",
-          "image": "/media/wooper.png",
+          "image": "/media/mtoudmwh-wooper.png",
           "link": {
             "url": "/agenda/",
             "title": "See upcoming events"
@@ -208,7 +208,7 @@
           "type": "content_text",
           "title": "What you'll find at the stall",
           "description": "We bring cards from the shop and Sam's custom handpainted binders. You can look at the binders on this site, but we only sell them in person. Cards are listed here and on Marktplaats if you want to browse before you come. If you have a question before an event, email is always fine.",
-          "image": "/media/wooper.png",
+          "image": "/media/mtoudmwh-wooper.png",
           "link": {
             "url": "/products/",
             "title": "See our products"
@@ -262,7 +262,7 @@
           "heading": "h1",
           "title": "Our privacy statement",
           "description": "Hello World Cards is a small Pokémon shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message, including the contact form.",
-          "image": "/media/wooper.png",
+          "image": "/media/mtoudmwh-wooper.png",
           "updated": "17 August 2026",
           "sections": [
             {

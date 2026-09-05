@@ -72,8 +72,8 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 
 /**
  * Originals the bucket should hold: everything committed under `seed/media`, plus every
- * media row in the database — an image uploaded through the admin has no file in the
- * repo but still needs its full set of sizes.
+ * key in the media library — an image uploaded through the admin has no file in the repo
+ * but still needs its full set of sizes.
  */
 export async function collectMediaSources(seedDir: string, mediaRowKeys: string[]): Promise<MediaSyncSource[]> {
   const sources = new Map<string, MediaSyncSource>()
@@ -95,12 +95,7 @@ export async function collectMediaSources(seedDir: string, mediaRowKeys: string[
   return [...sources.values()]
 }
 
-export async function listMediaRowKeys(db: { prepare(query: string): { all<T>(): Promise<{ results: T[] }> } }): Promise<string[]> {
-  const { results } = await db.prepare('SELECT key FROM media ORDER BY id ASC').all<{ key: string }>()
-  return results.map((row) => row.key)
-}
-
-type MediaStore = {
+export type MediaStore = {
   listKeys(): Promise<string[] | null>
   read(key: string): Promise<Buffer | null>
   put(key: string, bytes: Buffer, contentType: string): Promise<void>
@@ -203,16 +198,52 @@ function remoteStore(cacheDir: string): MediaStore {
   }
 }
 
-async function sourceBytes(key: string, seedDir: string, store: MediaStore): Promise<Buffer | null> {
+/** Reads the original bytes for a key out of the environment the sync is not writing to. */
+export type MediaSourceReader = (key: string) => Promise<Buffer | null>
+
+/** The live site, so a local bucket can pick up an image uploaded in the production admin. */
+export function publicMediaSource(): MediaSourceReader {
+  return async (key) => {
+    const response = await fetch(`${PUBLIC_MEDIA_ORIGIN}/media/${encodeURIComponent(key)}`)
+    return response.ok ? Buffer.from(await response.arrayBuffer()) : null
+  }
+}
+
+/** A bucket, so a remote sync can pick up an image uploaded in the local admin. */
+export function bucketMediaSource(bucket: MediaBucket): MediaSourceReader {
+  return async (key) => {
+    const object = await bucket.get(key)
+    return object ? Buffer.from(await object.arrayBuffer()) : null
+  }
+}
+
+/**
+ * Where the original bytes for one key came from. `fallback` means the other environment
+ * held them — an image uploaded through an admin, which the target bucket has never seen.
+ */
+type SourceOrigin = 'seed' | 'store' | 'fallback'
+
+async function sourceBytes(
+  key: string,
+  seedDir: string,
+  store: MediaStore,
+  fallback?: MediaSourceReader
+): Promise<{ bytes: Buffer; origin: SourceOrigin } | null> {
   const seedFile = seedMediaFiles.find((file) => file.key === key)
   if (seedFile) {
-    try {
-      return await fs.readFile(path.join(seedDir, seedFile.filename))
-    } catch {
-      return null
+    const bytes = await fs.readFile(path.join(seedDir, seedFile.filename)).catch(() => null)
+    if (bytes) {
+      return { bytes, origin: 'seed' }
     }
   }
-  return store.read(key)
+
+  const stored = await store.read(key)
+  if (stored) {
+    return { bytes: stored, origin: 'store' }
+  }
+
+  const borrowed = await fallback?.(key)
+  return borrowed ? { bytes: borrowed, origin: 'fallback' } : null
 }
 
 /**
@@ -227,9 +258,12 @@ export async function syncMediaBucket(options: {
   target: MediaSyncTarget
   dryRun?: boolean
   prune?: boolean
+  /** Where to read an original the target bucket does not have, so uploads made in the
+   * other environment's admin are carried across instead of being silently skipped. */
+  fallback?: MediaSourceReader
   log?: (message: string) => void
 }): Promise<MediaSyncResult> {
-  const { root, store, mediaRowKeys, target, dryRun = false, prune = true } = options
+  const { root, store, mediaRowKeys, target, dryRun = false, prune = true, fallback } = options
   const log = options.log ?? console.log
   const seedDir = path.join(root, 'seed/media')
   const cacheDir = path.join(root, '.cache', 'media-variants')
@@ -259,20 +293,22 @@ export async function syncMediaBucket(options: {
 
   try {
     for (const key of plan.encode) {
-      const bytes = await sourceBytes(key, seedDir, store)
-      if (!bytes) {
+      const source = await sourceBytes(key, seedDir, store, fallback)
+      if (!source) {
         result.skipped.push(key)
         log(`media-sync: no source for ${key}, skipping`)
         continue
       }
+      const { bytes } = source
 
       // Only the original is guaranteed present in the bucket; encoding needs a file.
       const originalPath = path.join(temporary, path.basename(key))
       await fs.writeFile(originalPath, bytes)
 
-      // A source that only lives in the bucket still needs its original in place when the
-      // bucket has lost it.
-      if (bucketKeys && !bucketKeys.includes(key)) {
+      // A source that only lives in a bucket still needs its original in place: because
+      // this bucket has lost it, or because the bytes came from the other environment
+      // and this bucket never had it at all.
+      if (source.origin === 'fallback' || (bucketKeys && !bucketKeys.includes(key))) {
         await store.put(key, bytes, contentTypeFor(key))
         result.uploaded += 1
       }
@@ -313,6 +349,7 @@ export async function syncRemoteMedia(options: {
   mediaRowKeys: string[]
   dryRun?: boolean
   prune?: boolean
+  fallback?: MediaSourceReader
   log?: (message: string) => void
 }): Promise<MediaSyncResult> {
   const cacheDir = path.join(options.root, '.cache', 'media-variants')
@@ -326,6 +363,7 @@ export async function syncLocalMedia(options: {
   mediaRowKeys: string[]
   dryRun?: boolean
   prune?: boolean
+  fallback?: MediaSourceReader
   log?: (message: string) => void
 }): Promise<MediaSyncResult> {
   const cacheDir = path.join(options.root, '.cache', 'media-variants')

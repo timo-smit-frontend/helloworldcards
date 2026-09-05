@@ -6,11 +6,12 @@ import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import { seedProductRecords } from '../app/cms/seed-products'
 import type { ProductRecord } from '../app/database/products'
 import { formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
+import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
 import { rowToRecord, type CmsDb } from '../worker/cms/db'
 import { ensureSeeded } from '../worker/cms/seed'
 import { ensureCmsSchema } from '../test/helpers/memory-d1'
-import { formatGeneratedFile, openLocalCms, pushSeedProducts, remoteCmsDb, type RemoteCmsDb } from '../vite/cms-sync'
-import { listMediaRowKeys, syncLocalMedia, syncRemoteMedia } from '../vite/media-sync'
+import { formatGeneratedFile, openLocalCms, pushSeedProducts, remoteCmsDb, type LocalCms, type RemoteCmsDb } from '../vite/cms-sync'
+import { bucketMediaSource, publicMediaSource, syncLocalMedia, syncRemoteMedia, type MediaSourceReader } from '../vite/media-sync'
 import { formatSeedMediaSource, readSeedMediaDir } from '../vite/seed-media-source'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -23,6 +24,7 @@ const only = ['content', 'products', 'media'].filter((part) => args.has(`--${par
 const parts = new Set(only.length > 0 ? only : ['content', 'products', 'media'])
 
 const snapshotPath = path.join(root, 'seed/cms-content.json')
+const mediaSnapshotPath = path.join(root, 'seed/cms-media.json')
 const productsPath = path.join(root, 'app/cms/seed-products.ts')
 const seedMediaPath = path.join(root, 'app/cms/seed-media.ts')
 const where = remote ? 'remote' : 'local'
@@ -53,6 +55,26 @@ async function refreshSeedMediaSource(): Promise<void> {
   await fs.writeFile(seedMediaPath, next)
   formatGeneratedFile(seedMediaPath)
   console.log(`cms-sync: regenerated app/cms/seed-media.ts (${files.length} files)`)
+}
+
+/**
+ * An image uploaded through the local admin has no file in the repo and no copy in
+ * production, so a remote push reads its original straight out of the local bucket. The
+ * bucket is opened only if such an image actually turns up.
+ */
+let fallbackCms: LocalCms | null = null
+let fallbackOpened = false
+
+const localMediaSource: MediaSourceReader = async (key) => {
+  if (!fallbackOpened) {
+    fallbackOpened = true
+    try {
+      fallbackCms = await openLocalCms(root)
+    } catch (error) {
+      console.log(`cms-sync: cannot read the local media bucket (${(error as Error).message})`)
+    }
+  }
+  return fallbackCms ? bucketMediaSource(fallbackCms.media)(key) : null
 }
 
 async function run(): Promise<void> {
@@ -89,7 +111,12 @@ async function run(): Promise<void> {
         console.log(`cms-sync: pulled ${products.length} products from ${where}`)
       }
       if (parts.has('media')) {
-        console.log('cms-sync: media lives in R2 only; run a push to reconcile the bucket')
+        const library = await pullMediaLibrary(db)
+        if (!dryRun) {
+          await fs.writeFile(mediaSnapshotPath, formatMediaSnapshot(library))
+          formatGeneratedFile(mediaSnapshotPath)
+        }
+        console.log(`cms-sync: pulled ${library.media.length} media rows from ${where}; the image bytes stay in R2`)
       }
       return
     }
@@ -115,6 +142,16 @@ async function run(): Promise<void> {
       console.log(`cms-sync: ${verb} ${seedProductRecords.length} products to ${where}`)
     }
 
+    // The library rows have to be queued before the flush, so the bucket reconcile that
+    // follows works from a database that already knows about the new keys.
+    const library = parts.has('media') ? parseMediaSnapshot(await fs.readFile(mediaSnapshotPath, 'utf8')) : null
+    if (library) {
+      if (applyWrites) {
+        await pushMediaLibrary(db, library)
+      }
+      console.log(`cms-sync: ${verb} ${library.media.length} media rows to ${where}`)
+    }
+
     if (remote) {
       const queue = db as RemoteCmsDb
       if (dryRun) {
@@ -124,11 +161,11 @@ async function run(): Promise<void> {
       }
     }
 
-    if (parts.has('media')) {
-      const mediaRowKeys = await listMediaRowKeys(db)
+    if (library) {
+      const mediaRowKeys = library.media.map((entry) => entry.key)
       const result = remote
-        ? await syncRemoteMedia({ root, mediaRowKeys, dryRun })
-        : await syncLocalMedia({ root, bucket: local!.media, mediaRowKeys, dryRun })
+        ? await syncRemoteMedia({ root, mediaRowKeys, dryRun, fallback: localMediaSource })
+        : await syncLocalMedia({ root, bucket: local!.media, mediaRowKeys, dryRun, fallback: publicMediaSource() })
       const mediaVerb = dryRun ? 'would sync' : 'synced'
       console.log(
         `cms-sync: ${mediaVerb} ${where} media — ${result.encoded.length} images re-encoded, ${result.uploaded} objects uploaded, ${result.removed.length} removed, ${result.unchanged} unchanged`
@@ -139,6 +176,7 @@ async function run(): Promise<void> {
     }
   } finally {
     await local?.dispose()
+    await fallbackCms?.dispose()
   }
 }
 
