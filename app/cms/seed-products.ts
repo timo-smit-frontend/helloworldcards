@@ -189,5 +189,41 @@ export const seedProductRecords: ProductRecord[] = [
     cost: 63,
     concept: true,
     acquiredAt: '2026-09-06'
+  },
+  {
+    id: 11,
+    title: 'Mewtwo GX',
+    subtitle: '2017 Shining Legends - #39',
+    description:
+      'A Full Art from the 2017 Sun & Moon Shining Legends set, number 39/73. This is the Full Art GX, not the regular set print. This copy is graded PSA 9 Mint, cert 155373599. The PSA population is 1,397.',
+    images: ['/media/mtpx3u8t-155373599-front.jpg', '/media/mtpx3ud0-155373599-back.jpg'],
+    pokemonId: 150,
+    price: '€110',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2017,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shining-Legends/Mewtwo-GX-V1-SLG39',
+    cost: 43,
+    concept: true,
+    acquiredAt: '2026-09-06'
+  },
+  {
+    id: 12,
+    title: 'Dragonite V',
+    subtitle: '2022 Pokemon GO - #049',
+    description:
+      'A Full Art from the 2022 Sword & Shield Pokemon GO set, number 049/078. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 155373625. The PSA population is 735.',
+    images: ['/media/mtpx3uh1-155373625-front.jpg', '/media/mtpx3uk6-155373625-back.jpg'],
+    pokemonId: 149,
+    price: '€55',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2022,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
+    cost: 25,
+    concept: true,
+    acquiredAt: '2026-09-06'
   }
 ]

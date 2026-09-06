@@ -342,6 +342,50 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
+      "key": "mtpx3u8t-155373599-front.jpg",
+      "filename": "155373599_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 1048421,
+      "title": "Mewtwo GX, front",
+      "alt": "PSA 9 Shining Legends Mewtwo GX Full Art, 39/73, in a grading slab.",
+      "createdAt": "2026-09-06T14:39:18.821Z"
+    },
+    {
+      "key": "mtpx3ud0-155373599-back.jpg",
+      "filename": "155373599_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 957899,
+      "title": "Mewtwo GX, back",
+      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "createdAt": "2026-09-06T14:39:18.966Z"
+    },
+    {
+      "key": "mtpx3uh1-155373625-front.jpg",
+      "filename": "155373625_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 923983,
+      "title": "Dragonite V, front",
+      "alt": "PSA 9 Pokémon GO Dragonite V Full Art, 049/078, in a grading slab.",
+      "createdAt": "2026-09-06T14:39:19.099Z"
+    },
+    {
+      "key": "mtpx3uk6-155373625-back.jpg",
+      "filename": "155373625_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 947262,
+      "title": "Dragonite V, back",
+      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "createdAt": "2026-09-06T14:39:19.204Z"
+    },
+    {
       "key": "Product.png",
       "filename": "Product.png",
       "contentType": "image/png",

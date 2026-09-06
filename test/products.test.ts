@@ -25,7 +25,9 @@ describe('product inventory', () => {
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
       [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05'],
       [9, 'Poke Kid', '2020 Shiny Star V Japanese - #197', 'poke-kid-2020-shiny-star-v-japanese-197'],
-      [10, 'Mega Gengar ex', '2025 Phantasmal Flames - #056', 'mega-gengar-ex-2025-phantasmal-flames-056']
+      [10, 'Mega Gengar ex', '2025 Phantasmal Flames - #056', 'mega-gengar-ex-2025-phantasmal-flames-056'],
+      [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
+      [12, 'Dragonite V', '2022 Pokemon GO - #049', 'dragonite-v-2022-pokemon-go-049']
     ])
   })
 
