@@ -89,6 +89,28 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
+      "key": "154388302_back.jpg",
+      "filename": "154388302_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 950653,
+      "title": "Mega Gengar ex, back",
+      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "createdAt": "2026-09-06T00:00:00.000Z"
+    },
+    {
+      "key": "154388302_front.jpg",
+      "filename": "154388302_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 1190130,
+      "title": "Mega Gengar ex, front",
+      "alt": "PSA 10 Phantasmal Flames Mega Gengar ex, 056/094, in a grading slab.",
+      "createdAt": "2026-09-06T00:00:00.000Z"
+    },
+    {
       "key": "18501427_back.jpg",
       "filename": "18501427_back.jpg",
       "contentType": "image/jpeg",

@@ -24,7 +24,8 @@ describe('product inventory', () => {
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
       [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05'],
-      [9, 'Poke Kid', '2020 Shiny Star V Japanese - #197', 'poke-kid-2020-shiny-star-v-japanese-197']
+      [9, 'Poke Kid', '2020 Shiny Star V Japanese - #197', 'poke-kid-2020-shiny-star-v-japanese-197'],
+      [10, 'Mega Gengar ex', '2025 Phantasmal Flames - #056', 'mega-gengar-ex-2025-phantasmal-flames-056']
     ])
   })
 
@@ -206,8 +207,7 @@ describe('product inventory', () => {
     expect(productBuyLink(product!)).toEqual({
       url: 'https://www.marktplaats.nl/seller/view/m2436737465',
       title: 'View on Marktplaats',
-      target: '_blank',
-      secondary: { url: 'https://www.vinted.nl/items/9878696344', title: 'View on Vinted', target: '_blank' }
+      target: '_blank'
     })
   })
 
@@ -215,7 +215,7 @@ describe('product inventory', () => {
     expect(productBuyLink({})).toEqual({ title: 'Not yet available to buy' })
   })
 
-  it('adds Vinted as a secondary link alongside the Marktplaats CTA', () => {
+  it('keeps Marktplaats as the only CTA when a Vinted listing also exists', () => {
     expect(
       productBuyLink({
         marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
@@ -224,8 +224,7 @@ describe('product inventory', () => {
     ).toEqual({
       url: 'https://www.marktplaats.nl/seller/view/m2436737465',
       title: 'View on Marktplaats',
-      target: '_blank',
-      secondary: { url: 'https://www.vinted.nl/items/1234567', title: 'View on Vinted', target: '_blank' }
+      target: '_blank'
     })
   })
 

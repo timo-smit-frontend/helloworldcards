@@ -171,5 +171,23 @@ export const seedProductRecords: ProductRecord[] = [
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197',
     cost: 61,
     acquiredAt: '2026-08-31'
+  },
+  {
+    id: 10,
+    title: 'Mega Gengar ex',
+    subtitle: '2025 Phantasmal Flames - #056',
+    description:
+      'A Mega Evolution ex from the 2025 Scarlet & Violet Phantasmal Flames set, number 056/094. Mega ex cards use the full-bleed art frame, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 154388302. The PSA population is 10,103.',
+    images: ['/media/154388302_front.jpg', '/media/154388302_back.jpg'],
+    pokemonId: 94,
+    price: '€90',
+    language: 'english',
+    grader: 'psa',
+    grade: 10,
+    year: 2025,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Mega-Gengar-ex-V1-PFL056',
+    cost: 63,
+    concept: true,
+    acquiredAt: '2026-09-06'
   }
 ]

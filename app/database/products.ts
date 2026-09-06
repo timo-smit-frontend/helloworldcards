@@ -47,15 +47,11 @@ export type ProductBuyLink = {
   title: string
   url?: string
   target?: '_blank'
-  /** Vinted only shows as a secondary link when Marktplaats is the primary CTA. */
-  secondary?: { url: string; title: string; target: '_blank' }
 }
 
 export function productBuyLink(product: Pick<Product, 'marktplaatsUrl' | 'vintedUrl'>): ProductBuyLink {
-  const secondary = product.vintedUrl ? { url: product.vintedUrl, title: 'View on Vinted', target: '_blank' as const } : undefined
-
   if (product.marktplaatsUrl) {
-    return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank', ...(secondary ? { secondary } : {}) }
+    return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' }
   }
 
   if (product.vintedUrl) {

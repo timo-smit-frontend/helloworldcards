@@ -6,6 +6,13 @@ import { IMAGE_FORMATS, resizeToFormat } from './responsive-image-build'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 
+/**
+ * Encoding every variant outlives a short-lived dev or `vite-node` process, and the
+ * Wrangler bucket stub is poisoned the moment that process disposes its platform proxy.
+ * A signal lets the seeding stop between writes instead of failing against a dead stub.
+ */
+export type SeedSignal = { readonly aborted: boolean }
+
 function contentType(format: ImageFormat): string {
   return format === 'avif' ? 'image/avif' : 'image/webp'
 }
@@ -39,12 +46,16 @@ export async function putMediaVariants(
   bucket: MediaBucket,
   originalPath: string,
   originalKey: string,
-  skipExisting = true
+  skipExisting = true,
+  signal?: SeedSignal
 ): Promise<number> {
   const variants = await encodeMediaVariants(originalPath, originalKey)
   let uploaded = 0
 
   for (const [key, buffer] of variants) {
+    if (signal?.aborted) {
+      return uploaded
+    }
     if (skipExisting && (await bucket.get(key))) {
       continue
     }
@@ -60,17 +71,21 @@ export async function seedMediaWithVariants(
   bucket: MediaBucket,
   seedDir: string,
   files: ReadonlyArray<{ key: string; filename: string; contentType: string }>,
-  options?: { variants?: boolean }
+  options?: { variants?: boolean; signal?: SeedSignal }
 ): Promise<void> {
   const variants = options?.variants ?? true
+  const signal = options?.signal
   for (const file of files) {
+    if (signal?.aborted) {
+      return
+    }
     const originalPath = path.join(seedDir, file.filename)
     if (!(await bucket.get(file.key))) {
       const bytes = await fs.readFile(originalPath)
       await bucket.put(file.key, bytes, { httpMetadata: { contentType: file.contentType } })
     }
     if (variants) {
-      await putMediaVariants(bucket, originalPath, file.key)
+      await putMediaVariants(bucket, originalPath, file.key, true, signal)
     }
   }
 }

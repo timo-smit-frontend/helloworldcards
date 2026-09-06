@@ -17,7 +17,7 @@ import {
 } from './cardmarket-browser'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
-import { seedMediaWithVariants } from './media-variants'
+import { seedMediaWithVariants, type SeedSignal } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
 function parseDotEnv(source: string): Record<string, string> {
@@ -152,8 +152,16 @@ async function seedLocalMediaBucket(media: MediaBucket, root = process.cwd()): P
   await seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles, { variants: false })
 }
 
-function seedLocalMediaVariantsInBackground(media: MediaBucket, root = process.cwd()): void {
-  void seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles).catch((error) => {
+/**
+ * Encoding every variant takes longer than a `vite-node` script or a restarted dev server
+ * lives, so the runtime's signal stops the loop on dispose instead of letting it write to
+ * a bucket stub Miniflare has already poisoned.
+ */
+function seedLocalMediaVariantsInBackground(media: MediaBucket, signal: SeedSignal, root = process.cwd()): void {
+  void seedMediaWithVariants(media, path.join(root, 'seed/media'), seedMediaFiles, { signal }).catch((error) => {
+    if (signal.aborted) {
+      return
+    }
     console.error('[cms-api] Failed to seed media variants:', error)
   })
 }
@@ -163,6 +171,12 @@ function seedLocalMediaVariantsInBackground(media: MediaBucket, root = process.c
 type ViteCmsRuntime = DashboardRuntime & { dispose?: () => Promise<void>; persistent: boolean }
 
 async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
+  const signal = { aborted: false }
+  const stopAndDispose = async (dispose: () => Promise<unknown>) => {
+    signal.aborted = true
+    await dispose()
+  }
+
   try {
     const { getPlatformProxy } = await import('wrangler')
     const proxy = await Promise.race([
@@ -178,22 +192,22 @@ async function createViteCmsRuntime(): Promise<ViteCmsRuntime> {
     if (env.DB && env.MEDIA) {
       await ensureCmsSchema(env.DB)
       await seedLocalMediaBucket(env.MEDIA)
-      seedLocalMediaVariantsInBackground(env.MEDIA)
+      seedLocalMediaVariantsInBackground(env.MEDIA, signal)
       return {
         db: env.DB,
         media: env.MEDIA,
         persistent: true,
-        dispose: () => proxy.dispose()
+        dispose: () => stopAndDispose(() => proxy.dispose())
       }
     }
-    await proxy.dispose()
+    await stopAndDispose(() => proxy.dispose())
   } catch {
     // Fall back to in-memory D1/R2 so `npm run dev` still works without Wrangler.
   }
 
   const media = memoryR2()
   await seedLocalMediaBucket(media)
-  seedLocalMediaVariantsInBackground(media)
+  seedLocalMediaVariantsInBackground(media, signal)
   return {
     db: createMemoryD1(),
     media,
@@ -335,7 +349,13 @@ export function dashboardApiPlugin(): Plugin {
       server.middlewares.use(cmsApiMiddleware(server.config.root))
     },
     async closeBundle() {
-      ;(await autoSyncPromise)?.stop()
+      // Disposing the platform proxy poisons every stub the sync is holding, so let the
+      // task that is already running finish first — bounded, since a remote round trip
+      // must not hold up the process.
+      const stopping = (await autoSyncPromise)?.stop()
+      if (stopping) {
+        await Promise.race([stopping, new Promise((resolve) => setTimeout(resolve, 2000).unref())])
+      }
       const runtime = await runtimePromise
       await runtime?.dispose?.()
     }

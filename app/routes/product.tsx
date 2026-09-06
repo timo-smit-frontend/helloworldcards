@@ -48,7 +48,6 @@ export default function Product() {
         description={product.description}
         price={product.price != null ? String(product.price) : undefined}
         link={buyLink}
-        secondaryLink={buyLink.secondary}
         images={product.images}
         pokemonId={product.pokemonId}
       />
