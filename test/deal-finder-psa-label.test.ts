@@ -131,3 +131,27 @@ describe('PSA cert lookup', () => {
     })
   })
 })
+
+describe('a language PSA spells out below row one', () => {
+  it('reads it off the variety row rather than defaulting to English', () => {
+    const label = normalizePsaLabel({
+      year: '2014',
+      setLine: 'POKEMON XY',
+      cardName: 'M VENUSAUR EX',
+      varietyLine: 'ITALIAN',
+      cardNumber: '2',
+      grade: 9
+    })
+
+    expect(label.language).toBe('other')
+    expect(label.languageLabel).toBe('ITALIAN')
+  })
+
+  it('still takes an unmarked English label for English', () => {
+    expect(normalizePsaLabel({ setLine: 'POKEMON XY', cardName: 'M VENUSAUR EX', varietyLine: 'HOLO' }).language).toBe('english')
+  })
+
+  it('lets a spelled-out language settle a row that names no token', () => {
+    expect(psaLabelLanguage('POKEMON XY', 'JAPANESE PROMO').language).toBe('japanese')
+  })
+})

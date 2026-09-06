@@ -156,6 +156,7 @@ export default function DealFinder({
   const problems = groupProblems(report?.problems ?? [])
   const problemCount = report?.problems.length ?? 0
   const sourceErrors = (report?.sources ?? []).map((source) => source.error).filter((error): error is string => Boolean(error))
+  const truncated = (report?.sources ?? []).filter((source) => source.truncated)
   const summary = report ? scanSummary(report) : null
 
   return (
@@ -195,6 +196,27 @@ export default function DealFinder({
           ))}
         </ol>
       )}
+
+      {truncated.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <SectionHeading>Too many results ({truncated.length})</SectionHeading>
+          <ul className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+            {truncated.map((source) => (
+              <li key={source.source} className="py-3">
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-site-foil underline decoration-site-mantle/40 underline-offset-2 smooth hover:decoration-site-foil"
+                >
+                  {sourceLabel(source.source)}
+                </a>
+                <p className="mt-1 text-sm text-site-mantle">{source.truncated}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {noComps.length > 0 ? (
         <div className="flex flex-col gap-3">

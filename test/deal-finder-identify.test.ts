@@ -33,6 +33,24 @@ const label = (overrides: Record<string, unknown> = {}) =>
   })
 
 describe('identifyCard', () => {
+  it('drops a card slabbed in a language we do not buy, however many readings the photos gave', () => {
+    const result = identifyCard({
+      listing: listing({ title: 'Slowbro baby shining psa 10' }),
+      slabs: [
+        label({ setLine: 'POKEMON PAF FR', cardName: 'SLOWBHE', varietyLine: 'HINY RARE', cardNumber: null, certNumber: null, grade: 10 }),
+        label({ setLine: 'POKEMON PAF FR', cardName: 'SCONEEED', varietyLine: 'TIA', cardNumber: '117', certNumber: null, grade: 10 })
+      ],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    // Not "2 graded cards in one listing": a French card is nothing we would look at either way.
+    expect(result.scope).toBe('out-of-scope')
+    expect(result.reason).toContain('FR')
+  })
+
   it('works the card out from the listing text when there is no readable label', () => {
     const result = identifyCard({ listing: listing(), slabs: [], cert: null, readerNote: null })
 

@@ -5,6 +5,7 @@ import { promisify } from 'node:util'
 import type { Browser, BrowserContext, Page } from 'playwright'
 import type { CardmarketReport, FetchCardmarketPage, FetchCardmarketPageOptions } from '../app/services/cardmarket/scan'
 import { CardmarketBlockedError } from '../app/services/deal-finder/cardmarket'
+import { isMarktplaatsSearchApi } from '../app/services/deal-finder/marktplaats'
 import type { DealFinderCache } from '../app/services/deal-finder/cache'
 import type { DealFinderReport } from '../app/services/deal-finder/types'
 import type { CardmarketStore, DealFinderStore } from '../worker/dashboard-api'
@@ -159,6 +160,26 @@ const BROWSER_USER_AGENT =
 
 export function isVintedHost(host: string): boolean {
   return /(?:^|\.)vinted\.[a-z.]+$/i.test(host)
+}
+
+/**
+ * Marktplaats' search endpoint answers JSON, and driving it through the browser would
+ * hand back Chrome's JSON viewer with the payload HTML-escaped inside it. A plain
+ * request returns the JSON itself, which is what the overview parser wants.
+ */
+export async function fetchMarktplaatsSearch(url: string, request: typeof fetch = fetch): Promise<string> {
+  const response = await request(url, {
+    headers: {
+      'user-agent': BROWSER_USER_AGENT,
+      accept: 'application/json, text/plain, */*',
+      'accept-language': 'nl-NL,nl;q=0.9,en;q=0.8'
+    },
+    redirect: 'follow'
+  })
+  if (!response.ok) {
+    throw new Error(`Marktplaats returned ${response.status} for the search.`)
+  }
+  return await response.text()
 }
 
 export async function fetchVintedPage(url: string, request: typeof fetch = fetch): Promise<string> {
@@ -318,6 +339,10 @@ async function fetchWithBotChecks(page: Page, url: string, options?: FetchCardma
   // back in full for a plain HTTP request, which is what we use instead.
   if (isVintedHost(host)) {
     return await fetchVintedPage(url)
+  }
+
+  if (isMarktplaatsSearchApi(url)) {
+    return await fetchMarktplaatsSearch(url)
   }
 
   for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {

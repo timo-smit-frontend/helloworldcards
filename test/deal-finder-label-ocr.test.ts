@@ -169,3 +169,20 @@ describe('mergeReadings', () => {
     })
   })
 })
+
+describe('two readings of one slab', () => {
+  /** Front and back photos of the same slab, with the plastic edge read as stray `I`s. */
+  const front = label([{ text: '2025 POKEMON | JTG EN' }, { text: "| | N'S RESHIRAM" }, { text: '| | ENHANCED BSTR BOX TOPPER' }])
+  const back = label([{ text: '2025 POKEMON JTG EN #167' }, { text: "N'S RESHIRAM MINT" }, { text: 'ENHANCED BSTR BOX TOPPER 9' }])
+
+  it('drops the border marks OCR read as letters', () => {
+    expect(parsePsaLabels(front).slabs[0]).toMatchObject({ setLine: 'POKEMON JTG EN', cardName: "N'S RESHIRAM" })
+  })
+
+  it('folds them into one card rather than reporting a second slab', () => {
+    const merged = mergeReadings([parsePsaLabels(front), parsePsaLabels(back)])
+
+    expect(merged.slabs).toHaveLength(1)
+    expect(merged.slabs[0]).toMatchObject({ cardName: "N'S RESHIRAM", cardNumber: '167', grade: 9 })
+  })
+})

@@ -8,6 +8,17 @@ const AUCTION_HOUSE = /catawiki|veiling/i
 /** Marktplaats sells both single cards and stacks; only the single is priceable. */
 const MULTI_CARD_ATTRIBUTE = /meerdere/i
 
+/**
+ * Both feeds mix other trading card games into a Pokémon search — a One Piece or
+ * Yu-Gi-Oh slab priced against a Pokémon single is a wrong answer, not a deal.
+ * A listing only counts as another game when it names one and never names Pokémon,
+ * so a seller who mentions their One Piece binder alongside a Charizard is still checked.
+ */
+const OTHER_TCG =
+  /\b(?:one\s*piece|op\d{2}|yu-?gi-?oh|yugioh|ygo|konami|magic:?\s*the\s*gathering|mtg|dragon\s*ball|digimon|lorcana|weiss\s*schwarz|metazoo|flesh\s*and\s*blood|union\s*arena|naruto|fortnite|star\s*wars|marvel|garbage\s*pail|panini|topps)\b/i
+
+const POKEMON = /pok[eé]?mon/i
+
 export type Screening =
   { keep: true } | { keep: false; scope: 'out-of-scope'; reason: string } | { keep: false; scope: 'problem'; reason: string }
 
@@ -65,13 +76,17 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
     return { keep: false, scope: 'out-of-scope', reason: 'Auction house listing' }
   }
 
+  const listingText = [listing.title, listing.description].filter(Boolean).join('\n')
+  if (OTHER_TCG.test(listingText) && !POKEMON.test(listingText)) {
+    return { keep: false, scope: 'out-of-scope', reason: 'Not a Pokémon card' }
+  }
+
   if (listing.priceType && !/^(?:FIXED|MIN_BID)$/i.test(listing.priceType)) {
     return { keep: false, scope: 'out-of-scope', reason: 'Bidding only, no asking price' }
   }
 
-  const text = [listing.title, listing.description].filter(Boolean).join('\n')
-  if (!detectGrade(text)) {
-    const other = detectAnyGrade(text)
+  if (!detectGrade(listingText)) {
+    const other = detectAnyGrade(listingText)
     return {
       keep: false,
       scope: 'out-of-scope',

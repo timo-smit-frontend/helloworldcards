@@ -48,7 +48,8 @@ export function certToLabel(payload: unknown): PsaLabel | null {
   }
 
   const setLine = [year, brand].filter(Boolean).join(' ')
-  const { language, token } = psaLabelLanguage(setLine)
+  // PSA's own record names the language in `Variety` on the slabs that print it there.
+  const { language, token } = psaLabelLanguage(setLine, variety, subject)
   const blob = `${brand ?? ''} ${variety ?? ''}`
 
   return {

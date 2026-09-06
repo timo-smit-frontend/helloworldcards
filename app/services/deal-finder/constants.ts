@@ -5,6 +5,15 @@ export const MARKTPLAATS_SEARCH_URL =
 export const VINTED_SEARCH_URL =
   'https://www.vinted.nl/catalog?search_text=pokemon%20psa&catalog[]=4874&page=1&currency=EUR&order=newest_first&price_to=200'
 
+/**
+ * How deep to walk each search, in pages of 30. Marktplaats is filtered to today's
+ * listings, which is a few hundred, so every page of it is worth reading and the bound
+ * is only there to stop a runaway; Vinted has no date filter, so only the two newest
+ * pages are worth reading and the bound is what keeps the scan out of months of catalogue.
+ */
+export const MARKTPLAATS_MAX_PAGES = 25
+export const VINTED_MAX_PAGES = 2
+
 /** Only buy-worthy asks: below this it is not worth the postage, above it the search URLs already cut off. */
 export const MIN_ASK = 10
 export const MAX_ASK = 200

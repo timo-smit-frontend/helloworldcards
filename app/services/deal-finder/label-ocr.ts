@@ -206,12 +206,50 @@ export function parsePsaLabels(lines: OcrLine[]): LabelOcrResult {
   }
 }
 
+/**
+ * OCR reads the same printed name differently from one photo to the next — the slab's
+ * border comes back as stray `I`s, apostrophes drop out, the row gets clipped — so
+ * names are compared on their letters alone, with one-character fragments removed.
+ */
+function nameKey(name: string): string {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .split(' ')
+    .filter((word) => word.length > 1)
+    .join(' ')
+    .trim()
+}
+
+/**
+ * Two readings name the same card when their letters agree, or when one is the
+ * clipped start of the other. The shorter side has to be a real word's worth of
+ * text: a two-letter scrap matches far too much to be evidence of anything.
+ */
+function sameName(a: string, b: string): boolean {
+  const left = nameKey(a)
+  const right = nameKey(b)
+  if (!left || !right) {
+    return true
+  }
+  if (left === right) {
+    return true
+  }
+
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left]
+  return shorter.length >= 4 && longer.includes(shorter)
+}
+
 function sameSlab(a: PsaLabel, b: PsaLabel): boolean {
   if (a.certNumber && b.certNumber) {
     return a.certNumber === b.certNumber
   }
+  // Two different card numbers are two different cards, however alike the names read.
+  if (a.cardNumber && b.cardNumber && a.cardNumber !== b.cardNumber) {
+    return false
+  }
   if (a.cardName && b.cardName) {
-    return a.cardName === b.cardName
+    return sameName(a.cardName, b.cardName)
   }
   // One of the two told us nothing identifying, so it cannot contradict the other.
   return true

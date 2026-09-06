@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { marktplaatsPhotoUrl, parseMarktplaatsDetail, parseMarktplaatsOverview } from '~/services/deal-finder/marktplaats'
+import {
+  isMarktplaatsResultCap,
+  marktplaatsPhotoUrl,
+  marktplaatsResultCount,
+  marktplaatsSearchPageUrl,
+  parseMarktplaatsDetail,
+  parseMarktplaatsOverview
+} from '~/services/deal-finder/marktplaats'
 import {
   isVintedChallenge,
   parseVintedDetail,
   parseVintedHoverTitle,
   parseVintedOverview,
   titleFromVintedSlug,
-  vintedPhotoArea
+  vintedPhotoArea,
+  vintedSearchPageUrl
 } from '~/services/deal-finder/vinted'
 
 const MARKTPLAATS_OVERVIEW = `<html><body><script>window.__STATE__ = {"listings":[
@@ -143,5 +151,46 @@ describe('isVintedChallenge', () => {
 
   it('does not flag a page that actually has listings on it', () => {
     expect(isVintedChallenge('<a data-testid="product-item-id-1--overlay-link"></a>')).toBe(false)
+  })
+})
+
+describe('search page URLs', () => {
+  const search = 'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:Vandaag|PriceCentsTo:20000|sortBy:SORT_INDEX|view:gallery-view'
+
+  it('asks Marktplaats for the filters the browse URL only applies in the browser', () => {
+    const asked = new URL(marktplaatsSearchPageUrl(search, 1))
+
+    expect(asked.origin + asked.pathname).toBe('https://www.marktplaats.nl/lrp/api/search')
+    expect(asked.searchParams.get('query')).toBe('pokemon psa')
+    // The fragment's filters, as parameters the server actually receives.
+    expect(asked.searchParams.getAll('attributesByKey[]')).toEqual(['offeredSince:Vandaag'])
+    expect(asked.searchParams.getAll('attributeRanges[]')).toEqual(['PriceCents::20000'])
+    expect(asked.searchParams.get('sortBy')).toBe('SORT_INDEX')
+    // `view` only changes how the page looks, so it is not a filter to send.
+    expect(asked.searchParams.has('view')).toBe(false)
+  })
+
+  it('pages Marktplaats by offset, thirty listings at a time', () => {
+    const page = (n: number) => new URL(marktplaatsSearchPageUrl(search, n)).searchParams
+    expect(page(1).get('offset')).toBe('0')
+    expect(page(1).get('limit')).toBe('30')
+    expect(page(4).get('offset')).toBe('90')
+  })
+
+  it('pages Vinted through its query parameter', () => {
+    expect(vintedSearchPageUrl('https://www.vinted.nl/catalog?search_text=psa&page=1', 2)).toBe(
+      'https://www.vinted.nl/catalog?search_text=psa&page=2'
+    )
+    expect(vintedSearchPageUrl('https://www.vinted.nl/catalog?search_text=psa', 2)).toBe(
+      'https://www.vinted.nl/catalog?search_text=psa&page=2'
+    )
+  })
+
+  it('reads how many listings Marktplaats says the search has, and when it caps them', () => {
+    expect(marktplaatsResultCount('{"totalResultCount":14700,"maxAllowedPageNumber":167}')).toBe(14700)
+    expect(marktplaatsResultCount('{"listings":[]}')).toBeNull()
+    expect(isMarktplaatsResultCap('<p>We only show the first 300 articles. Please use the filters.</p>')).toBe(true)
+    expect(isMarktplaatsResultCap('We tonen alleen de eerste 300 advertenties.')).toBe(true)
+    expect(isMarktplaatsResultCap('<p>300 advertenties gevonden</p>')).toBe(false)
   })
 })

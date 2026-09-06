@@ -125,6 +125,10 @@ export type SourceSummary = {
   found: number
   candidates: number
   error: string | null
+  /** How many listings the source says match the search, when it tells us. */
+  total: number | null
+  /** Set when the scan could not reach the end of the results, saying why not. */
+  truncated: string | null
 }
 
 export type DealFinderReport = {

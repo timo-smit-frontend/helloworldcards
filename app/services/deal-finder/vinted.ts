@@ -54,6 +54,14 @@ function absoluteVintedUrl(href: string): string {
   return `${VINTED_ORIGIN}${withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`}`
 }
 
+/** Vinted pages its catalogue with a `page` query parameter, counting from 1. */
+export function vintedSearchPageUrl(searchUrl: string, page: number): string {
+  if (/[?&]page=\d+/.test(searchUrl)) {
+    return searchUrl.replace(/([?&]page=)\d+/, `$1${page}`)
+  }
+  return `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}page=${page}`
+}
+
 export function parseVintedOverview(html: string): SourceListing[] {
   const listings: SourceListing[] = []
   const seen = new Set<string>()

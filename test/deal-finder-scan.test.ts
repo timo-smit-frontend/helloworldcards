@@ -5,12 +5,14 @@ import type { DealFinderCache } from '~/services/deal-finder/cache'
 import type { PsaLabel } from '~/services/deal-finder/types'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
 
-const MARKTPLAATS_URL = 'https://www.marktplaats.nl/q/pokemon+psa/'
+const MARKTPLAATS_URL = 'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:Vandaag'
+/** Marktplaats is asked through its search endpoint, whatever browse URL it was given. */
+const MARKTPLAATS_API = 'https://www.marktplaats.nl/lrp/api/search'
 const VINTED_URL = 'https://www.vinted.nl/catalog?search_text=pokemon%20psa'
 
 type Row = { id: string; title: string; cents: number; type?: string }
 
-function marktplaatsOverview(rows: Row[]): string {
+function marktplaatsOverview(rows: Row[], total = rows.length): string {
   const listings = rows.map((row) =>
     JSON.stringify({
       itemId: row.id,
@@ -23,7 +25,7 @@ function marktplaatsOverview(rows: Row[]): string {
       pictures: [{ largeUrl: `https://images.marktplaats.com/${row.id}?rule=x$_83.jpg` }]
     })
   )
-  return `<html><script>window.__STATE__={"listings":[${listings.join(',')}]}</script></html>`
+  return `{"listings":[${listings.join(',')}],"totalResultCount":${total}}`
 }
 
 function marktplaatsDetail(id: string): string {
@@ -73,13 +75,33 @@ function slab(overrides: Partial<Record<keyof PsaLabel, unknown>> = {}): PsaLabe
   })
 }
 
+/** Marktplaats pages by offset, Vinted by page number. */
+function pageNumber(url: string): number {
+  const offset = url.match(/[?&]offset=(\d+)/)?.[1]
+  return offset ? Number(offset) / 30 + 1 : Number(url.match(/[?&]page=(\d+)/)?.[1] ?? 1)
+}
+
+/** A fixture is either one page of results, or a page each, in order. */
+function searchPage(fixture: string | string[] | undefined, url: string, empty: string): string {
+  const page = pageNumber(url)
+  if (Array.isArray(fixture)) {
+    return fixture[page - 1] ?? empty
+  }
+  return page === 1 ? (fixture ?? empty) : empty
+}
+
 /** A page fetcher wired to fixtures, so nothing in the test touches the network. */
-function fetcher(pages: { marktplaats?: string; vinted?: string; google?: (url: string) => string; offers?: (url: string) => string }) {
+function fetcher(pages: {
+  marktplaats?: string | string[]
+  vinted?: string | string[]
+  google?: (url: string) => string
+  offers?: (url: string) => string
+}) {
   const calls: string[] = []
   const fetchPage = vi.fn(async (url: string) => {
     calls.push(url)
-    if (url.startsWith(MARKTPLAATS_URL)) return pages.marktplaats ?? marktplaatsOverview([])
-    if (url.startsWith(VINTED_URL)) return pages.vinted ?? vintedOverview([])
+    if (url.startsWith(MARKTPLAATS_API)) return searchPage(pages.marktplaats, url, marktplaatsOverview([]))
+    if (url.startsWith(VINTED_URL)) return searchPage(pages.vinted, url, vintedOverview([]))
     if (url.includes('marktplaats.nl/v/')) return marktplaatsDetail(url.split('/').pop() ?? 'x')
     if (url.includes('vinted.nl/items')) return '<html><div itemprop="description">Vinted omschrijving</div></html>'
     if (url.includes('google.com/search')) return pages.google?.(url) ?? '<html></html>'
@@ -225,6 +247,24 @@ describe('runDealFinderScan', () => {
     expect(report.outOfScope).toBe(2)
   })
 
+  it('leaves other trading card games alone, however well they are graded', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([
+        { id: 'm1', title: 'Monkey D. Luffy PSA 10 Gem Mint - OP05 119 - one piece', cents: 6500 },
+        { id: 'm2', title: 'Pokémon Charmander 168/165 151 PSA 9, one piece heb ik ook liggen', cents: 12000 }
+      ]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    // The One Piece slab is dropped; the Pokémon card whose seller also has One Piece is not.
+    expect(report.deals.map((deal) => deal.id)).toEqual(['marktplaats:m2'])
+    expect(report.problems).toHaveLength(0)
+    expect(report.outOfScope).toBe(1)
+  })
+
   it('reads both Marktplaats and Vinted', async () => {
     const { fetchPage } = fetcher({
       marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
@@ -237,6 +277,87 @@ describe('runDealFinderScan', () => {
 
     expect(report.deals.map((deal) => deal.source).sort()).toEqual(['marktplaats', 'vinted'])
     expect(report.sources.map((source) => source.candidates)).toEqual([1, 1])
+  })
+
+  it('walks Marktplaats page by page until a page brings nothing new', async () => {
+    const { fetchPage, calls } = fetcher({
+      marktplaats: [
+        marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+        marktplaatsOverview([{ id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 11000 }])
+      ],
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.deals.map((deal) => deal.id).sort()).toEqual(['marktplaats:m1', 'marktplaats:m2'])
+    expect(report.sources[0]).toMatchObject({ found: 2, candidates: 2, url: MARKTPLAATS_URL })
+    // Page three is where the results ran out, and the scan stopped asking there.
+    expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API)).map(pageNumber)).toEqual([1, 2, 3])
+  })
+
+  it('reads only the first two pages of Vinted, which has no date filter', async () => {
+    const vinted = (id: string) => vintedOverview([{ id, title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }])
+    const { fetchPage, calls } = fetcher({
+      vinted: [vinted('901'), vinted('902'), vinted('903')],
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.deals.map((deal) => deal.id).sort()).toEqual(['vinted:901', 'vinted:902'])
+    expect(calls.filter((url) => url.startsWith(VINTED_URL)).map(pageNumber)).toEqual([1, 2])
+  })
+
+  it('keeps the earlier pages when a later one is blocked', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: [
+        marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+        '<html>Just a moment...</html>'
+      ],
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.deals).toHaveLength(1)
+    expect(report.sources[0]?.error).toBeNull()
+    expect(report.errors).toContain('Marktplaats showed a bot check on page 2 — stopped after page 1.')
+  })
+
+  it('says the search was too broad when it could not read to the end of the results', async () => {
+    const page = (id: string) => marktplaatsOverview([{ id, title: `Charmander ${id} 168/165 151 PSA 9`, cents: 12000 }], 900)
+    const { report } = await run({
+      fetchPage: fetcher({
+        marktplaats: [page('m1'), page('m2')],
+        google: () => googleResults('151', 'Charmander-V2-MEW168'),
+        offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+      }).fetchPage,
+      readSlabs: readCharmander,
+      // A scan that stops two pages into nine hundred listings has not answered the question.
+      maxPages: { marktplaats: 2, vinted: 1 }
+    })
+
+    expect(report.sources[0]).toMatchObject({ total: 900, found: 2 })
+    expect(report.sources[0]?.truncated).toBe(
+      'Read 2 of 900 listings — the scan stops after 2 pages, so narrow the search filters to see the rest.'
+    )
+  })
+
+  it('says nothing about the size of a search it read to the end', async () => {
+    const { report } = await run({
+      fetchPage: fetcher({
+        marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+        google: () => googleResults('151', 'Charmander-V2-MEW168'),
+        offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+      }).fetchPage,
+      readSlabs: readCharmander
+    })
+
+    expect(report.sources[0]?.truncated).toBeNull()
   })
 
   it('says so when a source blocks the scan', async () => {
@@ -280,8 +401,8 @@ describe('runDealFinderScan', () => {
       expect(report.fromCache).toBe(1)
       expect(report.deals).toHaveLength(1)
       expect(readSlabs).toHaveBeenCalledTimes(1)
-      // Only the two search pages — no listing, Google or Cardmarket page loads.
-      expect(second.calls).toHaveLength(2)
+      // Only search pages — no listing, Google or Cardmarket page loads.
+      expect(second.calls.every((url) => url.startsWith(MARKTPLAATS_API) || url.startsWith(VINTED_URL))).toBe(true)
     })
 
     it('re-prices a listing once the remembered price has gone stale', async () => {
@@ -360,7 +481,7 @@ describe('runDealFinderScan', () => {
     it('checks the listing again after the run instead of dropping it', async () => {
       let attempts = 0
       const fetchPage = vi.fn(async (url: string) => {
-        if (url.startsWith(MARKTPLAATS_URL)) return marktplaats
+        if (url.startsWith(MARKTPLAATS_API)) return searchPage(marktplaats, url, marktplaatsOverview([]))
         if (url.startsWith(VINTED_URL)) return vintedOverview([])
         if (url.includes('marktplaats.nl/v/')) return marktplaatsDetail('m1')
         if (url.includes('google.com/search')) return googleResults('151', 'Charmander-V2-MEW168')

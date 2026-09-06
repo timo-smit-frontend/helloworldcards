@@ -23,15 +23,56 @@ const FIRST_EDITION = /\b1ST\s*ED(?:ITION)?\.?\b|\bFIRST\s+EDITION\b/i
 /** PSA writes the grade as a word on row 2 and the number on row 3. */
 const GRADE_WORD = /\b(?:GEM\s*MT|GEM\s*MINT|MINT|NM-?MT|EX-?MT|VG-?EX|VG|GOOD|PR)\b/gi
 
-export function psaLabelLanguage(setLine: string | null): { language: CardLanguage | 'other' | null; token: string | null } {
-  if (!setLine) {
+/**
+ * PSA does not always put the language on row 1. On older slabs it is spelled out in
+ * full on the variety row instead — `2014 POKEMON XY / M VENUSAUR EX / ITALIAN` — and
+ * reading only row 1 there leaves no token at all, which the caller then takes for the
+ * unmarked English default. Full words are unambiguous wherever they are printed, so
+ * they are searched across the whole label; the two-letter codes stay on row 1, where
+ * `IT` and `DE` cannot collide with an ordinary word.
+ */
+const LANGUAGE_WORDS: Array<{ pattern: RegExp; language: CardLanguage | 'other' }> = [
+  {
+    pattern: /\b(?:ITALIAN|GERMAN|FRENCH|SPANISH|PORTUGUESE|KOREAN|CHINESE|RUSSIAN|POLISH|DUTCH|THAI|INDONESIAN)\b/i,
+    language: 'other'
+  },
+  { pattern: /\bJAPANESE\b/i, language: 'japanese' },
+  { pattern: /\bENGLISH\b/i, language: 'english' }
+]
+
+export function psaLabelLanguage(
+  setLine: string | null,
+  ...otherRows: Array<string | null>
+): { language: CardLanguage | 'other' | null; token: string | null } {
+  const rows = [setLine, ...otherRows].filter((row): row is string => Boolean(row))
+  if (rows.length === 0) {
     return { language: null, token: null }
   }
 
   // Strip the brand so `POKEMON` can never be read as a language token.
-  const line = setLine.replace(/\bPOKE?MON\b/gi, ' ').replace(/\bP\.?\s*M\.?\b/g, ' ')
-  for (const { pattern, language } of LANGUAGE_TOKENS) {
-    const token = line.match(pattern)?.[0]
+  const strip = (row: string) => row.replace(/\bPOKE?MON\b/gi, ' ').replace(/\bP\.?\s*M\.?\b/g, ' ')
+  const whole = rows.map(strip).join(' ')
+
+  // A language we do not buy, named in full anywhere on the slab, settles it: PSA never
+  // prints `ITALIAN` on an English card, and guessing English is what costs us money.
+  const foreign = LANGUAGE_WORDS[0]!
+  const foreignToken = whole.match(foreign.pattern)?.[0]
+  if (foreignToken) {
+    return { language: foreign.language, token: foreignToken }
+  }
+
+  if (setLine) {
+    const line = strip(setLine)
+    for (const { pattern, language } of LANGUAGE_TOKENS) {
+      const token = line.match(pattern)?.[0]
+      if (token) {
+        return { language, token }
+      }
+    }
+  }
+
+  for (const { pattern, language } of LANGUAGE_WORDS) {
+    const token = whole.match(pattern)?.[0]
     if (token) {
       return { language, token }
     }
@@ -75,16 +116,29 @@ export function psaSetCode(setLine: string | null): string | null {
   return clean(withoutLanguage)
 }
 
+/**
+ * The slab's printed borders come back from OCR as lone `I`s and stray punctuation
+ * sitting between the real words — `POKEMON I JTG EN`, `I I N'S RESHIRAM`. No PSA row
+ * is ever a single letter on its own, so dropping those tokens costs nothing and stops
+ * two readings of one slab from looking like two different cards.
+ */
+function stripStrayMarks(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+  return clean(value.replace(/(?:^|\s)(?:I|['’.·:;,]+)(?=\s|$)/g, ' '))
+}
+
 type RawLabel = Partial<Record<keyof PsaLabel, unknown>>
 
 /** Turn whatever the label reader returned into a clean, trustworthy PsaLabel. */
 export function normalizePsaLabel(raw: RawLabel): PsaLabel {
-  const setLine = clean(typeof raw.setLine === 'string' ? raw.setLine : null)
-  const varietyLine = clean(typeof raw.varietyLine === 'string' ? raw.varietyLine : null)
-  const cardName = psaCardName(typeof raw.cardName === 'string' ? raw.cardName : null)
+  const setLine = stripStrayMarks(typeof raw.setLine === 'string' ? raw.setLine : null)
+  const varietyLine = stripStrayMarks(typeof raw.varietyLine === 'string' ? raw.varietyLine : null)
+  const cardName = stripStrayMarks(psaCardName(typeof raw.cardName === 'string' ? raw.cardName : null))
   const blob = [setLine, varietyLine, typeof raw.cardName === 'string' ? raw.cardName : null].filter(Boolean).join(' ')
 
-  const fromLine = psaLabelLanguage(setLine)
+  const fromLine = psaLabelLanguage(setLine, varietyLine, cardName)
   const declared = typeof raw.language === 'string' ? raw.language.toLowerCase() : null
   const language =
     declared === 'english' || declared === 'japanese' || declared === 'other'

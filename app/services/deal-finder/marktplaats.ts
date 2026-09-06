@@ -85,6 +85,97 @@ function attributeValue(item: RawListing, key: string): string | null {
   return attributes.find((attribute) => attribute.key === key)?.value?.trim() ?? null
 }
 
+/** Marktplaats' own search endpoint, which answers with the same `listings` payload the page embeds. */
+export const MARKTPLAATS_SEARCH_API = 'https://www.marktplaats.nl/lrp/api/search'
+
+/** It serves a search 30 listings at a time. */
+export const MARKTPLAATS_PAGE_SIZE = 30
+
+export function isMarktplaatsSearchApi(url: string): boolean {
+  return url.startsWith(MARKTPLAATS_SEARCH_API)
+}
+
+/** Fragment filters that are parameters in their own right rather than card attributes. */
+const NAMED_FILTERS = new Set(['sortBy', 'sortOrder', 'postcode', 'distanceMeters'])
+
+/** `PriceCentsFrom:1000` and `PriceCentsTo:20000` are the two ends of one range parameter. */
+const PRICE_BOUND = /^PriceCents(From|To)$/
+
+/**
+ * Turn a Marktplaats browse URL into a request for one page of its results.
+ *
+ * Marktplaats keeps every filter in the URL fragment — `#offeredSince:Vandaag|PriceCentsTo:20000`
+ * — and applies it in the browser. A fragment is never sent to the server, so the HTML
+ * behind that URL is the whole unfiltered search: fourteen thousand listings for
+ * `pokemon psa`, ranked by relevance rather than by date, with none of the filters and
+ * none of the sorting. Paging through that just walks further into every Pokémon slab
+ * ever listed, which is precisely what it did.
+ *
+ * The search endpoint takes the same filters as real parameters and answers with the
+ * `{"listings":[…]}` payload the overview parser already reads, so the scan asks it
+ * directly and the browse URL stays the thing a human clicks.
+ */
+export function marktplaatsSearchPageUrl(searchUrl: string, page: number): string {
+  const [path = '', fragment = ''] = searchUrl.split('#')
+  const query = decodeURIComponent(path.match(/\/q\/([^/?#]+)/)?.[1] ?? '').replace(/\+/g, ' ')
+
+  const params = new URLSearchParams({
+    limit: String(MARKTPLAATS_PAGE_SIZE),
+    offset: String(Math.max(0, page - 1) * MARKTPLAATS_PAGE_SIZE)
+  })
+  if (query) {
+    params.set('query', query)
+  }
+
+  let priceFrom = ''
+  let priceTo = ''
+  for (const filter of fragment.split('|')) {
+    const at = filter.indexOf(':')
+    if (at === -1) {
+      continue
+    }
+    const key = filter.slice(0, at)
+    const value = decodeURIComponent(filter.slice(at + 1))
+    const bound = key.match(PRICE_BOUND)
+
+    if (bound) {
+      if (bound[1] === 'From') {
+        priceFrom = value
+      } else {
+        priceTo = value
+      }
+    } else if (NAMED_FILTERS.has(key)) {
+      params.set(key, value)
+    } else if (key !== 'view') {
+      // `view:gallery-view` only changes how the page looks; everything else is a filter.
+      params.append('attributesByKey[]', `${key}:${value}`)
+    }
+  }
+
+  if (priceFrom || priceTo) {
+    params.append('attributeRanges[]', `PriceCents:${priceFrom}:${priceTo}`)
+  }
+
+  return `${MARKTPLAATS_SEARCH_API}?${params}`
+}
+
+/** How many listings Marktplaats says match the search, whatever page we asked for. */
+export function marktplaatsResultCount(payload: string): number | null {
+  const match = payload.match(/"totalResultCount"\s*:\s*(\d+)/)
+  return match ? Number(match[1]) : null
+}
+
+/**
+ * Marktplaats refuses to page past the first 300 listings of a search and says so at the
+ * foot of the results. Everything after that is invisible to us, so a search broad enough
+ * to hit it has to be reported rather than answered with a partial list.
+ */
+export const MARKTPLAATS_RESULT_CAP = /(?:we (?:only )?show|we tonen(?:\s+alleen)?)[^.]{0,30}\b(?:first|eerste)\s+300\b/i
+
+export function isMarktplaatsResultCap(payload: string): boolean {
+  return MARKTPLAATS_RESULT_CAP.test(payload)
+}
+
 export function parseMarktplaatsOverview(html: string): SourceListing[] {
   const marker = html.indexOf('"listings":[')
   if (marker === -1) {

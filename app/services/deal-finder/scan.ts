@@ -5,17 +5,26 @@ import {
   FETCH_DELAY_MS,
   IMPLAUSIBLE_FLOOR_GAP,
   IMPLAUSIBLE_FLOOR_RATIO,
+  MARKTPLAATS_MAX_PAGES,
   MARKTPLAATS_SEARCH_URL,
   MAX_PHOTOS_PER_LISTING,
   MIN_EDGE,
+  VINTED_MAX_PAGES,
   VINTED_SEARCH_URL
 } from './constants'
 import { ownListingIds, screenListing, type OwnListingIds } from './filters'
 import { buildSearchQuery, cardmarketProductName, googleSearchUrl, pickCardmarketProduct } from './google'
 import { displayTitle, identifyCard } from './identify'
-import { isMarktplaatsChallenge, parseMarktplaatsDetail, parseMarktplaatsOverview } from './marktplaats'
+import {
+  isMarktplaatsChallenge,
+  isMarktplaatsResultCap,
+  marktplaatsResultCount,
+  marktplaatsSearchPageUrl,
+  parseMarktplaatsDetail,
+  parseMarktplaatsOverview
+} from './marktplaats'
 import { emptyReport, sortDeals, sortNoComps } from './report'
-import { isVintedChallenge, parseVintedDetail, parseVintedOverview } from './vinted'
+import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
 import type { CardIdentity, DealFinderReport, DealRow, NoCompsRow, PsaLabel, SlabReading, SourceListing, SourceSummary } from './types'
 
 export type { DealFinderCache, DealFinderCacheStore, CacheEntry } from './cache'
@@ -66,13 +75,29 @@ function rowTitle(identity: CardIdentity, cardmarketUrl: string | null): string 
   return displayTitle(fromUrl ? { ...identity, name: fromUrl } : identity)
 }
 
+/** How a source's search URL is paged, and how deep the scan follows it. */
+const PAGING = {
+  marktplaats: { pageUrl: marktplaatsSearchPageUrl, maxPages: MARKTPLAATS_MAX_PAGES },
+  vinted: { pageUrl: vintedSearchPageUrl, maxPages: VINTED_MAX_PAGES }
+} as const
+
+/**
+ * Walk a source's search results page by page, screening every listing as it goes.
+ *
+ * The first page is the one that has to work: if it will not load, or comes back as a
+ * bot check, the source has failed. A later page that breaks only ends the walk — what
+ * the earlier pages already gave us is still worth checking, so it is reported as a
+ * note rather than thrown away.
+ */
 async function collectSource({
   source,
   url,
   fetchPage,
   ids,
   candidates,
-  report
+  report,
+  delayMs,
+  maxPages
 }: {
   source: 'marktplaats' | 'vinted'
   url: string
@@ -80,50 +105,129 @@ async function collectSource({
   ids: OwnListingIds
   candidates: SourceListing[]
   report: DealFinderReport
+  delayMs: number
+  maxPages: number
 }): Promise<SourceSummary> {
-  let html: string
-  try {
-    html = await fetchPage(url)
-  } catch (error) {
-    return { source, url, found: 0, candidates: 0, error: error instanceof Error ? error.message : 'Could not load the search page.' }
-  }
-
-  const blocked = source === 'marktplaats' ? isMarktplaatsChallenge(html) : isVintedChallenge(html)
-  if (blocked) {
-    return { source, url, found: 0, candidates: 0, error: `${label(source)} showed a bot check instead of results.` }
-  }
-
-  const listings = source === 'marktplaats' ? parseMarktplaatsOverview(html) : parseVintedOverview(html)
-  if (listings.length === 0) {
-    return { source, url, found: 0, candidates: 0, error: `No ${label(source)} listings on the search page.` }
-  }
-
+  const { pageUrl } = PAGING[source]
+  const seen = new Set(candidates.map((listing) => listing.id))
+  let found = 0
   let kept = 0
-  for (const listing of listings) {
-    const screening = screenListing(listing, ids)
-    if (screening.keep) {
-      candidates.push(listing)
-      kept += 1
-      continue
+  let total: number | null = null
+  let capped = false
+  let reachedEnd = false
+
+  const failed = (error: string): SourceSummary => ({ source, url, found: 0, candidates: 0, error, total, truncated: null })
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    if (page > 1) {
+      await sleep(delayMs)
     }
 
-    if (screening.scope === 'problem') {
-      report.problems.push({
-        ...listingRef(listing),
-        stage: 'listing',
-        reason: screening.reason,
-        detail: null,
-        googleUrl: null,
-        query: null,
-        cardmarketUrl: null
-      })
-      continue
+    let html: string
+    try {
+      html = await fetchPage(pageUrl(url, page))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Could not load the search page.'
+      if (page === 1) {
+        return failed(reason)
+      }
+      report.errors.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
+      break
     }
 
-    report.outOfScope += 1
+    const blocked = source === 'marktplaats' ? isMarktplaatsChallenge(html) : isVintedChallenge(html)
+    if (blocked) {
+      if (page === 1) {
+        return failed(`${label(source)} showed a bot check instead of results.`)
+      }
+      report.errors.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
+      break
+    }
+
+    if (source === 'marktplaats') {
+      total ??= marktplaatsResultCount(html)
+      capped ||= isMarktplaatsResultCap(html)
+    }
+
+    const parsed = source === 'marktplaats' ? parseMarktplaatsOverview(html) : parseVintedOverview(html)
+    // Past the last page both sites answer with the previous page's rows rather than an
+    // empty one, so "nothing new here" is what marks the end of the results.
+    const listings = parsed.filter((listing) => !seen.has(listing.id))
+    if (listings.length === 0) {
+      if (page === 1) {
+        return failed(`No ${label(source)} listings on the search page.`)
+      }
+      reachedEnd = true
+      break
+    }
+
+    found += listings.length
+    for (const listing of listings) {
+      seen.add(listing.id)
+      const screening = screenListing(listing, ids)
+      if (screening.keep) {
+        candidates.push(listing)
+        kept += 1
+        continue
+      }
+
+      if (screening.scope === 'problem') {
+        report.problems.push({
+          ...listingRef(listing),
+          stage: 'listing',
+          reason: screening.reason,
+          detail: null,
+          googleUrl: null,
+          query: null,
+          cardmarketUrl: null
+        })
+        continue
+      }
+
+      report.outOfScope += 1
+    }
   }
 
-  return { source, url, found: listings.length, candidates: kept, error: null }
+  return {
+    source,
+    url,
+    found,
+    candidates: kept,
+    error: null,
+    total,
+    truncated: truncation({ source, found, total, capped, reachedEnd, maxPages })
+  }
+}
+
+/**
+ * Say so when the scan never reached the end of a search.
+ *
+ * Marktplaats refuses to page past its first 300 listings, and the scan has a page bound
+ * of its own on top of that; either way the listings beyond the cut were never looked at.
+ * A short list that quietly leaves most of the results unread is the one failure the deal
+ * finder cannot show as an answer, so it is reported and the fix is named: filter harder.
+ */
+function truncation({
+  source,
+  found,
+  total,
+  capped,
+  reachedEnd,
+  maxPages
+}: {
+  source: 'marktplaats' | 'vinted'
+  found: number
+  total: number | null
+  capped: boolean
+  reachedEnd: boolean
+  maxPages: number
+}): string | null {
+  if (reachedEnd || total == null || total <= found) {
+    return capped ? `${label(source)} only pages through the first 300 listings of a search — narrow the search filters.` : null
+  }
+
+  const why = capped ? `${label(source)} only pages through the first 300 listings of a search` : `the scan stops after ${maxPages} pages`
+  return `Read ${found} of ${total} listings — ${why}, so narrow the search filters to see the rest.`
 }
 
 function label(source: 'marktplaats' | 'vinted'): string {
@@ -156,6 +260,7 @@ export async function runDealFinderScan({
   ownListings = [],
   marktplaatsUrl = MARKTPLAATS_SEARCH_URL,
   vintedUrl = VINTED_SEARCH_URL,
+  maxPages,
   now = new Date(),
   delayMs = FETCH_DELAY_MS
 }: {
@@ -166,6 +271,8 @@ export async function runDealFinderScan({
   ownListings?: Array<{ marktplaatsUrl?: string | null; vintedUrl?: string | null }>
   marktplaatsUrl?: string
   vintedUrl?: string
+  /** How many pages to read per source; the defaults are in `constants.ts`. */
+  maxPages?: Partial<Record<'marktplaats' | 'vinted', number>>
   now?: Date
   delayMs?: number
 }): Promise<{ report: DealFinderReport; cache: DealFinderCache }> {
@@ -178,7 +285,18 @@ export async function runDealFinderScan({
     ['marktplaats', marktplaatsUrl],
     ['vinted', vintedUrl]
   ] as const) {
-    report.sources.push(await collectSource({ source, url, fetchPage, ids, candidates: listings, report }))
+    report.sources.push(
+      await collectSource({
+        source,
+        url,
+        fetchPage,
+        ids,
+        candidates: listings,
+        report,
+        delayMs,
+        maxPages: maxPages?.[source] ?? PAGING[source].maxPages
+      })
+    )
   }
 
   if (!readSlabs) {

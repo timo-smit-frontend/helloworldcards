@@ -47,6 +47,19 @@ export function identifyCard({
   const text = listingText(listing)
   const titleGrade = detectGrade(text)
 
+  // A card in a language we do not buy is out of scope whether the photos showed one
+  // slab or several — deciding that first keeps a French lot out of the "could not
+  // check" list, where it would only waste a look.
+  const foreign = slabs.filter((slab) => slab.language === 'other')
+  if (!cert && slabs.length > 0 && foreign.length === slabs.length) {
+    return {
+      ok: false,
+      scope: 'out-of-scope',
+      reason: `PSA label says ${foreign[0]!.languageLabel ?? 'another language'} — we only buy English and Japanese`,
+      detail: slabs.map(describePsaLabel).join(' | ')
+    }
+  }
+
   if (slabs.length > 1) {
     return {
       ok: false,
