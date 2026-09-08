@@ -26,7 +26,7 @@ type RawListing = {
   categorySpecificDescription?: string
   vipUrl?: string
   priceInfo?: { priceCents?: number; priceType?: string }
-  sellerInformation?: { sellerName?: string }
+  sellerInformation?: { sellerName?: string; sellerId?: number | string }
   pictures?: RawPicture[]
   imageUrls?: string[]
   extendedAttributes?: Array<{ key?: string; value?: string }>
@@ -226,6 +226,7 @@ export function parseMarktplaatsOverview(html: string): SourceListing[] {
       ask: priceCents / 100,
       listingUrl: vipUrl.startsWith('http') ? vipUrl : `${MARKTPLAATS_ORIGIN}${vipUrl}`,
       sellerName: item.sellerInformation?.sellerName?.trim() ?? null,
+      sellerId: item.sellerInformation?.sellerId != null ? String(item.sellerInformation.sellerId) : null,
       priceType: item.priceInfo?.priceType ?? '',
       imageUrls: listingPhotos(item),
       itemType: attributeValue(item, 'type'),
@@ -322,4 +323,25 @@ export const MARKTPLAATS_CHALLENGE =
 
 export function isMarktplaatsChallenge(html: string): boolean {
   return MARKTPLAATS_CHALLENGE.test(html)
+}
+
+
+/**
+ * Where Marktplaats keeps a seller's review count. The listing feed does not carry it
+ * and the listing page only links to it, but this endpoint answers plain JSON keyed on
+ * the very `sellerId` the feed already gave us.
+ */
+export function marktplaatsSellerProfileUrl(sellerId: string): string {
+  return `${MARKTPLAATS_ORIGIN}/v/api/seller-profile/${encodeURIComponent(sellerId)}`
+}
+
+/** How many reviews a seller profile reports, or null when the answer made no sense. */
+export function parseSellerReviews(json: string): number | null {
+  try {
+    const parsed = JSON.parse(json) as { reviews?: Array<{ numberOfReviews?: unknown }> }
+    const counts = (parsed.reviews ?? []).map((entry) => Number(entry.numberOfReviews)).filter((count) => Number.isFinite(count))
+    return counts.length > 0 ? Math.max(...counts) : 0
+  } catch {
+    return null
+  }
 }

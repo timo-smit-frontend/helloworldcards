@@ -65,11 +65,20 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   )
 }
 
+/** Competitors shown per card — the cheapest few are the ones a price is judged against. */
+const SHOWN_COMPETITORS = 5
+
 function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   const suggestion = item.suggestion
   const delta = suggestion ? suggestion.target - item.listed : null
+  // Every offer at this grade or better, not just the ones the suggested price came
+  // from — a PSA 10 sitting under your PSA 9 is why a price is wrong, so it has to show.
+  // A report saved before the scan collected those falls back to what it did save.
+  const competing = item.competitors?.length ? item.competitors : (suggestion?.basis ?? [])
   const listings = [
-    ...(suggestion?.basis.map((listing) => ({ listing, suffix: undefined as string | undefined })) ?? []),
+    // The scan reads the whole offer list, but only the cheapest few are worth reading:
+    // they are already sorted, so this is the top of the list rather than an arbitrary cut.
+    ...competing.slice(0, SHOWN_COMPETITORS).map((listing) => ({ listing, suffix: undefined as string | undefined })),
     ...item.gone.map((listing) => ({ listing, suffix: 'gone' }))
   ]
   const notes = [...(suggestion?.notes ?? []), ...(item.error ? [item.error] : [])]
@@ -94,7 +103,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
       <div className="min-w-0">
         <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
         {listings.length > 0 || notes.length > 0 ? (
-          <ul className="mt-1 grid w-max grid-cols-[--spacing(14)_--spacing(36)_--spacing(14)_--spacing(14)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
+          <ul className="mt-1 grid w-max grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
             {listings.map(({ listing, suffix }) => {
               const vsListed = listing.price - item.listed
               return (

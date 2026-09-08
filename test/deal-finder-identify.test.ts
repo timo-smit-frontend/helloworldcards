@@ -13,6 +13,7 @@ function listing(overrides: Partial<SourceListing> = {}): SourceListing {
     ask: 120,
     listingUrl: 'https://www.marktplaats.nl/v/hobby/m1',
     sellerName: 'juliano',
+    sellerId: null,
     priceType: 'MIN_BID',
     imageUrls: ['https://images.marktplaats.com/a.jpg'],
     itemType: 'Losse kaart',
@@ -100,6 +101,35 @@ describe('identifyCard', () => {
       confidence: 'high'
     })
     expect(result.identity.signals).toContain('psa-label')
+  })
+
+  it('believes the seller over a label that never read a language at all', () => {
+    // A real reading: the slab's row 1 came back clipped to `POKEMON S`, so nothing on
+    // the label said Japanese — but the seller's own title does, and PSA does print
+    // `JP` on Japanese slabs. Pricing this against the English printing was €172 out.
+    const result = identifyCard({
+      listing: listing({ title: 'Lechonk Art Rare Japanse PSA 10 Pokémon Kaart' }),
+      slabs: [label({ cardName: 'LECHONK', setLine: 'POKEMON S', varietyLine: 'ART RARE', cardNumber: '120', grade: 10 })],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.identity.language).toBe('japanese')
+  })
+
+  it('keeps English when the label actually printed it', () => {
+    const result = identifyCard({
+      listing: listing({ title: 'Charmander 168 PSA 9 japanse verzending' }),
+      slabs: [label()],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.identity.language).toBe('english')
   })
 
   it("prefers PSA's own record over the photo", () => {

@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   buildSearchQuery,
   cardmarketProductName,
+  cardmarketTitleSlugs,
   cleanCardmarketUrl,
   googleSearchUrl,
-  pickCardmarketProduct
+  pickCardmarketProduct,
+  rankCardmarketCandidates,
+  scoreCardmarketUrl
 } from '~/services/deal-finder/google'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
 import type { CardIdentity } from '~/services/deal-finder/types'
@@ -149,5 +152,78 @@ describe('cardmarketProductName', () => {
     expect(cardmarketProductName('https://www.cardmarket.com/en/Pokemon/Products/Singles/MEGA-Dream-ex/Mega-Gengar-ex-V1-m2a230')).toBe(
       'Mega Gengar ex'
     )
+  })
+})
+
+/**
+ * How Google actually answers now: not one result URL anywhere in the page, only a
+ * title and an opaque redirect, sitting in its embedded data as
+ * `"<title>",null,"/goto?url=<token>"`. Every one of these titles is a real reading.
+ */
+function googleResult(title: string, token: string): string {
+  return `,[null,null,5,null,"${title}",null,"/goto?url\\u003d${token}",null,null,1]`
+}
+
+describe('cardmarketTitleSlugs', () => {
+  it('reads the set and the card back out of a Cardmarket result title', () => {
+    expect(cardmarketTitleSlugs('Houndour (OBF 204) Obsidian Flames - Singles - Cardmarket')).toEqual({
+      setSlug: 'Obsidian-Flames',
+      productSlug: 'Houndour-OBF204'
+    })
+    expect(cardmarketTitleSlugs('Tinkatink (sv2D 076) Clay Burst - Singles - Cardmarket')).toEqual({
+      setSlug: 'Clay-Burst',
+      productSlug: 'Tinkatink-sv2D076'
+    })
+    expect(cardmarketTitleSlugs('Dragonite EX (72) - Evolutions - Cardmarket')).toEqual({
+      setSlug: 'Evolutions',
+      productSlug: 'Dragonite-EX-72'
+    })
+  })
+
+  it('is not fooled by the species and set pages Cardmarket also ranks for', () => {
+    expect(cardmarketTitleSlugs('Houndour - Cardmarket')).toBeNull()
+    expect(cardmarketTitleSlugs('Obsidian Flames - Pokémon Singles - Cardmarket')).toBeNull()
+    expect(cardmarketTitleSlugs('Houndour #204 Pokemon Obsidian Flames - PriceCharting')).toBeNull()
+  })
+})
+
+describe('rankCardmarketCandidates', () => {
+  const houndour = identity({ name: 'HOUNDOUR', cardNumber: '204', setName: 'Obsidian flames', setCode: 'OBF' })
+
+  it('ranks the results Google hides behind a redirect, best first', () => {
+    const html = [
+      googleResult('Houndour - Cardmarket', 'AAA'),
+      googleResult('Houndour (132) - Obsidian Flames - Cardmarket', 'BBB'),
+      googleResult('Houndour (OBF 204) Obsidian Flames - Singles - Cardmarket', 'CCC')
+    ].join('')
+
+    const ranked = rankCardmarketCandidates(html, houndour)
+    expect(ranked[0]).toMatchObject({ url: 'https://www.google.com/goto?url=CCC', redirect: true })
+    // The species page is not a single at all, so only the two products are offered.
+    expect(ranked).toHaveLength(2)
+  })
+
+  it('drops a result whose title names another card entirely', () => {
+    const html = googleResult('Pidgeot ex (OBF 225) Obsidian Flames - Singles - Cardmarket', 'DDD')
+    expect(rankCardmarketCandidates(html, houndour)).toEqual([])
+  })
+
+  it('still reads a page that does print its links outright', () => {
+    const html = '<a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Houndour-V2-OBF204">x</a>'
+    expect(rankCardmarketCandidates(html, houndour)[0]).toMatchObject({ redirect: false })
+  })
+})
+
+describe('scoreCardmarketUrl', () => {
+  it('scores where a redirect landed, and says when it was not a product page', () => {
+    const houndour = identity({ name: 'HOUNDOUR', cardNumber: '204', setName: 'Obsidian flames', setCode: 'OBF' })
+
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Houndour-V2-OBF204', houndour)
+    ).toBeGreaterThan(0)
+    expect(scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Species/Houndour', houndour)).toBeNull()
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Pidgeot-ex-OBF225', houndour)
+    ).toBeLessThan(0)
   })
 })

@@ -135,8 +135,13 @@ export function scoreCardmarketLink(setSlug: string, productSlug: string, identi
 
   const nameWords = words(identity.name)
   if (nameWords.length > 0) {
-    // A card number that happens to match in the wrong Pokémon's set must never win.
-    score += nameWords.every((word) => combined.includes(word)) ? 30 : -40
+    // How much of the name is on the page, not whether every last word of it is. PSA
+    // abbreviates on the slab — `RAICHU/ALN.RAICHU GX` for Alolan Raichu — and the
+    // reader leaves debris behind — `BIA MMT PIKACHU` — so demanding a whole match
+    // threw away the right page over one scrap. Nothing matching at all is still the
+    // veto it always was: a card number matching in the wrong Pokémon must never win.
+    const matched = nameWords.filter((word) => combined.includes(word)).length
+    score += matched === 0 ? -40 : Math.round((matched / nameWords.length) * 40) - 10
   }
 
   if (identity.cardNumber) {
@@ -194,30 +199,122 @@ export function scoreCardmarketLink(setSlug: string, productSlug: string, identi
   return score
 }
 
-/** Best Cardmarket singles page in a Google results page, or null when there is none. */
-export function pickCardmarketProduct(html: string, identity: CardIdentity): string | null {
-  const seen = new Set<string>()
-  const ranked: Array<{ url: string; score: number; index: number }> = []
+/** Score a whole Cardmarket URL, or null when it is not a singles product page at all. */
+export function scoreCardmarketUrl(url: string, identity: CardIdentity): number | null {
+  const parts = url.match(/cardmarket\.com\/(?:[a-z]{2}\/)?Pokemon\/Products\/Singles\/([^/?#]+)\/([^/?#]+)/i)
+  return parts ? scoreCardmarketLink(parts[1]!, parts[2]!, identity) : null
+}
 
-  for (const match of html.matchAll(SINGLES_LINK)) {
-    const url = cleanCardmarketUrl(match[0])
-    if (seen.has(url)) {
-      continue
-    }
-    seen.add(url)
-    ranked.push({ url, score: scoreCardmarketLink(match[1], match[2], identity), index: ranked.length })
+/**
+ * Google stopped printing result URLs. Every organic result is now an opaque redirect
+ * — `/goto?url=CAESkQEB…` — with the destination nowhere in the page, so the only
+ * things a results page still hands over are the result's title and that redirect.
+ * The pair sits in Google's embedded data as `"<title>",null,"/goto?url=<token>"`.
+ */
+const GOOGLE_RESULT = /"((?:[^"\\]|\\.){5,200})",(?:null,)+"(\/goto\?url(?:\\u003d|=)[A-Za-z0-9_%-]+)"/g
+
+function unescapeJson(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`) as string
+  } catch {
+    return value
   }
+}
 
-  if (ranked.length === 0) {
+function slug(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Cardmarket titles its singles pages `Houndour (OBF 204) Obsidian Flames - Singles -
+ * Cardmarket`, so the title alone carries the card, its set code and number, and the
+ * set — everything the URL used to. Reassembling those into the slug pair Cardmarket
+ * would have used lets a title be judged by exactly the same scoring as a real link.
+ * A title with no card number in brackets is a species or set page, not a single.
+ */
+export function cardmarketTitleSlugs(title: string): { setSlug: string; productSlug: string } | null {
+  if (!/cardmarket/i.test(title)) {
     return null
   }
 
-  ranked.sort((left, right) => right.score - left.score || left.index - right.index)
+  const parsed = title.match(/^(.+?)\s*\(([^)]+)\)\s*(.*)$/)
+  if (!parsed) {
+    return null
+  }
 
-  // Nothing Google found looks like this card. Saying so is worth more than a price for
-  // a different one: a wrong identification is what makes the whole report untrustworthy.
-  const best = ranked[0]!
-  return best.score < 0 ? null : best.url
+  const inside = parsed[2]!.trim().match(/^(?:(.*?)\s+)?([A-Za-z]{0,4}\d{1,4}[A-Za-z]?)$/)
+  if (!inside) {
+    return null
+  }
+
+  const name = slug(parsed[1]!)
+  // Everything up to the first separator is the set; `- Singles - Cardmarket` is chrome.
+  const rest = parsed[3]!.replace(/^[\s\-\u2013\u2014|]+/, '').split(/\s+[-\u2013\u2014|]\s+/)[0] ?? ''
+  const setSlug = slug(rest)
+  if (!name || !setSlug || /^(?:Singles|Cardmarket)$/i.test(setSlug)) {
+    return null
+  }
+
+  return { setSlug, productSlug: `${name}-${inside[1] ? slug(inside[1]) : ''}${inside[2]!}` }
+}
+
+/** A Cardmarket page a Google results page points at, and how good a match it looks. */
+export type CardmarketCandidate = {
+  /** The product page, or the Google redirect that has to be followed to reach it. */
+  url: string
+  /** True when `url` is Google's redirect rather than the Cardmarket page itself. */
+  redirect: boolean
+  score: number
+}
+
+/** Every Cardmarket product a Google results page offers for this card, best first. */
+export function rankCardmarketCandidates(html: string, identity: CardIdentity): CardmarketCandidate[] {
+  const best = new Map<string, { candidate: CardmarketCandidate; index: number }>()
+
+  const consider = (key: string, candidate: CardmarketCandidate) => {
+    const previous = best.get(key)
+    if (!previous || candidate.score > previous.candidate.score) {
+      best.set(key, { candidate, index: previous?.index ?? best.size })
+    }
+  }
+
+  for (const match of html.matchAll(SINGLES_LINK)) {
+    const url = cleanCardmarketUrl(match[0])
+    consider(url, { url, redirect: false, score: scoreCardmarketLink(match[1]!, match[2]!, identity) })
+  }
+
+  for (const match of html.matchAll(GOOGLE_RESULT)) {
+    const slugs = cardmarketTitleSlugs(unescapeJson(match[1]!))
+    if (!slugs) {
+      continue
+    }
+    const path = match[2]!.replace(/\\u003d/g, '=')
+    consider(path, {
+      url: `https://www.google.com${path}`,
+      redirect: true,
+      score: scoreCardmarketLink(slugs.setSlug, slugs.productSlug, identity)
+    })
+  }
+
+  // Nothing that looks like a different card: a wrong identification is what makes the
+  // whole report untrustworthy, so no answer is worth more than a price for another card.
+  return [...best.values()]
+    .filter((entry) => entry.candidate.score >= 0)
+    .sort((left, right) => right.candidate.score - left.candidate.score || left.index - right.index)
+    .map((entry) => entry.candidate)
+}
+
+/**
+ * Best Cardmarket singles page a results page links to outright, or null when there is
+ * none. Google itself no longer prints those, so this only answers for pages that do —
+ * the scan follows `rankCardmarketCandidates` and resolves the redirects instead.
+ */
+export function pickCardmarketProduct(html: string, identity: CardIdentity): string | null {
+  return rankCardmarketCandidates(html, identity).find((candidate) => !candidate.redirect)?.url ?? null
 }
 
 /** Cardmarket product slug → readable name, e.g. `Mega-Gengar-ex-V1-m2a230` → `Mega Gengar ex`. */

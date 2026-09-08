@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { CardmarketBlockedError } from '~/services/deal-finder/cardmarket'
 import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
-import type { DealFinderCache } from '~/services/deal-finder/cache'
+import { CACHE_VERSION, type DealFinderCache } from '~/services/deal-finder/cache'
 import type { PsaLabel } from '~/services/deal-finder/types'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
 
@@ -11,7 +11,7 @@ const MARKTPLAATS_URL = 'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:
 const MARKTPLAATS_API = 'https://www.marktplaats.nl/lrp/api/search'
 const VINTED_URL = 'https://www.vinted.nl/catalog?search_text=pokemon%20psa'
 
-type Row = { id: string; title: string; cents: number; type?: string }
+type Row = { id: string; title: string; cents: number; type?: string; sellerId?: string }
 
 function marktplaatsOverview(rows: Row[], total = rows.length): string {
   const listings = rows.map((row) =>
@@ -21,7 +21,7 @@ function marktplaatsOverview(rows: Row[], total = rows.length): string {
       description: `Beschrijving voor ${row.title}`,
       vipUrl: `/v/hobby/${row.id}-slug`,
       priceInfo: { priceCents: row.cents, priceType: 'FIXED' },
-      sellerInformation: { sellerName: 'seller' },
+      sellerInformation: { sellerName: 'seller', sellerId: row.sellerId ?? '900100' },
       extendedAttributes: [{ key: 'type', value: row.type ?? 'Losse kaart' }],
       pictures: [{ largeUrl: `https://images.marktplaats.com/${row.id}?rule=x$_83.jpg` }]
     })
@@ -48,6 +48,14 @@ function vintedOverview(rows: Array<{ id: string; title: string; ask: string }>)
 
 function googleResults(setSlug: string, productSlug: string): string {
   return `<html><a href="https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${productSlug}">result</a></html>`
+}
+
+/**
+ * What Google answers with now: no result URL in the page at all, only a title and an
+ * opaque redirect that has to be followed to find out where the result points.
+ */
+function googleRedirectResults(title: string, token: string): string {
+  return `<html>,[null,null,5,null,"${title}",null,"/goto?url\\u003d${token}",null,null,1]</html>`
 }
 
 function offersPage(rows: Array<{ seller: string; comment: string; price: string }>): string {
@@ -119,6 +127,159 @@ function run(options: Parameters<typeof runDealFinderScan>[0]) {
 }
 
 describe('runDealFinderScan', () => {
+  it('never looks at a card whose Marktplaats seller has no reviews', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([
+        { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000, sellerId: '111' },
+        { id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 12000, sellerId: '222' }
+      ]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const readSlabs = vi.fn(readCharmander)
+    const sellerReviews = vi.fn(async (sellerId: string) => (sellerId === '111' ? 0 : 40))
+
+    const { report } = await run({ fetchPage, readSlabs, sellerReviews })
+
+    expect(report.deals).toHaveLength(1)
+    // The unreviewed seller's listing never reached the photo reader.
+    expect(readSlabs).toHaveBeenCalledTimes(1)
+    expect(report.outOfScope).toBe(1)
+  })
+
+  it('asks after a seller once however many listings they have up', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([
+        { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000, sellerId: '111' },
+        { id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 11000, sellerId: '111' }
+      ]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const sellerReviews = vi.fn(async () => 12)
+
+    await run({ fetchPage, readSlabs: readCharmander, sellerReviews })
+
+    expect(sellerReviews).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not hold a failed review lookup against the seller', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sellerReviews: async () => {
+        throw new Error('seller profile is down')
+      }
+    })
+
+    expect(report.deals).toHaveLength(1)
+  })
+
+  it('leaves the slab guards and toploaders alone', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([
+        { id: 'm1', title: 'PSA Slab Guard - Hard Hoesje - Case - Bumper - Transparant', cents: 1000 },
+        { id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }
+      ]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const readSlabs = vi.fn(readCharmander)
+
+    const { report } = await run({ fetchPage, readSlabs })
+
+    // The guard's photo shows a real slab, so it must never reach the label reader.
+    expect(readSlabs).toHaveBeenCalledTimes(1)
+    expect(report.deals).toHaveLength(1)
+  })
+
+  it('throws away a cache an older version of the scan wrote', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    // A priced row that today's rules would read differently; the TTL cannot see that.
+    const old = {
+      entries: {
+        'marktplaats:m1': {
+          id: 'marktplaats:m1',
+          ask: 120,
+          shipping: null,
+          identifiedAt: new Date().toISOString(),
+          identity: { name: 'Lechonk', cardNumber: null, setName: 'S', setCode: 'S', language: 'english' as const, grade: 10 as const, reverseHolo: false, firstEdition: false, certNumber: null, signals: ['title' as const], confidence: 'high' as const },
+          label: null,
+          query: 'x',
+          googleUrl: 'https://www.google.com/search?q=x',
+          cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Lechonk-V2-OBF209',
+          pricedAt: new Date().toISOString(),
+          floor: 229,
+          comps: [],
+          problem: null
+        }
+      }
+    }
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, cache: old })
+
+    expect(report.fromCache).toBe(0)
+    expect(report.deals[0]?.card.name).toBe('CHARMANDER')
+  })
+
+  it('follows the redirect Google hides its result URLs behind', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: () => googleRedirectResults('Charmander (MEW 168) 151 - Singles - Cardmarket', 'TOKEN'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const resolveUrl = vi.fn(async () => 'https://www.cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168')
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, resolveUrl })
+
+    expect(resolveUrl).toHaveBeenCalledWith('https://www.google.com/goto?url=TOKEN')
+    expect(report.deals).toHaveLength(1)
+    expect(report.deals[0]?.cardmarketUrl).toContain('Charmander-V2-MEW168')
+  })
+
+  it('keeps following until a redirect lands on the right card', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: () =>
+        googleRedirectResults('Charmander (MEW 168) 151 - Singles - Cardmarket', 'FIRST') +
+        googleRedirectResults('Charmander (168) - 151 - Cardmarket', 'SECOND'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    // Google's top result went to the species page, which prices nothing.
+    const resolveUrl = vi.fn(async (url: string) =>
+      url.endsWith('FIRST')
+        ? 'https://www.cardmarket.com/en/Pokemon/Species/Charmander'
+        : 'https://www.cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168'
+    )
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, resolveUrl })
+
+    expect(resolveUrl).toHaveBeenCalledTimes(2)
+    expect(report.deals[0]?.cardmarketUrl).toContain('Charmander-V2-MEW168')
+  })
+
+  it('reports no match rather than guessing when nothing can follow the redirects', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: () => googleRedirectResults('Charmander (MEW 168) 151 - Singles - Cardmarket', 'TOKEN')
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.deals).toHaveLength(0)
+    expect(report.problems[0]?.reason).toBe('No matching Cardmarket page in the Google results')
+  })
+
   it('reports a listing priced well under the Cardmarket floor', async () => {
     const { fetchPage } = fetcher({
       marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
@@ -411,6 +572,7 @@ describe('runDealFinderScan', () => {
 
     it('re-prices a listing once the remembered price has gone stale', async () => {
       const stale: DealFinderCache = {
+        version: CACHE_VERSION,
         entries: {
           'marktplaats:m1': {
             id: 'marktplaats:m1',
@@ -454,6 +616,7 @@ describe('runDealFinderScan', () => {
 
     it('retries anything that failed last time', async () => {
       const failed: DealFinderCache = {
+        version: CACHE_VERSION,
         entries: {
           'marktplaats:m1': {
             id: 'marktplaats:m1',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseArticleListings } from '~/services/cardmarket/html'
 import { cardmarketOffersUrl, isCardmarketChallenge, runCardmarketScan, withProductFrontImages } from '~/services/cardmarket/scan'
+import { sameOrBetterGrade } from '~/services/cardmarket/grades'
 import type { InventoryProduct } from '~/database/products'
 
 const ROW = (id: string, seller: string, comment: string, price: string) => `
@@ -105,6 +106,25 @@ const pokeKid: InventoryProduct = {
   cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197'
 }
 
+describe('sameOrBetterGrade', () => {
+  const listing = (id: string, grade: number, price: number) => ({
+    id,
+    seller: `seller${id}`,
+    comment: `PSA ${grade}`,
+    grader: 'psa' as const,
+    grade,
+    price
+  })
+
+  it('lists everyone at your grade or better, cheapest first', () => {
+    const listings = [listing('a', 9, 80), listing('b', 10, 60), listing('c', 8, 20), listing('d', 9, 45)]
+
+    // The PSA 8 undercutting at €20 is a different card to a buyer, so it is left out;
+    // the PSA 10 at €60 is not, and it is exactly what a PSA 9 at €80 is losing to.
+    expect(sameOrBetterGrade({ grade: 9, listings }).map((item) => item.id)).toEqual(['d', 'b', 'a'])
+  })
+})
+
 describe('runCardmarketScan', () => {
   it('scans watchable cards and suggests a price move', async () => {
     const startedAt: number[] = []
@@ -129,6 +149,30 @@ describe('runCardmarketScan', () => {
       suggestion: { direction: 'up', target: 100 }
     })
     expect(startedAt).toHaveLength(1)
+  })
+
+  it('reads the whole offer list and records everyone at that grade or better', async () => {
+    let options: { maxLoadMore?: number; loadAll?: boolean } | undefined
+
+    const report = await runCardmarketScan({
+      products: [pokeKid],
+      previous: null,
+      fetchPage: async (_url, given) => {
+        options = given
+        return [
+          ROW('1', 'CheapPSA8', 'PSA 8', '20,00 €'),
+          ROW('2', 'Floor', 'PSA 10', '100,00 €'),
+          ROW('3', 'Higher', 'PSA 10', '180,00 €'),
+          ROW('4', 'AlsoTen', 'PSA 10', '140,00 €')
+        ].join('')
+      }
+    })
+
+    // Without this the scan stopped at the first same-grade offer, which is why only
+    // the cheapest one or two ever showed up on the page.
+    expect(options?.loadAll).toBe(true)
+    expect(report.products[0]?.competitors?.map((item) => item.price)).toEqual([100, 140, 180])
+    expect(report.products[0]?.suggestion?.target).toBe(100)
   })
 
   it('fetches each card only after the previous page finishes', async () => {
@@ -185,6 +229,7 @@ describe('runCardmarketScan', () => {
                 price: 90
               }
             ],
+            competitors: [],
             suggestion: { direction: 'down', target: 90, basis: [], notes: [] },
             gone: [],
             error: null
@@ -263,6 +308,7 @@ describe('withProductFrontImages', () => {
             listed: 95,
             url: pokeKid.cardmarketUrl!,
             listings: [],
+            competitors: [],
             suggestion: null,
             gone: [],
             error: null
@@ -287,6 +333,7 @@ describe('withProductFrontImages', () => {
             listed: 95,
             url: pokeKid.cardmarketUrl!,
             listings: [],
+            competitors: [],
             suggestion: null,
             gone: [],
             error: null

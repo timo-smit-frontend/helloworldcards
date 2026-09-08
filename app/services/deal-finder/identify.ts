@@ -125,8 +125,15 @@ export function identifyCard({
     }
   }
 
+  // PSA prints no language token on an English slab, so a label that reads English
+  // without one never said so — the reader assumed it, and it assumes the same thing
+  // when it clipped `JP` off the row it did read. A seller who writes "Japanse" in the
+  // title is the better witness there, which is why an unmarked label stands aside.
+  const labelLanguage = label?.language === 'english' || label?.language === 'japanese' ? label.language : null
+  const readLanguage = labelLanguage === 'english' && label?.languageLabel == null ? null : labelLanguage
+
   const language: CardLanguage =
-    (label?.language === 'english' || label?.language === 'japanese' ? label.language : null) ??
+    readLanguage ??
     (textLanguage === 'japanese' ? 'japanese' : null) ??
     (isJapaneseSetCode(set.code) ? 'japanese' : 'english')
 

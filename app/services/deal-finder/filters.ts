@@ -19,6 +19,27 @@ const OTHER_TCG =
 
 const POKEMON = /pok[eé]?mon/i
 
+/**
+ * Slab guards, toploaders and binders sell alongside the cards, and their photos show a
+ * real graded card sitting in the product — so the label reader finds a genuine PSA slab
+ * and the listing prices as if that card were for sale. A €10 "PSA Slab Guard" came back
+ * as a Meditite worth €120. What is being sold is the plastic, so it is named in the title.
+ */
+const ACCESSORY =
+  /\b(?:slab\s*guard|slabguard|top\s*loader|toploader|penny\s*sleeve|card\s*sleeves?|beschermhoes|hoesjes?|bumper|card\s*protector|screw\s*down|screwdown|magnetic\s*holder|acryl|verzamelmap|opbergmap|binder|display\s*(?:case|stand))\b/i
+
+/**
+ * A card thrown in with a sleeve is still a card: `Charizard PSA 10 incl. toploader`
+ * sells the Charizard, and the preposition in front of the plastic is what says so.
+ */
+const THROWN_IN = /\b(?:incl\.?|inclusief|inclusive|met|in|plus|with|\+)\s+(?:een |de |het |a |an |the )?$/i
+
+/** True when the title is selling the plastic rather than a card sitting in it. */
+export function isAccessoryListing(title: string): boolean {
+  const match = title.match(ACCESSORY)
+  return match?.index != null && !THROWN_IN.test(title.slice(0, match.index))
+}
+
 export type Screening =
   { keep: true } | { keep: false; scope: 'out-of-scope'; reason: string } | { keep: false; scope: 'problem'; reason: string }
 
@@ -79,6 +100,10 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
   const listingText = [listing.title, listing.description].filter(Boolean).join('\n')
   if (OTHER_TCG.test(listingText) && !POKEMON.test(listingText)) {
     return { keep: false, scope: 'out-of-scope', reason: 'Not a Pokémon card' }
+  }
+
+  if (isAccessoryListing(listing.title)) {
+    return { keep: false, scope: 'out-of-scope', reason: 'Selling a case or sleeve, not a card' }
   }
 
   if (listing.priceType && !/^(?:FIXED|MIN_BID)$/i.test(listing.priceType)) {

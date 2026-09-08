@@ -5,8 +5,9 @@ import { promisify } from 'node:util'
 import type { Browser, BrowserContext, Page } from 'playwright'
 import type { CardmarketReport, FetchCardmarketPage, FetchCardmarketPageOptions } from '../app/services/cardmarket/scan'
 import { CardmarketBlockedError } from '../app/services/deal-finder/cardmarket'
-import { isMarktplaatsSearchApi } from '../app/services/deal-finder/marktplaats'
+import { isMarktplaatsSearchApi, marktplaatsSellerProfileUrl, parseSellerReviews } from '../app/services/deal-finder/marktplaats'
 import type { DealFinderCache } from '../app/services/deal-finder/cache'
+import type { ResolveUrl, SellerReviews } from '../app/services/deal-finder/scan'
 import type { DealFinderReport } from '../app/services/deal-finder/types'
 import type { CardmarketStore, DealFinderStore } from '../worker/dashboard-api'
 
@@ -19,6 +20,8 @@ const CDP_URL = process.env.CARDMARKET_CDP_URL ?? 'http://127.0.0.1:9333'
 
 export type CardmarketFetcher = {
   fetchPage: FetchCardmarketPage
+  resolveUrl: ResolveUrl
+  sellerReviews: SellerReviews
   close: () => Promise<void>
 }
 
@@ -182,6 +185,18 @@ export async function fetchMarktplaatsSearch(url: string, request: typeof fetch 
   return await response.text()
 }
 
+/**
+ * A Marktplaats seller's review count. Its own JSON endpoint answers this keyed on the
+ * `sellerId` the search feed already carries, so no listing page has to be opened to
+ * find out whether a seller is worth buying from.
+ */
+export const marktplaatsSellerReviews: SellerReviews = async (sellerId, request: typeof fetch = fetch) => {
+  const response = await request(marktplaatsSellerProfileUrl(sellerId), {
+    headers: { 'user-agent': BROWSER_USER_AGENT, accept: 'application/json', 'accept-language': 'nl-NL,nl;q=0.9' }
+  })
+  return response.ok ? parseSellerReviews(await response.text()) : null
+}
+
 export async function fetchVintedPage(url: string, request: typeof fetch = fetch): Promise<string> {
   const response = await request(url, {
     headers: {
@@ -307,8 +322,12 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
   await warmup(page)
 
   return {
+    sellerReviews: marktplaatsSellerReviews,
     async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
       return await fetchWithBotChecks(page, url, options)
+    },
+    async resolveUrl(url: string) {
+      return await followRedirect(page, url)
     },
     async close() {
       if (mode === 'persistent') {
@@ -319,6 +338,29 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
       await browser?.close().catch(() => undefined)
     }
   }
+}
+
+/**
+ * Follow a redirect and report where it landed.
+ *
+ * Google stopped printing result URLs: every organic result is now an opaque
+ * `/goto?url=` link, so the only way to learn which Cardmarket page a result points at
+ * is to go there. Landing on Cardmarket's bot check is not a failure and is never
+ * skipped past — it is waited out so it can be cleared in the Chrome window, which
+ * both keeps that click from being wasted and leaves the session that every Cardmarket
+ * request after it needs.
+ */
+async function followRedirect(page: Page, url: string): Promise<string | null> {
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
+  } catch {
+    return null
+  }
+
+  await waitForBotChallengeClear(page, new URL(page.url()).hostname)
+
+  const landed = page.url()
+  return landed && !landed.includes('/goto?url=') ? landed : null
 }
 
 /**
@@ -390,7 +432,9 @@ async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): P
     if (pageLooksChallenged(await page.title().catch(() => ''), html)) {
       return 'stalled'
     }
-    if (options?.stopWhen?.(html)) {
+    // With `loadAll` the caller wants every row, so having enough to answer is not a
+    // reason to stop — only running out of "Show more" is.
+    if (!options?.loadAll && options?.stopWhen?.(html)) {
       return 'complete'
     }
 

@@ -1,7 +1,7 @@
 import type { CardGrader, CardLanguage, InventoryProduct } from '../../database/products'
 import { toMediaSrc } from '../imageCopy'
 import { parseListedPrice } from '../price'
-import { marketFloorPrice, suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
+import { marketFloorPrice, sameOrBetterGrade, suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
 import { parseArticleListings } from './html'
 
 export type CardmarketProductReport = {
@@ -11,6 +11,11 @@ export type CardmarketProductReport = {
   listed: number
   url: string
   listings: MarketListing[]
+  /**
+   * Everyone selling the same card at your grade or better, cheapest first. Optional
+   * because a report saved before this field existed is still read back and rendered.
+   */
+  competitors?: MarketListing[]
   suggestion: PriceSuggestion | null
   gone: MarketListing[]
   error: string | null
@@ -24,12 +29,23 @@ export type CardmarketReport = {
 /** Optional Cardmarket "Load more" behaviour for high-liquidity offer tables. */
 export type FetchCardmarketPageOptions = {
   maxLoadMore?: number
+  /**
+   * Enough of the page to answer the question, used to stop expanding early and to
+   * accept what we already have when "Show more" stalls part-way.
+   */
   stopWhen?: (html: string) => boolean
+  /**
+   * Read every offer, however many "Show more" clicks it takes. `stopWhen` then only
+   * rescues a stall — it no longer ends the expansion, because the answer being looked
+   * for is the whole list rather than the first row that satisfies it.
+   */
+  loadAll?: boolean
 }
 
 export type FetchCardmarketPage = (url: string, options?: FetchCardmarketPageOptions) => Promise<string>
 
-const DEFAULT_OFFERS_LOAD_MORE = 10
+/** Enough "Show more" clicks to reach the bottom of even a heavily listed single. */
+const DEFAULT_OFFERS_LOAD_MORE = 30
 
 /** True when the offers HTML already contains a same-grade PSA/BGS floor. */
 export function htmlHasMarketFloor(html: string, grader: CardGrader, grade: number): boolean {
@@ -120,7 +136,7 @@ export async function runCardmarketScan({
       firstEdition: product.firstEdition,
       grade: product.grade
     })
-    const base: Omit<CardmarketProductReport, 'listings' | 'suggestion' | 'gone' | 'error'> = {
+    const base: Omit<CardmarketProductReport, 'listings' | 'competitors' | 'suggestion' | 'gone' | 'error'> = {
       id: product.id,
       title: product.title,
       image: product.images[0] ? toMediaSrc(product.images[0]) : null,
@@ -129,14 +145,19 @@ export async function runCardmarketScan({
     }
 
     try {
+      // The whole offer list, not just far enough to find the floor: the point of the
+      // page is seeing everyone you are up against, and the cheapest same-grade offer
+      // is usually in the first rows, which is exactly where it used to stop reading.
       const html = await fetchPage(url, {
         maxLoadMore: DEFAULT_OFFERS_LOAD_MORE,
+        loadAll: true,
         stopWhen: (pageHtml) => htmlHasMarketFloor(pageHtml, product.grader!, product.grade!)
       })
       if (isCardmarketChallenge(html)) {
         productsReport.push({
           ...base,
           listings: [],
+          competitors: [],
           suggestion: null,
           gone: [],
           error: 'Cardmarket blocked the scan (Cloudflare challenge).'
@@ -149,6 +170,7 @@ export async function runCardmarketScan({
         productsReport.push({
           ...base,
           listings: [],
+          competitors: [],
           suggestion: null,
           gone: [],
           error: 'No Cardmarket listings found. The page may be blocked or the URL may be wrong.'
@@ -167,11 +189,19 @@ export async function runCardmarketScan({
         (item) => item.grader === product.grader && item.grade === product.grade && !currentIds.has(item.id)
       )
 
-      productsReport.push({ ...base, listings, suggestion, gone, error: null })
+      productsReport.push({
+        ...base,
+        listings,
+        competitors: sameOrBetterGrade({ grade: product.grade!, listings }),
+        suggestion,
+        gone,
+        error: null
+      })
     } catch (error) {
       productsReport.push({
         ...base,
         listings: [],
+        competitors: [],
         suggestion: null,
         gone: [],
         error: error instanceof Error ? error.message : 'Scan failed.'

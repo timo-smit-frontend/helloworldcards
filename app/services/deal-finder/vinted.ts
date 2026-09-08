@@ -106,6 +106,7 @@ export function parseVintedOverview(html: string): SourceListing[] {
       ask: hover.ask,
       listingUrl: absoluteVintedUrl(href),
       sellerName: null,
+      sellerId: null,
       // Vinted has no auctions — every catalogue item is a fixed ask.
       priceType: 'FIXED',
       imageUrls: img.src ? [img.src] : [],

@@ -1,6 +1,6 @@
 import type { FetchCardmarketPage } from '../cardmarket/scan'
 import { CardmarketBlockedError, OFFERS_FETCH_OPTIONS, offersUrlFor, priceFromOffers } from './cardmarket'
-import { emptyCache, hasFreshIdentity, hasFreshPrice, pruneCache, type CacheEntry, type DealFinderCache } from './cache'
+import { hasFreshIdentity, hasFreshPrice, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
 import {
   FETCH_DELAY_MS,
   IMPLAUSIBLE_FLOOR_GAP,
@@ -13,8 +13,8 @@ import {
   VINTED_SEARCH_URL
 } from './constants'
 import { listingCost } from './cost'
-import { ownListingIds, screenListing, type OwnListingIds } from './filters'
-import { buildSearchQuery, cardmarketProductName, googleSearchUrl, pickCardmarketProduct } from './google'
+import { ownListingIds, screenListing, type OwnListingIds, type Screening } from './filters'
+import { buildSearchQuery, cardmarketProductName, cleanCardmarketUrl, googleSearchUrl, rankCardmarketCandidates, scoreCardmarketUrl } from './google'
 import { displayTitle, identifyCard } from './identify'
 import {
   isMarktplaatsChallenge,
@@ -39,6 +39,12 @@ export type SlabReader = (input: { listing: SourceListing; imageUrls: string[] }
 
 /** Resolves a certification number against PSA's own records. */
 export type CertLookup = (certNumber: string) => Promise<PsaLabel | null>
+
+/** Follows a redirect and reports where it landed, or null when it went nowhere. */
+export type ResolveUrl = (url: string) => Promise<string | null>
+
+/** How many reviews a Marktplaats seller has, or null when it could not be found out. */
+export type SellerReviews = (sellerId: string) => Promise<number | null>
 
 type Candidate = {
   listing: SourceListing
@@ -99,6 +105,7 @@ async function collectSource({
   candidates,
   report,
   delayMs,
+  sellerReviews,
   maxPages
 }: {
   source: 'marktplaats' | 'vinted'
@@ -108,6 +115,7 @@ async function collectSource({
   candidates: SourceListing[]
   report: DealFinderReport
   delayMs: number
+  sellerReviews?: SellerReviews
   maxPages: number
 }): Promise<SourceSummary> {
   const { pageUrl } = PAGING[source]
@@ -117,6 +125,8 @@ async function collectSource({
   let total: number | null = null
   let capped = false
   let reachedEnd = false
+  // Sellers put up several listings at once, so their review count is asked for once.
+  const reviewCounts = new Map<string, number | null>()
 
   const failed = (error: string): SourceSummary => ({ source, url, found: 0, candidates: 0, error, total, truncated: null })
 
@@ -166,7 +176,7 @@ async function collectSource({
     found += listings.length
     for (const listing of listings) {
       seen.add(listing.id)
-      const screening = screenListing(listing, ids)
+      const screening = await screen(listing, ids, sellerReviews, reviewCounts)
       if (screening.keep) {
         candidates.push(listing)
         kept += 1
@@ -209,6 +219,33 @@ async function collectSource({
 }
 
 /**
+ * Screen a listing, and check its seller's standing when everything else passes.
+ *
+ * An unreviewed Marktplaats seller is not a risk worth taking at any price, so the
+ * listing is dropped before its photos are ever read — the review lookup is the last
+ * check rather than the first only because it costs a request and the cheap rules
+ * usually settle it. A lookup that fails is not held against the seller.
+ */
+async function screen(
+  listing: SourceListing,
+  ids: OwnListingIds,
+  sellerReviews: SellerReviews | undefined,
+  counts: Map<string, number | null>
+): Promise<Screening> {
+  const screening = screenListing(listing, ids)
+  if (!screening.keep || !sellerReviews || listing.source !== 'marktplaats' || !listing.sellerId) {
+    return screening
+  }
+
+  const sellerId = listing.sellerId
+  if (!counts.has(sellerId)) {
+    counts.set(sellerId, await sellerReviews(sellerId).catch(() => null))
+  }
+
+  return counts.get(sellerId) === 0 ? { keep: false, scope: 'out-of-scope', reason: 'Seller has no reviews' } : screening
+}
+
+/**
  * Say so when the scan never reached the end of a search.
  *
  * Marktplaats refuses to page past its first 300 listings, and the scan has a page bound
@@ -243,6 +280,53 @@ function label(source: 'marktplaats' | 'vinted'): string {
   return source === 'marktplaats' ? 'Marktplaats' : 'Vinted'
 }
 
+/**
+ * How many of Google's redirects to follow before giving up on a card. Google orders
+ * its results well, so the first one that scores is almost always the first one tried.
+ */
+const MAX_REDIRECTS_FOLLOWED = 3
+
+/**
+ * The Cardmarket product page behind a Google results page, or null when there is none.
+ *
+ * Google no longer prints result URLs anywhere in the page — every result is an opaque
+ * `/goto?url=` redirect — so a result's title is ranked first and only the winner is
+ * actually followed. Where the redirect lands is then scored again as a real URL,
+ * because the title is a description of the page and the URL is the page itself.
+ */
+async function followToCardmarket({
+  html,
+  identity,
+  resolveUrl,
+  delayMs
+}: {
+  html: string
+  identity: CardIdentity
+  resolveUrl: ResolveUrl | undefined
+  delayMs: number
+}): Promise<string | null> {
+  let followed = 0
+
+  for (const candidate of rankCardmarketCandidates(html, identity)) {
+    if (!candidate.redirect) {
+      return candidate.url
+    }
+    if (!resolveUrl || followed >= MAX_REDIRECTS_FOLLOWED) {
+      break
+    }
+
+    followed += 1
+    await sleep(delayMs)
+    const landed = await resolveUrl(candidate.url)
+    const score = landed ? scoreCardmarketUrl(landed, identity) : null
+    if (landed && score != null && score >= 0) {
+      return cleanCardmarketUrl(landed)
+    }
+  }
+
+  return null
+}
+
 /** Overview rows carry a clipped description and one small photo; the listing page has both in full. */
 async function loadListingDetail(listing: SourceListing, fetchPage: FetchCardmarketPage): Promise<SourceListing> {
   try {
@@ -266,6 +350,8 @@ export async function runDealFinderScan({
   fetchPage,
   readSlabs,
   lookupCert,
+  resolveUrl,
+  sellerReviews,
   cache: previousCache,
   ownListings = [],
   marktplaatsUrl = MARKTPLAATS_SEARCH_URL,
@@ -277,6 +363,10 @@ export async function runDealFinderScan({
   fetchPage: FetchCardmarketPage
   readSlabs?: SlabReader
   lookupCert?: CertLookup
+  /** Follows Google's result redirects; without it a Google page yields no Cardmarket page. */
+  resolveUrl?: ResolveUrl
+  /** Looks up a Marktplaats seller's review count, so unreviewed sellers can be skipped. */
+  sellerReviews?: SellerReviews
   cache?: DealFinderCache | null
   ownListings?: Array<{ marktplaatsUrl?: string | null; vintedUrl?: string | null }>
   marktplaatsUrl?: string
@@ -287,7 +377,7 @@ export async function runDealFinderScan({
   delayMs?: number
 }): Promise<{ report: DealFinderReport; cache: DealFinderCache }> {
   const report = emptyReport(now.toISOString())
-  const cache: DealFinderCache = { entries: { ...(previousCache?.entries ?? emptyCache().entries) } }
+  const cache: DealFinderCache = usableCache(previousCache)
   const ids = ownListingIds(ownListings)
   const listings: SourceListing[] = []
 
@@ -304,6 +394,7 @@ export async function runDealFinderScan({
         candidates: listings,
         report,
         delayMs,
+        sellerReviews,
         maxPages: maxPages?.[source] ?? PAGING[source].maxPages
       })
     )
@@ -328,7 +419,7 @@ export async function runDealFinderScan({
     }
 
     try {
-      await evaluate({ candidate, fetchPage, readSlabs, lookupCert, cache, now, delayMs, deals, noComps, report, blocked })
+      await evaluate({ candidate, fetchPage, readSlabs, lookupCert, resolveUrl, cache, now, delayMs, deals, noComps, report, blocked })
     } catch (error) {
       report.problems.push({
         ...listingRef(candidate.listing),
@@ -364,6 +455,7 @@ async function evaluate({
   fetchPage,
   readSlabs,
   lookupCert,
+  resolveUrl,
   cache,
   now,
   delayMs,
@@ -376,6 +468,7 @@ async function evaluate({
   fetchPage: FetchCardmarketPage
   readSlabs?: SlabReader
   lookupCert?: CertLookup
+  resolveUrl?: ResolveUrl
   cache: DealFinderCache
   now: Date
   delayMs: number
@@ -470,7 +563,7 @@ async function evaluate({
 
     await sleep(delayMs)
     const googleHtml = await fetchPage(googleUrl)
-    cardmarketUrl = pickCardmarketProduct(googleHtml, identity)
+    cardmarketUrl = await followToCardmarket({ html: googleHtml, identity, resolveUrl, delayMs })
 
     if (!cardmarketUrl) {
       report.problems.push({

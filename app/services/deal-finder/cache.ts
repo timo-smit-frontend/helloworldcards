@@ -27,7 +27,20 @@ export type CacheEntry = {
   problem: { stage: 'listing' | 'identify' | 'match' | 'price'; reason: string; detail: string | null } | null
 }
 
-export type DealFinderCache = { entries: Record<string, CacheEntry> }
+/**
+ * Bumped whenever identification, matching or screening changes. A cached row is a
+ * conclusion this code reached, not a fact about the listing, so a scan that reasons
+ * differently must not be served yesterday's answer — the TTLs cannot see that the
+ * rules moved, only that the clock did.
+ */
+export const CACHE_VERSION = 2
+
+export type DealFinderCache = { version?: number; entries: Record<string, CacheEntry> }
+
+/** The cache to start from: the stored one, or a fresh one when older logic wrote it. */
+export function usableCache(stored: DealFinderCache | null | undefined): DealFinderCache {
+  return stored && stored.version === CACHE_VERSION ? { version: CACHE_VERSION, entries: { ...stored.entries } } : emptyCache()
+}
 
 export type DealFinderCacheStore = {
   getCache(): Promise<DealFinderCache | null>
@@ -35,7 +48,7 @@ export type DealFinderCacheStore = {
 }
 
 export function emptyCache(): DealFinderCache {
-  return { entries: {} }
+  return { version: CACHE_VERSION, entries: {} }
 }
 
 function ageMs(iso: string | null, now: Date): number {
@@ -70,5 +83,5 @@ export function pruneCache(cache: DealFinderCache, liveIds: Set<string>): DealFi
       entries[id] = entry
     }
   }
-  return { entries }
+  return { version: CACHE_VERSION, entries }
 }

@@ -20,6 +20,8 @@ describe('getPlaywrightCardmarketFetcher', () => {
       launches += 1
       return {
         fetchPage: async () => '',
+        resolveUrl: async () => null,
+        sellerReviews: async () => null,
         close: async () => undefined
       }
     }
@@ -35,6 +37,8 @@ describe('getPlaywrightCardmarketFetcher', () => {
     let closed = 0
     const create = async () => ({
       fetchPage: async () => '',
+      resolveUrl: async () => null,
+      sellerReviews: async () => null,
       close: async () => {
         closed += 1
       }
@@ -92,3 +96,4 @@ describe('fetchVintedPage', () => {
     await expect(fetchVintedPage('https://www.vinted.nl/catalog', request)).rejects.toThrow('403')
   })
 })
+

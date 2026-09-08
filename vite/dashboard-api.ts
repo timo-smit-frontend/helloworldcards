@@ -301,7 +301,7 @@ function cmsApiMiddleware(root: string) {
         const env = loadDashboardEnv(root)
         const withBrowser = {
           ...runtime,
-          ...(browser ? { fetchCardmarketPage: browser.fetchPage } : {}),
+          ...(browser ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews } : {}),
           ...(scanBrowserError ? { scanBrowserError } : {})
         }
 

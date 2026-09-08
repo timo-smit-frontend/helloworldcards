@@ -1,7 +1,7 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
 import { isCurrentReport } from '../app/services/deal-finder/report'
-import type { CertLookup, DealFinderCache, DealFinderReport, SlabReader } from '../app/services/deal-finder/scan'
+import type { CertLookup, DealFinderCache, DealFinderReport, ResolveUrl, SellerReviews, SlabReader } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
 import { listLedgerInventory, type CmsDb } from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
@@ -51,6 +51,10 @@ export type DashboardRuntime = {
   readSlabs?: SlabReader
   /** Resolves a certification number against PSA's own records. */
   lookupCert?: CertLookup
+  /** Follows Google's result redirects to the page they point at. */
+  resolveUrl?: ResolveUrl
+  /** Looks up how many reviews a Marktplaats seller has. */
+  sellerReviews?: SellerReviews
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -382,6 +386,8 @@ async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: Das
       fetchPage: runtime.fetchCardmarketPage,
       readSlabs: runtime.readSlabs,
       lookupCert: runtime.lookupCert,
+      resolveUrl: runtime.resolveUrl,
+      sellerReviews: runtime.sellerReviews,
       cache: await store.getCache(),
       ownListings: await inventoryFor(env, runtime)
     })

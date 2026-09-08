@@ -20,6 +20,8 @@ export type SourceListing = {
   ask: number
   listingUrl: string
   sellerName: string | null
+  /** Marktplaats' own id for the seller, which is what its review endpoint is keyed on. */
+  sellerId: string | null
   priceType: string
   imageUrls: string[]
   /** Marktplaats "type" attribute: `Losse kaart` (single) or `Meerdere kaarten` (a lot). */

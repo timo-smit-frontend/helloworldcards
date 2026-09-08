@@ -44,6 +44,7 @@ describe('parseMarktplaatsOverview', () => {
       ask: 120,
       listingUrl: 'https://www.marktplaats.nl/v/hobby/m2438948556-charmander',
       sellerName: 'juliano',
+      sellerId: null,
       priceType: 'MIN_BID',
       itemType: 'Losse kaart'
     })

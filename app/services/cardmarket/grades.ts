@@ -116,3 +116,14 @@ export function suggestListedPrice({
     notes
   }
 }
+
+/**
+ * Every offer at your grade or better, cheapest first.
+ *
+ * These are the ones that actually compete with yours: a buyer choosing between your
+ * PSA 9 and someone else's PSA 10 at the same money is not going to choose yours. A
+ * lower grade undercutting you is a different card to them, so it is left out.
+ */
+export function sameOrBetterGrade({ grade, listings }: { grade: number; listings: MarketListing[] }): MarketListing[] {
+  return listings.filter((item) => item.grade >= grade).sort((left, right) => left.price - right.price)
+}
