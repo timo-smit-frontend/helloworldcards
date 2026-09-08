@@ -273,6 +273,15 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
           return json({ error: 'That slug is already used.' }, 400)
         }
         const merged: ProductRecord & { slug: string } = { ...existing, ...record, slug }
+        for (const flag of ['sold', 'concept', 'reverseHolo', 'firstEdition'] as const) {
+          if (flag in body) {
+            if (asBool(body[flag])) {
+              merged[flag] = true
+            } else {
+              delete merged[flag]
+            }
+          }
+        }
         if ('pokemonId' in body) {
           const pokemonId = asNumber(body.pokemonId)
           if (pokemonId != null) {

@@ -185,9 +185,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 10,
     year: 2025,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440336973',
+    vintedUrl: 'https://www.vinted.nl/items/9929717807',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Mega-Gengar-ex-V1-PFL056',
     cost: 63,
-    concept: true,
     acquiredAt: '2026-09-06'
   },
   {
@@ -203,9 +204,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2017,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440339127',
+    vintedUrl: 'https://www.vinted.nl/items/9929795720',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shining-Legends/Mewtwo-GX-V1-SLG39',
     cost: 43,
-    concept: true,
     acquiredAt: '2026-09-06'
   },
   {
@@ -221,9 +223,9 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2022,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440340001',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
     cost: 25,
-    concept: true,
     acquiredAt: '2026-09-06'
   }
 ]

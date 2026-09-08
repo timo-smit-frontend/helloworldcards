@@ -14,3 +14,6 @@ public/sitemap.xml
 public/llms.txt
 public/llms-full.txt
 
+
+# Playwright MCP browser session output (logs, snapshots, screenshots)
+.playwright-mcp
