@@ -750,7 +750,7 @@ function Login({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-site-dark text-site-gray-nurse">
+    <div className="flex min-h-screen items-center justify-center bg-site-dark p-4 text-site-gray-nurse sm:p-6">
       <form onSubmit={onSubmit} className="flex w-full max-w-md flex-col gap-6 rounded-panel bg-site-gunmetal p-6 sm:p-8">
         <h1 className="title-l">Sign in</h1>
         <label className="flex flex-col gap-2 text-sm font-medium">
