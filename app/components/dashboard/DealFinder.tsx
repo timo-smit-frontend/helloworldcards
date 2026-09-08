@@ -3,7 +3,6 @@ import { MorphIcon } from 'morphicons/react'
 import Image from '~/components/elements/Image'
 import { MIN_EDGE } from '~/services/deal-finder/constants'
 import { groupProblems } from '~/services/deal-finder/report'
-import type { ListingCost } from '~/services/deal-finder/cost'
 import type { DealFinderReport, DealRow, NoCompsRow, ProblemRow } from '~/services/deal-finder/types'
 import PriceFigure from './PriceFigure'
 import { formatListedEuros, formatSignedEuros } from './money'
@@ -47,18 +46,6 @@ function evidence(row: DealRow | NoCompsRow): string {
   return parts.join(' · ')
 }
 
-/**
- * What the total is made of, so an edge can be checked at a glance. Marktplaats adds
- * its Kopersbescherming at checkout; Vinted has already put its own cut in the price.
- */
-function costHint(cost: ListingCost, ask: number): string {
-  const postage = `${formatListedEuros(cost.shipping)} postage`
-  if (cost.fee === 0) {
-    return `${formatListedEuros(ask)} incl. fees + ${postage}`
-  }
-  return `${formatListedEuros(ask)} + ${formatListedEuros(cost.fee)} fee + ${postage}`
-}
-
 function DealListRow({ item }: { item: DealRow }) {
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
@@ -71,7 +58,6 @@ function DealListRow({ item }: { item: DealRow }) {
         <PriceFigure
           label="You pay"
           value={formatListedEuros(item.cost.total)}
-          hint={costHint(item.cost, item.ask)}
           href={item.listingUrl}
         />
         <PriceFigure label="Lowest listed" value={formatListedEuros(item.marketFloor)} href={item.cardmarketUrl} />
@@ -94,7 +80,6 @@ function NoCompsListRow({ item }: { item: NoCompsRow }) {
         <PriceFigure
           label="You pay"
           value={formatListedEuros(item.cost.total)}
-          hint={costHint(item.cost, item.ask)}
           href={item.listingUrl}
         />
         {item.cardmarketUrl ? <PriceFigure label="Cardmarket" value="Open" href={item.cardmarketUrl} /> : null}
