@@ -1,4 +1,4 @@
-import { normalizePsaLabel } from './psa-label'
+import { looksLikeLabelText, normalizePsaLabel } from './psa-label'
 import type { PsaLabel } from './types'
 
 /**
@@ -90,6 +90,14 @@ function centerX(line: OcrLine): number {
 }
 
 /**
+ * PSA prints words on the rows under the first one — a card name, then a variety —
+ * so a line without a word on it is not one of them. The slab's printed border, the
+ * barcode and the certification number all come back as short scraps sitting in the
+ * same band (`RS`, `IF`, `45`, `HN = 2`), and taking one of those for the name row
+ * pushes the real name down into the variety slot, which is what made a single slab
+ * read as two different cards from its front and back photos.
+ */
+/**
  * The three label rows sit directly under each other in a band no wider than the
  * first row, so a line qualifies as a following row when it starts below row 1
  * and its middle stays inside that band.
@@ -104,6 +112,7 @@ function rowsUnder(anchor: OcrLine, lines: OcrLine[]): OcrLine[] {
     .filter((line) => line !== anchor)
     .filter((line) => line.bbox.y0 > anchor.bbox.y0 + h * 0.4 && line.bbox.y0 < anchor.bbox.y0 + h * 6)
     .filter((line) => centerX(line) >= left && centerX(line) <= right)
+    .filter((line) => looksLikeLabelText(line.text))
     .sort((a, b) => a.bbox.y0 - b.bbox.y0)
 }
 
@@ -147,6 +156,19 @@ function gradeFromWord(text: string): number | null {
   return null
 }
 
+/**
+ * Which of the rows under row 1 is the card name.
+ *
+ * PSA prints the grade word on the same row as the name — `SLURPUFF MINT`,
+ * `FA/IRON CROWN ex GEM MT` — so that row is the name however many scraps of the
+ * slab's border OCR handed back above it. Without this the scan read `AWA` as the
+ * card and searched Google for it, and the real name ended up on the variety row.
+ */
+function nameRowIndex(rows: OcrLine[]): number {
+  const withGrade = rows.findIndex((row) => gradeFromWord(row.text) != null)
+  return withGrade === -1 ? 0 : withGrade
+}
+
 /** The numeric grade is printed at the right-hand end of row 3, on its own. */
 function gradeFromRow(text: string): number | null {
   const match = text.match(/(?:^|\s)(10|[1-9])(?:\.5)?\s*$/)
@@ -182,8 +204,9 @@ export function parsePsaLabels(lines: OcrLine[]): LabelOcrResult {
   const slabs = anchors.map((anchor) => {
     const rows = rowsUnder(anchor, usable)
     const first = parseFirstRow(anchor.text)
-    const nameRow = rows[0]?.text ?? null
-    const varietyRow = rows[1]?.text ?? null
+    const name = nameRowIndex(rows)
+    const nameRow = rows[name]?.text ?? null
+    const varietyRow = rows[name + 1]?.text ?? null
 
     return normalizePsaLabel({
       certNumber: certUnder(anchor, usable),
@@ -240,6 +263,11 @@ function sameName(a: string, b: string): boolean {
   return shorter.length >= 4 && longer.includes(shorter)
 }
 
+/** The rows a card name can end up on: its own, or the variety row a clipped reading pushed it onto. */
+function nameRows(label: PsaLabel): string[] {
+  return [label.cardName, label.varietyLine].filter((row): row is string => Boolean(row))
+}
+
 function sameSlab(a: PsaLabel, b: PsaLabel): boolean {
   if (a.certNumber && b.certNumber) {
     return a.certNumber === b.certNumber
@@ -248,11 +276,14 @@ function sameSlab(a: PsaLabel, b: PsaLabel): boolean {
   if (a.cardNumber && b.cardNumber && a.cardNumber !== b.cardNumber) {
     return false
   }
-  if (a.cardName && b.cardName) {
-    return sameName(a.cardName, b.cardName)
-  }
   // One of the two told us nothing identifying, so it cannot contradict the other.
-  return true
+  if (!a.cardName || !b.cardName) {
+    return true
+  }
+  // Each reading's name is looked for on both of the other's rows, because a photo that
+  // lost a row prints the name where the variety belongs. Never variety against variety:
+  // there, "ILLUSTRATION RARE" would match every other card in the set.
+  return nameRows(b).some((row) => sameName(a.cardName!, row)) || nameRows(a).some((row) => sameName(row, b.cardName!))
 }
 
 function pick<T>(preferred: T | null, fallback: T | null): T | null {

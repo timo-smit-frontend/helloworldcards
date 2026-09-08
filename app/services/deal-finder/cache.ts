@@ -10,6 +10,8 @@ import type { CardIdentity, PsaLabel } from './types'
 export type CacheEntry = {
   id: string
   ask: number
+  /** Postage read off the listing page, so a cached row still costs what it costs. */
+  shipping: number | null
   /** When the card was worked out from the photos and the listing text. */
   identifiedAt: string
   identity: CardIdentity | null

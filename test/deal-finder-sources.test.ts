@@ -14,7 +14,8 @@ import {
   parseVintedOverview,
   titleFromVintedSlug,
   vintedPhotoArea,
-  vintedSearchPageUrl
+  vintedSearchPageUrl,
+  vintedShipping
 } from '~/services/deal-finder/vinted'
 
 const MARKTPLAATS_OVERVIEW = `<html><body><script>window.__STATE__ = {"listings":[
@@ -97,7 +98,8 @@ describe('parseVintedOverview', () => {
       id: 'vinted:9889109421',
       source: 'vinted',
       title: 'PSA 10 Umbreon Vmax (s8b 245)',
-      ask: 196,
+      // The second amount: what Vinted charges, buyer protection included.
+      ask: 206.5,
       listingUrl: 'https://www.vinted.nl/items/9889109421-psa-10-umbreon-vmax-s8b-245',
       priceType: 'FIXED'
     })
@@ -105,13 +107,13 @@ describe('parseVintedOverview', () => {
 
   it('falls back to the image alt when the anchor title is clipped', () => {
     // The anchor above is cut mid-word, so only the alt parses into a price.
-    expect(parseVintedOverview(VINTED_OVERVIEW)[0]?.ask).toBe(196)
+    expect(parseVintedOverview(VINTED_OVERVIEW)[0]?.ask).toBe(206.5)
   })
 
   it('reads the hover string and the slug on their own', () => {
     expect(parseVintedHoverTitle('Espeon ex, Merk: Pokémon, Staat: Goed, 59.99 €, 63.45 €')).toEqual({
       title: 'Espeon ex',
-      ask: 59.99
+      ask: 63.45
     })
     expect(parseVintedHoverTitle('no price here')).toBeNull()
     expect(titleFromVintedSlug('9863102973-mega-ectoplasma-ex-230193')).toBe('mega ectoplasma ex 230193')
@@ -165,16 +167,31 @@ describe('search page URLs', () => {
     // The fragment's filters, as parameters the server actually receives.
     expect(asked.searchParams.getAll('attributesByKey[]')).toEqual(['offeredSince:Vandaag'])
     expect(asked.searchParams.getAll('attributeRanges[]')).toEqual(['PriceCents::20000'])
-    expect(asked.searchParams.get('sortBy')).toBe('SORT_INDEX')
     // `view` only changes how the page looks, so it is not a filter to send.
     expect(asked.searchParams.has('view')).toBe(false)
   })
 
-  it('pages Marktplaats by offset, thirty listings at a time', () => {
+  it('always asks for the newest first, whatever sort the browse URL carries', () => {
+    // `SORT_INDEX` is Marktplaats' relevance ranking, and it silently caps a search at
+    // its first hundred results — which for "everything listed today" loses the rest.
+    const asked = new URL(marktplaatsSearchPageUrl(search, 1))
+
+    expect(asked.searchParams.get('sortBy')).toBe('SORT_DATE')
+    expect(asked.searchParams.get('sortOrder')).toBe('DECREASING')
+    expect(asked.searchParams.getAll('attributesByKey[]')).not.toContain('sortBy:SORT_INDEX')
+  })
+
+  it('pages Marktplaats by offset, a hundred listings at a time', () => {
     const page = (n: number) => new URL(marktplaatsSearchPageUrl(search, n)).searchParams
     expect(page(1).get('offset')).toBe('0')
-    expect(page(1).get('limit')).toBe('30')
-    expect(page(4).get('offset')).toBe('90')
+    expect(page(1).get('limit')).toBe('100')
+    expect(page(4).get('offset')).toBe('300')
+  })
+
+  it('reads the postage the item page quotes under the price', () => {
+    const banner = '<h3 data-testid="item-shipping-banner-price">vanaf &euro; 4,35</h3>'
+    expect(vintedShipping(banner.replace('&euro;', '€'))).toBe(4.35)
+    expect(vintedShipping('<p>no shipping banner here</p>')).toBeNull()
   })
 
   it('pages Vinted through its query parameter', () => {

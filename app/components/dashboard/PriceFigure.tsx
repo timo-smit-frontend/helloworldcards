@@ -1,5 +1,18 @@
 /** A labelled amount, optionally linking out to where the number came from. */
-export default function PriceFigure({ label, value, tone, href }: { label: string; value: string; tone?: string; href?: string }) {
+export default function PriceFigure({
+  label,
+  value,
+  tone,
+  href,
+  hint
+}: {
+  label: string
+  value: string
+  tone?: string
+  href?: string
+  /** What the amount is made of, in small type under it. */
+  hint?: string
+}) {
   const valueClass = `font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`
 
   if (href) {
@@ -18,6 +31,7 @@ export default function PriceFigure({ label, value, tone, href }: { label: strin
         >
           {value}
         </span>
+        {hint ? <span className="text-xs tabular-nums text-site-mantle">{hint}</span> : null}
       </a>
     )
   }
@@ -26,6 +40,7 @@ export default function PriceFigure({ label, value, tone, href }: { label: strin
     <div className="flex min-w-16 flex-col items-end gap-1 text-right">
       <p className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{label}</p>
       <p className={valueClass}>{value}</p>
+      {hint ? <p className="text-xs tabular-nums text-site-mantle">{hint}</p> : null}
     </div>
   )
 }

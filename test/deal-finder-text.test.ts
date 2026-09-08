@@ -4,6 +4,8 @@ import {
   detectCardName,
   detectCardNumber,
   detectGrade,
+  isSpeculativeGrade,
+  looksUngraded,
   detectLanguage,
   detectSet,
   isJapaneseSetCode,
@@ -37,6 +39,56 @@ describe('detectGrade', () => {
     expect(detectAnyGrade('Fearow psa 8 gym')).toBe(8)
     expect(detectGrade('Blastoise PSA 9.5')).toBeNull()
     expect(detectAnyGrade('Blastoise PSA 9.5')).toBe(9.5)
+  })
+
+  it('ignores a grade the seller only hopes for', () => {
+    for (const title of [
+      'Mega Latias ex PSA 10 mogelijk',
+      'Mega Latias ex mogelijk PSA 10',
+      'Charizard, PSA 10 possible',
+      'Umbreon VMAX potential PSA 10',
+      'Pikachu PSA 10 waardig',
+      'Snorlax PSA 10?',
+      'Mega Latias ex, zou zeker een PSA 10 moeten zijn',
+      'Blastoise PSA 10 haalbaar',
+      'Gengar should get a PSA 10'
+    ]) {
+      expect(detectGrade(title), title).toBeNull()
+      expect(detectAnyGrade(title), title).toBeNull()
+      expect(isSpeculativeGrade(title), title).toBe(true)
+    }
+  })
+
+  it('ignores a grade the seller merely promises', () => {
+    // A guarantee is no more a slab than a guess: this Kyurem ex was pack-fresh and loose.
+    for (const title of [
+      'Kyurem ex 165/086, de kaart is in uitstekende staat gegarandeerd psa 10',
+      'Charizard, PSA 10 gegarandeerd',
+      'Umbreon VMAX met garantie PSA 10',
+      'Snorlax guaranteed PSA 10',
+      'Gengar PSA 10 guaranteed'
+    ]) {
+      expect(detectGrade(title), title).toBeNull()
+      expect(isSpeculativeGrade(title), title).toBe(true)
+    }
+
+    // The postage is what is guaranteed here, not the slab.
+    expect(detectGrade('Charizard PSA 10, gegarandeerd snel verzonden')).toBe(10)
+  })
+
+  it('reads a seller saying the card is not slabbed at all', () => {
+    expect(looksUngraded('Mega Latias ex, niet gegradeerd, PSA 10 waardig')).toBe(true)
+    expect(looksUngraded('Charizard ungraded raw card')).toBe(true)
+    // Straight out of the pack is straight past the grader.
+    expect(looksUngraded('Kyurem ex 165/086 packfresh')).toBe(true)
+    expect(looksUngraded('Charizard PSA 10, zelf laten graden bij PSA')).toBe(false)
+  })
+
+  it('still reads a real slab sold beside a raw card', () => {
+    const text = 'Charizard PSA 10 slab, plus a raw Blastoise (PSA 10 possible)'
+    expect(detectGrade(text)).toBe(10)
+    expect(isSpeculativeGrade(text)).toBe(false)
+    expect(looksLikeLot(text)).toBe(false)
   })
 })
 

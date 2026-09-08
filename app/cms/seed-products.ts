@@ -161,7 +161,7 @@ export const seedProductRecords: ProductRecord[] = [
     description:
       'A Full Art from the 2020 Sword & Shield Shiny Star V Japanese set, number 197/190. This is the Full Art trainer, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 80573086. The PSA population is 5,748.',
     images: ['/media/80573086_front.jpg', '/media/80573086_back.jpg'],
-    price: '€95',
+    price: '€90',
     language: 'japanese',
     grader: 'psa',
     grade: 10,

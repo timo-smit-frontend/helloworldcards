@@ -44,3 +44,16 @@ export function emptyReport(scannedAt: string): DealFinderReport {
     errors: []
   }
 }
+
+/**
+ * A report written before the scan counted fees and postage has rows with no `cost` on
+ * them, and its edges are measured against the bare ask. Rather than render numbers that
+ * flatter every listing, such a report is treated as no report at all: the screen asks
+ * for a scan, and the next one writes rows that carry their cost.
+ */
+export function isCurrentReport(report: DealFinderReport | null): boolean {
+  if (!report) {
+    return false
+  }
+  return [...report.deals, ...report.noComps, ...report.problems].every((row) => row.cost != null)
+}

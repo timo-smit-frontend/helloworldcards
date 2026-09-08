@@ -196,7 +196,7 @@ describe('product inventory', () => {
     const record = inventory.find((item) => item.id === 9)
 
     expect(product?.title).toBe('Poke Kid')
-    expect(product?.price).toBe('€95')
+    expect(product?.price).toBe('€90')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
     expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)

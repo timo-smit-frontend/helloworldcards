@@ -170,6 +170,58 @@ describe('mergeReadings', () => {
   })
 })
 
+describe('a photo that lost a row of the label', () => {
+  /** The back of the slab, where the plastic edge came back as a line of its own above the name. */
+  const front = label([{ text: '2025 POKEMON SVP EN' }, { text: 'CHARIZARD EX' }, { text: 'CHARIZARD EX SPECIAL COLL' }])
+  const back = label([
+    { text: '2025 POKEMON SVP EN' },
+    { text: 'RS' },
+    { text: 'CHARIZARD EX MINT' },
+    { text: 'CHARIZARD EX SPECIAL COLL 9' }
+  ])
+
+  it('reads the card name off the row PSA printed the grade word on', () => {
+    expect(parsePsaLabels(back).slabs[0]).toMatchObject({ cardName: 'CHARIZARD EX', grade: 9 })
+  })
+
+  it('is not fooled by a scrap long enough to pass for a word', () => {
+    // `AWA` is the slab's printed border. Only the grade word says where the name is.
+    const scrap = label([{ text: '2026 POKEMON ASC EN #236' }, { text: 'AWA' }, { text: 'SLURPUFF MINT' }, { text: 'ILLUSTRATION RARE 9' }])
+
+    expect(parsePsaLabels(scrap).slabs[0]).toMatchObject({
+      cardName: 'SLURPUFF',
+      varietyLine: 'ILLUSTRATION RARE',
+      cardNumber: '236',
+      grade: 9
+    })
+  })
+
+  it('is still one slab, not a listing with two graded cards in it', () => {
+    expect(mergeReadings([parsePsaLabels(front), parsePsaLabels(back)]).slabs).toHaveLength(1)
+  })
+
+  it('folds a reading whose name was pushed onto the variety row into the same slab', () => {
+    const base = {
+      year: '2026',
+      setLine: 'POKEMON ASC EN',
+      cardNumber: null,
+      language: 'english' as const,
+      languageLabel: 'EN',
+      grade: null,
+      reverseHolo: false,
+      firstEdition: false,
+      certNumber: null
+    }
+
+    const merged = mergeSlabs([
+      { ...base, cardName: 'SLURPUFF', varietyLine: 'ILLUSTRATION RARE' },
+      { ...base, cardName: 'AWA', varietyLine: 'SLURPUFF' }
+    ])
+
+    expect(merged).toHaveLength(1)
+  })
+})
+
 describe('two readings of one slab', () => {
   /** Front and back photos of the same slab, with the plastic edge read as stray `I`s. */
   const front = label([{ text: '2025 POKEMON | JTG EN' }, { text: "| | N'S RESHIRAM" }, { text: '| | ENHANCED BSTR BOX TOPPER' }])

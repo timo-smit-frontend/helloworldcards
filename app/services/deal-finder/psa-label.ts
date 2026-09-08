@@ -81,6 +81,15 @@ export function psaLabelLanguage(
   return { language: null, token: null }
 }
 
+/**
+ * PSA prints a real word on every row that carries text, so a row without one is not
+ * label text at all — it is the slab's printed border, a barcode fragment, or half a
+ * clipped word that OCR handed back on a line of its own.
+ */
+export function looksLikeLabelText(row: string | null | undefined): boolean {
+  return row != null && /[A-Za-z]{3,}/.test(row)
+}
+
 function clean(value: string | null | undefined): string | null {
   if (!value) {
     return null

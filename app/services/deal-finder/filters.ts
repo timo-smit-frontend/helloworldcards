@@ -1,5 +1,5 @@
 import { MAX_ASK, MIN_ASK } from './constants'
-import { detectAnyGrade, detectGrade, detectLanguage, looksLikeLot } from './text'
+import { detectAnyGrade, detectGrade, detectLanguage, isSpeculativeGrade, looksLikeLot, looksUngraded } from './text'
 import type { SourceListing } from './types'
 
 /** Auction houses relist the same slabs with buyer premiums — never a deal for us. */
@@ -86,6 +86,12 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
   }
 
   if (!detectGrade(listingText)) {
+    if (looksUngraded(listingText)) {
+      return { keep: false, scope: 'out-of-scope', reason: 'Raw card, not in a PSA slab' }
+    }
+    if (isSpeculativeGrade(listingText)) {
+      return { keep: false, scope: 'out-of-scope', reason: 'Raw card, the PSA grade is only what the seller expects' }
+    }
     const other = detectAnyGrade(listingText)
     return {
       keep: false,

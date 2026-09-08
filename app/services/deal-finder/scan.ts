@@ -12,6 +12,7 @@ import {
   VINTED_MAX_PAGES,
   VINTED_SEARCH_URL
 } from './constants'
+import { listingCost } from './cost'
 import { ownListingIds, screenListing, type OwnListingIds } from './filters'
 import { buildSearchQuery, cardmarketProductName, googleSearchUrl, pickCardmarketProduct } from './google'
 import { displayTitle, identifyCard } from './identify'
@@ -64,6 +65,7 @@ function listingRef(listing: SourceListing) {
     source: listing.source,
     title: listing.title,
     ask: listing.ask,
+    cost: listingCost(listing),
     listingUrl: listing.listingUrl,
     imageUrl: listing.imageUrls[0] ?? null
   }
@@ -186,6 +188,13 @@ async function collectSource({
 
       report.outOfScope += 1
     }
+
+    // Marktplaats says how many listings the search has, so once they have all been
+    // read there is no next page worth asking for.
+    if (total != null && found >= total) {
+      reachedEnd = true
+      break
+    }
   }
 
   return {
@@ -244,7 +253,8 @@ async function loadListingDetail(listing: SourceListing, fetchPage: FetchCardmar
     return {
       ...listing,
       description,
-      imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls
+      imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
+      shipping: detail.shipping ?? listing.shipping
     }
   } catch {
     // A listing page that will not load is not fatal — the overview row still has a title.
@@ -374,8 +384,11 @@ async function evaluate({
   report: DealFinderReport
   blocked: Evaluated[]
 }): Promise<void> {
-  const { listing } = candidate
   const cached = candidate.entry
+  // Postage is only printed on the listing page, so a listing answered out of the cache
+  // keeps the figure the scan that did open that page read there.
+  const listing =
+    candidate.listing.shipping == null && cached?.shipping != null ? { ...candidate.listing, shipping: cached.shipping } : candidate.listing
 
   if (hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
     report.fromCache += 1
@@ -463,7 +476,7 @@ async function evaluate({
       report.problems.push({
         ...listingRef(detailed),
         stage: 'match',
-        reason: 'No Cardmarket page in the Google results',
+        reason: 'No matching Cardmarket page in the Google results',
         detail: label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null,
         googleUrl,
         query,
@@ -475,7 +488,7 @@ async function evaluate({
         query,
         googleUrl,
         cardmarketUrl: null,
-        problem: { stage: 'match', reason: 'No Cardmarket page in the Google results', detail: null }
+        problem: { stage: 'match', reason: 'No matching Cardmarket page in the Google results', detail: null }
       })
       return
     }
@@ -610,7 +623,8 @@ function bucket({
   deals: DealRow[]
   report: DealFinderReport
 }): void {
-  const edge = Math.round((floor - listing.ask) * 100) / 100
+  const cost = listingCost(listing)
+  const edge = Math.round((floor - cost.total) * 100) / 100
   if (edge < MIN_EDGE) {
     report.belowEdge += 1
     return
@@ -655,6 +669,7 @@ function remember(
   cache.entries[listing.id] = {
     id: listing.id,
     ask: listing.ask,
+    shipping: listing.shipping,
     identifiedAt: now.toISOString(),
     identity: patch.identity,
     label: patch.label,

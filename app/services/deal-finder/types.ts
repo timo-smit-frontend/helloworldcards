@@ -1,4 +1,5 @@
 import type { MarketListing } from '../cardmarket/grades'
+import type { ListingCost } from './cost'
 
 export type DealSource = 'marktplaats' | 'vinted'
 
@@ -23,6 +24,8 @@ export type SourceListing = {
   imageUrls: string[]
   /** Marktplaats "type" attribute: `Losse kaart` (single) or `Meerdere kaarten` (a lot). */
   itemType: string | null
+  /** Postage the listing quotes, read off its own page; Marktplaats never quotes one. */
+  shipping: number | null
 }
 
 /**
@@ -81,7 +84,9 @@ export type ListingRef = {
   id: string
   source: DealSource
   title: string
+  /** The price the site shows. What it actually costs to buy is `cost.total`. */
   ask: number
+  cost: ListingCost
   listingUrl: string
   imageUrl: string | null
 }
@@ -134,7 +139,7 @@ export type SourceSummary = {
 export type DealFinderReport = {
   scannedAt: string
   sources: SourceSummary[]
-  /** Cardmarket beats the ask by at least MIN_EDGE, best edge first. */
+  /** Cardmarket beats what the card costs to buy by at least MIN_EDGE, best edge first. */
   deals: DealRow[]
   /** Identified, but unpriceable — shown under the deals. */
   noComps: NoCompsRow[]

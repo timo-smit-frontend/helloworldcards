@@ -88,15 +88,28 @@ function attributeValue(item: RawListing, key: string): string | null {
 /** Marktplaats' own search endpoint, which answers with the same `listings` payload the page embeds. */
 export const MARKTPLAATS_SEARCH_API = 'https://www.marktplaats.nl/lrp/api/search'
 
-/** It serves a search 30 listings at a time. */
-export const MARKTPLAATS_PAGE_SIZE = 30
+/** The most listings the search endpoint will serve in one answer; asking for more is a 400. */
+export const MARKTPLAATS_PAGE_SIZE = 100
 
 export function isMarktplaatsSearchApi(url: string): boolean {
   return url.startsWith(MARKTPLAATS_SEARCH_API)
 }
 
 /** Fragment filters that are parameters in their own right rather than card attributes. */
-const NAMED_FILTERS = new Set(['sortBy', 'sortOrder', 'postcode', 'distanceMeters'])
+const NAMED_FILTERS = new Set(['postcode', 'distanceMeters'])
+
+/**
+ * Fragment entries that never become a request parameter: `view` only changes how the
+ * page looks, and the sort is fixed below rather than taken from the browse URL.
+ */
+const IGNORED_FILTERS = new Set(['view', 'sortBy', 'sortOrder'])
+
+/**
+ * Newest first, and never Marktplaats' own relevance ranking: asking for `SORT_INDEX`
+ * quietly caps the search at its first hundred results, so a day with a hundred and
+ * twelve Pokémon slabs in it comes back a hundred long with no sign that the rest exist.
+ */
+const SORT = { sortBy: 'SORT_DATE', sortOrder: 'DECREASING' }
 
 /** `PriceCentsFrom:1000` and `PriceCentsTo:20000` are the two ends of one range parameter. */
 const PRICE_BOUND = /^PriceCents(From|To)$/
@@ -121,7 +134,8 @@ export function marktplaatsSearchPageUrl(searchUrl: string, page: number): strin
 
   const params = new URLSearchParams({
     limit: String(MARKTPLAATS_PAGE_SIZE),
-    offset: String(Math.max(0, page - 1) * MARKTPLAATS_PAGE_SIZE)
+    offset: String(Math.max(0, page - 1) * MARKTPLAATS_PAGE_SIZE),
+    ...SORT
   })
   if (query) {
     params.set('query', query)
@@ -146,8 +160,7 @@ export function marktplaatsSearchPageUrl(searchUrl: string, page: number): strin
       }
     } else if (NAMED_FILTERS.has(key)) {
       params.set(key, value)
-    } else if (key !== 'view') {
-      // `view:gallery-view` only changes how the page looks; everything else is a filter.
+    } else if (!IGNORED_FILTERS.has(key)) {
       params.append('attributesByKey[]', `${key}:${value}`)
     }
   }
@@ -215,7 +228,9 @@ export function parseMarktplaatsOverview(html: string): SourceListing[] {
       sellerName: item.sellerInformation?.sellerName?.trim() ?? null,
       priceType: item.priceInfo?.priceType ?? '',
       imageUrls: listingPhotos(item),
-      itemType: attributeValue(item, 'type')
+      itemType: attributeValue(item, 'type'),
+      // Marktplaats never quotes postage on a listing, so it is always the flat estimate.
+      shipping: null
     })
   }
 
@@ -226,10 +241,11 @@ export function parseMarktplaatsOverview(html: string): SourceListing[] {
  * The listing page carries every photo in `window.__CONFIG__`, but renders the full
  * description client-side — so the description only appears once the page has run.
  */
-export function parseMarktplaatsDetail(html: string): { description: string | null; imageUrls: string[] } {
+export function parseMarktplaatsDetail(html: string): { description: string | null; imageUrls: string[]; shipping: number | null } {
   return {
     description: detailDescription(html),
-    imageUrls: detailPhotos(html)
+    imageUrls: detailPhotos(html),
+    shipping: null
   }
 }
 

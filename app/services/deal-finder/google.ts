@@ -45,9 +45,30 @@ function queryPart(value: string | null | undefined): string {
     .replace(/\b(?:GEM\s*MT|GEM\s*MINT|NM-?MT|EX-?MT|MINT)\b/gi, ' ')
     .replace(/\bPSA\b/gi, ' ')
     .replace(/\b\d{6,}\b/g, ' ')
-    .replace(/[^\w.&'/#-]+/g, ' ')
+    .replace(/[^\w.&'#-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** One- and two-character tokens that mean something on a Pokémon card. */
+const SHORT_TOKENS = new Set(['ex', 'gx', 'v'])
+
+/**
+ * OCR debris — the slab's printed border, a barcode fragment, half a clipped word —
+ * comes back as short scraps: `WL`, `ES`, `CR`, `2LL`, `=X`. Google reads every one of
+ * them as a search term and stops finding the card, so a token only survives when it is
+ * long enough to be a real word or number, or is one of the suffixes a card name ends in.
+ */
+function isQueryToken(token: string): boolean {
+  if (!/[a-z0-9]/i.test(token)) {
+    return false
+  }
+  // A token that opens with a digit is a year or a number; `2LL` is a misread border.
+  // Japanese set codes open with a letter — `s8b`, `sv2a` — so they are untouched.
+  if (/^\d/.test(token) && !/^\d+$/.test(token)) {
+    return false
+  }
+  return token.length >= 3 || SHORT_TOKENS.has(token.toLowerCase())
 }
 
 /**
@@ -59,25 +80,24 @@ export function buildSearchQuery(identity: CardIdentity, label: PsaLabel | null)
 
   if (label) {
     // Label rows in the order PSA prints them: year + set, the card, then the variety.
-    parts.push(queryPart(label.year), queryPart(label.setLine), queryPart(label.cardName), queryPart(label.varietyLine))
+    // The card is the identity's name rather than the label's own row, because that is
+    // the one the identity fell back to the listing title for when the row was unreadable.
+    parts.push(queryPart(label.year), queryPart(label.setLine), queryPart(identity.name), queryPart(label.varietyLine))
   } else {
     parts.push(queryPart(identity.name), queryPart(identity.setName))
   }
 
+  // The card number and the last three words are ours, not the slab's, so they are added
+  // after the reading has been sieved rather than being sieved along with it.
+  const words = parts.join(' ').split(' ').filter(isQueryToken)
   if (identity.cardNumber) {
-    parts.push(`#${identity.cardNumber}`)
+    words.push(`#${identity.cardNumber}`)
   }
-
-  parts.push(identity.language === 'japanese' ? 'japanese' : 'english', 'cardmarket')
+  words.push(identity.language === 'japanese' ? 'japanese' : 'english', 'cardmarket')
 
   const seen = new Set<string>()
-  return parts
-    .join(' ')
-    .split(' ')
+  return words
     .filter((word) => {
-      if (!word) {
-        return false
-      }
       const key = word.toLowerCase()
       if (seen.has(key)) {
         return false
@@ -94,6 +114,19 @@ export function cleanCardmarketUrl(url: string): string {
     .replace(/[),.;]+$/g, '')
     .replace(/\?.*$/, '')
     .replace(/cardmarket\.com\/[a-z]{2}\//i, 'cardmarket.com/en/')
+}
+
+/**
+ * Cardmarket ends a product slug with its set code and the card's own number —
+ * `MEW168`, `sv2a206`, `S-P068`. A trailing `-V2` is not that: it is how Cardmarket
+ * tells two products of the same name apart.
+ */
+export function productCardNumber(productSlug: string): string | null {
+  const last = productSlug.split('-').pop() ?? ''
+  if (/^V\d+$/i.test(last)) {
+    return null
+  }
+  return last.match(/(\d+)$/)?.[1] ?? null
 }
 
 export function scoreCardmarketLink(setSlug: string, productSlug: string, identity: CardIdentity): number {
@@ -122,6 +155,14 @@ export function scoreCardmarketLink(setSlug: string, productSlug: string, identi
       if (code && [identity.cardNumber, padded, bare].some((value) => slug.includes(`${code}${value.toLowerCase()}`))) {
         score += 25
       }
+    }
+
+    // Cardmarket sells the same card twice under different numbers — Erika's Invitation
+    // is #39 in the set and #206 as the special art — and the two are nowhere near the
+    // same price. A product that names a different number than the slab is another card.
+    const product = productCardNumber(productSlug)
+    if (product && Number(product) !== Number(bare)) {
+      score -= 45
     }
   }
 
@@ -172,7 +213,11 @@ export function pickCardmarketProduct(html: string, identity: CardIdentity): str
   }
 
   ranked.sort((left, right) => right.score - left.score || left.index - right.index)
-  return ranked[0]!.url
+
+  // Nothing Google found looks like this card. Saying so is worth more than a price for
+  // a different one: a wrong identification is what makes the whole report untrustworthy.
+  const best = ranked[0]!
+  return best.score < 0 ? null : best.url
 }
 
 /** Cardmarket product slug → readable name, e.g. `Mega-Gengar-ex-V1-m2a230` → `Mega Gengar ex`. */

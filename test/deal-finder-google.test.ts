@@ -46,6 +46,23 @@ describe('buildSearchQuery', () => {
     )
   })
 
+  it('leaves the slab reader’s debris out of the query', () => {
+    // Every one of these rows is a real reading: the slab's printed border and a clipped
+    // word came back as `WL`, `ES`, `2LL` and `CR`, which Google searches for in earnest.
+    const label = normalizePsaLabel({
+      year: '2023',
+      setLine: 'POKEMON WL SWSH BSP ES 2LL',
+      cardName: 'FA/LUCARIO VSTAR MINT',
+      varietyLine: 'CROWN ZENITH ETB CR',
+      cardNumber: '291',
+      grade: 9
+    })
+
+    expect(buildSearchQuery(identity({ name: 'LUCARIO VSTAR', cardNumber: '291' }), label)).toBe(
+      '2023 POKEMON SWSH BSP LUCARIO VSTAR CROWN ZENITH ETB #291 english cardmarket'
+    )
+  })
+
   it('says which language so Cardmarket shows the right printing', () => {
     expect(buildSearchQuery(identity({ language: 'japanese' }), null)).toContain('japanese')
   })
@@ -108,6 +125,15 @@ describe('pickCardmarketProduct', () => {
 
   it('returns null when Google found no Cardmarket page', () => {
     expect(pickCardmarketProduct('<a href="https://www.ebay.com/x">x</a>', identity())).toBeNull()
+  })
+
+  it('will not price a card against the same name at another number', () => {
+    // Erika's Invitation is #39 in the set and #206 as the special art. Same name, same
+    // set, nowhere near the same price — so an unmatched number is no answer at all.
+    const erika = identity({ name: "Erika's Invitation", cardNumber: '39', setName: 'SV2a', setCode: 'SV2a', language: 'japanese' })
+
+    expect(pickCardmarketProduct(link('Pokemon-Card-151', 'Erikas-Invitation-V3-sv2a206'), erika)).toBeNull()
+    expect(pickCardmarketProduct(link('Pokemon-Card-151', 'Erikas-Invitation-sv2a039'), erika)).toContain('sv2a039')
   })
 
   it('strips tracking parameters and points at the English site', () => {

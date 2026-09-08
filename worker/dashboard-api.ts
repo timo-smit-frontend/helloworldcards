@@ -1,5 +1,6 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
+import { isCurrentReport } from '../app/services/deal-finder/report'
 import type { CertLookup, DealFinderCache, DealFinderReport, SlabReader } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
 import { listLedgerInventory, type CmsDb } from './cms/db'
@@ -362,7 +363,7 @@ async function dealFinderReport(request: Request, env: DashboardEnv, runtime?: D
   }
 
   const report = await resolveDealsStore(env, runtime).getReport()
-  return json({ report })
+  return json({ report: isCurrentReport(report) ? report : null })
 }
 
 async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {

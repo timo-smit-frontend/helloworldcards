@@ -1,4 +1,4 @@
-import { describePsaLabel, psaSetCode } from './psa-label'
+import { describePsaLabel, looksLikeLabelText, psaSetCode } from './psa-label'
 import {
   detectCardName,
   detectCardNumber,
@@ -142,7 +142,11 @@ export function identifyCard({
   const setCode = psaSetCode(label?.setLine ?? null) ?? set.code
   // The set code beats the label's variety row — "MEW" identifies the set, "ILLUSTRATION RARE" does not.
   const setName = set.name ?? setCode ?? label?.varietyLine ?? null
-  const name = label?.cardName ?? detectCardName(listing.title, titleSet.matched, cardNumber)
+  // A name row that came back as a scrap of the slab's border is worse than the seller's
+  // own title: the name goes straight into the Google query, and a query with no card in
+  // it finds no card.
+  const labelName = looksLikeLabelText(label?.cardName) ? label!.cardName : null
+  const name = labelName ?? detectCardName(listing.title, titleSet.matched, cardNumber)
 
   if (!name) {
     return { ok: false, scope: 'problem', reason: 'Could not work out which card this is', detail: readerNote }

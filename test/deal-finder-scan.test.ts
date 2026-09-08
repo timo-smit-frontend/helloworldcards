@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CardmarketBlockedError } from '~/services/deal-finder/cardmarket'
+import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
 import type { DealFinderCache } from '~/services/deal-finder/cache'
 import type { PsaLabel } from '~/services/deal-finder/types'
@@ -78,7 +79,7 @@ function slab(overrides: Partial<Record<keyof PsaLabel, unknown>> = {}): PsaLabe
 /** Marktplaats pages by offset, Vinted by page number. */
 function pageNumber(url: string): number {
   const offset = url.match(/[?&]offset=(\d+)/)?.[1]
-  return offset ? Number(offset) / 30 + 1 : Number(url.match(/[?&]page=(\d+)/)?.[1] ?? 1)
+  return offset ? Number(offset) / MARKTPLAATS_PAGE_SIZE + 1 : Number(url.match(/[?&]page=(\d+)/)?.[1] ?? 1)
 }
 
 /** A fixture is either one page of results, or a page each, in order. */
@@ -131,8 +132,10 @@ describe('runDealFinderScan', () => {
     expect(report.deals[0]).toMatchObject({
       source: 'marktplaats',
       ask: 120,
+      // €120 plus €6 Kopersbescherming and €4 postage is €130 out of pocket.
+      cost: { fee: 6, shipping: 4, total: 130 },
       marketFloor: 170,
-      edge: 50,
+      edge: 40,
       displayTitle: 'Charmander (MEW 168) EN — PSA 9'
     })
     expect(report.deals[0]?.cardmarketUrl).toContain('cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168')
@@ -164,25 +167,26 @@ describe('runDealFinderScan', () => {
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
-    expect(report.deals.map((deal) => deal.edge)).toEqual([120, 50])
+    // €50 costs €56.50 all in against a €170 floor; €120 costs €130.
+    expect(report.deals.map((deal) => deal.edge)).toEqual([113.5, 40])
   })
 
   it('does not present an impossible edge as a deal', async () => {
     const { fetchPage } = fetcher({
-      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 19000 }]),
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 14000 }]),
       google: () => googleResults('151', 'Charmander-V2-MEW168'),
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '1800,00 €' }])
     })
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
-    // €190 asked against a €1800 floor is a mismatched card, not a €1610 bargain.
+    // €140 asked against a €1800 floor is a mismatched card, not a €1650 bargain.
     expect(report.deals).toHaveLength(0)
     expect(report.problems).toEqual([
       expect.objectContaining({
         stage: 'match',
         reason: 'Cardmarket price is far above the ask — probably a different card',
-        detail: 'Asking €190, Cardmarket floor €1800'
+        detail: 'Asking €140, Cardmarket floor €1800'
       })
     ])
   })
@@ -196,9 +200,10 @@ describe('runDealFinderScan', () => {
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
-    // Six times the ask, but only €75 — well within what a real bargain looks like.
+    // Six times the ask, but only €70 once the fee and the postage are paid — well
+    // within what a real bargain looks like.
     expect(report.deals).toHaveLength(1)
-    expect(report.deals[0]?.edge).toBe(75)
+    expect(report.deals[0]?.edge).toBe(70.25)
   })
 
   it('lists a card nobody is selling on Cardmarket under the deals', async () => {
@@ -226,7 +231,7 @@ describe('runDealFinderScan', () => {
     expect(report.problems).toHaveLength(1)
     expect(report.problems[0]).toMatchObject({
       stage: 'match',
-      reason: 'No Cardmarket page in the Google results'
+      reason: 'No matching Cardmarket page in the Google results'
     })
     expect(report.problems[0]?.query).toContain('cardmarket')
   })
@@ -279,12 +284,10 @@ describe('runDealFinderScan', () => {
     expect(report.sources.map((source) => source.candidates)).toEqual([1, 1])
   })
 
-  it('walks Marktplaats page by page until a page brings nothing new', async () => {
+  it('walks Marktplaats until it has read every listing the search says it has', async () => {
+    const page = (id: string, cents: number) => marktplaatsOverview([{ id, title: 'Charmander 168/165 151 PSA 9', cents }], 2)
     const { fetchPage, calls } = fetcher({
-      marktplaats: [
-        marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
-        marktplaatsOverview([{ id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 11000 }])
-      ],
+      marktplaats: [page('m1', 12000), page('m2', 11000)],
       google: () => googleResults('151', 'Charmander-V2-MEW168'),
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     })
@@ -293,8 +296,8 @@ describe('runDealFinderScan', () => {
 
     expect(report.deals.map((deal) => deal.id).sort()).toEqual(['marktplaats:m1', 'marktplaats:m2'])
     expect(report.sources[0]).toMatchObject({ found: 2, candidates: 2, url: MARKTPLAATS_URL })
-    // Page three is where the results ran out, and the scan stopped asking there.
-    expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API)).map(pageNumber)).toEqual([1, 2, 3])
+    // Both of the two listings are read, and no third page is asked for to find that out.
+    expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API)).map(pageNumber)).toEqual([1, 2])
   })
 
   it('reads only the first two pages of Vinted, which has no date filter', async () => {
@@ -314,7 +317,8 @@ describe('runDealFinderScan', () => {
   it('keeps the earlier pages when a later one is blocked', async () => {
     const { fetchPage } = fetcher({
       marktplaats: [
-        marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+        // Two listings in the search, so there is a second page for the bot check to land on.
+        marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }], 2),
         '<html>Just a moment...</html>'
       ],
       google: () => googleResults('151', 'Charmander-V2-MEW168'),
@@ -411,6 +415,7 @@ describe('runDealFinderScan', () => {
           'marktplaats:m1': {
             id: 'marktplaats:m1',
             ask: 120,
+            shipping: null,
             identifiedAt: new Date(Date.now() - 60_000).toISOString(),
             identity: {
               name: 'Charmander',
@@ -453,6 +458,7 @@ describe('runDealFinderScan', () => {
           'marktplaats:m1': {
             id: 'marktplaats:m1',
             ask: 120,
+            shipping: null,
             identifiedAt: new Date().toISOString(),
             identity: null,
             label: null,

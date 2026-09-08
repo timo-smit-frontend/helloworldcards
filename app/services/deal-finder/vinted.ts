@@ -20,6 +20,12 @@ function tagAttributes(tag: string): Record<string, string> {
   return attributes
 }
 
+/** `196.00`, `1.196,50` → a number of euros, or null when it is not one. */
+function euros(raw: string): number | null {
+  const value = Number(raw.replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'))
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
 /** `9863102973-mega-ectoplasma-ex-230193` → `mega ectoplasma ex 230193` */
 export function titleFromVintedSlug(slug: string): string {
   return slug.replace(/^\d+-/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
@@ -28,17 +34,21 @@ export function titleFromVintedSlug(slug: string): string {
 /**
  * Catalogue cards carry everything in one hover string:
  * `<title>, Merk: Pokémon, Staat: Heel goed, 196.00 €, 206.50 €`
- * (the second amount is the buyer-protection total, which we ignore).
+ *
+ * The first amount is what the seller asks; the second is what Vinted charges for it,
+ * buyer protection included — the figure the item page prints under the price as
+ * "incl. Vinted-kosten". That second one is the money that leaves your account, so
+ * that is the one the scan reads.
  */
 export function parseVintedHoverTitle(raw: string): { title: string; ask: number } | null {
   const trimmed = raw.trim()
-  const price = trimmed.match(/,\s*([\d.,]+)\s*€,\s*[\d.,]+\s*€\s*$/)
+  const price = trimmed.match(/,\s*[\d.,]+\s*€,\s*([\d.,]+)\s*€\s*$/)
   if (!price) {
     return null
   }
 
-  const ask = Number(price[1].replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'))
-  if (!Number.isFinite(ask) || ask <= 0) {
+  const ask = euros(price[1])
+  if (ask == null) {
     return null
   }
 
@@ -99,7 +109,9 @@ export function parseVintedOverview(html: string): SourceListing[] {
       // Vinted has no auctions — every catalogue item is a fixed ask.
       priceType: 'FIXED',
       imageUrls: img.src ? [img.src] : [],
-      itemType: null
+      itemType: null,
+      // Only the item page quotes postage.
+      shipping: null
     })
   }
 
@@ -123,7 +135,19 @@ export function vintedPhotoArea(url: string): number {
   return full ? Number(full[1]) * Number(full[1]) : 0
 }
 
-export function parseVintedDetail(html: string): { description: string | null; imageUrls: string[] } {
+/**
+ * The item page lists postage separately from the price, as the cheapest option it can
+ * offer: `data-testid="item-shipping-banner-price">vanaf € 2,99`. It is not in the
+ * catalogue row, so it is only known once the listing itself has been read.
+ */
+const SHIPPING_PRICE = /data-testid="item-shipping-banner-price"[^>]*>[^€<]*€\s*([\d.,]+)/i
+
+export function vintedShipping(html: string): number | null {
+  const raw = html.match(SHIPPING_PRICE)?.[1]
+  return raw ? euros(decodeEntities(raw)) : null
+}
+
+export function parseVintedDetail(html: string): { description: string | null; imageUrls: string[]; shipping: number | null } {
   const byImage = new Map<string, string>()
   for (const match of html.matchAll(VINTED_PHOTO)) {
     const url = decodeEntities(match[0])
@@ -137,7 +161,8 @@ export function parseVintedDetail(html: string): { description: string | null; i
 
   return {
     description: detailDescription(html),
-    imageUrls: [...byImage.values()]
+    imageUrls: [...byImage.values()],
+    shipping: vintedShipping(html)
   }
 }
 

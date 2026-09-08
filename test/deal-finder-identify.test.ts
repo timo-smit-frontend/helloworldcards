@@ -16,6 +16,7 @@ function listing(overrides: Partial<SourceListing> = {}): SourceListing {
     priceType: 'MIN_BID',
     imageUrls: ['https://images.marktplaats.com/a.jpg'],
     itemType: 'Losse kaart',
+    shipping: null,
     ...overrides
   }
 }
@@ -49,6 +50,21 @@ describe('identifyCard', () => {
     // Not "2 graded cards in one listing": a French card is nothing we would look at either way.
     expect(result.scope).toBe('out-of-scope')
     expect(result.reason).toContain('FR')
+  })
+
+  it('falls back to the listing title when the name row came back as a scrap of the slab', () => {
+    const result = identifyCard({
+      listing: listing({ title: 'Pokémon Charmander 168/165 Scarlet & Violet 151 PSA 9' }),
+      // The plastic edge, read as a name: `RS` says nothing, and searching Google for it
+      // finds nothing either.
+      slabs: [label({ cardName: 'RS' })],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.identity.name).toBe('Charmander')
   })
 
   it('works the card out from the listing text when there is no readable label', () => {

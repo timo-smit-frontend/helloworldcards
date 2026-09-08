@@ -154,14 +154,55 @@ const SET_ERAS = [
 const SET_CODE =
   /\b(?:sv-?p|svp|sve|swsh|sm|xy|bw|hgss|dp|clv|paf|evs|lor|asr|par|tef|ssp|pre|mew|pal|obf|dri|twm|sfa|scr|jtg|blk|wht|mep|prb|s-?p|m-?p|s\d{1,2}[a-z]?|sv\d{1,2}[a-z]?|m\d{1,2}[a-z]?)\b/i
 
+/**
+ * A raw card advertised by the grade its seller hopes for or promises — "PSA 10
+ * mogelijk", "potential PSA 10", "PSA 10 waardig", "uitstekende staat gegarandeerd
+ * PSA 10". A guarantee is no more a slab than a guess is: the card is still loose,
+ * and the number must never be read as a grade. Masking the phrase leaves any real
+ * grade in the same listing ("PSA 10 slab, plus a raw PSA 10 candidate") readable.
+ *
+ * A guarantee behind the grade only speaks about the card when it ends the phrase:
+ * "PSA 10 gegarandeerd snel verzonden" guarantees the postage, not the slab.
+ */
+const SPECULATIVE_BEFORE =
+  /\b(?:mogelijk[a-z]*|misschien|wellicht|waarschijnlijk|potenti[eë][a-z]*|kans\s+op(?:\s+(?:een|de))?|kandidaat\s+voor(?:\s+een)?|denk(?:\s+(?:ik|aan))?|verwacht(?:ing)?|hoop|hopelijk|haalbaar|goed\s+voor|(?:ge)?garandeer[a-z]*|garantie|possibl[ey]|potential(?:ly)?|likely|probably|maybe|candidate\s+for|worthy\s+of|hoping\s+for|good\s+for|guarantee[a-z]*)\s+(?:een\s+|a\s+)?psa\s*\d{1,2}(?:\.\d)?\b/gi
+const SPECULATIVE_AFTER =
+  /\bpsa\s*\d{1,2}(?:\.\d)?\s*(?:\?|(?:is\s+|zeker\s+|zeer\s+)?(?:(?:(?:ge)?garandeer[a-z]*|garantie|guarantee[a-z]*)(?=\s*(?:[.,;!?)\n]|$))|mogelijk[a-z]*|waardig|waard\b|potentie(?:el)?|kandidaat|materiaal|material|haalbaar|verwacht|te\s+halen|denk\s+ik|hopelijk|possible|potential|candidate|worthy|ready|gradeable|kwaliteit|quality|hopefully))/gi
+
+/** A modal earlier in the same sentence makes the grade a hypothetical: "zou zeker een PSA 10 moeten zijn". */
+const SPECULATIVE_MODAL =
+  /\b(?:zou|zouden|kan|kunnen|moet(?:en)?\s+een|should|could|would|might)\b[^.!?\n]{0,40}?\bpsa\s*\d{1,2}(?:\.\d)?\b/gi
+
+/** Blank out grades a seller only hopes for, so a raw card cannot read as a slab. */
+function maskSpeculativeGrades(text: string): string {
+  return text.replace(SPECULATIVE_BEFORE, ' ').replace(SPECULATIVE_AFTER, ' ').replace(SPECULATIVE_MODAL, ' ')
+}
+
+/**
+ * A seller saying the card is not slabbed. "Packfresh" says it too: a card straight
+ * out of the pack has never been near a grader. Only meaningful once no real grade
+ * was found — a listing can mention its other, ungraded cards beside a genuine slab.
+ */
+const UNGRADED =
+  /\b(?:(?:nog\s+)?niet\s+gegrade(?:erd|d)?|ongegrade(?:erd|d)?|niet\s+graded|ungraded|not\s+graded|raw\s+card|pack[\s-]?fresh)\b/i
+
+export function looksUngraded(text: string): boolean {
+  return UNGRADED.test(text)
+}
+
+/** True when the only PSA grade in the text is one the seller merely hopes for. */
+export function isSpeculativeGrade(text: string): boolean {
+  return ANY_GRADE.test(text) && !ANY_GRADE.test(maskSpeculativeGrades(text))
+}
+
 export function detectGrade(text: string): PsaGrade | null {
-  const match = text.match(GRADE)
+  const match = maskSpeculativeGrades(text).match(GRADE)
   return match ? (Number(match[1]) as PsaGrade) : null
 }
 
 /** The grade a seller claims, whatever it is — used to explain why a listing was dropped. */
 export function detectAnyGrade(text: string): number | null {
-  const match = text.match(ANY_GRADE)
+  const match = maskSpeculativeGrades(text).match(ANY_GRADE)
   return match ? Number(match[1]) : null
 }
 
@@ -188,7 +229,7 @@ export function looksLikeLot(text: string): boolean {
   if (numbers.length > 1) {
     return true
   }
-  if ([...text.matchAll(/\bpsa\s*\d{1,2}\b/gi)].length > 1) {
+  if ([...maskSpeculativeGrades(text).matchAll(/\bpsa\s*\d{1,2}\b/gi)].length > 1) {
     return true
   }
 
