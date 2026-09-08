@@ -124,7 +124,7 @@ export const seedProductRecords: ProductRecord[] = [
       'A Special Illustration Rare from the 2025 Mega Evolution set, number 181/132. Special Illustration Rares are the full-art chase prints from the English set. This copy is graded PSA 9 Mint, cert 136389084. The PSA population is 4,479.',
     images: ['/media/136389084_front.jpg', '/media/136389084_back.jpg'],
     pokemonId: 380,
-    price: '€110',
+    price: '€115',
     language: 'english',
     grader: 'psa',
     grade: 9,
