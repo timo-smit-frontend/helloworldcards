@@ -26,6 +26,13 @@ const OTHER_LANGUAGE =
 /** Japanese expansions print codes like s8b, sv2a, m2a — a letter block then digits. */
 const JAPANESE_SET_CODE = /^(?:s|sv|m)\d{1,2}[a-z]?$/i
 
+/**
+ * Japanese promos end in `-P`: `160/XY-P`, `001/SM-P`, `068/S-P`. English promos of the
+ * same eras are written without it — `XY160`, `SWSH039` — so the dash and the P are what
+ * say the card is Japanese, and getting that wrong prices it against the English print.
+ */
+const JAPANESE_PROMO_CODE = /^(?:sv|sm|swsh|xy|bw|s|m)-p$/i
+
 /** Sellers list several slabs in one ad; those cannot be priced as one card. */
 const LOT_TITLE =
   /\b(?:\d+\s*(?:x|stuks|graded|kaarten|cards|slabs)|lot|bundel|bundle|verzameling|collectie|meerdere|various sets|partij)\b/i
@@ -152,7 +159,7 @@ const SET_ERAS = [
 
 /** Cardmarket-style expansion codes that identify a set on their own. */
 const SET_CODE =
-  /\b(?:sv-?p|svp|sve|swsh|sm|xy|bw|hgss|dp|clv|paf|evs|lor|asr|par|tef|ssp|pre|mew|pal|obf|dri|twm|sfa|scr|jtg|blk|wht|mep|prb|s-?p|m-?p|s\d{1,2}[a-z]?|sv\d{1,2}[a-z]?|m\d{1,2}[a-z]?)\b/i
+  /\b(?:sv-p|sm-p|swsh-p|xy-p|bw-p|s-p|m-p|sv-?p|svp|sve|swsh|sm|xy|bw|hgss|dp|clv|paf|evs|lor|asr|par|tef|ssp|pre|mew|pal|obf|dri|twm|sfa|scr|jtg|blk|wht|mep|prb|m-?p|s\d{1,2}[a-z]?|sv\d{1,2}[a-z]?|m\d{1,2}[a-z]?)\b/i
 
 /**
  * A raw card advertised by the grade its seller hopes for or promises — "PSA 10
@@ -217,7 +224,7 @@ export function detectLanguage(text: string): CardLanguage | 'other' | null {
 }
 
 export function isJapaneseSetCode(code: string | null): boolean {
-  return code != null && JAPANESE_SET_CODE.test(code)
+  return code != null && (JAPANESE_SET_CODE.test(code) || JAPANESE_PROMO_CODE.test(code))
 }
 
 export function looksLikeLot(text: string): boolean {
@@ -248,14 +255,41 @@ function maskNoise(text: string): string {
     .replace(YEARS, ' ')
 }
 
+/**
+ * Which set the listing names, or null when it names none.
+ *
+ * Candidates are tried in the order they are listed — expansions before the eras they
+ * belong to, so "Sword & Shield Fusion Arts" is the Fusion Arts set — but a name that
+ * turns out to be sitting inside a longer one is not the set the listing named. Several
+ * sets end in another set's whole name: "Mega Evolutions" ends in "Evolutions", and a
+ * 2025 Mega Evolution card was being read as the 2016 Evolutions set and priced as one.
+ */
 export function detectSet(text: string): { name: string | null; code: string | null; matched: string | null } {
   const haystack = text.toLowerCase()
-  for (const candidate of [...SET_NAMES, ...SET_ERAS]) {
+  const candidates = [...SET_NAMES, ...SET_ERAS]
+
+  /** True when a longer set name starts earlier and runs into this one. */
+  const swallowed = (at: number, candidate: string): boolean =>
+    candidates.some((other) => {
+      if (other.length <= candidate.length) {
+        return false
+      }
+      const otherAt = haystack.indexOf(other)
+      return otherAt !== -1 && otherAt <= at && otherAt + other.length > at
+    })
+
+  for (const candidate of candidates) {
     const at = haystack.indexOf(candidate)
-    if (at !== -1) {
-      const matched = text.slice(at, at + candidate.length)
-      return { name: matched, code: text.match(SET_CODE)?.[0] ?? null, matched }
+    if (at === -1 || swallowed(at, candidate)) {
+      continue
     }
+
+    // Sellers pluralise: "Mega Evolutions" for the Mega Evolution set. Taking the `s`
+    // with the name is what keeps it out of the card name the rest of the title becomes.
+    const end = at + candidate.length
+    const plural = /^s(?![a-z])/i.test(text.slice(end)) ? 1 : 0
+    const matched = text.slice(at, end + plural)
+    return { name: matched, code: text.match(SET_CODE)?.[0] ?? null, matched }
   }
 
   const code = maskNoise(text).match(SET_CODE)?.[0] ?? null
@@ -285,6 +319,14 @@ export function detectCardNumber(
   const explicit = working.match(/(?:#|\bnr\.?|\bno\.?|\bnummer)\s*([a-z]{0,3}\d{1,4})\b/i)
   if (explicit) {
     return normalizeCardNumber(explicit[1])
+  }
+
+  // Japanese promos are written the other way round — `160/XY-P`, `001/SM-P`, `123/S-P`
+  // — with the number first and the promo set after the slash. That is not a fraction,
+  // so the rule above steps over it and the number goes unread.
+  const japanesePromo = working.match(/\b(\d{1,3})\s*\/\s*(?:sv|sm|swsh|xy|bw|s|m)-p\b/i)
+  if (japanesePromo) {
+    return normalizeCardNumber(japanesePromo[1])
   }
 
   const promo = working.match(/\b(?:sv-?p|s-?p|m-?p|sm|swsh|xy|bw)\s*#?\s*(\d{1,3})\b/i)

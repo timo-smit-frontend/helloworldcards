@@ -199,12 +199,20 @@ describe('rankCardmarketCandidates', () => {
 
     const ranked = rankCardmarketCandidates(html, houndour)
     expect(ranked[0]).toMatchObject({ url: 'https://www.google.com/goto?url=CCC', redirect: true })
-    // The species page is not a single at all, so only the two products are offered.
-    expect(ranked).toHaveLength(2)
+    // The species page is not a single at all, and Houndour #132 is a different card
+    // from Houndour #204 at a different price — neither is worth offering.
+    expect(ranked).toHaveLength(1)
   })
 
   it('drops a result whose title names another card entirely', () => {
     const html = googleResult('Pidgeot ex (OBF 225) Obsidian Flames - Singles - Cardmarket', 'DDD')
+    expect(rankCardmarketCandidates(html, houndour)).toEqual([])
+  })
+
+  it('drops the same card under a number the listing did not name', () => {
+    // Cardmarket sells one card twice — Erika's Invitation is #39 in the set and #206
+    // as the special art — and the two are nowhere near the same money.
+    const html = googleResult('Houndour (OBF 132) Obsidian Flames - Singles - Cardmarket', 'EEE')
     expect(rankCardmarketCandidates(html, houndour)).toEqual([])
   })
 
@@ -225,5 +233,47 @@ describe('scoreCardmarketUrl', () => {
     expect(
       scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Pidgeot-ex-OBF225', houndour)
     ).toBeLessThan(0)
+  })
+
+  it('never prices a card against a product that is not the same kind of card', () => {
+    // A Dragonite GX was priced against a 2009 Dragonite FB Lv.50: the names and the
+    // card numbers lined up, and the GX — the whole difference — was two letters long.
+    const dragonite = identity({ name: 'Dragonite Gx', cardNumber: '56', setName: null, setCode: null })
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Supreme-Victors/Dragonite-FB-Lv50-V2-SV56', dragonite)
+    ).toBeLessThan(0)
+
+    // A seller who leaves the suffix off is not contradicting anything, so the card is
+    // still scored — and Cardmarket's own `-V2` is a disambiguator, never a Pokémon V.
+    const plain = identity({ name: 'Houndour', cardNumber: '204', setName: 'Obsidian flames', setCode: 'OBF' })
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Obsidian-Flames/Houndour-V2-OBF204', plain)
+    ).toBeGreaterThan(0)
+  })
+
+  it('reads the card number out of a slug whose set code carries digits of its own', () => {
+    // `m3112` is card 112 of the m3 set, not card 3112 — reading the whole run made
+    // every Japanese card look like a different card and threw away the right page.
+    const clefable = identity({ name: 'MEGA CLEFABLE EX', cardNumber: '112', setName: 'm3', setCode: 'M3', language: 'japanese' })
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Nihil-Zero/Mega-Clefable-ex-V3-m3112', clefable)
+    ).toBeGreaterThan(0)
+
+    const charizard = identity({ name: 'CHARIZARD VSTAR', cardNumber: '15', setName: 's9', setCode: 'S9', language: 'japanese' })
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Star-Birth/Charizard-VSTAR-V1-s9015', charizard)
+    ).toBeGreaterThan(0)
+
+    // Card 086 of m3 is still not card 112 of it.
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Nihil-Zero/Clefairy-V2-m3086', clefable)
+    ).toBeLessThan(0)
+  })
+
+  it('keeps a card matched to the product carrying the same suffix', () => {
+    const charizard = identity({ name: 'Charizard ex', cardNumber: '234', setName: 'Paldean Fates', setCode: 'PAF' })
+    expect(
+      scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Paldean-Fates/Charizard-ex-V1-PAF234', charizard)
+    ).toBeGreaterThan(0)
   })
 })

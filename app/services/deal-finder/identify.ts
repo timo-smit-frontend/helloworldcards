@@ -133,9 +133,7 @@ export function identifyCard({
   const readLanguage = labelLanguage === 'english' && label?.languageLabel == null ? null : labelLanguage
 
   const language: CardLanguage =
-    readLanguage ??
-    (textLanguage === 'japanese' ? 'japanese' : null) ??
-    (isJapaneseSetCode(set.code) ? 'japanese' : 'english')
+    readLanguage ?? (textLanguage === 'japanese' ? 'japanese' : null) ?? (isJapaneseSetCode(set.code) ? 'japanese' : 'english')
 
   // Sellers put the card in the title and everything else in the description, so the
   // number and the name are read from the title first. The description only gets to

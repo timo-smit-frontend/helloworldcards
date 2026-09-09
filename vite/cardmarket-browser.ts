@@ -5,7 +5,12 @@ import { promisify } from 'node:util'
 import type { Browser, BrowserContext, Page } from 'playwright'
 import type { CardmarketReport, FetchCardmarketPage, FetchCardmarketPageOptions } from '../app/services/cardmarket/scan'
 import { CardmarketBlockedError } from '../app/services/deal-finder/cardmarket'
-import { isMarktplaatsSearchApi, marktplaatsSellerProfileUrl, parseSellerReviews } from '../app/services/deal-finder/marktplaats'
+import {
+  isMarktplaatsChallenge,
+  isMarktplaatsSearchApi,
+  marktplaatsSellerProfileUrl,
+  parseSellerReviews
+} from '../app/services/deal-finder/marktplaats'
 import type { DealFinderCache } from '../app/services/deal-finder/cache'
 import type { ResolveUrl, SellerReviews } from '../app/services/deal-finder/scan'
 import type { DealFinderReport } from '../app/services/deal-finder/types'
@@ -186,6 +191,33 @@ export async function fetchMarktplaatsSearch(url: string, request: typeof fetch 
 }
 
 /**
+ * A Marktplaats listing page, over a plain request rather than the scan's Chrome tab.
+ *
+ * The detail page is only read for its photos, its full description and its postage,
+ * none of which needs a rendered page — and every listing page driven through the one
+ * shared tab is a page load the Cardmarket work behind it has to queue up for. The
+ * browser is still there to fall back on if a plain request comes back short.
+ */
+export async function fetchMarktplaatsListing(url: string, request: typeof fetch = fetch): Promise<string> {
+  const response = await request(url, {
+    headers: {
+      'user-agent': BROWSER_USER_AGENT,
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'accept-language': 'nl-NL,nl;q=0.9,en;q=0.8'
+    },
+    redirect: 'follow'
+  })
+  if (!response.ok) {
+    throw new Error(`Marktplaats returned ${response.status} for ${url}.`)
+  }
+  return await response.text()
+}
+
+export function isMarktplaatsListing(url: string): boolean {
+  return /(?:^|\.)marktplaats\.nl$/i.test(new URL(url).hostname) && url.includes('/v/')
+}
+
+/**
  * A Marktplaats seller's review count. Its own JSON endpoint answers this keyed on the
  * `sellerId` the search feed already carries, so no listing page has to be opened to
  * find out whether a seller is worth buying from.
@@ -275,6 +307,31 @@ async function connectCdpContext(chromium: typeof import('playwright').chromium)
   return { context, browser }
 }
 
+/** Holds a piece of work until the Chrome tab is free, and keeps it to itself. */
+type TabLock = <T>(run: () => Promise<T>) => Promise<T>
+
+/**
+ * Serialise everything that drives the shared Chrome tab.
+ *
+ * There is one tab, and a scan now reads listing pages while it is working its way
+ * through Google and Cardmarket. Those listing pages are plain requests and never come
+ * near the tab — but a Marktplaats page that comes back blocked falls back to it, and
+ * two navigations at once on one tab would leave both callers reading whichever page
+ * won. Every use of the tab goes through here, so that cannot happen.
+ */
+function createLock(): TabLock {
+  let tail: Promise<unknown> = Promise.resolve()
+
+  return <T>(run: () => Promise<T>): Promise<T> => {
+    const next = tail.then(run, run)
+    tail = next.then(
+      () => undefined,
+      () => undefined
+    )
+    return next
+  }
+}
+
 export async function createPlaywrightCardmarketFetcher(root = process.cwd()): Promise<CardmarketFetcher> {
   const { chromium } = await import('playwright')
   const userDataDir = path.join(root, BROWSER_PROFILE)
@@ -319,15 +376,16 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
   }
 
   const page = context.pages()[0] ?? (await context.newPage())
+  const withTab = createLock()
   await warmup(page)
 
   return {
     sellerReviews: marktplaatsSellerReviews,
     async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
-      return await fetchWithBotChecks(page, url, options)
+      return await fetchWithBotChecks(page, url, options, withTab)
     },
     async resolveUrl(url: string) {
-      return await followRedirect(page, url)
+      return await followRedirect(page, url, withTab)
     },
     async close() {
       if (mode === 'persistent') {
@@ -341,26 +399,78 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
 }
 
 /**
+ * Where a Google result redirect leads, asked over HTTP rather than by going there.
+ *
+ * Google hands back a `Location` header for these, and the header is the whole answer —
+ * driving the shared Chrome tab to the destination costs a full page load, and a card
+ * can need three of them before a Cardmarket page scores. The request goes through the
+ * browser's own context, so it carries the same cookies the search page was served
+ * with; anything else (an interstitial, a redirect Google only performs in script)
+ * comes back as null and is followed in the tab instead.
+ */
+const MAX_REDIRECT_HOPS = 5
+
+async function resolveOverHttp(context: BrowserContext, url: string): Promise<string | null> {
+  let current = url
+
+  for (let hop = 0; hop < MAX_REDIRECT_HOPS; hop += 1) {
+    let location: string | undefined
+    try {
+      const response = await context.request.get(current, {
+        maxRedirects: 0,
+        failOnStatusCode: false,
+        timeout: 20_000,
+        headers: { referer: 'https://www.google.com/', 'user-agent': BROWSER_USER_AGENT }
+      })
+      const redirected = response.status() >= 300 && response.status() < 400
+      location = redirected ? response.headers()['location'] : undefined
+      await response.dispose()
+    } catch {
+      return null
+    }
+
+    if (!location) {
+      // Not a redirect at all — whatever Google answered with needs a real page.
+      return null
+    }
+
+    current = new URL(location, current).href
+    if (!current.includes('/goto?url=')) {
+      return current
+    }
+  }
+
+  return null
+}
+
+/**
  * Follow a redirect and report where it landed.
  *
  * Google stopped printing result URLs: every organic result is now an opaque
  * `/goto?url=` link, so the only way to learn which Cardmarket page a result points at
- * is to go there. Landing on Cardmarket's bot check is not a failure and is never
- * skipped past — it is waited out so it can be cleared in the Chrome window, which
- * both keeps that click from being wasted and leaves the session that every Cardmarket
- * request after it needs.
+ * is to ask where it goes. Landing on Cardmarket's bot check is not a failure and is
+ * never skipped past — it is waited out so it can be cleared in the Chrome window,
+ * which both keeps that click from being wasted and leaves the session that every
+ * Cardmarket request after it needs.
  */
-async function followRedirect(page: Page, url: string): Promise<string | null> {
-  try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
-  } catch {
-    return null
+async function followRedirect(page: Page, url: string, withTab: TabLock): Promise<string | null> {
+  const overHttp = await resolveOverHttp(page.context(), url)
+  if (overHttp) {
+    return overHttp
   }
 
-  await waitForBotChallengeClear(page, new URL(page.url()).hostname)
+  return await withTab(async () => {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
+    } catch {
+      return null
+    }
 
-  const landed = page.url()
-  return landed && !landed.includes('/goto?url=') ? landed : null
+    await waitForBotChallengeClear(page, new URL(page.url()).hostname)
+
+    const landed = page.url()
+    return landed && !landed.includes('/goto?url=') ? landed : null
+  })
 }
 
 /**
@@ -372,7 +482,12 @@ async function followRedirect(page: Page, url: string): Promise<string | null> {
  */
 const CARDMARKET_ATTEMPTS = 3
 
-async function fetchWithBotChecks(page: Page, url: string, options?: FetchCardmarketPageOptions): Promise<string> {
+async function fetchWithBotChecks(
+  page: Page,
+  url: string,
+  options: FetchCardmarketPageOptions | undefined,
+  withTab: TabLock
+): Promise<string> {
   const host = new URL(url).hostname
   const isOffers = url.includes('cardmarket.com')
 
@@ -387,39 +502,98 @@ async function fetchWithBotChecks(page: Page, url: string, options?: FetchCardma
     return await fetchMarktplaatsSearch(url)
   }
 
-  for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-    const cleared = await waitForBotChallengeClear(page, host)
-
-    if (!isOffers) {
-      return await page.content()
-    }
-
-    if (cleared) {
-      await page.waitForSelector('[id^="articleRow"]', { timeout: 25_000 }).catch(() => undefined)
-      const outcome = await expandOffers(page, options)
-      if (outcome === 'complete') {
-        return await page.content()
-      }
-
-      // Stalled part-way: if the rows we already have answer the question, take them.
-      const html = await page.content()
-      if (options?.stopWhen?.(html)) {
+  // A listing page is read for its photos, its description and its postage, none of
+  // which needs rendering — and keeping it out of the shared tab leaves that tab for
+  // the Google and Cardmarket loads that genuinely do. A plain request that comes back
+  // blocked or broken falls through to the browser, which is what used to do this.
+  if (isMarktplaatsListing(url)) {
+    try {
+      const html = await fetchMarktplaatsListing(url)
+      if (!isMarktplaatsChallenge(html)) {
         return html
       }
-    }
-
-    if (attempt < CARDMARKET_ATTEMPTS) {
-      console.info(`[cardmarket-browser] Reloading ${url} so the bot check can be cleared (attempt ${attempt + 1})`)
+    } catch {
+      // Falls through to the browser below.
     }
   }
 
-  throw new CardmarketBlockedError(`Cardmarket kept blocking ${url} after ${CARDMARKET_ATTEMPTS} attempts.`)
+  return await withTab(async () => {
+    for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+      const cleared = await waitForBotChallengeClear(page, host)
+
+      if (!isOffers) {
+        return await page.content()
+      }
+
+      if (cleared) {
+        await page.waitForSelector('[id^="articleRow"]', { timeout: 25_000 }).catch(() => undefined)
+        const outcome = await expandOffers(page, options)
+        if (outcome === 'complete') {
+          return await page.content()
+        }
+
+        // Stalled part-way: if the rows we already have answer the question, take them.
+        const html = await page.content()
+        if (options?.stopWhen?.(html)) {
+          return html
+        }
+      }
+
+      if (attempt < CARDMARKET_ATTEMPTS) {
+        console.info(`[cardmarket-browser] Reloading ${url} so the bot check can be cleared (attempt ${attempt + 1})`)
+      }
+    }
+
+    throw new CardmarketBlockedError(`Cardmarket kept blocking ${url} after ${CARDMARKET_ATTEMPTS} attempts.`)
+  })
+}
+
+/**
+ * What one look at the offers page tells us, in a single round trip.
+ *
+ * The loop below used to ask Chrome for the entire document twice per click and parse
+ * all of it again each time, which on a fully expanded product page is megabytes over
+ * the debugging socket for the sake of a handful of new rows. Only the rows that were
+ * not there last time come back now, along with just enough of the page to recognise a
+ * bot check and to see whether there is still a button to press.
+ */
+type OffersState = {
+  title: string
+  snippet: string
+  /** The rows added since the last look — all of them on the first look. */
+  rows: string
+  total: number
+  hasMore: boolean
+}
+
+function offersState(page: Page, from: number): Promise<OffersState> {
+  return page.evaluate((start) => {
+    const rows = document.querySelectorAll('[id^="articleRow"]')
+    const button = document.querySelector('#loadMoreButton') as HTMLElement | null
+    return {
+      title: document.title,
+      // A bot check replaces the document and takes the offers with it, so while there
+      // are still rows the title is the whole story — and reading the body text of a
+      // fully expanded offers list thirty times over is not free either.
+      snippet: rows.length > 0 ? '' : (document.body?.innerText?.slice(0, 4_000) ?? ''),
+      rows: Array.from(rows)
+        .slice(start)
+        .map((row) => row.outerHTML)
+        .join(''),
+      total: rows.length,
+      hasMore: button != null && (button.offsetWidth > 0 || button.offsetHeight > 0 || button.getClientRects().length > 0)
+    }
+  }, from)
 }
 
 /**
  * Click "Show more" until the whole offer list is loaded, the caller has what it
  * needs, or the page stalls. Returns `stalled` when only a reload can recover.
+ *
+ * `stopWhen` is asked about the new rows rather than the whole page each time. It only
+ * ever answers "is there a comp in here", and once that is true the expansion is over,
+ * so rows already judged never need judging again.
  */
 async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): Promise<'complete' | 'stalled'> {
   const maxLoadMore = options?.maxLoadMore ?? 0
@@ -427,38 +601,39 @@ async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): P
     return 'complete'
   }
 
+  let read = 0
+
   for (let index = 0; index < maxLoadMore; index += 1) {
-    const html = await page.content()
-    if (pageLooksChallenged(await page.title().catch(() => ''), html)) {
+    const state = await offersState(page, read)
+    read = state.total
+
+    if (pageLooksChallenged(state.title, state.snippet)) {
       return 'stalled'
     }
     // With `loadAll` the caller wants every row, so having enough to answer is not a
     // reason to stop — only running out of "Show more" is.
-    if (!options?.loadAll && options?.stopWhen?.(html)) {
+    if (!options?.loadAll && options?.stopWhen?.(state.rows)) {
       return 'complete'
     }
-
-    const button = page.locator('#loadMoreButton')
-    if ((await button.count()) === 0 || !(await button.isVisible().catch(() => false))) {
+    if (!state.hasMore) {
       // No button left — this is the bottom of the list.
       return 'complete'
     }
 
-    const rowsBefore = await page.locator('[id^="articleRow"]').count()
-    await button.click().catch(() => undefined)
+    await page
+      .locator('#loadMoreButton')
+      .click()
+      .catch(() => undefined)
 
     const grew = await page
-      .waitForFunction((before) => document.querySelectorAll('[id^="articleRow"]').length > before, rowsBefore, {
+      .waitForFunction((before) => document.querySelectorAll('[id^="articleRow"]').length > before, read, {
         timeout: 15_000
       })
       .then(() => true)
       .catch(() => false)
 
-    if (pageLooksChallenged(await page.title().catch(() => ''), await page.content())) {
-      return 'stalled'
-    }
-
-    // The button spun without adding rows — the infinite-load state.
+    // The button spun without adding rows — the infinite-load state, which is also how
+    // a bot check served mid-expansion shows up, since it takes the rows away with it.
     if (!grew) {
       return 'stalled'
     }

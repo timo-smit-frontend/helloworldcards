@@ -124,6 +124,16 @@ describe('detectLanguage', () => {
     // SM211 is an English Sun & Moon promo, not a Japanese set code.
     expect(isJapaneseSetCode('SM211')).toBe(false)
   })
+
+  it('treats a promo code ending in -P as Japanese', () => {
+    // Japanese promos are `160/XY-P`; the English promos of the same eras are `XY160`
+    // and `SWSH039`, so the dash and the P are the whole difference.
+    expect(isJapaneseSetCode('XY-P')).toBe(true)
+    expect(isJapaneseSetCode('S-P')).toBe(true)
+    expect(isJapaneseSetCode('SM-P')).toBe(true)
+    expect(isJapaneseSetCode('XY')).toBe(false)
+    expect(isJapaneseSetCode('SWSH')).toBe(false)
+  })
 })
 
 describe('detectCardNumber', () => {
@@ -142,6 +152,14 @@ describe('detectCardNumber', () => {
   it('only takes a number the description states outright when asked', () => {
     expect(detectCardNumber('kaart 199/165 uit de 151 set', null, { allowBare: false })).toBe('199')
     expect(detectCardNumber('een mooie kaart, 145 euro', null, { allowBare: false })).toBeNull()
+  })
+
+  it('reads a Japanese promo, which writes the number before the set', () => {
+    // `160/XY-P` is not a fraction, so the number used to go unread — and a promo with
+    // no number to contradict it was priced against a special art of the same name.
+    expect(detectCardNumber('zeldzame Mega Lucario EX kaart (160/XY-P)', null, { allowBare: false })).toBe('160')
+    expect(detectCardNumber('Pikachu 001/SM-P promo', null, { allowBare: false })).toBe('001')
+    expect(detectCardNumber('Charizard 068/S-P', null, { allowBare: false })).toBe('068')
   })
 
   it('takes the numerator of a fraction', () => {
@@ -170,6 +188,14 @@ describe('detectSet', () => {
   it('prefers the expansion over the era it belongs to', () => {
     expect(parse('psa 10 2021 japanese sword & shield fusion arts 125 flaaffy').set).toBe('fusion arts')
     expect(parse('PSA 10 2022 sword & shield paradigm trigger 124 leafy japanese').set).toBe('paradigm trigger')
+  })
+
+  it('does not read a set name that is sitting inside a longer one', () => {
+    // The 2025 Mega Evolution set ends in the name of the 2016 Evolutions set, and a
+    // Mega Lucario EX was priced against Evolutions because of it.
+    expect(parse('PSA 10 Mega Lucario EX - Mega Evolutions').set).toBe('Mega Evolutions')
+    expect(parse('Sylveon 156 Prismatic Evolutions PSA 10').set).toBe('Prismatic Evolutions')
+    expect(parse('Pikachu 20 Evolutions PSA 9').set).toBe('Evolutions')
   })
 })
 

@@ -42,6 +42,26 @@ export const SUPPORTED_GRADES = [9, 10] as const
 /** Pause between Google / Cardmarket page loads so the scan does not look like a bot. */
 export const FETCH_DELAY_MS = 1000
 
+/**
+ * Longest pause between listing pages on Marktplaats and Vinted. These are plain
+ * requests for the sort of page a buyer opens by the dozen, and the scan reads one per
+ * candidate, so they are paced far more lightly than the searches and the Cardmarket
+ * loads — this is a ceiling on `FETCH_DELAY_MS`, never a floor under it. The pause is
+ * per site, so Marktplaats and Vinted never wait on each other.
+ */
+export const LISTING_DELAY_MS = 250
+
+/**
+ * How many listings are worked out at once.
+ *
+ * Reading a listing's page and its photos needs no browser and nothing from Cardmarket,
+ * so it is the one part of a scan that can happen several listings at a time — and it
+ * runs alongside the Google and Cardmarket work for the listings ahead of it, which is
+ * where the scan's remaining time goes. Four keeps the OCR workers busy without racing
+ * the marketplaces for pages.
+ */
+export const IDENTIFY_CONCURRENCY = 4
+
 /** Cardmarket "Show more" clicks before we accept whatever rows we already have. */
 export const MAX_LOAD_MORE = 30
 

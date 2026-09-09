@@ -27,13 +27,37 @@ function looksJapanese(setSlug: string, productSlug: string): boolean {
   return JAPANESE_SET.test(setSlug) || JAPANESE_PRODUCT.test(productSlug) || JAPANESE_PROMO.test(productSlug)
 }
 
-function words(value: string): string[] {
+function tokens(value: string): string[] {
   return value
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .split(/[^a-z0-9]+/)
-    .filter((word) => word.length > 2)
+    .filter(Boolean)
+}
+
+function words(value: string): string[] {
+  // `ex`, `gx` and `v` are two letters and the whole difference between two cards, so
+  // they count as words here even though nothing else that short does.
+  return tokens(value).filter((word) => word.length > 2 || SHORT_TOKENS.has(word))
+}
+
+/**
+ * The suffixes that make one card a different card from another of the same name:
+ * Dragonite, Dragonite V and Dragonite VSTAR are three cards at three prices. Cardmarket
+ * prints them in its product slug, so a product carrying a different one — or none at
+ * all — is not the card the listing is selling.
+ */
+const MECHANICS = new Set(['ex', 'gx', 'v', 'vmax', 'vstar'])
+
+function mechanic(value: string): string | null {
+  // The last one is the card's: `V` inside `V-UNION` is not what the card is.
+  // Cardmarket's own `-V2` disambiguator is a different token and never matches.
+  return (
+    tokens(value)
+      .filter((token) => MECHANICS.has(token))
+      .pop() ?? null
+  )
 }
 
 /** Strip the noise PSA and sellers add so the query is just the card. */
@@ -129,9 +153,50 @@ export function productCardNumber(productSlug: string): string | null {
   return last.match(/(\d+)$/)?.[1] ?? null
 }
 
+/**
+ * Whether a product's slug names a different card than the listing does.
+ *
+ * The digits ending a slug are the set code's and the card's run together, and Japanese
+ * set codes carry digits of their own: `m3112` is card 112 of m3, `s9015` card 015 of
+ * s9, `XY3069` card 069 of XY3. Reading the whole run as the card number makes every one
+ * of those look like a different card, so a run longer than a card number is read as the
+ * three padded digits Cardmarket ends it with, and a shorter one as the number itself.
+ *
+ * A card number with letters in it — `TG12`, `SWSH039` — is compared on its digits, and
+ * anything that cannot be read as a number at all is not evidence of a mismatch.
+ */
+export function namesAnotherCard(productSlug: string, cardNumber: string): boolean {
+  const digits = productCardNumber(productSlug)
+  const wanted = cardNumber.match(/(\d+)$/)?.[1]
+  if (!digits || !wanted) {
+    return false
+  }
+
+  const bare = wanted.replace(/^0+/, '') || wanted
+  return digits.length <= 3 ? Number(digits) !== Number(bare) : !digits.endsWith(bare.padStart(3, '0'))
+}
+
+/**
+ * What a product has to contradict outright before it is worth scoring at all.
+ *
+ * A wrong identification is what makes the whole report untrustworthy, and two of these
+ * used to be a penalty other bonuses could pay off: a Dragonite GX was priced against a
+ * 2009 Dragonite FB because the shared name and card number outweighed the missing GX,
+ * and a Mega Lucario EX promo #160 against the #179 special art because the shared name
+ * and set outweighed the wrong number. Neither is a near miss — they are other cards.
+ */
+const CONTRADICTED = -100
+
 export function scoreCardmarketLink(setSlug: string, productSlug: string, identity: CardIdentity): number {
   let score = 0
   const combined = `${setSlug}/${productSlug}`.toLowerCase()
+
+  // A card that names its mechanic must be priced as that card. Nothing is read into a
+  // product naming one the listing left out — sellers drop the suffix all the time.
+  const wanted = mechanic(identity.name)
+  if (wanted && mechanic(productSlug) !== wanted) {
+    return CONTRADICTED
+  }
 
   const nameWords = words(identity.name)
   if (nameWords.length > 0) {
@@ -165,9 +230,8 @@ export function scoreCardmarketLink(setSlug: string, productSlug: string, identi
     // Cardmarket sells the same card twice under different numbers — Erika's Invitation
     // is #39 in the set and #206 as the special art — and the two are nowhere near the
     // same price. A product that names a different number than the slab is another card.
-    const product = productCardNumber(productSlug)
-    if (product && Number(product) !== Number(bare)) {
-      score -= 45
+    if (namesAnotherCard(productSlug, identity.cardNumber)) {
+      return CONTRADICTED
     }
   }
 

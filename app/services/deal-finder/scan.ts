@@ -3,8 +3,10 @@ import { CardmarketBlockedError, OFFERS_FETCH_OPTIONS, offersUrlFor, priceFromOf
 import { hasFreshIdentity, hasFreshPrice, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
 import {
   FETCH_DELAY_MS,
+  IDENTIFY_CONCURRENCY,
   IMPLAUSIBLE_FLOOR_GAP,
   IMPLAUSIBLE_FLOOR_RATIO,
+  LISTING_DELAY_MS,
   MARKTPLAATS_MAX_PAGES,
   MARKTPLAATS_SEARCH_URL,
   MAX_PHOTOS_PER_LISTING,
@@ -14,7 +16,14 @@ import {
 } from './constants'
 import { listingCost } from './cost'
 import { ownListingIds, screenListing, type OwnListingIds, type Screening } from './filters'
-import { buildSearchQuery, cardmarketProductName, cleanCardmarketUrl, googleSearchUrl, rankCardmarketCandidates, scoreCardmarketUrl } from './google'
+import {
+  buildSearchQuery,
+  cardmarketProductName,
+  cleanCardmarketUrl,
+  googleSearchUrl,
+  rankCardmarketCandidates,
+  scoreCardmarketUrl
+} from './google'
 import { displayTitle, identifyCard } from './identify'
 import {
   isMarktplaatsChallenge,
@@ -26,7 +35,17 @@ import {
 } from './marktplaats'
 import { emptyReport, sortDeals, sortNoComps } from './report'
 import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
-import type { CardIdentity, DealFinderReport, DealRow, NoCompsRow, PsaLabel, SlabReading, SourceListing, SourceSummary } from './types'
+import type {
+  CardIdentity,
+  DealFinderReport,
+  DealRow,
+  NoCompsRow,
+  ProblemRow,
+  PsaLabel,
+  SlabReading,
+  SourceListing,
+  SourceSummary
+} from './types'
 
 export type { DealFinderCache, DealFinderCacheStore, CacheEntry } from './cache'
 export * from './types'
@@ -65,6 +84,72 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/** A promise handed out before the work that settles it has been started. */
+type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void }
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}
+
+/** Run `task` over every item, never more than `limit` of them at a time, in order. */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (let index = next++; index < items.length; index = next++) {
+      results[index] = await task(items[index]!, index)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
+/** Holds a request back until the site it is aimed at has had its pause. */
+export type Pacer = <T>(url: string, delayMs: number, run: () => Promise<T>) => Promise<T>
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Space requests to one site apart without holding up requests to any other.
+ *
+ * The scan used to pause a second between listings whatever it was about to do next,
+ * so the pause meant to keep Google and Cardmarket comfortable was spent in front of
+ * work neither of them could see — reading a photo, or opening a listing page on a
+ * third site. Each request now queues behind the site it is actually aimed at and
+ * waits only for that one, which is both the same courtesy as before and, for a scan
+ * that spends most of its time somewhere else entirely, most of the waiting gone.
+ */
+export function createPacer(): Pacer {
+  const queues = new Map<string, Promise<unknown>>()
+
+  return <T>(url: string, delayMs: number, run: () => Promise<T>): Promise<T> => {
+    const host = hostOf(url)
+    const previous = queues.get(host)
+    const slot = previous ? previous.then(() => sleep(delayMs)).then(run) : run()
+    // A failed request still has to hold its place in the queue, not break it.
+    queues.set(
+      host,
+      slot.then(
+        () => undefined,
+        () => undefined
+      )
+    )
+    return slot
+  }
+}
+
 function listingRef(listing: SourceListing) {
   return {
     id: listing.id,
@@ -89,6 +174,15 @@ const PAGING = {
   vinted: { pageUrl: vintedSearchPageUrl, maxPages: VINTED_MAX_PAGES }
 } as const
 
+/** Everything one source's walk produced, kept apart so both can be walked at once. */
+type Collected = {
+  summary: SourceSummary
+  listings: SourceListing[]
+  problems: ProblemRow[]
+  outOfScope: number
+  errors: string[]
+}
+
 /**
  * Walk a source's search results page by page, screening every listing as it goes.
  *
@@ -96,15 +190,18 @@ const PAGING = {
  * bot check, the source has failed. A later page that breaks only ends the walk — what
  * the earlier pages already gave us is still worth checking, so it is reported as a
  * note rather than thrown away.
+ *
+ * Nothing is written to the report from here. The two sources are walked at the same
+ * time, and a report that came out in whichever order the two feeds happened to answer
+ * would make two runs of the same scan look like different scans.
  */
 async function collectSource({
   source,
   url,
   fetchPage,
   ids,
-  candidates,
-  report,
   delayMs,
+  pace,
   sellerReviews,
   maxPages
 }: {
@@ -112,38 +209,43 @@ async function collectSource({
   url: string
   fetchPage: FetchCardmarketPage
   ids: OwnListingIds
-  candidates: SourceListing[]
-  report: DealFinderReport
   delayMs: number
+  pace: Pacer
   sellerReviews?: SellerReviews
   maxPages: number
-}): Promise<SourceSummary> {
+}): Promise<Collected> {
   const { pageUrl } = PAGING[source]
-  const seen = new Set(candidates.map((listing) => listing.id))
+  const seen = new Set<string>()
+  const listings: SourceListing[] = []
+  const problems: ProblemRow[] = []
+  const errors: string[] = []
   let found = 0
-  let kept = 0
+  let outOfScope = 0
   let total: number | null = null
   let capped = false
   let reachedEnd = false
   // Sellers put up several listings at once, so their review count is asked for once.
   const reviewCounts = new Map<string, number | null>()
 
-  const failed = (error: string): SourceSummary => ({ source, url, found: 0, candidates: 0, error, total, truncated: null })
+  const failed = (error: string): Collected => ({
+    summary: { source, url, found: 0, candidates: 0, error, total, truncated: null },
+    listings: [],
+    problems: [],
+    outOfScope: 0,
+    errors: []
+  })
 
   for (let page = 1; page <= maxPages; page += 1) {
-    if (page > 1) {
-      await sleep(delayMs)
-    }
-
     let html: string
     try {
-      html = await fetchPage(pageUrl(url, page))
+      const target = pageUrl(url, page)
+      html = await pace(target, delayMs, () => fetchPage(target))
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Could not load the search page.'
       if (page === 1) {
         return failed(reason)
       }
-      report.errors.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
+      errors.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
       break
     }
 
@@ -152,7 +254,7 @@ async function collectSource({
       if (page === 1) {
         return failed(`${label(source)} showed a bot check instead of results.`)
       }
-      report.errors.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
+      errors.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
       break
     }
 
@@ -164,8 +266,8 @@ async function collectSource({
     const parsed = source === 'marktplaats' ? parseMarktplaatsOverview(html) : parseVintedOverview(html)
     // Past the last page both sites answer with the previous page's rows rather than an
     // empty one, so "nothing new here" is what marks the end of the results.
-    const listings = parsed.filter((listing) => !seen.has(listing.id))
-    if (listings.length === 0) {
+    const fresh = parsed.filter((listing) => !seen.has(listing.id))
+    if (fresh.length === 0) {
       if (page === 1) {
         return failed(`No ${label(source)} listings on the search page.`)
       }
@@ -173,21 +275,26 @@ async function collectSource({
       break
     }
 
-    found += listings.length
-    for (const listing of listings) {
+    found += fresh.length
+    for (const listing of fresh) {
       seen.add(listing.id)
-      const screening = await screen(listing, ids, sellerReviews, reviewCounts)
-      if (screening.keep) {
-        candidates.push(listing)
-        kept += 1
+    }
+
+    const screened = fresh.map((listing) => ({ listing, screening: screenListing(listing, ids) }))
+    await loadSellerReviews(screened, sellerReviews, reviewCounts)
+
+    for (const { listing, screening } of screened) {
+      const verdict = withSellerStanding(listing, screening, reviewCounts)
+      if (verdict.keep) {
+        listings.push(listing)
         continue
       }
 
-      if (screening.scope === 'problem') {
-        report.problems.push({
+      if (verdict.scope === 'problem') {
+        problems.push({
           ...listingRef(listing),
           stage: 'listing',
-          reason: screening.reason,
+          reason: verdict.reason,
           detail: null,
           googleUrl: null,
           query: null,
@@ -196,7 +303,7 @@ async function collectSource({
         continue
       }
 
-      report.outOfScope += 1
+      outOfScope += 1
     }
 
     // Marktplaats says how many listings the search has, so once they have all been
@@ -208,41 +315,68 @@ async function collectSource({
   }
 
   return {
-    source,
-    url,
-    found,
-    candidates: kept,
-    error: null,
-    total,
-    truncated: truncation({ source, found, total, capped, reachedEnd, maxPages })
+    summary: {
+      source,
+      url,
+      found,
+      candidates: listings.length,
+      error: null,
+      total,
+      truncated: truncation({ source, found, total, capped, reachedEnd, maxPages })
+    },
+    listings,
+    problems,
+    outOfScope,
+    errors
   }
 }
 
+/** How many sellers are asked about at once — a small JSON endpoint, not a page load. */
+const SELLER_REVIEW_CONCURRENCY = 5
+
 /**
- * Screen a listing, and check its seller's standing when everything else passes.
+ * Look up the review count of every seller a page's survivors belong to.
  *
- * An unreviewed Marktplaats seller is not a risk worth taking at any price, so the
- * listing is dropped before its photos are ever read — the review lookup is the last
- * check rather than the first only because it costs a request and the cheap rules
- * usually settle it. A lookup that fails is not held against the seller.
+ * These used to be asked for one at a time in the middle of screening, which put a
+ * whole request between one listing and the next for something the cheap rules had
+ * already decided they wanted. A page's worth is asked for together instead, and only
+ * for the sellers whose listings got that far. A lookup that fails is not held against
+ * a seller.
  */
-async function screen(
-  listing: SourceListing,
-  ids: OwnListingIds,
+async function loadSellerReviews(
+  screened: Array<{ listing: SourceListing; screening: Screening }>,
   sellerReviews: SellerReviews | undefined,
   counts: Map<string, number | null>
-): Promise<Screening> {
-  const screening = screenListing(listing, ids)
-  if (!screening.keep || !sellerReviews || listing.source !== 'marktplaats' || !listing.sellerId) {
+): Promise<void> {
+  if (!sellerReviews) {
+    return
+  }
+
+  const wanted = new Set(
+    screened
+      .filter(({ listing, screening }) => screening.keep && listing.source === 'marktplaats' && listing.sellerId)
+      .map(({ listing }) => listing.sellerId!)
+      .filter((sellerId) => !counts.has(sellerId))
+  )
+
+  await mapWithConcurrency([...wanted], SELLER_REVIEW_CONCURRENCY, async (sellerId) => {
+    counts.set(sellerId, await sellerReviews(sellerId).catch(() => null))
+  })
+}
+
+/**
+ * A listing that passed every other rule, judged on its seller's standing.
+ *
+ * An unreviewed Marktplaats seller is not a risk worth taking at any price, so the
+ * listing is dropped before its photos are ever read — the review count is the last
+ * check rather than the first only because it costs a request and the cheap rules
+ * usually settle it.
+ */
+function withSellerStanding(listing: SourceListing, screening: Screening, counts: Map<string, number | null>): Screening {
+  if (!screening.keep || listing.source !== 'marktplaats' || !listing.sellerId) {
     return screening
   }
-
-  const sellerId = listing.sellerId
-  if (!counts.has(sellerId)) {
-    counts.set(sellerId, await sellerReviews(sellerId).catch(() => null))
-  }
-
-  return counts.get(sellerId) === 0 ? { keep: false, scope: 'out-of-scope', reason: 'Seller has no reviews' } : screening
+  return counts.get(listing.sellerId) === 0 ? { keep: false, scope: 'out-of-scope', reason: 'Seller has no reviews' } : screening
 }
 
 /**
@@ -298,12 +432,14 @@ async function followToCardmarket({
   html,
   identity,
   resolveUrl,
-  delayMs
+  delayMs,
+  pace
 }: {
   html: string
   identity: CardIdentity
   resolveUrl: ResolveUrl | undefined
   delayMs: number
+  pace: Pacer
 }): Promise<string | null> {
   let followed = 0
 
@@ -316,8 +452,7 @@ async function followToCardmarket({
     }
 
     followed += 1
-    await sleep(delayMs)
-    const landed = await resolveUrl(candidate.url)
+    const landed = await pace(candidate.url, delayMs, () => resolveUrl(candidate.url))
     const score = landed ? scoreCardmarketUrl(landed, identity) : null
     if (landed && score != null && score >= 0) {
       return cleanCardmarketUrl(landed)
@@ -328,9 +463,14 @@ async function followToCardmarket({
 }
 
 /** Overview rows carry a clipped description and one small photo; the listing page has both in full. */
-async function loadListingDetail(listing: SourceListing, fetchPage: FetchCardmarketPage): Promise<SourceListing> {
+async function loadListingDetail(
+  listing: SourceListing,
+  fetchPage: FetchCardmarketPage,
+  pace: Pacer,
+  delayMs: number
+): Promise<SourceListing> {
   try {
-    const html = await fetchPage(listing.listingUrl)
+    const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
     const detail = listing.source === 'marktplaats' ? parseMarktplaatsDetail(html) : parseVintedDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
@@ -379,25 +519,40 @@ export async function runDealFinderScan({
   const report = emptyReport(now.toISOString())
   const cache: DealFinderCache = usableCache(previousCache)
   const ids = ownListingIds(ownListings)
-  const listings: SourceListing[] = []
+  const pace = createPacer()
+  // A listing page is paced far more lightly than a search or a Cardmarket load, but a
+  // caller that asked for no pauses at all — a test — still gets none.
+  const listingDelayMs = Math.min(delayMs, LISTING_DELAY_MS)
 
-  for (const [source, url] of [
-    ['marktplaats', marktplaatsUrl],
-    ['vinted', vintedUrl]
-  ] as const) {
-    report.sources.push(
-      await collectSource({
+  // Marktplaats and Vinted are different sites with nothing to say to each other, so
+  // neither has any reason to wait for the other's search to finish.
+  const collected = await Promise.all(
+    (
+      [
+        ['marktplaats', marktplaatsUrl],
+        ['vinted', vintedUrl]
+      ] as const
+    ).map(([source, url]) =>
+      collectSource({
         source,
         url,
         fetchPage,
         ids,
-        candidates: listings,
-        report,
         delayMs,
+        pace,
         sellerReviews,
         maxPages: maxPages?.[source] ?? PAGING[source].maxPages
       })
     )
+  )
+
+  const listings: SourceListing[] = []
+  for (const source of collected) {
+    report.sources.push(source.summary)
+    report.problems.push(...source.problems)
+    report.errors.push(...source.errors)
+    report.outOfScope += source.outOfScope
+    listings.push(...source.listings)
   }
 
   if (!readSlabs) {
@@ -413,16 +568,30 @@ export async function runDealFinderScan({
   const candidates: Candidate[] = listings.map((listing) => ({ listing, entry: cache.entries[listing.id] }))
   console.info(`[deal-finder] ${candidates.length} listings to check (${report.outOfScope} out of scope)`)
 
-  for (const [index, candidate] of candidates.entries()) {
-    if (index > 0) {
-      await sleep(delayMs)
-    }
-
+  /**
+   * Working out which card a listing shows — its page, its photos, the label on the
+   * slab — needs neither the browser nor Cardmarket, so every listing's turn at it is
+   * started now and several run at once. The loop below then takes them in order, and
+   * a listing is nearly always worked out by the time its turn comes: what used to be
+   * the slowest thing in a scan now happens while the Google and Cardmarket pages for
+   * the listings ahead of it are loading.
+   */
+  const preparing = candidates.map(() => deferred<Prepared>())
+  const identifying = mapWithConcurrency(candidates, IDENTIFY_CONCURRENCY, async (candidate, index) => {
     try {
-      await evaluate({ candidate, fetchPage, readSlabs, lookupCert, resolveUrl, cache, now, delayMs, deals, noComps, report, blocked })
+      preparing[index]!.resolve(await identifyCandidate({ candidate, fetchPage, readSlabs, lookupCert, now, pace, listingDelayMs }))
+    } catch (error) {
+      preparing[index]!.resolve({ step: 'failed', listing: candidate.listing, error })
+    }
+  })
+
+  for (const pending of preparing) {
+    const prepared = await pending.promise
+    try {
+      await evaluatePrepared({ prepared, fetchPage, resolveUrl, cache, now, delayMs, pace, deals, noComps, report, blocked })
     } catch (error) {
       report.problems.push({
-        ...listingRef(candidate.listing),
+        ...listingRef(prepared.listing),
         stage: 'price',
         reason: 'Checking this listing failed',
         detail: error instanceof Error ? error.message : String(error),
@@ -432,12 +601,12 @@ export async function runDealFinderScan({
       })
     }
   }
+  await identifying
 
   // Cardmarket's bot check needs a human; retry those listings once the run is over,
   // by which time the challenge in the Chrome window has usually been cleared.
   for (const pending of blocked) {
-    await sleep(delayMs)
-    await priceEvaluated({ evaluated: pending, fetchPage, cache, now, deals, noComps, report, retry: false })
+    await priceEvaluated({ evaluated: pending, fetchPage, cache, now, delayMs, pace, deals, noComps, report, retry: false })
   }
 
   report.deals = sortDeals(deals)
@@ -450,33 +619,39 @@ export async function runDealFinderScan({
   return { report, cache: pruneCache(cache, new Set(listings.map((listing) => listing.id))) }
 }
 
-async function evaluate({
+/**
+ * What a listing came to before anything had to be asked of Google or Cardmarket.
+ *
+ * Nothing here touches the report or the cache. Several listings are worked out at
+ * once, and a report written from whichever finished first would come out in a
+ * different order every run — so what each one found is handed back, and the loop that
+ * consumes them in order is the only thing that writes anything down.
+ */
+type Prepared =
+  | { step: 'priced'; listing: SourceListing; entry: CacheEntry }
+  | { step: 'matched'; listing: SourceListing; evaluated: Evaluated }
+  | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; googleUrl: string }
+  | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
+  | { step: 'failed'; listing: SourceListing; error: unknown }
+
+/** Read the listing page and its photos, and say which card is in the slab. */
+async function identifyCandidate({
   candidate,
   fetchPage,
   readSlabs,
   lookupCert,
-  resolveUrl,
-  cache,
   now,
-  delayMs,
-  deals,
-  noComps,
-  report,
-  blocked
+  pace,
+  listingDelayMs
 }: {
   candidate: Candidate
   fetchPage: FetchCardmarketPage
   readSlabs?: SlabReader
   lookupCert?: CertLookup
-  resolveUrl?: ResolveUrl
-  cache: DealFinderCache
   now: Date
-  delayMs: number
-  deals: DealRow[]
-  noComps: NoCompsRow[]
-  report: DealFinderReport
-  blocked: Evaluated[]
-}): Promise<void> {
+  pace: Pacer
+  listingDelayMs: number
+}): Promise<Prepared> {
   const cached = candidate.entry
   // Postage is only printed on the listing page, so a listing answered out of the cache
   // keeps the figure the scan that did open that page read there.
@@ -484,120 +659,190 @@ async function evaluate({
     candidate.listing.shipping == null && cached?.shipping != null ? { ...candidate.listing, shipping: cached.shipping } : candidate.listing
 
   if (hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
+    return { step: 'priced', listing, entry: cached }
+  }
+
+  const fresh = hasFreshIdentity(cached, now)
+  const identity = fresh ? cached.identity! : null
+  const label = fresh ? cached.label : null
+  const query = fresh ? cached.query : null
+  const googleUrl = fresh ? cached.googleUrl : null
+  const cardmarketUrl = fresh ? cached.cardmarketUrl : null
+
+  // A half-written cache entry (identity but no Cardmarket page) is repaired by redoing the lookup.
+  if (identity && query && googleUrl && cardmarketUrl) {
+    return { step: 'matched', listing, evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl } }
+  }
+
+  const detailed = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+
+  let reading: SlabReading = { slabs: [], note: null }
+  if (readSlabs && detailed.imageUrls.length > 0) {
+    try {
+      reading = await readSlabs({ listing: detailed, imageUrls: detailed.imageUrls.slice(0, MAX_PHOTOS_PER_LISTING) })
+    } catch (error) {
+      reading = { slabs: [], note: error instanceof Error ? error.message : 'Could not read the photos.' }
+    }
+  }
+
+  let cert: PsaLabel | null = null
+  const certNumber = reading.slabs.length === 1 ? reading.slabs[0]!.certNumber : null
+  if (certNumber && lookupCert) {
+    try {
+      cert = await lookupCert(certNumber)
+    } catch {
+      // PSA's free tier is capped and occasionally down — the label alone is enough.
+      cert = null
+    }
+  }
+
+  const identified = identifyCard({ listing: detailed, slabs: reading.slabs, cert, readerNote: reading.note })
+  if (!identified.ok) {
+    return { step: 'unidentified', listing: detailed, scope: identified.scope, reason: identified.reason, detail: identified.detail }
+  }
+
+  const searchQuery = buildSearchQuery(identified.identity, identified.label)
+  return {
+    step: 'search',
+    listing: detailed,
+    identity: identified.identity,
+    label: identified.label,
+    query: searchQuery,
+    googleUrl: googleSearchUrl(searchQuery)
+  }
+}
+
+/** Take an identified listing to Google and Cardmarket, and write down what came back. */
+async function evaluatePrepared({
+  prepared,
+  fetchPage,
+  resolveUrl,
+  cache,
+  now,
+  delayMs,
+  pace,
+  deals,
+  noComps,
+  report,
+  blocked
+}: {
+  prepared: Prepared
+  fetchPage: FetchCardmarketPage
+  resolveUrl?: ResolveUrl
+  cache: DealFinderCache
+  now: Date
+  delayMs: number
+  pace: Pacer
+  deals: DealRow[]
+  noComps: NoCompsRow[]
+  report: DealFinderReport
+  blocked: Evaluated[]
+}): Promise<void> {
+  if (prepared.step === 'failed') {
+    throw prepared.error
+  }
+
+  if (prepared.step === 'priced') {
+    const { listing, entry } = prepared
     report.fromCache += 1
     bucket({
       listing,
-      identity: cached.identity,
-      cardmarketUrl: cached.cardmarketUrl,
-      googleUrl: cached.googleUrl,
-      query: cached.query,
-      floor: cached.floor!,
-      comps: cached.comps,
+      identity: entry.identity!,
+      cardmarketUrl: entry.cardmarketUrl!,
+      googleUrl: entry.googleUrl,
+      query: entry.query,
+      floor: entry.floor!,
+      comps: entry.comps,
       deals,
       report
     })
     return
   }
 
-  let identity = hasFreshIdentity(cached, now) ? cached.identity! : null
-  let label = hasFreshIdentity(cached, now) ? cached.label : null
-  let query = hasFreshIdentity(cached, now) ? cached.query : null
-  let googleUrl = hasFreshIdentity(cached, now) ? cached.googleUrl : null
-  let cardmarketUrl = hasFreshIdentity(cached, now) ? cached.cardmarketUrl : null
-  let detailed = listing
-
-  // A half-written cache entry (identity but no Cardmarket page) is repaired by redoing the lookup.
-  if (!identity || !query || !googleUrl || !cardmarketUrl) {
-    detailed = await loadListingDetail(listing, fetchPage)
-
-    let reading: SlabReading = { slabs: [], note: null }
-    if (readSlabs && detailed.imageUrls.length > 0) {
-      try {
-        reading = await readSlabs({ listing: detailed, imageUrls: detailed.imageUrls.slice(0, MAX_PHOTOS_PER_LISTING) })
-      } catch (error) {
-        reading = { slabs: [], note: error instanceof Error ? error.message : 'Could not read the photos.' }
-      }
-    }
-
-    let cert: PsaLabel | null = null
-    const certNumber = reading.slabs.length === 1 ? reading.slabs[0]!.certNumber : null
-    if (certNumber && lookupCert) {
-      try {
-        cert = await lookupCert(certNumber)
-      } catch {
-        // PSA's free tier is capped and occasionally down — the label alone is enough.
-        cert = null
-      }
-    }
-
-    const identified = identifyCard({ listing: detailed, slabs: reading.slabs, cert, readerNote: reading.note })
-    if (!identified.ok) {
-      if (identified.scope === 'out-of-scope') {
-        report.outOfScope += 1
-      } else {
-        report.problems.push({
-          ...listingRef(detailed),
-          stage: 'identify',
-          reason: identified.reason,
-          detail: identified.detail,
-          googleUrl: null,
-          query: null,
-          cardmarketUrl: null
-        })
-      }
-      remember(cache, detailed, now, {
-        identity: null,
-        label: null,
-        query: null,
-        googleUrl: null,
-        cardmarketUrl: null,
-        problem: identified.scope === 'problem' ? { stage: 'identify', reason: identified.reason, detail: identified.detail } : null
-      })
-      return
-    }
-
-    identity = identified.identity
-    label = identified.label
-    query = buildSearchQuery(identity, label)
-    googleUrl = googleSearchUrl(query)
-
-    await sleep(delayMs)
-    const googleHtml = await fetchPage(googleUrl)
-    cardmarketUrl = await followToCardmarket({ html: googleHtml, identity, resolveUrl, delayMs })
-
-    if (!cardmarketUrl) {
+  if (prepared.step === 'unidentified') {
+    const { listing, scope, reason, detail } = prepared
+    if (scope === 'out-of-scope') {
+      report.outOfScope += 1
+    } else {
       report.problems.push({
-        ...listingRef(detailed),
-        stage: 'match',
-        reason: 'No matching Cardmarket page in the Google results',
-        detail: label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null,
-        googleUrl,
-        query,
+        ...listingRef(listing),
+        stage: 'identify',
+        reason,
+        detail,
+        googleUrl: null,
+        query: null,
         cardmarketUrl: null
       })
-      remember(cache, detailed, now, {
-        identity,
-        label,
-        query,
-        googleUrl,
-        cardmarketUrl: null,
-        problem: { stage: 'match', reason: 'No matching Cardmarket page in the Google results', detail: null }
-      })
-      return
     }
+    remember(cache, listing, now, {
+      identity: null,
+      label: null,
+      query: null,
+      googleUrl: null,
+      cardmarketUrl: null,
+      problem: scope === 'problem' ? { stage: 'identify', reason, detail } : null
+    })
+    return
   }
 
-  await priceEvaluated({
-    evaluated: { listing: detailed, identity, label, query: query!, googleUrl: googleUrl!, cardmarketUrl: cardmarketUrl! },
-    fetchPage,
-    cache,
-    now,
-    deals,
-    noComps,
-    report,
-    retry: true,
-    blocked
-  })
+  const evaluated =
+    prepared.step === 'matched'
+      ? prepared.evaluated
+      : await matchToCardmarket({ prepared, fetchPage, resolveUrl, cache, now, delayMs, pace, report })
+  if (!evaluated) {
+    return
+  }
+
+  await priceEvaluated({ evaluated, fetchPage, cache, now, delayMs, pace, deals, noComps, report, retry: true, blocked })
+}
+
+/** Search Google for the card and pick the Cardmarket product page out of the results. */
+async function matchToCardmarket({
+  prepared,
+  fetchPage,
+  resolveUrl,
+  cache,
+  now,
+  delayMs,
+  pace,
+  report
+}: {
+  prepared: Extract<Prepared, { step: 'search' }>
+  fetchPage: FetchCardmarketPage
+  resolveUrl?: ResolveUrl
+  cache: DealFinderCache
+  now: Date
+  delayMs: number
+  pace: Pacer
+  report: DealFinderReport
+}): Promise<Evaluated | null> {
+  const { listing, identity, label, query, googleUrl } = prepared
+
+  const googleHtml = await pace(googleUrl, delayMs, () => fetchPage(googleUrl))
+  const cardmarketUrl = await followToCardmarket({ html: googleHtml, identity, resolveUrl, delayMs, pace })
+
+  if (!cardmarketUrl) {
+    report.problems.push({
+      ...listingRef(listing),
+      stage: 'match',
+      reason: 'No matching Cardmarket page in the Google results',
+      detail: label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null,
+      googleUrl,
+      query,
+      cardmarketUrl: null
+    })
+    remember(cache, listing, now, {
+      identity,
+      label,
+      query,
+      googleUrl,
+      cardmarketUrl: null,
+      problem: { stage: 'match', reason: 'No matching Cardmarket page in the Google results', detail: null }
+    })
+    return null
+  }
+
+  return { listing, identity, label, query, googleUrl, cardmarketUrl }
 }
 
 /** Load the Cardmarket offers page and turn it into a deal, a no-comps row or a problem. */
@@ -606,6 +851,8 @@ async function priceEvaluated({
   fetchPage,
   cache,
   now,
+  delayMs,
+  pace,
   deals,
   noComps,
   report,
@@ -616,6 +863,8 @@ async function priceEvaluated({
   fetchPage: FetchCardmarketPage
   cache: DealFinderCache
   now: Date
+  delayMs: number
+  pace: Pacer
   deals: DealRow[]
   noComps: NoCompsRow[]
   report: DealFinderReport
@@ -627,7 +876,7 @@ async function priceEvaluated({
 
   let priced: ReturnType<typeof priceFromOffers>
   try {
-    const html = await fetchPage(offersUrl, OFFERS_FETCH_OPTIONS(identity.grade))
+    const html = await pace(offersUrl, delayMs, () => fetchPage(offersUrl, OFFERS_FETCH_OPTIONS(identity.grade)))
     priced = priceFromOffers(html, identity.grade)
   } catch (error) {
     if (error instanceof CardmarketBlockedError && retry && blocked) {

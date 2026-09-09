@@ -213,7 +213,19 @@ describe('runDealFinderScan', () => {
           ask: 120,
           shipping: null,
           identifiedAt: new Date().toISOString(),
-          identity: { name: 'Lechonk', cardNumber: null, setName: 'S', setCode: 'S', language: 'english' as const, grade: 10 as const, reverseHolo: false, firstEdition: false, certNumber: null, signals: ['title' as const], confidence: 'high' as const },
+          identity: {
+            name: 'Lechonk',
+            cardNumber: null,
+            setName: 'S',
+            setCode: 'S',
+            language: 'english' as const,
+            grade: 10 as const,
+            reverseHolo: false,
+            firstEdition: false,
+            certNumber: null,
+            signals: ['title' as const],
+            confidence: 'high' as const
+          },
           label: null,
           query: 'x',
           googleUrl: 'https://www.google.com/search?q=x',
@@ -681,6 +693,76 @@ describe('runDealFinderScan', () => {
 
       expect(report.deals).toHaveLength(0)
       expect(report.problems).toEqual([expect.objectContaining({ stage: 'price', reason: 'Cardmarket bot check blocked this card' })])
+    })
+  })
+
+  describe('reading several listings at once', () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+    it('reads both searches at once, and still reports them in source order', async () => {
+      const started: string[] = []
+      const finished: string[] = []
+      const { fetchPage } = fetcher({
+        marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+        vinted: vintedOverview([{ id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
+        google: () => googleResults('151', 'Charmander-V2-MEW168'),
+        offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+      })
+
+      // Marktplaats' search is the slow one, so if the two were still read one after the
+      // other Vinted's search would not be asked for until it had answered.
+      const delayed = vi.fn(async (url: string) => {
+        const search = url.startsWith(MARKTPLAATS_API) ? 'marktplaats' : url.startsWith(VINTED_URL) ? 'vinted' : null
+        if (search) {
+          started.push(search)
+        }
+        if (search === 'marktplaats') {
+          await sleep(20)
+        }
+        const html = await fetchPage(url)
+        if (search) {
+          finished.push(search)
+        }
+        return html
+      })
+
+      const { report } = await run({ fetchPage: delayed, readSlabs: readCharmander })
+
+      // Vinted's first page — and its second — go out while Marktplaats is still answering.
+      expect(started.slice(0, 2)).toEqual(['marktplaats', 'vinted'])
+      expect(finished[0]).toBe('vinted')
+      // Vinted answered first, but the report is written in source order all the same.
+      expect(report.sources.map((source) => source.source)).toEqual(['marktplaats', 'vinted'])
+      expect(report.deals.map((deal) => deal.id).sort()).toEqual(['marktplaats:m1', 'vinted:901'])
+    })
+
+    it('keeps problems in listing order when a slow photo read finishes last', async () => {
+      const { fetchPage } = fetcher({
+        marktplaats: marktplaatsOverview([
+          { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 },
+          { id: 'm2', title: 'Charmander 168/165 151 PSA 9', cents: 11000 },
+          { id: 'm3', title: 'Charmander 168/165 151 PSA 9', cents: 10000 }
+        ]),
+        google: () => '<html></html>',
+        offers: () => offersPage([])
+      })
+
+      // Photos are read several listings at a time, so the first listing's reading is
+      // the last one to come back — the order they finish in is not the report's order.
+      const order: string[] = []
+      const readSlabs: SlabReader = async ({ listing }) => {
+        if (listing.id === 'marktplaats:m1') {
+          await sleep(30)
+        }
+        order.push(listing.id)
+        return { slabs: [slab()], note: null }
+      }
+
+      const { report } = await run({ fetchPage, readSlabs })
+
+      expect(order).toEqual(['marktplaats:m2', 'marktplaats:m3', 'marktplaats:m1'])
+      expect(report.problems.map((problem) => problem.id)).toEqual(['marktplaats:m1', 'marktplaats:m2', 'marktplaats:m3'])
+      expect(report.problems.every((problem) => problem.stage === 'match')).toBe(true)
     })
   })
 

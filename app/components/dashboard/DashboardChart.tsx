@@ -84,58 +84,66 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   const notes = [...(suggestion?.notes ?? []), ...(item.error ? [item.error] : [])]
 
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-      <div className="relative size-36 shrink-0 overflow-hidden rounded-md bg-site-mid ring-1 ring-site-mulled-wine">
-        {item.image ? (
-          <Image
-            src={item.image}
-            alt=""
-            title=""
-            width={288}
-            height={288}
-            maxwidth={400}
-            sizes="144px"
-            aria-hidden
-            className="absolute inset-0 size-full object-contain p-1.5"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
-        {listings.length > 0 || notes.length > 0 ? (
-          <ul className="mt-1 grid w-max grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
-            {listings.map(({ listing, suffix }) => {
-              const vsListed = listing.price - item.listed
-              return (
-                <li key={`${listing.id}-${suffix ?? 'live'}`} className="col-span-full grid grid-cols-subgrid">
-                  <span className="min-w-0 truncate">{listing.comment}</span>
-                  <span className="min-w-0 truncate">
-                    {listing.seller}
-                    {suffix ? ` ${suffix}` : null}
-                  </span>
-                  <span className="min-w-0 truncate tabular-nums">{formatListedEuros(listing.price)}</span>
-                  <span className={`min-w-0 truncate tabular-nums font-semibold ${vsListed === 0 ? '' : moneyTone(vsListed)}`}>
-                    {vsListed === 0 ? '' : formatSignedEuros(vsListed)}
-                  </span>
+    <li>
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        title="Open on Cardmarket"
+        className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 no-underline smooth hover:opacity-80 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6"
+      >
+        <div className="relative size-36 shrink-0 overflow-hidden rounded-md bg-site-mid ring-1 ring-site-mulled-wine">
+          {item.image ? (
+            <Image
+              src={item.image}
+              alt=""
+              title=""
+              width={288}
+              height={288}
+              maxwidth={400}
+              sizes="144px"
+              aria-hidden
+              className="absolute inset-0 size-full object-contain p-1.5"
+            />
+          ) : null}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
+          {listings.length > 0 || notes.length > 0 ? (
+            <ul className="mt-1 grid w-max grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
+              {listings.map(({ listing, suffix }) => {
+                const vsListed = listing.price - item.listed
+                return (
+                  <li key={`${listing.id}-${suffix ?? 'live'}`} className="col-span-full grid grid-cols-subgrid">
+                    <span className="min-w-0 truncate">{listing.comment}</span>
+                    <span className="min-w-0 truncate">
+                      {listing.seller}
+                      {suffix ? ` ${suffix}` : null}
+                    </span>
+                    <span className="min-w-0 truncate tabular-nums">{formatListedEuros(listing.price)}</span>
+                    <span className={`min-w-0 truncate tabular-nums font-semibold ${vsListed === 0 ? '' : moneyTone(vsListed)}`}>
+                      {vsListed === 0 ? '' : formatSignedEuros(vsListed)}
+                    </span>
+                  </li>
+                )
+              })}
+              {notes.map((line) => (
+                <li key={line} className="col-span-full truncate">
+                  {line}
                 </li>
-              )
-            })}
-            {notes.map((line) => (
-              <li key={line} className="col-span-full truncate">
-                {line}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-      <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
-        <PriceFigure label="Current" value={formatListedEuros(item.listed)} />
-        <PriceFigure
-          label="Suggested"
-          value={suggestion ? formatListedEuros(suggestion.target) : '—'}
-          tone={delta == null || delta === 0 ? undefined : moneyTone(delta)}
-        />
-      </div>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+          <PriceFigure label="Current" value={formatListedEuros(item.listed)} />
+          <PriceFigure
+            label="Suggested"
+            value={suggestion ? formatListedEuros(suggestion.target) : '—'}
+            tone={delta == null || delta === 0 ? undefined : moneyTone(delta)}
+          />
+        </div>
+      </a>
     </li>
   )
 }

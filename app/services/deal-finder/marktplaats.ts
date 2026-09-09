@@ -325,7 +325,6 @@ export function isMarktplaatsChallenge(html: string): boolean {
   return MARKTPLAATS_CHALLENGE.test(html)
 }
 
-
 /**
  * Where Marktplaats keeps a seller's review count. The listing feed does not carry it
  * and the listing page only links to it, but this endpoint answers plain JSON keyed on
