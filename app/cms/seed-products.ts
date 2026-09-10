@@ -227,5 +227,21 @@ export const seedProductRecords: ProductRecord[] = [
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
     cost: 25,
     acquiredAt: '2026-09-06'
+  },
+  {
+    id: 13,
+    title: 'Mega Gardevoir ex',
+    subtitle: '2026 Black Star Promo - #032',
+    description:
+      'A Black Star Promo from the 2026 Mega Evolution promo series, number 032, released in the ASC Premium Poster Collection. Promos come from the collection itself, not from a main set print run. This copy is graded PSA 10 Gem Mint, cert 167185846. The PSA population is 7,832.',
+    images: ['/media/mtv6bukp-167185846-front.jpg', '/media/mtv6bjoe-167185846-back.jpg'],
+    pokemonId: 282,
+    price: '€135',
+    language: 'english',
+    grader: 'psa',
+    grade: 10,
+    year: 2026,
+    cost: 72,
+    concept: true
   }
 ]
