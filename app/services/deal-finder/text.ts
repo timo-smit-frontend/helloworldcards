@@ -197,6 +197,31 @@ export function looksUngraded(text: string): boolean {
   return UNGRADED.test(text)
 }
 
+/**
+ * The other grading companies. Their slabs photograph almost exactly like PSA's and sell
+ * in the same searches, but we do not buy them and Cardmarket prices them separately, so
+ * a listing that names one and no PSA grade is theirs rather than ours.
+ *
+ * Only ever consulted once no PSA 9 or 10 was found: plenty of honest listings say
+ * "PSA 10, not CGC" or compare the two, and those are still PSA slabs.
+ */
+const RIVAL_GRADER = /\b(?:cgc|bgs|beckett|sgc|ace\s*grading|collect\s*aura|rgs|tag\s*grading|gradeguard|arsgrading|ars\s*grading)\b/i
+
+export function rivalGrader(text: string): string | null {
+  const match = text.match(RIVAL_GRADER)
+  return match ? match[0].toUpperCase() : null
+}
+
+/**
+ * A seller saying the card is explicitly *not* PSA — "RGS 9 no PSA" is three words of
+ * PSA-adjacent text about a slab from someone else entirely.
+ */
+const NOT_PSA = /\b(?:no|not|geen|zonder|non|sans|nicht|kein[e]?)\s+psa\b/i
+
+export function deniesPsa(text: string): boolean {
+  return NOT_PSA.test(text)
+}
+
 /** True when the only PSA grade in the text is one the seller merely hopes for. */
 export function isSpeculativeGrade(text: string): boolean {
   return ANY_GRADE.test(text) && !ANY_GRADE.test(maskSpeculativeGrades(text))

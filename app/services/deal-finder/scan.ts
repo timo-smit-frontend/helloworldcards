@@ -1,7 +1,8 @@
 import type { FetchCardmarketPage } from '../cardmarket/scan'
 import { CardmarketBlockedError, OFFERS_FETCH_OPTIONS, offersUrlFor, priceFromOffers } from './cardmarket'
-import { hasFreshIdentity, hasFreshPrice, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
+import { hasFreshIdentity, hasFreshPrice, hasSettledVerdict, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
 import {
+  DEAL_SOURCES,
   FETCH_DELAY_MS,
   IDENTIFY_CONCURRENCY,
   IMPLAUSIBLE_FLOOR_GAP,
@@ -33,12 +34,13 @@ import {
   parseMarktplaatsDetail,
   parseMarktplaatsOverview
 } from './marktplaats'
-import { emptyReport, sortDeals, sortNoComps } from './report'
+import { emptyReport, sortDeals, sortNoComps, withTotals } from './report'
 import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
 import type {
   CardIdentity,
   DealFinderReport,
   DealRow,
+  DealSource,
   NoCompsRow,
   ProblemRow,
   PsaLabel,
@@ -49,7 +51,7 @@ import type {
 
 export type { DealFinderCache, DealFinderCacheStore, CacheEntry } from './cache'
 export * from './types'
-export { groupProblems, sortDeals, sortNoComps } from './report'
+export { groupProblems, mergeReports, sortDeals, sortNoComps } from './report'
 export { ownListingIds } from './filters'
 export { displayTitle } from './identify'
 
@@ -150,6 +152,20 @@ export function createPacer(): Pacer {
   }
 }
 
+/**
+ * Count something against the source it came from.
+ *
+ * The report shows these as one number each, but they are kept per source so that a
+ * run of one marketplace replaces only its own share of them — `withTotals` adds the
+ * sources back up once the scan is done.
+ */
+function tally(report: DealFinderReport, source: DealSource, field: 'belowEdge' | 'outOfScope' | 'fromCache'): void {
+  const summary = report.sources.find((entry) => entry.source === source)
+  if (summary) {
+    summary[field] += 1
+  }
+}
+
 function listingRef(listing: SourceListing) {
   return {
     id: listing.id,
@@ -179,8 +195,6 @@ type Collected = {
   summary: SourceSummary
   listings: SourceListing[]
   problems: ProblemRow[]
-  outOfScope: number
-  errors: string[]
 }
 
 /**
@@ -203,9 +217,10 @@ async function collectSource({
   delayMs,
   pace,
   sellerReviews,
-  maxPages
+  maxPages,
+  scannedAt
 }: {
-  source: 'marktplaats' | 'vinted'
+  source: DealSource
   url: string
   fetchPage: FetchCardmarketPage
   ids: OwnListingIds
@@ -213,12 +228,13 @@ async function collectSource({
   pace: Pacer
   sellerReviews?: SellerReviews
   maxPages: number
+  scannedAt: string
 }): Promise<Collected> {
   const { pageUrl } = PAGING[source]
   const seen = new Set<string>()
   const listings: SourceListing[] = []
   const problems: ProblemRow[] = []
-  const errors: string[] = []
+  const notes: string[] = []
   let found = 0
   let outOfScope = 0
   let total: number | null = null
@@ -228,11 +244,22 @@ async function collectSource({
   const reviewCounts = new Map<string, number | null>()
 
   const failed = (error: string): Collected => ({
-    summary: { source, url, found: 0, candidates: 0, error, total, truncated: null },
+    summary: {
+      source,
+      url,
+      scannedAt,
+      found: 0,
+      candidates: 0,
+      error,
+      total,
+      truncated: null,
+      notes: [],
+      belowEdge: 0,
+      outOfScope: 0,
+      fromCache: 0
+    },
     listings: [],
-    problems: [],
-    outOfScope: 0,
-    errors: []
+    problems: []
   })
 
   for (let page = 1; page <= maxPages; page += 1) {
@@ -245,7 +272,7 @@ async function collectSource({
       if (page === 1) {
         return failed(reason)
       }
-      errors.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
+      notes.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
       break
     }
 
@@ -254,7 +281,7 @@ async function collectSource({
       if (page === 1) {
         return failed(`${label(source)} showed a bot check instead of results.`)
       }
-      errors.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
+      notes.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
       break
     }
 
@@ -318,16 +345,19 @@ async function collectSource({
     summary: {
       source,
       url,
+      scannedAt,
       found,
       candidates: listings.length,
       error: null,
       total,
-      truncated: truncation({ source, found, total, capped, reachedEnd, maxPages })
+      truncated: truncation({ source, found, total, capped, reachedEnd, maxPages }),
+      notes,
+      belowEdge: 0,
+      outOfScope,
+      fromCache: 0
     },
     listings,
-    problems,
-    outOfScope,
-    errors
+    problems
   }
 }
 
@@ -494,6 +524,7 @@ export async function runDealFinderScan({
   sellerReviews,
   cache: previousCache,
   ownListings = [],
+  sources = DEAL_SOURCES,
   marktplaatsUrl = MARKTPLAATS_SEARCH_URL,
   vintedUrl = VINTED_SEARCH_URL,
   maxPages,
@@ -509,10 +540,12 @@ export async function runDealFinderScan({
   sellerReviews?: SellerReviews
   cache?: DealFinderCache | null
   ownListings?: Array<{ marktplaatsUrl?: string | null; vintedUrl?: string | null }>
+  /** Which marketplaces to walk. Each can be run on its own; both by default. */
+  sources?: readonly DealSource[]
   marktplaatsUrl?: string
   vintedUrl?: string
   /** How many pages to read per source; the defaults are in `constants.ts`. */
-  maxPages?: Partial<Record<'marktplaats' | 'vinted', number>>
+  maxPages?: Partial<Record<DealSource, number>>
   now?: Date
   delayMs?: number
 }): Promise<{ report: DealFinderReport; cache: DealFinderCache }> {
@@ -524,24 +557,25 @@ export async function runDealFinderScan({
   // caller that asked for no pauses at all — a test — still gets none.
   const listingDelayMs = Math.min(delayMs, LISTING_DELAY_MS)
 
+  const searchUrls: Record<DealSource, string> = { marktplaats: marktplaatsUrl, vinted: vintedUrl }
+  const walking = DEAL_SOURCES.filter((source) => sources.includes(source))
+
   // Marktplaats and Vinted are different sites with nothing to say to each other, so
-  // neither has any reason to wait for the other's search to finish.
+  // neither has any reason to wait for the other's search to finish — and either can be
+  // asked for on its own, which is what keeps one marketplace's bot check from costing
+  // you the other's results.
   const collected = await Promise.all(
-    (
-      [
-        ['marktplaats', marktplaatsUrl],
-        ['vinted', vintedUrl]
-      ] as const
-    ).map(([source, url]) =>
+    walking.map((source) =>
       collectSource({
         source,
-        url,
+        url: searchUrls[source],
         fetchPage,
         ids,
         delayMs,
         pace,
         sellerReviews,
-        maxPages: maxPages?.[source] ?? PAGING[source].maxPages
+        maxPages: maxPages?.[source] ?? PAGING[source].maxPages,
+        scannedAt: report.scannedAt
       })
     )
   )
@@ -550,8 +584,6 @@ export async function runDealFinderScan({
   for (const source of collected) {
     report.sources.push(source.summary)
     report.problems.push(...source.problems)
-    report.errors.push(...source.errors)
-    report.outOfScope += source.outOfScope
     listings.push(...source.listings)
   }
 
@@ -566,7 +598,9 @@ export async function runDealFinderScan({
   const blocked: Evaluated[] = []
 
   const candidates: Candidate[] = listings.map((listing) => ({ listing, entry: cache.entries[listing.id] }))
-  console.info(`[deal-finder] ${candidates.length} listings to check (${report.outOfScope} out of scope)`)
+  console.info(
+    `[deal-finder] ${walking.join(' + ')}: ${candidates.length} listings to check (${withTotals(report).outOfScope} out of scope)`
+  )
 
   /**
    * Working out which card a listing shows — its page, its photos, the label on the
@@ -612,11 +646,12 @@ export async function runDealFinderScan({
   report.deals = sortDeals(deals)
   report.noComps = sortNoComps(noComps)
 
+  const scanned = withTotals(report)
   console.info(
-    `[deal-finder] ${report.deals.length} deals, ${report.noComps.length} without comps, ${report.belowEdge} below €${MIN_EDGE}, ${report.problems.length} problems, ${report.fromCache} from cache`
+    `[deal-finder] ${walking.join(' + ')}: ${scanned.deals.length} deals, ${scanned.noComps.length} without comps, ${scanned.belowEdge} below €${MIN_EDGE}, ${scanned.problems.length} problems, ${scanned.fromCache} from cache`
   )
 
-  return { report, cache: pruneCache(cache, new Set(listings.map((listing) => listing.id))) }
+  return { report: scanned, cache: pruneCache(cache, new Set(listings.map((listing) => listing.id)), walking) }
 }
 
 /**
@@ -629,6 +664,7 @@ export async function runDealFinderScan({
  */
 type Prepared =
   | { step: 'priced'; listing: SourceListing; entry: CacheEntry }
+  | { step: 'settled'; listing: SourceListing; entry: CacheEntry }
   | { step: 'matched'; listing: SourceListing; evaluated: Evaluated }
   | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; googleUrl: string }
   | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
@@ -660,6 +696,12 @@ async function identifyCandidate({
 
   if (hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
     return { step: 'priced', listing, entry: cached }
+  }
+
+  // Already looked at, and it came to nothing. Answering from what that scan concluded is
+  // the whole reason two scans of an overlapping feed do not cost the same as two scans.
+  if (hasSettledVerdict(cached, now, listing.ask)) {
+    return { step: 'settled', listing, entry: cached }
   }
 
   const fresh = hasFreshIdentity(cached, now)
@@ -744,7 +786,7 @@ async function evaluatePrepared({
 
   if (prepared.step === 'priced') {
     const { listing, entry } = prepared
-    report.fromCache += 1
+    tally(report, listing.source, 'fromCache')
     bucket({
       listing,
       identity: entry.identity!,
@@ -759,10 +801,31 @@ async function evaluatePrepared({
     return
   }
 
+  if (prepared.step === 'settled') {
+    const { listing, entry } = prepared
+    tally(report, listing.source, 'fromCache')
+    if (!entry.problem) {
+      tally(report, listing.source, 'outOfScope')
+      return
+    }
+    report.problems.push({
+      ...listingRef(listing),
+      stage: entry.problem.stage,
+      reason: entry.problem.reason,
+      detail: entry.problem.detail,
+      googleUrl: entry.googleUrl,
+      query: entry.query,
+      cardmarketUrl: entry.cardmarketUrl
+    })
+    // Deliberately not re-remembered: the week runs from the scan that did the reading,
+    // so a written-off listing is looked at again eventually rather than never.
+    return
+  }
+
   if (prepared.step === 'unidentified') {
     const { listing, scope, reason, detail } = prepared
     if (scope === 'out-of-scope') {
-      report.outOfScope += 1
+      tally(report, listing.source, 'outOfScope')
     } else {
       report.problems.push({
         ...listingRef(listing),
@@ -968,7 +1031,7 @@ function bucket({
   const cost = listingCost(listing)
   const edge = Math.round((floor - cost.total) * 100) / 100
   if (edge < MIN_EDGE) {
-    report.belowEdge += 1
+    tally(report, listing.source, 'belowEdge')
     return
   }
 

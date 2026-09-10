@@ -1,3 +1,4 @@
+import { isPopularCard, POPULAR_STAR } from './popular'
 import { describePsaLabel, looksLikeLabelText, psaSetCode } from './psa-label'
 import {
   detectCardName,
@@ -186,9 +187,16 @@ export function identifyCard({
   }
 }
 
-/** `Charizard ex (PAF 234) EN — PSA 10` */
+/**
+ * `★ Charizard ex (PAF 234) EN — PSA 10`
+ *
+ * The star says the card is one of the names in `popular.ts` — worth looking at before
+ * the rows around it, nothing more. It leads the title because the dashboard truncates
+ * these, and a mark you have to scroll to see is a mark you will not see.
+ */
 export function displayTitle(identity: CardIdentity): string {
   const set = [identity.setName, identity.cardNumber].filter(Boolean).join(' ')
   const language = identity.language === 'japanese' ? 'JP' : 'EN'
-  return `${identity.name}${set ? ` (${set})` : ''} ${language} — PSA ${identity.grade}`
+  const star = isPopularCard(identity.name) ? `${POPULAR_STAR} ` : ''
+  return `${star}${identity.name}${set ? ` (${set})` : ''} ${language} — PSA ${identity.grade}`
 }

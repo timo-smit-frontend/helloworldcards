@@ -281,11 +281,13 @@ function cmsApiMiddleware(root: string) {
 
       let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
       let scanBrowserError: string | undefined
+      // The deal finder scan is one route per marketplace as well as a combined one,
+      // and every one of them drives the Chrome window.
       const needsBrowser =
         (url === '/dashboard/cardmarket/scan' ||
           url === '/api/admin/cardmarket/scan' ||
-          url === '/dashboard/deal-finder/scan' ||
-          url === '/api/admin/deal-finder/scan') &&
+          url.startsWith('/dashboard/deal-finder/scan') ||
+          url.startsWith('/api/admin/deal-finder/scan')) &&
         req.method === 'POST'
       if (needsBrowser) {
         try {
@@ -301,7 +303,9 @@ function cmsApiMiddleware(root: string) {
         const env = loadDashboardEnv(root)
         const withBrowser = {
           ...runtime,
-          ...(browser ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews } : {}),
+          ...(browser
+            ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews }
+            : {}),
           ...(scanBrowserError ? { scanBrowserError } : {})
         }
 

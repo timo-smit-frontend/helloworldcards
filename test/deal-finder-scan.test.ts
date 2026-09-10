@@ -309,7 +309,7 @@ describe('runDealFinderScan', () => {
       cost: { fee: 6, shipping: 4, total: 130 },
       marketFloor: 170,
       edge: 40,
-      displayTitle: 'Charmander (MEW 168) EN — PSA 9'
+      displayTitle: '★ Charmander (MEW 168) EN — PSA 9'
     })
     expect(report.deals[0]?.cardmarketUrl).toContain('cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168')
   })
@@ -473,18 +473,18 @@ describe('runDealFinderScan', () => {
     expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API)).map(pageNumber)).toEqual([1, 2])
   })
 
-  it('reads only the first two pages of Vinted, which has no date filter', async () => {
+  it('reads only the first three pages of Vinted, which has no date filter', async () => {
     const vinted = (id: string) => vintedOverview([{ id, title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }])
     const { fetchPage, calls } = fetcher({
-      vinted: [vinted('901'), vinted('902'), vinted('903')],
+      vinted: [vinted('901'), vinted('902'), vinted('903'), vinted('904')],
       google: () => googleResults('151', 'Charmander-V2-MEW168'),
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     })
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
-    expect(report.deals.map((deal) => deal.id).sort()).toEqual(['vinted:901', 'vinted:902'])
-    expect(calls.filter((url) => url.startsWith(VINTED_URL)).map(pageNumber)).toEqual([1, 2])
+    expect(report.deals.map((deal) => deal.id).sort()).toEqual(['vinted:901', 'vinted:902', 'vinted:903'])
+    expect(calls.filter((url) => url.startsWith(VINTED_URL)).map(pageNumber)).toEqual([1, 2, 3])
   })
 
   it('keeps the earlier pages when a later one is blocked', async () => {
@@ -502,7 +502,79 @@ describe('runDealFinderScan', () => {
 
     expect(report.deals).toHaveLength(1)
     expect(report.sources[0]?.error).toBeNull()
-    expect(report.errors).toContain('Marktplaats showed a bot check on page 2 — stopped after page 1.')
+    expect(report.sources[0]?.notes).toContain('Marktplaats showed a bot check on page 2 — stopped after page 1.')
+  })
+
+  it('walks only the source it was asked for', async () => {
+    const { fetchPage, calls } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      vinted: vintedOverview([{ id: '900', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, sources: ['vinted'] })
+
+    expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:900'])
+    expect(report.sources.map((source) => source.source)).toEqual(['vinted'])
+    // Marktplaats is not asked for anything at all, not even its search page.
+    expect(calls.filter((url) => url.includes('marktplaats'))).toEqual([])
+  })
+
+  it("leaves the other marketplace's cached listings alone when only one is scanned", async () => {
+    const cached: DealFinderCache = {
+      version: CACHE_VERSION,
+      entries: {
+        'marktplaats:m1': {
+          id: 'marktplaats:m1',
+          ask: 120,
+          shipping: null,
+          identifiedAt: new Date().toISOString(),
+          identity: null,
+          label: null,
+          query: null,
+          googleUrl: null,
+          cardmarketUrl: null,
+          pricedAt: null,
+          floor: null,
+          comps: [],
+          problem: null
+        }
+      }
+    }
+
+    const { fetchPage } = fetcher({
+      vinted: vintedOverview([{ id: '900', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { cache } = await run({ fetchPage, readSlabs: readCharmander, sources: ['vinted'], cache: cached })
+
+    // A Vinted run knows nothing about which Marktplaats listings are still up, so
+    // dropping them would only make the next Marktplaats run re-read every photo.
+    expect(Object.keys(cache.entries).sort()).toEqual(['marktplaats:m1', 'vinted:900'])
+  })
+
+  it('counts what each source contributed on that source', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([
+        { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 },
+        { id: 'm2', title: 'Pokemon kaarten partij', cents: 12000, type: 'Meerdere kaarten' }
+      ]),
+      vinted: vintedOverview([{ id: '900', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.sources.map((source) => ({ source: source.source, outOfScope: source.outOfScope }))).toEqual([
+      { source: 'marktplaats', outOfScope: 1 },
+      { source: 'vinted', outOfScope: 0 }
+    ])
+    // The report's own number is only the sources added back up.
+    expect(report.outOfScope).toBe(1)
   })
 
   it('says the search was too broad when it could not read to the end of the results', async () => {
@@ -567,6 +639,20 @@ describe('runDealFinderScan', () => {
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     }
 
+    const charmanderIdentity = {
+      name: 'Charmander',
+      cardNumber: '168',
+      setName: '151',
+      setCode: 'MEW',
+      language: 'english',
+      grade: 9,
+      reverseHolo: false,
+      firstEdition: false,
+      certNumber: null,
+      signals: ['title'],
+      confidence: 'medium'
+    } as const
+
     it('reuses a recent result instead of re-reading the photos', async () => {
       const first = fetcher(pages)
       const readSlabs = vi.fn(readCharmander)
@@ -591,19 +677,7 @@ describe('runDealFinderScan', () => {
             ask: 120,
             shipping: null,
             identifiedAt: new Date(Date.now() - 60_000).toISOString(),
-            identity: {
-              name: 'Charmander',
-              cardNumber: '168',
-              setName: '151',
-              setCode: 'MEW',
-              language: 'english',
-              grade: 9,
-              reverseHolo: false,
-              firstEdition: false,
-              certNumber: null,
-              signals: ['title'],
-              confidence: 'medium'
-            },
+            identity: charmanderIdentity,
             label: null,
             query: 'Charmander 151 #168 english cardmarket',
             googleUrl: 'https://www.google.com/search?q=x',
@@ -624,6 +698,102 @@ describe('runDealFinderScan', () => {
       // The identity was still good, so the photos were not read again.
       expect(readSlabs).not.toHaveBeenCalled()
       expect(report.deals[0]?.marketFloor).toBe(170)
+    })
+
+    /** Whatever a run concluded about `m1`, written as the cache would have written it. */
+    function remembered(patch: Partial<DealFinderCache['entries'][string]>): DealFinderCache {
+      return {
+        version: CACHE_VERSION,
+        entries: {
+          'marktplaats:m1': {
+            id: 'marktplaats:m1',
+            ask: 120,
+            shipping: null,
+            identifiedAt: new Date(Date.now() - 60_000).toISOString(),
+            identity: null,
+            label: null,
+            query: null,
+            googleUrl: null,
+            cardmarketUrl: null,
+            pricedAt: null,
+            floor: null,
+            comps: [],
+            problem: null,
+            ...patch
+          }
+        }
+      }
+    }
+
+    it('does not read the photos again of a listing it already wrote off', async () => {
+      const cache = remembered({ problem: { stage: 'identify', reason: 'No card number or set on the listing or the slab', detail: null } })
+      const second = fetcher(pages)
+      const readSlabs = vi.fn(readCharmander)
+
+      const { report } = await run({ fetchPage: second.fetchPage, readSlabs, cache })
+
+      expect(readSlabs).not.toHaveBeenCalled()
+      expect(report.fromCache).toBe(1)
+      expect(report.problems.map((row) => row.reason)).toEqual(['No card number or set on the listing or the slab'])
+      // Only the search pages — the listing page was never opened.
+      expect(second.calls.every((url) => url.startsWith(MARKTPLAATS_API) || url.startsWith(VINTED_URL))).toBe(true)
+    })
+
+    it('does not search Google again for a card it already failed to match', async () => {
+      const cache = remembered({
+        identity: charmanderIdentity,
+        query: 'Charmander 151 #168 english cardmarket',
+        googleUrl: 'https://www.google.com/search?q=x',
+        problem: { stage: 'match', reason: 'No matching Cardmarket page in the Google results', detail: null }
+      })
+      const second = fetcher(pages)
+      const readSlabs = vi.fn(readCharmander)
+
+      const { report } = await run({ fetchPage: second.fetchPage, readSlabs, cache })
+
+      expect(report.fromCache).toBe(1)
+      expect(report.problems[0]?.googleUrl).toBe('https://www.google.com/search?q=x')
+      expect(second.calls.some((url) => url.includes('google.com/search'))).toBe(false)
+    })
+
+    it('counts a remembered out-of-scope listing without checking it again', async () => {
+      const second = fetcher(pages)
+      const readSlabs = vi.fn(readCharmander)
+
+      const { report } = await run({ fetchPage: second.fetchPage, readSlabs, cache: remembered({}) })
+
+      expect(readSlabs).not.toHaveBeenCalled()
+      expect(report.outOfScope).toBe(1)
+      expect(report.fromCache).toBe(1)
+      expect(report.problems).toHaveLength(0)
+    })
+
+    it('checks a written-off listing again once its asking price changes', async () => {
+      const cache = remembered({
+        ask: 95,
+        problem: { stage: 'identify', reason: 'No card number or set on the listing or the slab', detail: null }
+      })
+      const readSlabs = vi.fn(readCharmander)
+
+      const { report } = await run({ fetchPage: fetcher(pages).fetchPage, readSlabs, cache })
+
+      expect(readSlabs).toHaveBeenCalledTimes(1)
+      expect(report.fromCache).toBe(0)
+      expect(report.deals).toHaveLength(1)
+    })
+
+    it('checks a written-off listing again once the week is up', async () => {
+      const cache = remembered({
+        identifiedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        problem: { stage: 'identify', reason: 'No card number or set on the listing or the slab', detail: null }
+      })
+      const readSlabs = vi.fn(readCharmander)
+
+      const { report } = await run({ fetchPage: fetcher(pages).fetchPage, readSlabs, cache })
+
+      expect(readSlabs).toHaveBeenCalledTimes(1)
+      expect(report.fromCache).toBe(0)
+      expect(report.deals).toHaveLength(1)
     })
 
     it('retries anything that failed last time', async () => {

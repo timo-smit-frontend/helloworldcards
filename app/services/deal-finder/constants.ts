@@ -1,20 +1,42 @@
+/**
+ * The two marketplaces the deal finder walks, and the order they are shown in.
+ *
+ * Each one is scanned on its own — a Cardmarket bot check on a Marktplaats run should
+ * not cost you the Vinted results as well — so this is the default set rather than a
+ * fixed one.
+ */
+export const DEAL_SOURCES = ['marktplaats', 'vinted'] as const
+
 /** Every Pokémon PSA listing put up today, under €150. */
 export const MARKTPLAATS_SEARCH_URL =
   'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:Vandaag|PriceCentsTo:15000|postcode:3562LH|view:gallery-view'
 
+/**
+ * `price_from` is `MIN_ASK` said in Vinted's own terms, and it is there to buy reach.
+ *
+ * Vinted has no date filter, so how far back the scan can see is decided entirely by how
+ * much of each page is worth reading — and a quarter of every page used to be cards under
+ * a tenner that `MIN_ASK` threw away after they had been fetched. Asking Vinted not to
+ * send them nearly doubles both the candidates found and the stretch of time the same
+ * three pages cover, without reading a page more.
+ *
+ * The figure is the seller's price, while the ask the scan screens on is that plus Vinted's
+ * buyer protection, so it is set a euro low: a filter that cut where `MIN_ASK` cuts would
+ * be the stricter of the two and would drop cards `MIN_ASK` means to keep.
+ */
 export const VINTED_SEARCH_URL =
-  'https://www.vinted.nl/catalog?search_text=pokemon%20psa&catalog[]=4874&page=1&currency=EUR&order=newest_first&price_to=150'
+  'https://www.vinted.nl/catalog?search_text=pokemon%20psa&catalog[]=4874&page=1&currency=EUR&order=newest_first&price_from=9&price_to=150'
 
 /**
  * How deep to walk each search. Marktplaats reports how many listings today's search
  * has, so the walk ends the moment it has read them all and this bound is only a
  * runaway guard — three pages of a hundred is already the 300 listings Marktplaats
- * will page through at all. Vinted has no date filter, so the two newest pages are
- * all that is worth reading, and the bound is what keeps the scan out of months of
- * catalogue.
+ * will page through at all. Vinted has no date filter, so its bound is what keeps the
+ * scan out of months of catalogue; three pages of newest-first is about as far back as
+ * a listing is still worth finding.
  */
 export const MARKTPLAATS_MAX_PAGES = 3
-export const VINTED_MAX_PAGES = 2
+export const VINTED_MAX_PAGES = 3
 
 /**
  * Only buy-worthy asks, measured against the price each site shows: below this it is
@@ -69,6 +91,19 @@ export const MAX_LOAD_MORE = 30
 export const IDENTITY_TTL_MS = 30 * 24 * 60 * 60 * 1000
 /** Cardmarket prices move, so a cached floor is only reused for half a day. */
 export const PRICE_TTL_MS = 12 * 60 * 60 * 1000
+
+/**
+ * How long a listing stays written off before it is checked again.
+ *
+ * Deciding that a listing is not a PSA 9/10 single, or that Cardmarket has no page for
+ * the card in it, costs the same listing page, photo reads and Google search as a card
+ * that does work out — and the answer is the same every time it is asked, because it is
+ * a reading of photos that have not changed. Scans overlap heavily, so re-checking those
+ * on every run was most of what a second scan of the day spent its time on. They are
+ * remembered instead, and asked again after a week in case the seller added a photo the
+ * label is readable in, or Cardmarket has since listed the card.
+ */
+export const VERDICT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 /** Photos handed to the label reader per listing — the label is rarely past the fourth. */
 export const MAX_PHOTOS_PER_LISTING = 4

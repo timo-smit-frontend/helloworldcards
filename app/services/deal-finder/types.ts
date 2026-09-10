@@ -94,7 +94,7 @@ export type ListingRef = {
 }
 
 export type DealRow = ListingRef & {
-  /** `Charizard ex (PAF 234) EN — PSA 10` */
+  /** `★ Charizard ex (PAF 234) EN — PSA 10`, starred when the card is a popular character. */
   displayTitle: string
   card: CardIdentity
   cardmarketUrl: string
@@ -129,6 +129,14 @@ export type ProblemRow = ListingRef & {
 export type SourceSummary = {
   source: DealSource
   url: string
+  /**
+   * When this source was last walked.
+   *
+   * Marktplaats and Vinted are scanned on their own, so a report almost always holds
+   * one source that was just read and another that was read hours ago. The report's own
+   * `scannedAt` is only the more recent of the two.
+   */
+  scannedAt: string
   found: number
   candidates: number
   error: string | null
@@ -136,9 +144,18 @@ export type SourceSummary = {
   total: number | null
   /** Set when the scan could not reach the end of the results, saying why not. */
   truncated: string | null
+  /** What went wrong part-way through this source's walk, e.g. a page that would not load. */
+  notes: string[]
+  /** Priced fine but the edge was too small to bother with. */
+  belowEdge: number
+  /** Not a PSA 9/10 single in our price range. */
+  outOfScope: number
+  /** Answered from the cache rather than re-checked. */
+  fromCache: number
 }
 
 export type DealFinderReport = {
+  /** The most recent of the per-source scans this report is made of. */
   scannedAt: string
   sources: SourceSummary[]
   /** Cardmarket beats what the card costs to buy by at least MIN_EDGE, best edge first. */
@@ -153,5 +170,6 @@ export type DealFinderReport = {
   outOfScope: number
   /** Listings answered from the cache rather than re-checked. */
   fromCache: number
+  /** Whole-scan problems that belong to no single source. */
   errors: string[]
 }

@@ -252,7 +252,7 @@ function pageLooksChallenged(title: string, html: string): boolean {
 }
 
 /** Pause the scan while the user completes a Cloudflare / Google bot check in Chrome. */
-async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = 180_000): Promise<boolean> {
+async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = BOT_CHECK_WAIT_MS): Promise<boolean> {
   const title = await page.title().catch(() => '')
   const html = await page.content().catch(() => '')
   if (!pageLooksChallenged(title, html)) {
@@ -281,9 +281,18 @@ async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = 1
   return cleared
 }
 
+/**
+ * Land on Cardmarket's Pokémon page once, to pick up the session every offers page
+ * after it needs.
+ *
+ * This is only ever done on demand. Marktplaats and Vinted are read over plain HTTP and
+ * Google is read in the tab, so a sync can walk a whole marketplace — and answer from
+ * cached prices — without a Cardmarket page being wanted at all. Opening one up front
+ * spent a bot check on nobody's behalf.
+ */
 async function warmup(page: Page) {
-  await page.goto('https://www.cardmarket.com/en/Pokemon', { waitUntil: 'domcontentloaded', timeout: 60_000 })
-  await waitForBotChallengeClear(page, 'Cardmarket warmup', 45_000)
+  await page.goto('https://www.cardmarket.com/en/Pokemon', { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
+  await waitForBotChallengeClear(page, 'Cardmarket warmup')
 }
 
 async function killCdpPort(port: number): Promise<void> {
@@ -377,12 +386,16 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
 
   const page = context.pages()[0] ?? (await context.newPage())
   const withTab = createLock()
-  await warmup(page)
+
+  // Warmed up at most once, and only if a Cardmarket page is actually asked for. A
+  // failed warmup is not fatal — the page that wanted it deals with its own bot check.
+  let warmed: Promise<void> | null = null
+  const ensureWarm = () => (warmed ??= warmup(page).catch(() => undefined))
 
   return {
     sellerReviews: marktplaatsSellerReviews,
     async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
-      return await fetchWithBotChecks(page, url, options, withTab)
+      return await fetchWithBotChecks(page, url, options, withTab, ensureWarm)
     },
     async resolveUrl(url: string) {
       return await followRedirect(page, url, withTab)
@@ -461,8 +474,10 @@ async function followRedirect(page: Page, url: string, withTab: TabLock): Promis
 
   return await withTab(async () => {
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
     } catch {
+      // A redirect that will not load is not worth a long wait: there is another
+      // candidate result behind this one, and it is quicker to go and ask that.
       return null
     }
 
@@ -482,11 +497,26 @@ async function followRedirect(page: Page, url: string, withTab: TabLock): Promis
  */
 const CARDMARKET_ATTEMPTS = 3
 
+/**
+ * How long each step of a page load is given before the page is reloaded.
+ *
+ * Every one of these waits ends in the same thing — reload and go again — so none of
+ * them is worth sitting through for long. A Cardmarket page that has dropped into a
+ * spinner does not come out of it, and a bot check nobody is in front of does not clear
+ * itself either: what gets a scan moving again is a fresh page with a fresh checkbox on
+ * it. Three quick attempts put more of those in front of you than one long wait does.
+ */
+const LOAD_TIMEOUT_MS = 25_000
+const BOT_CHECK_WAIT_MS = 45_000
+const ROWS_WAIT_MS = 10_000
+const EXPAND_WAIT_MS = 8_000
+
 async function fetchWithBotChecks(
   page: Page,
   url: string,
   options: FetchCardmarketPageOptions | undefined,
-  withTab: TabLock
+  withTab: TabLock,
+  ensureWarm: () => Promise<void>
 ): Promise<string> {
   const host = new URL(url).hostname
   const isOffers = url.includes('cardmarket.com')
@@ -518,34 +548,53 @@ async function fetchWithBotChecks(
   }
 
   return await withTab(async () => {
+    // Only a Cardmarket page needs a Cardmarket session, and only the first one needs it
+    // established — a sync that never gets as far as pricing never pays for one.
+    if (isOffers) {
+      await ensureWarm()
+    }
+
+    let stopped = 'kept blocking'
+
     for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-      const cleared = await waitForBotChallengeClear(page, host)
+      // A load that never finishes used to fail the listing outright after a minute of
+      // waiting. It is the same problem a reload fixes, so it is retried like one.
+      const loaded = await page
+        .goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
+        .then(() => true)
+        .catch(() => false)
 
-      if (!isOffers) {
-        return await page.content()
-      }
+      // What the message at the end says should be the last thing that happened here.
+      stopped = loaded ? 'kept blocking' : 'would not load'
 
-      if (cleared) {
-        await page.waitForSelector('[id^="articleRow"]', { timeout: 25_000 }).catch(() => undefined)
-        const outcome = await expandOffers(page, options)
-        if (outcome === 'complete') {
+      if (loaded) {
+        const cleared = await waitForBotChallengeClear(page, host)
+
+        if (!isOffers) {
           return await page.content()
         }
 
-        // Stalled part-way: if the rows we already have answer the question, take them.
-        const html = await page.content()
-        if (options?.stopWhen?.(html)) {
-          return html
+        if (cleared) {
+          await page.waitForSelector('[id^="articleRow"]', { timeout: ROWS_WAIT_MS }).catch(() => undefined)
+          const outcome = await expandOffers(page, options)
+          if (outcome === 'complete') {
+            return await page.content()
+          }
+
+          // Stalled part-way: if the rows we already have answer the question, take them.
+          const html = await page.content()
+          if (options?.stopWhen?.(html)) {
+            return html
+          }
         }
       }
 
       if (attempt < CARDMARKET_ATTEMPTS) {
-        console.info(`[cardmarket-browser] Reloading ${url} so the bot check can be cleared (attempt ${attempt + 1})`)
+        console.info(`[cardmarket-browser] Reloading ${url} — ${loaded ? 'still blocked' : 'it did not load'} (attempt ${attempt + 1})`)
       }
     }
 
-    throw new CardmarketBlockedError(`Cardmarket kept blocking ${url} after ${CARDMARKET_ATTEMPTS} attempts.`)
+    throw new CardmarketBlockedError(`${host} ${stopped} ${url} after ${CARDMARKET_ATTEMPTS} attempts.`)
   })
 }
 
@@ -627,7 +676,7 @@ async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): P
 
     const grew = await page
       .waitForFunction((before) => document.querySelectorAll('[id^="articleRow"]').length > before, read, {
-        timeout: 15_000
+        timeout: EXPAND_WAIT_MS
       })
       .then(() => true)
       .catch(() => false)

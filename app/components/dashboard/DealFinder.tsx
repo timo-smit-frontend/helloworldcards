@@ -1,14 +1,41 @@
 import { RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import Image from '~/components/elements/Image'
-import { MIN_EDGE } from '~/services/deal-finder/constants'
+import { DEAL_SOURCES, MIN_EDGE } from '~/services/deal-finder/constants'
+import { POPULAR_STAR, splitStar } from '~/services/deal-finder/popular'
 import { groupProblems } from '~/services/deal-finder/report'
-import type { DealFinderReport, DealRow, NoCompsRow, ProblemRow } from '~/services/deal-finder/types'
+import type { DealFinderReport, DealRow, DealSource, NoCompsRow, ProblemRow } from '~/services/deal-finder/types'
 import PriceFigure from './PriceFigure'
 import { formatListedEuros, formatSignedEuros } from './money'
 
-function sourceLabel(source: 'marktplaats' | 'vinted'): string {
+export function sourceLabel(source: DealSource): string {
   return source === 'marktplaats' ? 'Marktplaats' : 'Vinted'
+}
+
+/** Whether any marketplace is mid-scan — the two run on their own. */
+export type ScanningSources = Record<DealSource, boolean>
+
+/**
+ * One scan button per marketplace.
+ *
+ * A scan takes minutes and can be stopped in its tracks by a bot check that needs
+ * clearing by hand, so each marketplace is started on its own and spins on its own
+ * button — which is also how you can tell which of the two is still going.
+ */
+function ScanButton({ source, scanning, onScan }: { source: DealSource; scanning: boolean; onScan: (source: DealSource) => void }) {
+  return (
+    <button
+      type="button"
+      className="button-quiet w-fit! gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+      aria-label={scanning ? `Scanning ${sourceLabel(source)}` : `Scan ${sourceLabel(source)}`}
+      aria-busy={scanning}
+      onClick={() => onScan(source)}
+      disabled={scanning}
+    >
+      <MorphIcon icon={RotateCw} size={16} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
+      {sourceLabel(source)}
+    </button>
+  )
 }
 
 function Thumbnail({ src }: { src: string | null }) {
@@ -46,20 +73,38 @@ function evidence(row: DealRow | NoCompsRow): string {
   return parts.join(' · ')
 }
 
+/**
+ * The card, with its popular-character star on its own line above the name.
+ *
+ * Sitting over the title rather than in front of it keeps the mark out of the truncated
+ * text — a long card name can never push it off the end — and leaves every title in the
+ * column starting at the same place, which is what makes a starred row findable by
+ * running your eye down the list.
+ */
+function DealTitle({ title }: { title: string }) {
+  const { starred, title: name } = splitStar(title)
+  return (
+    <>
+      {starred ? (
+        <p className="mb-1 text-sm leading-none text-site-foil" title="Popular character">
+          {POPULAR_STAR}
+        </p>
+      ) : null}
+      <p className="truncate font-semibold text-site-gray-nurse">{name}</p>
+    </>
+  )
+}
+
 function DealListRow({ item }: { item: DealRow }) {
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
       <Thumbnail src={item.imageUrl} />
       <div className="min-w-0">
-        <p className="truncate font-semibold text-site-gray-nurse">{item.displayTitle}</p>
+        <DealTitle title={item.displayTitle} />
         <p className="mt-1 truncate text-sm text-site-mantle">{evidence(item)}</p>
       </div>
       <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
-        <PriceFigure
-          label="You pay"
-          value={formatListedEuros(item.cost.total)}
-          href={item.listingUrl}
-        />
+        <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
         <PriceFigure label="Lowest listed" value={formatListedEuros(item.marketFloor)} href={item.cardmarketUrl} />
         <PriceFigure label="Edge" value={formatSignedEuros(item.edge)} tone="text-site-envy" />
       </div>
@@ -72,16 +117,12 @@ function NoCompsListRow({ item }: { item: NoCompsRow }) {
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
       <Thumbnail src={item.imageUrl} />
       <div className="min-w-0">
-        <p className="truncate font-semibold text-site-gray-nurse">{item.displayTitle}</p>
+        <DealTitle title={item.displayTitle} />
         <p className="mt-1 truncate text-sm text-site-foil">{item.reason}</p>
         <p className="mt-1 truncate text-sm text-site-mantle">{evidence(item)}</p>
       </div>
       <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
-        <PriceFigure
-          label="You pay"
-          value={formatListedEuros(item.cost.total)}
-          href={item.listingUrl}
-        />
+        <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
         {item.cardmarketUrl ? <PriceFigure label="Cardmarket" value="Open" href={item.cardmarketUrl} /> : null}
       </div>
     </li>
@@ -155,31 +196,33 @@ export default function DealFinder({
   onScan
 }: {
   report: DealFinderReport | null
-  scanning: boolean
+  scanning: ScanningSources
   scanError: string | null
-  onScan: () => void
+  onScan: (source: DealSource) => void
 }) {
   const deals = report?.deals ?? []
   const noComps = report?.noComps ?? []
   const problems = groupProblems(report?.problems ?? [])
   const problemCount = report?.problems.length ?? 0
-  const sourceErrors = (report?.sources ?? []).map((source) => source.error).filter((error): error is string => Boolean(error))
+  // A source's fatal error and the notes from part-way through its walk read the same
+  // way on screen: something this marketplace could not do.
+  const sourceErrors = (report?.sources ?? [])
+    .flatMap((source) => [source.error, ...(source.notes ?? [])])
+    .filter((error): error is string => Boolean(error))
   const truncated = (report?.sources ?? []).filter((source) => source.truncated)
   const summary = report ? scanSummary(report) : null
+  const anyScanning = DEAL_SOURCES.some((source) => scanning[source])
 
   return (
     <section className="flex flex-col gap-8">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Deal finder</h2>
-        <button
-          type="button"
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label={scanning ? 'Scanning for deals' : 'Scan Marktplaats and Vinted'}
-          onClick={onScan}
-          disabled={scanning}
-        >
-          <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
-        </button>
+        {/* Each marketplace is scanned on its own, so each gets its own button. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {DEAL_SOURCES.map((source) => (
+            <ScanButton key={source} source={source} scanning={scanning[source]} onScan={onScan} />
+          ))}
+        </div>
       </div>
 
       {scanError ? <p className="content-m text-site-loss">{scanError}</p> : null}
@@ -189,7 +232,7 @@ export default function DealFinder({
         </p>
       ))}
 
-      {scanning && deals.length === 0 ? (
+      {anyScanning && deals.length === 0 ? (
         <p className="content-m text-site-mantle">Reading listings, slab labels and Cardmarket…</p>
       ) : deals.length === 0 ? (
         <p className="content-m text-site-mantle">

@@ -1,5 +1,14 @@
 import { MAX_ASK, MIN_ASK } from './constants'
-import { detectAnyGrade, detectGrade, detectLanguage, isSpeculativeGrade, looksLikeLot, looksUngraded } from './text'
+import {
+  deniesPsa,
+  detectAnyGrade,
+  detectGrade,
+  detectLanguage,
+  isSpeculativeGrade,
+  looksLikeLot,
+  looksUngraded,
+  rivalGrader
+} from './text'
 import type { SourceListing } from './types'
 
 /** Auction houses relist the same slabs with buyer premiums — never a deal for us. */
@@ -19,6 +28,9 @@ const OTHER_TCG =
 
 const POKEMON = /pok[eé]?mon/i
 
+/** The listing claims a PSA slab, even where it never says which grade. */
+const NAMES_PSA = /\bpsa\b/i
+
 /**
  * Slab guards, toploaders and binders sell alongside the cards, and their photos show a
  * real graded card sitting in the product — so the label reader finds a genuine PSA slab
@@ -26,7 +38,7 @@ const POKEMON = /pok[eé]?mon/i
  * as a Meditite worth €120. What is being sold is the plastic, so it is named in the title.
  */
 const ACCESSORY =
-  /\b(?:slab\s*guard|slabguard|top\s*loader|toploader|penny\s*sleeve|card\s*sleeves?|beschermhoes|hoesjes?|bumper|card\s*protector|screw\s*down|screwdown|magnetic\s*holder|acryl|verzamelmap|opbergmap|binder|display\s*(?:case|stand))\b/i
+  /\b(?:slab\s*guard|slabguard|top\s*loader|toploader|penny\s*sleeve|card\s*sleeves?|beschermhoes|hoesjes?|bumper|(?:card\s*)?protector(?:es|s)?|screw\s*down|screwdown|magnetic\s*holder|acryl|verzamelmap|opbergmap|binder|vitrine|display\s*(?:case|stand|kast))\b/i
 
 /**
  * A card thrown in with a sleeve is still a card: `Charizard PSA 10 incl. toploader`
@@ -118,11 +130,25 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
       return { keep: false, scope: 'out-of-scope', reason: 'Raw card, the PSA grade is only what the seller expects' }
     }
     const other = detectAnyGrade(listingText)
-    return {
-      keep: false,
-      scope: 'out-of-scope',
-      reason: other != null ? `Graded PSA ${other}, not 9 or 10` : 'Not a PSA 9 or 10 listing'
+    if (other != null) {
+      return { keep: false, scope: 'out-of-scope', reason: `Graded PSA ${other}, not 9 or 10` }
     }
+    if (deniesPsa(listingText)) {
+      return { keep: false, scope: 'out-of-scope', reason: 'Seller says the slab is not PSA' }
+    }
+    const rival = rivalGrader(listingText)
+    if (rival) {
+      return { keep: false, scope: 'out-of-scope', reason: `Graded by ${rival}, not PSA` }
+    }
+    if (!NAMES_PSA.test(listingText)) {
+      return { keep: false, scope: 'out-of-scope', reason: 'Not a PSA 9 or 10 listing' }
+    }
+    // The listing says PSA and will not say which grade. On Vinted that is the normal
+    // case rather than an odd one: a catalogue row carries no description at all, so
+    // "Mega Charizard X ex Japanese PSA" is the whole of what there is to screen on
+    // while the grade sits in the description the scan has not read yet. The slab in
+    // the photos settles it either way, and the label reader is the thing that reads
+    // slabs — so this one goes through to it rather than being written off on a title.
   }
 
   if (detectLanguage(listing.title) === 'other') {

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Plus, Trash2, X }
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
-import DealFinder from '~/components/dashboard/DealFinder'
+import DealFinder, { sourceLabel, type ScanningSources } from '~/components/dashboard/DealFinder'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
@@ -861,9 +861,11 @@ function PriceSuggestionsScreen() {
   )
 }
 
+const NOT_SCANNING: ScanningSources = { marktplaats: false, vinted: false }
+
 function DealFinderScreen() {
   const [report, setReport] = useState<DealFinderReport | null>(null)
-  const [scanning, setScanning] = useState(false)
+  const [scanning, setScanning] = useState<ScanningSources>(NOT_SCANNING)
   const [scanError, setScanError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -887,18 +889,24 @@ function DealFinderScreen() {
         report={report}
         scanning={scanning}
         scanError={scanError}
-        onScan={() => {
-          setScanning(true)
+        onScan={(source) => {
+          setScanning((current) => ({ ...current, [source]: true }))
           setScanError(null)
-          void adminJson<{ report: DealFinderReport; error?: string }>('/deal-finder/scan', { method: 'POST' }).then((result) => {
-            setScanning(false)
-            const body = result.data
-            if (!result.ok || !body?.report) {
-              setScanError(body?.error ?? 'The deal finder could not start. Try again.')
-              return
-            }
-            setReport(body.report)
-          })
+          void adminJson<{ report: DealFinderReport; error?: string }>(`/deal-finder/scan/${source}`, { method: 'POST' })
+            .then((result) => {
+              const body = result.data
+              if (!result.ok || !body?.report) {
+                setScanError(body?.error ?? `The ${sourceLabel(source)} scan could not start. Try again.`)
+                return
+              }
+              // The scan answers with the whole report: this marketplace as it was just
+              // read, and the other one as the last run of it left things.
+              setReport(body.report)
+            })
+            // A scan runs for minutes, so the dev server restarting under it is a real
+            // way for this request to end. Without this the button would spin for good.
+            .catch(() => setScanError(`The ${sourceLabel(source)} scan stopped before it answered. Try again.`))
+            .finally(() => setScanning((current) => ({ ...current, [source]: false })))
         }}
       />
     </div>

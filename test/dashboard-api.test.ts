@@ -239,4 +239,42 @@ describe('dashboard API', () => {
     expect(scan?.status).toBe(404)
     await expect(scan?.json()).resolves.toEqual({ error: 'The deal finder only runs locally.' })
   })
+
+  it('gives each marketplace its own deal finder scan route', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+
+    for (const source of ['marktplaats', 'vinted']) {
+      const scan = await handleDashboardRequest(
+        new Request(`https://example.com/dashboard/deal-finder/scan/${source}`, {
+          method: 'POST',
+          headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+        }),
+        env,
+        { dealFinderStore: memoryDealFinderStore() }
+      )
+
+      // Recognised as a scan route — it gets as far as needing the local Chrome window.
+      expect(scan?.status).toBe(404)
+      await expect(scan?.json()).resolves.toEqual({ error: 'The deal finder only runs locally.' })
+    }
+
+    // A marketplace we do not scan is not a route at all.
+    const unknown = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/deal-finder/scan/ebay', {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      { dealFinderStore: memoryDealFinderStore() }
+    )
+    expect(unknown).toBeNull()
+  })
 })

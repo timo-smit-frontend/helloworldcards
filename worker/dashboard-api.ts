@@ -1,7 +1,16 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
-import { isCurrentReport } from '../app/services/deal-finder/report'
-import type { CertLookup, DealFinderCache, DealFinderReport, ResolveUrl, SellerReviews, SlabReader } from '../app/services/deal-finder/scan'
+import { DEAL_SOURCES } from '../app/services/deal-finder/constants'
+import { isCurrentReport, mergeReports } from '../app/services/deal-finder/report'
+import type {
+  CertLookup,
+  DealFinderCache,
+  DealFinderReport,
+  DealSource,
+  ResolveUrl,
+  SellerReviews,
+  SlabReader
+} from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
 import { listLedgerInventory, type CmsDb } from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
@@ -63,7 +72,22 @@ export type DashboardRuntime = {
 }
 
 const MAX_BODY_BYTES = 4096
+
+/**
+ * Marktplaats and Vinted each get their own scan route.
+ *
+ * A scan is a long, interruptible run that leans on a Chrome window and a bot check
+ * somebody has to clear by hand, so being able to set one marketplace going without
+ * the other — and to rerun the one that got blocked — is worth a route apiece. The
+ * bare `/scan` still runs both.
+ */
+const DEAL_FINDER_SCAN_PATHS = DEAL_SOURCES.flatMap((source) => [
+  `/dashboard/deal-finder/scan/${source}`,
+  `/api/admin/deal-finder/scan/${source}`
+])
+
 const API_PATHS = new Set([
+  ...DEAL_FINDER_SCAN_PATHS,
   '/dashboard/session',
   '/dashboard/logout',
   '/dashboard/ledger',
@@ -370,7 +394,27 @@ async function dealFinderReport(request: Request, env: DashboardEnv, runtime?: D
   return json({ report: isCurrentReport(report) ? report : null })
 }
 
-async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+/**
+ * `/scan/vinted` walks Vinted alone, `/scan` walks both.
+ *
+ * What comes back is always the whole report: a run of one marketplace is folded into
+ * what the other one last found, so the dashboard shows both lists however the scans
+ * were started.
+ */
+function dealFinderSources(key: string): readonly DealSource[] | null {
+  if (key === '/dashboard/deal-finder/scan') {
+    return DEAL_SOURCES
+  }
+  const requested = key.slice('/dashboard/deal-finder/scan/'.length)
+  return DEAL_SOURCES.includes(requested as DealSource) ? [requested as DealSource] : null
+}
+
+async function dealFinderScan(
+  request: Request,
+  env: DashboardEnv,
+  sources: readonly DealSource[],
+  runtime?: DashboardRuntime
+): Promise<Response> {
   const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
@@ -382,6 +426,7 @@ async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: Das
 
   const store = resolveDealsStore(env, runtime)
   try {
+    const previous = await store.getReport()
     const { report, cache } = await runDealFinderScan({
       fetchPage: runtime.fetchCardmarketPage,
       readSlabs: runtime.readSlabs,
@@ -389,11 +434,13 @@ async function dealFinderScan(request: Request, env: DashboardEnv, runtime?: Das
       resolveUrl: runtime.resolveUrl,
       sellerReviews: runtime.sellerReviews,
       cache: await store.getCache(),
-      ownListings: await inventoryFor(env, runtime)
+      ownListings: await inventoryFor(env, runtime),
+      sources
     })
-    await store.putReport(report)
+    const merged = mergeReports(previous, report)
+    await store.putReport(merged)
     await store.putCache(cache)
-    return json({ report })
+    return json({ report: merged })
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'The deal finder scan failed.' }, 500)
   }
@@ -439,8 +486,9 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
     return dealFinderReport(request, env, runtime)
   }
 
-  if (key === '/dashboard/deal-finder/scan' && request.method === 'POST') {
-    return dealFinderScan(request, env, runtime)
+  if (key.startsWith('/dashboard/deal-finder/scan') && request.method === 'POST') {
+    const sources = dealFinderSources(key)
+    return sources ? dealFinderScan(request, env, sources, runtime) : json({ error: 'Unknown deal finder source.' }, 404)
   }
 
   return json({ error: 'Method not allowed' }, 405)
