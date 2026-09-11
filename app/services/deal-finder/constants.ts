@@ -28,12 +28,14 @@ export const VINTED_SEARCH_URL =
   'https://www.vinted.nl/catalog?search_text=pokemon%20psa&catalog[]=4874&page=1&currency=EUR&order=newest_first&price_from=9&price_to=150'
 
 /**
- * How deep to walk each search. Marktplaats reports how many listings today's search
- * has, so the walk ends the moment it has read them all and this bound is only a
- * runaway guard — three pages of a hundred is already the 300 listings Marktplaats
- * will page through at all. Vinted has no date filter, so its bound is what keeps the
- * scan out of months of catalogue; three pages of newest-first is about as far back as
- * a listing is still worth finding.
+ * How deep to walk each search. Marktplaats does not apply the date window itself, so
+ * the scan reads its newest-first pages and keeps only the rows dated inside it; the
+ * walk ends at the first page without one, and this bound is only a runaway guard —
+ * three pages of a hundred is already the 300 listings Marktplaats will page through
+ * at all, and paid "Dagtopper" bumps push today's rows as deep as the third page.
+ * Vinted has no date filter, so its bound is what keeps the scan out of months of
+ * catalogue; three pages of newest-first is about as far back as a listing is still
+ * worth finding.
  */
 export const MARKTPLAATS_MAX_PAGES = 3
 export const VINTED_MAX_PAGES = 3

@@ -26,6 +26,7 @@ type RawListing = {
   categorySpecificDescription?: string
   vipUrl?: string
   priceInfo?: { priceCents?: number; priceType?: string }
+  date?: string
   sellerInformation?: { sellerName?: string; sellerId?: number | string }
   pictures?: RawPicture[]
   imageUrls?: string[]
@@ -172,8 +173,51 @@ export function marktplaatsSearchPageUrl(searchUrl: string, page: number): strin
   return `${MARKTPLAATS_SEARCH_API}?${params}`
 }
 
-/** How many listings Marktplaats says match the search, whatever page we asked for. */
-export function marktplaatsResultCount(payload: string): number | null {
+/**
+ * The `offeredSince` window the browse URL asks for — `Vandaag`, say — or null when it
+ * asks for everything.
+ *
+ * Marktplaats takes the filter and echoes it back, but does not apply it: the search
+ * answers with every listing that ever matched, today's included, whatever window was
+ * asked for. Its only visible effect is the facet count below, so the window has to be
+ * enforced here, listing by listing, from the date each one is printed with.
+ */
+export function marktplaatsOfferedSince(searchUrl: string): string | null {
+  const fragment = searchUrl.split('#')[1] ?? ''
+  const match = fragment.match(/(?:^|\|)offeredSince:([^|]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/**
+ * Which printed dates fall inside each window. `Een week` and wider are not spelt out
+ * per day, so they are left unenforced rather than half-enforced.
+ */
+const OFFERED_SINCE_DATES: Record<string, string[]> = {
+  Vandaag: ['Vandaag'],
+  Gisteren: ['Vandaag', 'Gisteren']
+}
+
+/** Whether a listing dated `listedOn` was put up inside the window, when the window is a known one. */
+export function isWithinOfferedSince(listedOn: string | null, offeredSince: string | null): boolean {
+  const dates = offeredSince ? OFFERED_SINCE_DATES[offeredSince] : undefined
+  return dates ? listedOn != null && dates.includes(listedOn) : true
+}
+
+/**
+ * How many listings Marktplaats says match the search, whatever page we asked for.
+ *
+ * With a window asked for, the answer is the window's own count from the `offeredSince`
+ * facet, since `totalResultCount` is the whole unfiltered search. That count is only a
+ * guide: the date sort is not clean — paid "Dagtopper" bumps and older listings are
+ * threaded through the pages — and it has been seen to run below the number of rows
+ * actually dated today, so the walk must never stop on it.
+ */
+export function marktplaatsResultCount(payload: string, offeredSince: string | null = null): number | null {
+  if (offeredSince) {
+    const facet = payload.match(/"key"\s*:\s*"offeredSince"[\s\S]*?"attributeGroup"\s*:\s*\[([\s\S]*?)\]/)?.[1]
+    const entry = facet?.match(new RegExp(`"attributeValueKey"\\s*:\\s*"${offeredSince}"[^}]*"histogramCount"\\s*:\\s*(\\d+)`))
+    return entry ? Number(entry[1]) : null
+  }
   const match = payload.match(/"totalResultCount"\s*:\s*(\d+)/)
   return match ? Number(match[1]) : null
 }
@@ -231,7 +275,8 @@ export function parseMarktplaatsOverview(html: string): SourceListing[] {
       imageUrls: listingPhotos(item),
       itemType: attributeValue(item, 'type'),
       // Marktplaats never quotes postage on a listing, so it is always the flat estimate.
-      shipping: null
+      shipping: null,
+      listedOn: item.date?.trim() || null
     })
   }
 

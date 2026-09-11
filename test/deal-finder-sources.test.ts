@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   isMarktplaatsResultCap,
+  isWithinOfferedSince,
+  marktplaatsOfferedSince,
   marktplaatsPhotoUrl,
   marktplaatsResultCount,
   marktplaatsSearchPageUrl,
@@ -21,12 +23,12 @@ import {
 const MARKTPLAATS_OVERVIEW = `<html><body><script>window.__STATE__ = {"listings":[
   {"itemId":"m2438948556","title":"Pokémon Charmander 168/165 Scarlet & Violet 151 PSA 9",
    "description":"Te koop: een prachtige pokémon charmander kaart (168/165) uit de scarlet & violet 151 (mew) set",
-   "vipUrl":"/v/hobby/m2438948556-charmander","priceInfo":{"priceCents":12000,"priceType":"MIN_BID"},
+   "vipUrl":"/v/hobby/m2438948556-charmander","priceInfo":{"priceCents":12000,"priceType":"MIN_BID"},"date":"Vandaag",
    "sellerInformation":{"sellerName":"juliano"},
    "extendedAttributes":[{"key":"type","value":"Losse kaart"}],
    "pictures":[{"largeUrl":"https://images.marktplaats.com/api/v1/x/aaa?rule=ecg_mp_eps$_83.jpg"}]},
   {"itemId":"m2438970831","title":"Pokémon Jungle Jigglypuff & Meowth PSA Graded","vipUrl":"/v/hobby/m2438970831-lot",
-   "priceInfo":{"priceCents":8000,"priceType":"FIXED"},"sellerInformation":{"sellerName":"bram"},
+   "priceInfo":{"priceCents":8000,"priceType":"FIXED"},"date":"5 sep 26","sellerInformation":{"sellerName":"bram"},
    "extendedAttributes":[{"key":"type","value":"Meerdere kaarten"}],
    "imageUrls":["//images.marktplaats.com/api/v1/x/bbb?rule=ecg_mp_eps$_82.jpg"]},
   {"itemId":"m2438957000","title":"Bieden op kaarten","vipUrl":"/v/hobby/m-bieden","priceInfo":{"priceCents":0,"priceType":"FAST_BID"}}
@@ -50,6 +52,10 @@ describe('parseMarktplaatsOverview', () => {
     })
     expect(listings[0]?.description).toContain('charmander')
     expect(listings[1]?.itemType).toBe('Meerdere kaarten')
+  })
+
+  it('reads the day each listing was put up, as Marktplaats prints it', () => {
+    expect(parseMarktplaatsOverview(MARKTPLAATS_OVERVIEW).map((listing) => listing.listedOn)).toEqual(['Vandaag', '5 sep 26'])
   })
 
   it('asks Marktplaats for a photo big enough to read a slab label', () => {
@@ -210,5 +216,44 @@ describe('search page URLs', () => {
     expect(isMarktplaatsResultCap('<p>We only show the first 300 articles. Please use the filters.</p>')).toBe(true)
     expect(isMarktplaatsResultCap('We tonen alleen de eerste 300 advertenties.')).toBe(true)
     expect(isMarktplaatsResultCap('<p>300 advertenties gevonden</p>')).toBe(false)
+  })
+
+  describe('the date window Marktplaats echoes but never applies', () => {
+    const feed = `{"listings":[],"facets":[{"key":"PriceCents","type":"RangeFacet"},
+      {"id":987654321,"key":"offeredSince","label":"Aangeboden sinds","attributeGroup":[
+        {"attributeValueKey":"Vandaag","attributeValueLabel":"Vandaag","histogramCount":30,"selected":false},
+        {"attributeValueKey":"Gisteren","attributeValueLabel":"Gisteren","histogramCount":184,"selected":false},
+        {"attributeValueKey":"Altijd","attributeValueLabel":"Altijd","histogramCount":4899,"selected":true}]}],
+      "totalResultCount":4899}`
+
+    it('reads the window off the browse URL', () => {
+      expect(marktplaatsOfferedSince(search)).toBe('Vandaag')
+      expect(marktplaatsOfferedSince('https://www.marktplaats.nl/q/pokemon+psa/#PriceCentsTo:20000')).toBeNull()
+      expect(marktplaatsOfferedSince('https://www.marktplaats.nl/q/pokemon+psa/')).toBeNull()
+    })
+
+    it("counts the window's own listings rather than the whole search", () => {
+      // `totalResultCount` is the unfiltered search, whatever window was asked for.
+      expect(marktplaatsResultCount(feed, 'Vandaag')).toBe(30)
+      expect(marktplaatsResultCount(feed, 'Gisteren')).toBe(184)
+      expect(marktplaatsResultCount(feed, null)).toBe(4899)
+      expect(marktplaatsResultCount('{"listings":[],"totalResultCount":4899}', 'Vandaag')).toBeNull()
+    })
+
+    it('keeps only the listings dated inside the window', () => {
+      expect(isWithinOfferedSince('Vandaag', 'Vandaag')).toBe(true)
+      expect(isWithinOfferedSince('Gisteren', 'Vandaag')).toBe(false)
+      expect(isWithinOfferedSince('5 sep 26', 'Vandaag')).toBe(false)
+      // A row with no date cannot be shown to be from today.
+      expect(isWithinOfferedSince(null, 'Vandaag')).toBe(false)
+      expect(isWithinOfferedSince('Gisteren', 'Gisteren')).toBe(true)
+      expect(isWithinOfferedSince('Eergisteren', 'Gisteren')).toBe(false)
+    })
+
+    it('does not pretend to enforce a window it cannot tell day by day', () => {
+      expect(isWithinOfferedSince('5 sep 26', 'Een week')).toBe(true)
+      expect(isWithinOfferedSince('5 sep 26', null)).toBe(true)
+      expect(isWithinOfferedSince(null, null)).toBe(true)
+    })
   })
 })

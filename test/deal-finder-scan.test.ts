@@ -11,8 +11,14 @@ const MARKTPLAATS_URL = 'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:
 const MARKTPLAATS_API = 'https://www.marktplaats.nl/lrp/api/search'
 const VINTED_URL = 'https://www.vinted.nl/catalog?search_text=pokemon%20psa'
 
-type Row = { id: string; title: string; cents: number; type?: string; sellerId?: string }
+type Row = { id: string; title: string; cents: number; type?: string; sellerId?: string; date?: string }
 
+/**
+ * A page of the search feed. Marktplaats never applies the date window the URL asks
+ * for, so every row carries the date it was put up; `total` is both what the feed's
+ * `offeredSince` facet counts for today and, for a search without a window, the size
+ * of the whole search.
+ */
 function marktplaatsOverview(rows: Row[], total = rows.length): string {
   const listings = rows.map((row) =>
     JSON.stringify({
@@ -21,12 +27,14 @@ function marktplaatsOverview(rows: Row[], total = rows.length): string {
       description: `Beschrijving voor ${row.title}`,
       vipUrl: `/v/hobby/${row.id}-slug`,
       priceInfo: { priceCents: row.cents, priceType: 'FIXED' },
+      date: row.date ?? 'Vandaag',
       sellerInformation: { sellerName: 'seller', sellerId: row.sellerId ?? '900100' },
       extendedAttributes: [{ key: 'type', value: row.type ?? 'Losse kaart' }],
       pictures: [{ largeUrl: `https://images.marktplaats.com/${row.id}?rule=x$_83.jpg` }]
     })
   )
-  return `{"listings":[${listings.join(',')}],"totalResultCount":${total}}`
+  const facet = `{"key":"offeredSince","attributeGroup":[{"attributeValueKey":"Vandaag","histogramCount":${total}}]}`
+  return `{"listings":[${listings.join(',')}],"facets":[${facet}],"totalResultCount":${total}}`
 }
 
 function marktplaatsDetail(id: string): string {
@@ -457,7 +465,8 @@ describe('runDealFinderScan', () => {
     expect(report.sources.map((source) => source.candidates)).toEqual([1, 1])
   })
 
-  it('walks Marktplaats until it has read every listing the search says it has', async () => {
+  it('walks an unwindowed Marktplaats search until it has read every listing the search says it has', async () => {
+    const search = 'https://www.marktplaats.nl/q/pokemon+psa/#PriceCentsTo:15000'
     const page = (id: string, cents: number) => marktplaatsOverview([{ id, title: 'Charmander 168/165 151 PSA 9', cents }], 2)
     const { fetchPage, calls } = fetcher({
       marktplaats: [page('m1', 12000), page('m2', 11000)],
@@ -465,10 +474,10 @@ describe('runDealFinderScan', () => {
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     })
 
-    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, marktplaatsUrl: search })
 
     expect(report.deals.map((deal) => deal.id).sort()).toEqual(['marktplaats:m1', 'marktplaats:m2'])
-    expect(report.sources[0]).toMatchObject({ found: 2, candidates: 2, url: MARKTPLAATS_URL })
+    expect(report.sources[0]).toMatchObject({ found: 2, candidates: 2, url: search })
     // Both of the two listings are read, and no third page is asked for to find that out.
     expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API)).map(pageNumber)).toEqual([1, 2])
   })
@@ -594,6 +603,66 @@ describe('runDealFinderScan', () => {
     expect(report.sources[0]?.truncated).toBe(
       'Read 2 of 900 listings — the scan stops after 2 pages, so narrow the search filters to see the rest.'
     )
+  })
+
+  it('only looks at the listings put up inside the date window, and stops at the first page without one', async () => {
+    const page1 = marktplaatsOverview([
+      { id: 'm1', title: 'Charmander m1 168/165 151 PSA 9', cents: 12000 },
+      { id: 'm2', title: 'Charmander m2 168/165 151 PSA 9', cents: 12000, date: 'Gisteren' },
+      { id: 'm3', title: 'Charmander m3 168/165 151 PSA 9', cents: 12000, date: '5 sep 26' }
+    ])
+    const page2 = marktplaatsOverview([{ id: 'm4', title: 'Charmander m4 168/165 151 PSA 9', cents: 12000, date: 'Eergisteren' }])
+    const page3 = marktplaatsOverview([{ id: 'm5', title: 'Charmander m5 168/165 151 PSA 9', cents: 12000 }])
+    const { fetchPage, calls } = fetcher({
+      marktplaats: [page1, page2, page3],
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    // Yesterday's rows were never opened, and the third page was never asked for.
+    expect(report.sources[0]).toMatchObject({ found: 1, candidates: 1, truncated: null })
+    expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API))).toHaveLength(2)
+    expect(calls.some((url) => url.includes('/v/hobby/m2-slug'))).toBe(false)
+    expect(report.deals.map((deal) => deal.listingUrl)).toEqual(['https://www.marktplaats.nl/v/hobby/m1-slug'])
+  })
+
+  it("keeps walking for today's rows that bumped listings pushed onto a later page", async () => {
+    // Paid bumps and older ads are threaded through the newest-first feed, so a page
+    // with even one of today's rows on it is not the end of today.
+    const page1 = marktplaatsOverview([
+      { id: 'm1', title: 'Charmander m1 168/165 151 PSA 9', cents: 12000 },
+      { id: 'm2', title: 'Charmander m2 168/165 151 PSA 9', cents: 12000, date: 'Gisteren' }
+    ])
+    const page2 = marktplaatsOverview([
+      { id: 'm3', title: 'Charmander m3 168/165 151 PSA 9', cents: 12000, date: 'Gisteren' },
+      { id: 'm4', title: 'Charmander m4 168/165 151 PSA 9', cents: 12000 }
+    ])
+    const { fetchPage } = fetcher({
+      // The facet's count runs below the rows actually dated today, so it must not end the walk.
+      marktplaats: [page1, page2].map((page) => page.replace('"histogramCount":2', '"histogramCount":1')),
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander, maxPages: { marktplaats: 2, vinted: 1 } })
+
+    expect(report.sources[0]).toMatchObject({ found: 2, total: 1, truncated: null })
+    expect(report.deals.map((deal) => deal.listingUrl).sort()).toEqual([
+      'https://www.marktplaats.nl/v/hobby/m1-slug',
+      'https://www.marktplaats.nl/v/hobby/m4-slug'
+    ])
+  })
+
+  it('reports an empty day as nothing found rather than as a broken search', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000, date: 'Gisteren' }], 0)
+    })
+
+    const { report } = await run({ fetchPage, readSlabs: readCharmander })
+
+    expect(report.sources[0]).toMatchObject({ error: null, found: 0, candidates: 0, truncated: null })
   })
 
   it('says nothing about the size of a search it read to the end', async () => {

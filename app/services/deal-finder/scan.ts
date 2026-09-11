@@ -29,6 +29,8 @@ import { displayTitle, identifyCard } from './identify'
 import {
   isMarktplaatsChallenge,
   isMarktplaatsResultCap,
+  isWithinOfferedSince,
+  marktplaatsOfferedSince,
   marktplaatsResultCount,
   marktplaatsSearchPageUrl,
   parseMarktplaatsDetail,
@@ -231,6 +233,8 @@ async function collectSource({
   scannedAt: string
 }): Promise<Collected> {
   const { pageUrl } = PAGING[source]
+  // Marktplaats does not apply the browse URL's date window itself, so the scan does.
+  const offeredSince = source === 'marktplaats' ? marktplaatsOfferedSince(url) : null
   const seen = new Set<string>()
   const listings: SourceListing[] = []
   const problems: ProblemRow[] = []
@@ -286,26 +290,37 @@ async function collectSource({
     }
 
     if (source === 'marktplaats') {
-      total ??= marktplaatsResultCount(html)
+      total ??= marktplaatsResultCount(html, offeredSince)
       capped ||= isMarktplaatsResultCap(html)
     }
 
     const parsed = source === 'marktplaats' ? parseMarktplaatsOverview(html) : parseVintedOverview(html)
     // Past the last page both sites answer with the previous page's rows rather than an
     // empty one, so "nothing new here" is what marks the end of the results.
-    const fresh = parsed.filter((listing) => !seen.has(listing.id))
-    if (fresh.length === 0) {
+    const unseen = parsed.filter((listing) => !seen.has(listing.id))
+    if (unseen.length === 0) {
       if (page === 1) {
         return failed(`No ${label(source)} listings on the search page.`)
       }
       reachedEnd = true
       break
     }
-
-    found += fresh.length
-    for (const listing of fresh) {
+    for (const listing of unseen) {
       seen.add(listing.id)
     }
+
+    // Newest first, so a page without a single listing from inside the window means the
+    // window has been read through — the pages behind it are older still. Reading them
+    // was what made a scan of "today" take as long as a scan of the whole month: every
+    // row it turned up cost a listing page, its photos, a Google search and a Cardmarket
+    // load before being priced, and the date window was the one filter never applied.
+    const fresh = unseen.filter((listing) => isWithinOfferedSince(listing.listedOn, offeredSince))
+    if (fresh.length === 0) {
+      reachedEnd = true
+      break
+    }
+
+    found += fresh.length
 
     const screened = fresh.map((listing) => ({ listing, screening: screenListing(listing, ids) }))
     await loadSellerReviews(screened, sellerReviews, reviewCounts)
@@ -334,8 +349,9 @@ async function collectSource({
     }
 
     // Marktplaats says how many listings the search has, so once they have all been
-    // read there is no next page worth asking for.
-    if (total != null && found >= total) {
+    // read there is no next page worth asking for. A date window's count is only a
+    // guide — see `marktplaatsResultCount` — so the walk is not ended on it.
+    if (offeredSince == null && total != null && found >= total) {
       reachedEnd = true
       break
     }

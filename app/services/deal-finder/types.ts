@@ -28,6 +28,11 @@ export type SourceListing = {
   itemType: string | null
   /** Postage the listing quotes, read off its own page; Marktplaats never quotes one. */
   shipping: number | null
+  /**
+   * When the listing went up, as the overview prints it — Marktplaats says `Vandaag`,
+   * `Gisteren`, `Eergisteren` or a date such as `5 sep 26`. Vinted does not say.
+   */
+  listedOn: string | null
 }
 
 /**

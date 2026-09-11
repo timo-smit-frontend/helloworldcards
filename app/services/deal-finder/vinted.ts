@@ -112,7 +112,8 @@ export function parseVintedOverview(html: string): SourceListing[] {
       imageUrls: img.src ? [img.src] : [],
       itemType: null,
       // Only the item page quotes postage.
-      shipping: null
+      shipping: null,
+      listedOn: null
     })
   }
 

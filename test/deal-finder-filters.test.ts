@@ -19,7 +19,8 @@ function vintedRow(title: string, ask = 80): SourceListing {
     priceType: 'FIXED',
     imageUrls: ['https://images1.vinted.net/t/1/f800/a.jpeg'],
     itemType: null,
-    shipping: null
+    shipping: null,
+    listedOn: null
   }
 }
 
