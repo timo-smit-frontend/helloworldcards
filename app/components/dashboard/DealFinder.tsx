@@ -171,22 +171,21 @@ function ProblemListRow({ item }: { item: ProblemRow }) {
   )
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{children}</h3>
-}
-
-function scanSummary(report: DealFinderReport): string | null {
-  const parts: string[] = []
-  if (report.belowEdge > 0) {
-    parts.push(`${report.belowEdge} priced under a €${MIN_EDGE} edge`)
-  }
-  if (report.outOfScope > 0) {
-    parts.push(`${report.outOfScope} not a PSA 9/10 single we buy`)
-  }
-  if (report.fromCache > 0) {
-    parts.push(`${report.fromCache} reused from the last scan`)
-  }
-  return parts.length > 0 ? `${parts.join(' · ')}.` : null
+function Accordion({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-lg border border-site-mulled-wine">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 select-none smooth hover:bg-site-mulled-wine/30 [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-3">
+          <span className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{title}</span>
+          <span className="rounded-full bg-site-mulled-wine px-2 py-0.5 text-xs tabular-nums text-site-gray-nurse">{count}</span>
+        </span>
+        <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 text-site-mantle smooth group-open:rotate-180">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </summary>
+      <div className="border-t border-site-mulled-wine px-4 pb-2">{children}</div>
+    </details>
+  )
 }
 
 export default function DealFinder({
@@ -209,7 +208,6 @@ export default function DealFinder({
   const sourceErrors = (report?.sources ?? [])
     .flatMap((source) => [source.error, ...(source.notes ?? [])])
     .filter((error): error is string => Boolean(error))
-  const summary = report ? scanSummary(report) : null
   const anyScanning = DEAL_SOURCES.some((source) => scanning[source])
 
   return (
@@ -248,30 +246,24 @@ export default function DealFinder({
       )}
 
       {noComps.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          <SectionHeading>No Cardmarket price ({noComps.length})</SectionHeading>
-          <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+        <Accordion title="No Cardmarket price" count={noComps.length}>
+          <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine p-0">
             {noComps.map((item) => (
               <NoCompsListRow key={item.id} item={item} />
             ))}
           </ol>
-        </div>
+        </Accordion>
       ) : null}
 
-      {summary ? <p className="content-m text-site-mantle">{summary}</p> : null}
-
       {problemCount > 0 ? (
-        <details className="group">
-          <summary className="cursor-pointer text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">
-            Could not check ({problemCount})
-          </summary>
-          <div className="mt-4 flex flex-col gap-6">
+        <Accordion title="Could not check" count={problemCount}>
+          <div className="flex flex-col divide-y divide-site-mulled-wine">
             {problems.map((group) => (
-              <div key={group.reason} className="flex flex-col gap-2">
+              <div key={group.reason} className="flex flex-col gap-2 py-4">
                 <p className="text-sm font-semibold text-site-foil">
-                  {group.reason} ({group.rows.length})
+                  {group.reason} <span className="font-normal text-site-mantle">({group.rows.length})</span>
                 </p>
-                <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
+                <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine p-0">
                   {group.rows.map((item) => (
                     <ProblemListRow key={item.id} item={item} />
                   ))}
@@ -279,7 +271,7 @@ export default function DealFinder({
               </div>
             ))}
           </div>
-        </details>
+        </Accordion>
       ) : null}
     </section>
   )
