@@ -58,8 +58,8 @@ Update purchase costs on each product in `app/database/products.ts`. Those numbe
 ## CMS sync
 
 The CMS runs on the same code locally and in production, but on two separate D1 databases
-and two separate R2 buckets. Nothing crosses between them on its own, so content and
-images are synced explicitly through files in this repo:
+and two separate R2 buckets. Content and images travel between them through files in this
+repo, so every change is a reviewable diff:
 
 | What                               | Lives in                            |
 | ---------------------------------- | ----------------------------------- |
@@ -76,14 +76,36 @@ npm run cms:push            # seed files      -> local database and local R2
 npm run cms:push:remote     # seed files      -> production database and R2
 ```
 
-Edit content in the admin, run the matching `cms:pull`, commit the changed seed file, then
-`cms:push` the other way round. Add `--content`, `--products`, or `--media` to any of these
-to sync just that part; `npm run media:sync` and `npm run media:sync:remote` are shorthand
-for the media half.
+While `npm run dev` is running none of this is a step to remember: the dev server keeps
+both sides in step on its own. It looks at production at startup and every five minutes,
+and each part of the CMS — content, products, media — is settled on its own:
+
+- An edit in the **local admin** is written to the seed file and pushed to production a
+  moment later. If the push fails (production behind on a migration, no network), the
+  file goes back to what production has and the edit is sent again on the next try — it
+  is never lost, and never mistaken for a production edit.
+- An edit in the **production admin** is taken into the local database and the seed file.
+- A seed file **edited by hand** while the server runs is applied to both databases within
+  seconds and rewritten in the form a pull writes.
+- A seed file that **git** changed (a checkout, a pull) is left alone, with a line in the
+  dev log saying so — switching branches must never rewrite the live site. Run
+  `npm run cms:push:remote` to apply such a file; the local database follows.
+- Both admins edited the same part since the last sync: the local version wins and the
+  overwritten production edit is named in the dev log.
+
+Each local database keeps its own record of what it last settled on (in `cms_sync_state`),
+so a database with no such record — a fresh checkout, a wiped `.wrangler/state`, a copy
+from another machine — is never taken to be ahead of production; production is adopted
+instead. `HWC_CMS_AUTOSYNC=0` turns the automatic sync off.
+
+The commands are for when the dev server is not running. Add `--content`, `--products`,
+or `--media` to any of them to sync just that part; `npm run media:sync` and
+`npm run media:sync:remote` are shorthand for the media half.
 
 A push is authoritative: a page, FAQ, event, or product that the seed files still carry is
 restored in the target even if it was trashed there. Pull first if that is not what you
-want.
+want — and if production was edited in its admin while no dev server was running, pull
+before editing a seed file by hand, or the push will overwrite that edit.
 
 ### How media stays in step
 

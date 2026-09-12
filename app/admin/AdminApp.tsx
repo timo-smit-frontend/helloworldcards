@@ -22,6 +22,7 @@ import DealFinder, { sourceLabel, type ScanningSources } from '~/components/dash
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
+import SkeletonImage from '~/components/elements/SkeletonImage'
 import Logo from '~/components/elements/Logo'
 import { rasterVariantSrc } from '~/services/responsiveImage'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
@@ -463,12 +464,14 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
             className={mediaTileClass(item.url === value)}
             onClick={() => choose(item.url)}
           >
-            <Image
+            <SkeletonImage
               src={item.url}
               alt={item.alt || mediaLabel(item)}
               width={160}
               height={160}
               maxwidth={400}
+              containerClassName="size-full"
+              skeletonClassName="size-full"
               className={mediaImageClass()}
             />
           </button>
@@ -554,12 +557,14 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
               className={`${mediaTileClass(selected)} disabled:cursor-not-allowed disabled:opacity-40`}
               onClick={() => setDraft(toggleMediaSelection(draft, item.url))}
             >
-              <Image
+              <SkeletonImage
                 src={item.url}
                 alt={item.alt || mediaLabel(item)}
                 width={160}
                 height={160}
                 maxwidth={400}
+                containerClassName="size-full"
+                skeletonClassName="size-full"
                 className={mediaImageClass()}
               />
               {selected ? (
@@ -2537,7 +2542,7 @@ function MediaScreen() {
                 setDropTarget(null)
               }}
             >
-              <Image
+              <SkeletonImage
                 src={item.url}
                 alt={item.alt || item.title || item.filename}
                 title={item.title || undefined}
@@ -2545,6 +2550,8 @@ function MediaScreen() {
                 height={200}
                 maxwidth={400}
                 draggable={false}
+                containerClassName="size-full"
+                skeletonClassName="size-full"
                 className={mediaImageClass()}
               />
             </button>

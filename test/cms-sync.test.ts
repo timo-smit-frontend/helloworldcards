@@ -279,6 +279,14 @@ describe('media library sync', () => {
     const referenced = new Set(sources.flatMap((source) => [...source.matchAll(/\/media\/([\w.-]+)/g)].map((match) => match[1])))
     expect([...referenced].filter((key) => !keys.has(key))).toEqual([])
   })
+
+  /** Every slab photo lives in the Slabs folder of the media library; a new product's images go there too. */
+  it('files every product image under the Slabs folder', () => {
+    const library = parseMediaSnapshot(fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8'))
+    const folderOf = new Map(library.media.map((entry) => [entry.key, entry.folder]))
+    const productImages = seedProductRecords.flatMap((product) => product.images.map((image) => image.replace(/^\/media\//, '')))
+    expect(productImages.filter((key) => folderOf.get(key) !== 'Slabs')).toEqual([])
+  })
 })
 
 describe('seed product sync', () => {

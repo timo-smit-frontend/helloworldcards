@@ -5,10 +5,12 @@ import { cn } from '~/services/utils'
 type SkeletonImageProps = ComponentProps<typeof Image> & {
   /** Sizes the placeholder to the box the loaded image will occupy, so surrounding layout doesn't shift. */
   skeletonClassName: string
+  /** For a slot of fixed size, such as a grid tile: makes the whole thing fill it. */
+  containerClassName?: string
 }
 
 /** An Image that shows a pulsing placeholder in its slot until the picture has loaded. */
-export default function SkeletonImage({ skeletonClassName, className, onLoad, ...props }: SkeletonImageProps) {
+export default function SkeletonImage({ skeletonClassName, containerClassName, className, onLoad, ...props }: SkeletonImageProps) {
   const imgRef = useRef<HTMLImageElement>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -20,7 +22,7 @@ export default function SkeletonImage({ skeletonClassName, className, onLoad, ..
 
   // Placeholder and image share one grid cell so the unloaded <img> never adds height below the placeholder.
   return (
-    <div className="grid w-full place-items-center">
+    <div className={cn('grid w-full place-items-center', containerClassName)}>
       {!loaded && (
         <div
           aria-hidden
@@ -30,7 +32,7 @@ export default function SkeletonImage({ skeletonClassName, className, onLoad, ..
           )}
         />
       )}
-      <div className="col-start-1 row-start-1 flex w-full justify-center">
+      <div className="col-start-1 row-start-1 flex h-full w-full justify-center">
         <Image
           {...props}
           ref={imgRef}
