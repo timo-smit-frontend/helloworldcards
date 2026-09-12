@@ -18,6 +18,7 @@ function listing(overrides: Partial<SourceListing> = {}): SourceListing {
     imageUrls: ['https://images.marktplaats.com/a.jpg'],
     itemType: 'Losse kaart',
     shipping: null,
+    listedOn: null,
     ...overrides
   }
 }

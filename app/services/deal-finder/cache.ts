@@ -65,7 +65,7 @@ function ageMs(iso: string | null, now: Date): number {
 }
 
 /** A remembered card identity is reusable for a month — the listing still shows the same slab. */
-export function hasFreshIdentity(entry: CacheEntry | undefined, now: Date): entry is CacheEntry {
+export function hasFreshIdentity(entry: CacheEntry | undefined, now: Date): boolean {
   if (!entry || entry.problem || !entry.identity) {
     return false
   }
@@ -73,8 +73,8 @@ export function hasFreshIdentity(entry: CacheEntry | undefined, now: Date): entr
 }
 
 /** A remembered Cardmarket floor is only reused for half a day, and only at the same ask. */
-export function hasFreshPrice(entry: CacheEntry | undefined, now: Date, ask: number): entry is CacheEntry {
-  if (!hasFreshIdentity(entry, now) || entry.floor == null || entry.ask !== ask) {
+export function hasFreshPrice(entry: CacheEntry | undefined, now: Date, ask: number): boolean {
+  if (!entry || !hasFreshIdentity(entry, now) || entry.floor == null || entry.ask !== ask) {
     return false
   }
   return ageMs(entry.pricedAt, now) < PRICE_TTL_MS
@@ -103,7 +103,7 @@ function isSettled(entry: CacheEntry): boolean {
  * the week. A changed ask means the seller has been back in the listing, so it is read
  * again in case the photos changed with it.
  */
-export function hasSettledVerdict(entry: CacheEntry | undefined, now: Date, ask: number): entry is CacheEntry {
+export function hasSettledVerdict(entry: CacheEntry | undefined, now: Date, ask: number): boolean {
   if (!entry || !isSettled(entry) || entry.ask !== ask) {
     return false
   }

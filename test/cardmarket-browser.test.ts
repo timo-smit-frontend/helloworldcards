@@ -96,4 +96,3 @@ describe('fetchVintedPage', () => {
     await expect(fetchVintedPage('https://www.vinted.nl/catalog', request)).rejects.toThrow('403')
   })
 })
-

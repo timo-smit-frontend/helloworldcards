@@ -124,9 +124,7 @@ describe('mergeReports', () => {
     const legacy = {
       ...emptyReport('2026-09-10T08:00:00.000Z'),
       // No scannedAt, notes or tallies on the summary: nothing to fold a single source into.
-      sources: [
-        { source: 'vinted', url: 'https://vinted.example/search', found: 1, candidates: 1, error: null, total: null }
-      ],
+      sources: [{ source: 'vinted', url: 'https://vinted.example/search', found: 1, candidates: 1, error: null, total: null }],
       deals: [dealRow(paidCost('vinted'), 'vinted', 20)]
     } as unknown as DealFinderReport
 

@@ -670,22 +670,22 @@ async function identifyCandidate({
   const listing =
     candidate.listing.shipping == null && cached?.shipping != null ? { ...candidate.listing, shipping: cached.shipping } : candidate.listing
 
-  if (hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
+  if (cached && hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
     return { step: 'priced', listing, entry: cached }
   }
 
   // Already looked at, and it came to nothing. Answering from what that scan concluded is
   // the whole reason two scans of an overlapping feed do not cost the same as two scans.
-  if (hasSettledVerdict(cached, now, listing.ask)) {
+  if (cached && hasSettledVerdict(cached, now, listing.ask)) {
     return { step: 'settled', listing, entry: cached }
   }
 
-  const fresh = hasFreshIdentity(cached, now)
-  const identity = fresh ? cached.identity! : null
-  const label = fresh ? cached.label : null
-  const query = fresh ? cached.query : null
-  const googleUrl = fresh ? cached.googleUrl : null
-  const cardmarketUrl = fresh ? cached.cardmarketUrl : null
+  const fresh = cached && hasFreshIdentity(cached, now) ? cached : null
+  const identity = fresh?.identity ?? null
+  const label = fresh?.label ?? null
+  const query = fresh?.query ?? null
+  const googleUrl = fresh?.googleUrl ?? null
+  const cardmarketUrl = fresh?.cardmarketUrl ?? null
 
   // A half-written cache entry (identity but no Cardmarket page) is repaired by redoing the lookup.
   if (identity && query && googleUrl && cardmarketUrl) {

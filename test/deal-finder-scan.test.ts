@@ -3,7 +3,7 @@ import { CardmarketBlockedError } from '~/services/deal-finder/cardmarket'
 import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
 import { CACHE_VERSION, type DealFinderCache } from '~/services/deal-finder/cache'
-import type { PsaLabel } from '~/services/deal-finder/types'
+import type { CardIdentity, PsaLabel } from '~/services/deal-finder/types'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
 
 const MARKTPLAATS_URL = 'https://www.marktplaats.nl/q/pokemon+psa/#offeredSince:Vandaag'
@@ -676,7 +676,7 @@ describe('runDealFinderScan', () => {
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     }
 
-    const charmanderIdentity = {
+    const charmanderIdentity: CardIdentity = {
       name: 'Charmander',
       cardNumber: '168',
       setName: '151',
@@ -688,7 +688,7 @@ describe('runDealFinderScan', () => {
       certNumber: null,
       signals: ['title'],
       confidence: 'medium'
-    } as const
+    }
 
     it('reuses a recent result instead of re-reading the photos', async () => {
       const first = fetcher(pages)
