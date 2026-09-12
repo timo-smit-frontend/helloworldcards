@@ -2006,9 +2006,8 @@ function MediaScreen() {
       setMedia((current) => sortMediaLibrary([result.data!.media, ...current]))
       openItem(result.data.media.id)
     }
-    void adminJson<{ r2: R2UsageSnapshot }>('/media').then((next) => {
-      if (next.data?.r2) setR2(next.data.r2)
-    })
+    // The upload answer carries the storage figures, so there is no second request.
+    if (result.data?.r2) setR2(result.data.r2)
   }
 
   const alert = r2?.warnings.some((warning) => warning.level === 'alert')

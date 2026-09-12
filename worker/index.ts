@@ -1,10 +1,11 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { handleAdminRequest } from './cms/admin-api'
 import { applyAdminRobots, injectCmsPayload } from './cms/html'
+import { json } from './cms/http'
 import { handleMediaPublic } from './cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from './cms/public-api'
 import { buildPublicPayload } from './cms/public'
-import { handleDashboardRequest, isDashboardPath } from './dashboard-api'
+import { isDashboardApiPath, isDashboardPath, type DashboardRuntime } from './dashboard-api'
 import { APEX_HOST, isAdminHost, isLocalHost, publicDashboardRedirect } from './hosts'
 import { isHtmlResponse, shouldServeSpaFallback } from './spa'
 
@@ -37,10 +38,6 @@ const HTML_SECURITY_HEADERS: Record<string, string> = {
   ].join('; ')
 }
 
-function isHtml(response: Response): boolean {
-  return isHtmlResponse(response)
-}
-
 function withSecurityHeaders(response: Response, options?: { noindex?: boolean }): Response {
   const headers = new Headers(response.headers)
 
@@ -48,7 +45,7 @@ function withSecurityHeaders(response: Response, options?: { noindex?: boolean }
     headers.set(name, value)
   }
 
-  if (isHtml(response)) {
+  if (isHtmlResponse(response)) {
     for (const [name, value] of Object.entries(HTML_SECURITY_HEADERS)) {
       headers.set(name, value)
     }
@@ -117,20 +114,60 @@ function asPermanentRedirect(response: Response, request: Request, noindex = fal
   return redirectPermanently(new URL(location, request.url))
 }
 
+/**
+ * The app shell — the built `index.html` — read from the static assets once per isolate.
+ * It only changes with a deploy, and a deploy starts fresh isolates, so every page after
+ * the first is rendered without asking the asset store for the same file again.
+ */
+let shellPromise: Promise<string> | null = null
+
+async function fetchShell(assets: Fetcher, origin: string): Promise<string> {
+  // The root is served as the shell whatever the trailing-slash rule says about
+  // `/index.html`; the file name is kept as a second try.
+  for (const path of ['/', '/index.html']) {
+    const response = await assets.fetch(new URL(path, origin))
+    if (response.ok && isHtmlResponse(response)) {
+      return response.text()
+    }
+    await response.body?.cancel()
+  }
+  throw new Error('The app shell is missing from the static assets.')
+}
+
+function appShell(assets: Fetcher, origin: string): Promise<string> {
+  if (!shellPromise) {
+    shellPromise = fetchShell(assets, origin).catch((error: unknown) => {
+      shellPromise = null
+      throw error
+    })
+  }
+  return shellPromise
+}
+
+function htmlResponse(html: string, status: number, method: string): Response {
+  return new Response(method === 'HEAD' ? null : html, {
+    status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  })
+}
+
+/** Media responses are cached by the platform in front of this entrypoint. */
 export class CachedMedia extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const response = await handleMediaPublic(request, this.env, { ctx: this.ctx })
-    return (
-      response ??
-      new Response(JSON.stringify({ error: 'Not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
-      })
-    )
+    return response ?? json({ error: 'Not found' }, 404)
   }
 
-  async purgePath(pathname: string): Promise<void> {
-    await this.ctx.cache?.purge({ pathPrefixes: [pathname] })
+  /** Drop a set of paths from the edge cache in one call; a failed purge is logged, since the objects behind it are already gone. */
+  async purgePaths(pathnames: string[]): Promise<void> {
+    if (pathnames.length === 0) {
+      return
+    }
+    try {
+      await this.ctx.cache?.purge({ pathPrefixes: pathnames })
+    } catch (error) {
+      console.error('media cache purge failed', error)
+    }
   }
 }
 
@@ -147,83 +184,75 @@ export default {
       return redirectPermanently(hostRedirect)
     }
 
-    const adminApi = await handleAdminRequest(request, env, {
-      purgeMediaCache: (pathname) => ctx.exports.CachedMedia.purgePath(pathname)
-    })
-    if (adminApi) {
-      return withSecurityHeaders(adminApi, { noindex: true })
-    }
+    const { pathname } = url
 
-    const dashboardApi = await handleDashboardRequest(request, env)
-    if (dashboardApi) {
-      return withSecurityHeaders(dashboardApi, { noindex: true })
-    }
-
-    const publicApi = await handlePublicApi(request, env)
-    if (publicApi) {
-      return withSecurityHeaders(publicApi)
-    }
-
-    if (url.pathname.startsWith('/media/')) {
+    // Images are most of the traffic, so they are answered before anything else is looked at.
+    if (pathname.startsWith('/media/')) {
       return withSecurityHeaders(await ctx.exports.CachedMedia.fetch(request))
     }
 
-    const sitemap = await handleSitemap(request, env)
-    if (sitemap) {
-      return withSecurityHeaders(sitemap)
+    // With read replication switched on for the database, a public read is answered by
+    // the replica nearest the visitor; the admin stays on the primary so that it always
+    // reads back what it just wrote. Without replication both go to the primary as before.
+    const publicDb = env.DB?.withSession('first-unconstrained')
+    const adminDb = env.DB?.withSession('first-primary')
+
+    if (pathname.startsWith('/api/') || isDashboardApiPath(pathname)) {
+      const runtime: DashboardRuntime = {
+        ctx,
+        db: adminDb,
+        purgeMediaCache: (pathnames) => ctx.exports.CachedMedia.purgePaths(pathnames)
+      }
+      const adminApi = await handleAdminRequest(request, env, runtime)
+      if (adminApi) {
+        return withSecurityHeaders(adminApi, { noindex: true })
+      }
+      const publicApi = await handlePublicApi(request, env, { ctx, db: publicDb })
+      if (publicApi) {
+        return withSecurityHeaders(publicApi)
+      }
+      return withSecurityHeaders(json({ error: 'Not found' }, 404))
     }
 
-    const llms = await handleLlms(request, env)
-    if (llms) {
-      return withSecurityHeaders(llms)
+    if (pathname === '/sitemap.xml') {
+      const sitemap = await handleSitemap(request, env, { db: publicDb })
+      if (sitemap) {
+        return withSecurityHeaders(sitemap)
+      }
+    }
+
+    if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
+      const llms = await handleLlms(request, env, { db: publicDb })
+      if (llms) {
+        return withSecurityHeaders(llms)
+      }
+    }
+
+    const adminPage = isAdminHost(url.hostname)
+
+    if (shouldServeSpaFallback(request, pathname)) {
+      const shell = await appShell(env.ASSETS, url.origin)
+
+      if (adminPage) {
+        const html = applyAdminRobots(injectCmsPayload(shell, null, { admin: true, path: pathname }))
+        return withSecurityHeaders(htmlResponse(html, 200, request.method), { noindex: true })
+      }
+
+      if (publicDb) {
+        const payload = await buildPublicPayload(publicDb, pathname)
+        const html = injectCmsPayload(shell, payload, { path: pathname })
+        return withSecurityHeaders(htmlResponse(html, payload.notFound ? 404 : 200, request.method))
+      }
+
+      return withSecurityHeaders(htmlResponse(shell, 200, request.method))
     }
 
     const asset = await env.ASSETS.fetch(request)
-    const adminPage = isAdminHost(url.hostname)
-    const dashboardPage = isDashboardPath(url.pathname)
-
-    if (shouldServeSpaFallback(request, url.pathname)) {
-      const index = isHtml(asset) ? asset : await env.ASSETS.fetch(new URL('/index.html', url.origin))
-      if (!isHtml(index)) {
-        return withSecurityHeaders(index, { noindex: adminPage })
-      }
-
-      let html = await index.text()
-      if (adminPage) {
-        html = applyAdminRobots(injectCmsPayload(html, null, { admin: true, path: url.pathname }))
-        return withSecurityHeaders(
-          new Response(html, {
-            status: index.status,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-          }),
-          { noindex: true }
-        )
-      }
-
-      if (env.DB) {
-        const payload = await buildPublicPayload(env.DB, url.pathname)
-        html = injectCmsPayload(html, payload, { path: url.pathname })
-        const status = payload.notFound ? 404 : index.status
-        return withSecurityHeaders(
-          new Response(html, {
-            status,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-          })
-        )
-      }
-
-      return withSecurityHeaders(
-        new Response(html, {
-          status: index.status,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' }
-        })
-      )
-    }
-
+    const privatePage = adminPage || isDashboardPath(pathname)
     if (asset.status !== 404) {
-      return asPermanentRedirect(asset, request, adminPage || dashboardPage)
+      return asPermanentRedirect(asset, request, privatePage)
     }
 
-    return withSecurityHeaders(asset, { noindex: adminPage || dashboardPage })
+    return withSecurityHeaders(asset, { noindex: privatePage })
   }
 } satisfies ExportedHandler<Env>

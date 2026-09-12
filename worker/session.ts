@@ -42,8 +42,20 @@ function base64UrlToBytes(value: string): Uint8Array | null {
   }
 }
 
-async function hmacKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+/**
+ * The signing key for a secret, imported once per isolate. Every admin request verifies
+ * a cookie, and the secret does not change under a running worker.
+ */
+const keys = new Map<string, Promise<CryptoKey>>()
+
+function hmacKey(secret: string): Promise<CryptoKey> {
+  let key = keys.get(secret)
+  if (!key) {
+    key = crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    keys.set(secret, key)
+    key.catch(() => keys.delete(secret))
+  }
+  return key
 }
 
 async function sign(secret: string, payload: string): Promise<string> {

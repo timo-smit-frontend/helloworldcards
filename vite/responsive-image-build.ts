@@ -82,7 +82,7 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-async function mapPool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {
+export async function mapPool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {
   let index = 0
   async function worker() {
     while (index < items.length) {

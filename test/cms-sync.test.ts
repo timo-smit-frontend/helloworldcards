@@ -163,7 +163,7 @@ describe('media library sync', () => {
   it('carries a replaced image to a database that still holds the old key', async () => {
     const source = await seededDb()
     const original = (await listMedia(source)).find((media) => media.key === 'wooper.png')!
-    await replaceMediaFile(source, original.id, {
+    await replaceMediaFile(source, original, {
       key: 'abc123-wooper.png',
       filename: 'wooper.png',
       contentType: 'image/png',

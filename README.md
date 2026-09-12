@@ -98,6 +98,24 @@ The sync tracks what it put in the bucket in `_media-variants-manifest.json` on 
 only ever deletes objects it recorded there, so nothing it did not upload can be removed by
 accident.
 
+### How a request is served
+
+A page or `/api/public` read fetches everything it needs from D1 in **one batched round
+trip** — settings, navigation, products, events, FAQs, media copy and the page or product
+itself — and the seed/migration check rides on the settings row in that batch, so a database
+that is up to date costs no extra query and no write. The built `index.html` is read from
+the asset store once per Worker isolate.
+
+Images under `/media/` are answered by the cached `CachedMedia` entrypoint: the platform
+cache sits in front of it (kept across deploys, since a replaced image always gets a new
+key) and the per-location cache inside it. Objects stream straight from R2 with an `ETag`,
+so a revalidation is a 304. An exact file is cached for a week at the edge and a year in
+browsers. While a size is still missing — an admin upload only gets its AVIF and larger
+widths on the next media push — the closest smaller WebP stands in, and stand-ins are
+cached for minutes rather than a week so the real file takes over as soon as it lands.
+Replacing or deleting an image removes the original and every size with one bucket call
+and one cache purge.
+
 `seed/media` is the source for the committed images. After adding, replacing, or removing a
 file there, run `npm run cms:seed-media` to regenerate `app/cms/seed-media.ts` (a `cms:push`
 does this for you). `npm test` fails if that file, `seed/cms-content.json`, or

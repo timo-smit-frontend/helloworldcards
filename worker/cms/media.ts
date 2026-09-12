@@ -1,6 +1,6 @@
 import { json, normalizeApiPath, readJson } from './http'
-import { deleteMedia, insertMedia, listMedia, replaceMediaFile, updateMedia, type CmsDb } from './db'
-import { getR2Usage, incrementR2Usage } from './r2-usage'
+import { deleteMedia, getMediaById, insertMedia, mediaLibrarySnapshot, replaceMediaFile, updateMedia, type CmsDb } from './db'
+import { getR2Usage, incrementR2Usage, snapshotR2Usage, usageMonth } from './r2-usage'
 import { ensureSeeded } from './seed'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
 import {
@@ -16,6 +16,9 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/g
 const ORIGINAL_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const
 // Same contract as denofdata.com CMS media: browsers keep a year, shared caches a week.
 const MEDIA_CACHE_CONTROL = 'public, immutable, max-age=31536000, s-maxage=604800'
+// A stand-in — the WebP for an AVIF, a smaller size, the original — is only right until
+// the real file is uploaded, so it is kept for minutes at the edge, not a week.
+const FALLBACK_CACHE_CONTROL = 'public, max-age=3600, s-maxage=600'
 
 export type MediaCache = {
   match(request: Request): Promise<Response | undefined>
@@ -23,10 +26,25 @@ export type MediaCache = {
   delete?(request: Request): Promise<boolean>
 }
 
+/** What comes back from the bucket: R2's object, or the in-memory stand-in below. */
+export type MediaObject = {
+  arrayBuffer(): Promise<ArrayBuffer>
+  /** Streamed straight through to the response where the bucket offers it. */
+  body?: ReadableStream | null
+  httpMetadata?: { contentType?: string }
+  httpEtag?: string
+  size?: number
+}
+
+export type MediaObjectHead = Omit<MediaObject, 'arrayBuffer' | 'body'>
+
 export type MediaBucket = {
   put(key: string, value: ArrayBuffer | Uint8Array | string, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>
-  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } } | null>
-  delete(key: string): Promise<void>
+  get(key: string): Promise<MediaObject | null>
+  /** Metadata without the bytes, for HEAD requests. */
+  head?(key: string): Promise<MediaObjectHead | null>
+  /** R2 deletes a whole list in one call. */
+  delete(keys: string | string[]): Promise<void>
 }
 
 function dbOf(env: DashboardEnv, runtime?: DashboardRuntime): CmsDb | null {
@@ -49,7 +67,7 @@ function cacheRequest(url: string): Request {
   return new Request(url, { method: 'GET' })
 }
 
-async function edgeCache(runtime?: DashboardRuntime): Promise<MediaCache | undefined> {
+function edgeCache(runtime?: DashboardRuntime): MediaCache | undefined {
   if (runtime?.mediaCache) {
     return runtime.mediaCache
   }
@@ -57,13 +75,62 @@ async function edgeCache(runtime?: DashboardRuntime): Promise<MediaCache | undef
   return cachesRef?.default
 }
 
-function mediaHeaders(contentType: string, key: string, servedKey = key): Headers {
-  return new Headers({
-    'Content-Type': contentType,
-    'Cache-Control': MEDIA_CACHE_CONTROL,
-    'Cache-Tag': `media,media-${key}`,
+/** Let the request finish first; the work is kept alive by the runtime where there is one. */
+function inBackground(runtime: DashboardRuntime | undefined, work: () => Promise<unknown>): Promise<void> {
+  const task = work().then(
+    () => undefined,
+    () => undefined
+  )
+  if (runtime?.ctx) {
+    runtime.ctx.waitUntil(task)
+    return Promise.resolve()
+  }
+  return task
+}
+
+function contentTypeOf(object: MediaObjectHead): string {
+  return object.httpMetadata?.contentType ?? 'application/octet-stream'
+}
+
+/** The original a key belongs to, minus its extension: `hero-w800.webp` and `hero.jpg` both give `hero`. */
+function familyOf(key: string): string {
+  return parseRasterVariant(`/media/${key}`)?.stem.replace(/^.*\//, '') ?? key.replace(/\.[a-z0-9]+$/i, '')
+}
+
+function mediaHeaders(object: MediaObjectHead, key: string, servedKey: string): Headers {
+  const headers = new Headers({
+    'Content-Type': contentTypeOf(object),
+    'Cache-Control': servedKey === key ? MEDIA_CACHE_CONTROL : FALLBACK_CACHE_CONTROL,
+    'Cache-Tag': `media,media-${familyOf(key)}`,
     'X-Media-Served-Key': servedKey
   })
+  if (object.httpEtag) {
+    headers.set('ETag', object.httpEtag)
+  }
+  if (object.size != null) {
+    headers.set('Content-Length', String(object.size))
+  }
+  return headers
+}
+
+function etagMatches(request: Request, etag: string | null): boolean {
+  const wanted = request.headers.get('If-None-Match')
+  if (!wanted || !etag) {
+    return false
+  }
+  const strip = (value: string) => value.trim().replace(/^W\//, '')
+  return wanted.split(',').some((candidate) => candidate.trim() === '*' || strip(candidate) === strip(etag))
+}
+
+function notModified(headers: Headers): Response {
+  const kept = new Headers()
+  for (const name of ['Cache-Control', 'Cache-Tag', 'ETag', 'X-Media-Served-Key']) {
+    const value = headers.get(name)
+    if (value) {
+      kept.set(name, value)
+    }
+  }
+  return new Response(null, { status: 304, headers: kept })
 }
 
 function expectedVariantContentType(key: string): string | null {
@@ -86,60 +153,92 @@ function isStaleVariantCache(key: string, cached: Response): boolean {
   return served !== key && expectedVariantContentType(served) === null
 }
 
-async function resolveMediaObject(
-  bucket: MediaBucket,
-  key: string
-): Promise<{ object: NonNullable<Awaited<ReturnType<MediaBucket['get']>>>; servedKey: string } | null> {
-  const direct = await bucket.get(key)
-  if (direct) {
-    return { object: direct, servedKey: key }
-  }
-
+/**
+ * The keys that may answer a request, best first. The exact key comes first; for a
+ * resize that is not there yet — the admin only makes WebP, and only up to the picture's
+ * own width, until the next media sync — the WebP of the same width stands in for an
+ * AVIF, then the largest smaller WebP, and only then the original, which can be many
+ * times the size of any resize.
+ */
+export function mediaCandidates(key: string): string[] {
   const variant = parseRasterVariant(`/media/${key}`)
   if (!variant) {
-    return null
+    return [key]
   }
-
   const base = variant.stem.replace(/^.*\//, '')
-  // Only WebP resizes are made on upload, so an AVIF request is served the WebP of the
-  // same width before falling back to the much heavier original.
+  const candidates = [key]
   if (variant.format === 'avif') {
-    const sibling = await bucket.get(`${base}-w${variant.width}.webp`)
-    if (sibling) {
-      return { object: sibling, servedKey: `${base}-w${variant.width}.webp` }
-    }
+    candidates.push(`${base}-w${variant.width}.webp`)
+  }
+  for (const width of [...BUILD_WIDTHS].filter((candidate) => candidate < variant.width).sort((a, b) => b - a)) {
+    candidates.push(`${base}-w${width}.webp`)
   }
   for (const extension of ORIGINAL_EXTENSIONS) {
-    const originalKey = `${base}${extension}`
-    const object = await bucket.get(originalKey)
+    candidates.push(`${base}${extension}`)
+  }
+  return candidates
+}
+
+type Resolved<T> = { object: T; servedKey: string; operations: number }
+
+async function resolveFirst<T>(key: string, lookup: (candidate: string) => Promise<T | null>): Promise<Resolved<T> | null> {
+  let operations = 0
+  for (const candidate of mediaCandidates(key)) {
+    operations += 1
+    const object = await lookup(candidate)
     if (object) {
-      return { object, servedKey: originalKey }
+      return { object, servedKey: candidate, operations }
     }
   }
-
   return null
 }
 
 export function memoryR2(): MediaBucket {
-  const files = new Map<string, { body: Uint8Array; contentType: string }>()
+  const files = new Map<string, { body: Uint8Array; contentType: string; etag: string }>()
+  const describe = (key: string): (MediaObjectHead & { bytes: Uint8Array }) | null => {
+    const file = files.get(key)
+    return file
+      ? { httpMetadata: { contentType: file.contentType }, httpEtag: file.etag, size: file.body.byteLength, bytes: file.body }
+      : null
+  }
   return {
     async put(key: string, value: ArrayBuffer | Uint8Array | string, options?: { httpMetadata?: { contentType?: string } }) {
       const body = typeof value === 'string' ? new TextEncoder().encode(value) : value instanceof Uint8Array ? value : new Uint8Array(value)
-      files.set(key, { body, contentType: options?.httpMetadata?.contentType ?? 'application/octet-stream' })
+      // Not R2's MD5, but unique to the bytes stored under the key, which is all an ETag has to be.
+      let hash = 0
+      for (const byte of body) {
+        hash = (hash * 31 + byte) >>> 0
+      }
+      files.set(key, {
+        body,
+        contentType: options?.httpMetadata?.contentType ?? 'application/octet-stream',
+        etag: `"${hash.toString(16)}-${body.byteLength}"`
+      })
       return { key }
     },
     async get(key: string) {
-      const file = files.get(key)
+      const file = describe(key)
       if (!file) {
         return null
       }
+      const { bytes, ...head } = file
       return {
-        httpMetadata: { contentType: file.contentType },
-        arrayBuffer: async () => Uint8Array.from(file.body).buffer as ArrayBuffer
+        ...head,
+        body: new Blob([Uint8Array.from(bytes)]).stream(),
+        arrayBuffer: async () => Uint8Array.from(bytes).buffer as ArrayBuffer
       }
     },
-    async delete(key: string) {
-      files.delete(key)
+    async head(key: string) {
+      const file = describe(key)
+      if (!file) {
+        return null
+      }
+      return { httpMetadata: file.httpMetadata, httpEtag: file.httpEtag, size: file.size }
+    },
+    async delete(keys: string | string[]) {
+      for (const key of Array.isArray(keys) ? keys : [keys]) {
+        files.delete(key)
+      }
     }
   }
 }
@@ -163,8 +262,8 @@ const VARIANT_WIDTHS = new Set<number>(BUILD_WIDTHS)
 
 // The admin re-encodes every upload into the same widths the site build produces and
 // sends them along, so thumbnails and the detail view never pull the full original.
-async function storeUploadedVariants(form: FormData, key: string, bucket: MediaBucket, db: CmsDb): Promise<void> {
-  let stored = 0
+function uploadedVariants(form: FormData, key: string): Array<{ key: string; file: File; contentType: string }> {
+  const variants: Array<{ key: string; file: File; contentType: string }> = []
   for (const entry of form.getAll('variant')) {
     if (!(entry instanceof File) || entry.size > MAX_UPLOAD_BYTES) {
       continue
@@ -178,38 +277,47 @@ async function storeUploadedVariants(form: FormData, key: string, bucket: MediaB
     if (variantKey === key) {
       continue
     }
-    await bucket.put(variantKey, await entry.arrayBuffer(), {
-      httpMetadata: { contentType: format === 'avif' ? 'image/avif' : 'image/webp' }
-    })
-    stored += 1
+    variants.push({ key: variantKey, file: entry, contentType: format === 'avif' ? 'image/avif' : 'image/webp' })
   }
-  if (stored > 0) {
-    await incrementR2Usage(db, { classA: stored })
-  }
+  return variants
 }
 
-// Replacing or deleting a key must clear the original and every derived variant from
-// R2 and the edge, otherwise stale renditions keep being served under the same URL.
-async function dropMediaCopies(
-  key: string,
-  requestUrl: string,
+/**
+ * Store an upload and the resizes that came with it. The writes go out together rather
+ * than one after another, and the usage counter is bumped once for the lot.
+ */
+async function storeUpload(
   bucket: MediaBucket,
-  runtime: DashboardRuntime | undefined,
-  options: { deleteOriginal: boolean }
+  db: CmsDb,
+  key: string,
+  bytes: ArrayBuffer,
+  contentType: string,
+  form: FormData
 ): Promise<void> {
-  const cache = await edgeCache(runtime)
-  const purge = async (objectKey: string, removeObject: boolean) => {
-    if (removeObject) {
-      await bucket.delete(objectKey)
-    }
-    const pathname = `/media/${objectKey}`
-    await runtime?.purgeMediaCache?.(pathname)
-    await cache?.delete?.(cacheRequest(new URL(pathname, requestUrl).href))
-  }
-  for (const variantKey of allMediaVariantKeys(key)) {
-    await purge(variantKey, true)
-  }
-  await purge(key, options.deleteOriginal)
+  const variants = uploadedVariants(form, key)
+  await Promise.all([
+    bucket.put(key, bytes, { httpMetadata: { contentType } }),
+    ...variants.map(async (variant) =>
+      bucket.put(variant.key, await variant.file.arrayBuffer(), { httpMetadata: { contentType: variant.contentType } })
+    )
+  ])
+  await incrementR2Usage(db, { classA: 1 + variants.length })
+}
+
+/**
+ * Replacing or deleting a key must clear the original and every derived variant from
+ * R2 and the edge, otherwise stale renditions keep being served under the same URL.
+ * R2 takes the whole list in one call, and so does the cache purge.
+ */
+async function dropMediaCopies(key: string, requestUrl: string, bucket: MediaBucket, runtime: DashboardRuntime | undefined): Promise<void> {
+  const keys = [key, ...allMediaVariantKeys(key)]
+  const pathnames = keys.map((objectKey) => `/media/${objectKey}`)
+  const cache = edgeCache(runtime)
+  await Promise.all([
+    bucket.delete(keys),
+    runtime?.purgeMediaCache?.(pathnames),
+    ...(cache?.delete ? pathnames.map((pathname) => cache.delete!(cacheRequest(new URL(pathname, requestUrl).href))) : [])
+  ])
 }
 
 export async function handleMediaPublic(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
@@ -227,39 +335,55 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
 
   const key = decodeURIComponent(match[1])
   const cacheKey = cacheRequest(new URL(`/media/${key}`, url.origin).href)
-  const cache = await edgeCache(runtime)
+  const cache = edgeCache(runtime)
   const cached = await cache?.match(cacheKey)
   if (cached && !isStaleVariantCache(key, cached)) {
-    return cached
+    if (etagMatches(request, cached.headers.get('ETag'))) {
+      return notModified(cached.headers)
+    }
+    return request.method === 'HEAD' ? new Response(null, { headers: cached.headers }) : cached
   }
 
-  const resolved = await resolveMediaObject(bucket, key)
+  // A HEAD needs the metadata alone, which R2 answers without moving the bytes.
+  const resolved =
+    request.method === 'HEAD' && bucket.head
+      ? await resolveFirst(key, (candidate) => bucket.head!(candidate))
+      : await resolveFirst<MediaObject>(key, (candidate) => bucket.get(candidate))
+
   const db = dbOf(env, runtime)
-  if (db) {
-    try {
-      await incrementR2Usage(db, { classB: 1 })
-    } catch {
-      // Serving the file matters more than the warning counter.
-    }
-  }
+  const operations = resolved?.operations ?? mediaCandidates(key).length
+  const counted = db ? inBackground(runtime, () => incrementR2Usage(db, { classB: operations })) : Promise.resolve()
 
   if (!resolved) {
+    await counted
     return json({ error: 'Not found' }, 404)
   }
 
   const { object, servedKey } = resolved
-  const type = object.httpMetadata?.contentType ?? 'application/octet-stream'
-  const body = request.method === 'HEAD' ? null : await object.arrayBuffer()
-  const response = new Response(body, { headers: mediaHeaders(type, key, servedKey) })
-  if (cache && request.method === 'GET') {
-    const stored = response.clone()
-    const put = cache.put(cacheKey, stored)
-    if (runtime?.ctx) {
-      runtime.ctx.waitUntil(put)
-    } else {
-      await put
+  const headers = mediaHeaders(object, key, servedKey)
+  if (etagMatches(request, headers.get('ETag'))) {
+    if ('body' in object) {
+      await (object as MediaObject).body?.cancel().catch(() => undefined)
     }
+    await counted
+    return notModified(headers)
   }
+
+  if (request.method === 'HEAD') {
+    if ('body' in object) {
+      await (object as MediaObject).body?.cancel().catch(() => undefined)
+    }
+    await counted
+    return new Response(null, { headers })
+  }
+
+  const full = object as MediaObject
+  const response = new Response(full.body ?? (await full.arrayBuffer()), { headers })
+  if (cache) {
+    const stored = response.clone()
+    await inBackground(runtime, () => cache.put(cacheKey, stored))
+  }
+  await counted
   return response
 }
 
@@ -277,7 +401,9 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
   await ensureSeeded(db)
 
   if (path === '/api/admin/media' && request.method === 'GET') {
-    return json({ media: await listMedia(db), r2: await getR2Usage(db) })
+    const month = usageMonth()
+    const { media, storageBytes, classA, classB } = await mediaLibrarySnapshot(db, month)
+    return json({ media, r2: snapshotR2Usage(month, storageBytes, classA, classB) })
   }
 
   if (path === '/api/admin/media' && request.method === 'POST') {
@@ -289,9 +415,7 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     const { file, contentType } = validated
     const key = slugKey(file.name)
     const bytes = await file.arrayBuffer()
-    await bucket.put(key, bytes, { httpMetadata: { contentType } })
-    await incrementR2Usage(db, { classA: 1 })
-    await storeUploadedVariants(form, key, bucket, db)
+    await storeUpload(bucket, db, key, bytes, contentType, form)
     const createdAt = new Date().toISOString()
     const media = {
       key,
@@ -305,13 +429,16 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
       createdAt
     }
     const id = await insertMedia(db, media)
+    // The usage figures travel with the answer, so the admin need not ask for the
+    // whole library again just to refresh its storage widget.
     return json(
       {
         media: {
           id,
           ...media,
           url: `/media/${key}`
-        }
+        },
+        r2: await getR2Usage(db)
       },
       201
     )
@@ -324,25 +451,25 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     if (validated instanceof Response) {
       return validated
     }
+    const existing = await getMediaById(db, Number(fileMatch[1]))
+    if (!existing) {
+      return json({ error: 'Not found' }, 404)
+    }
     const { file, contentType } = validated
     const bytes = await file.arrayBuffer()
     const key = slugKey(file.name)
+    // The new bytes land first, so the library never points at a key that is not there.
     // A fresh key means caches can never serve the old picture; every page, product,
     // and setting that pointed at the old URL is repointed to this one.
-    const replaced = await replaceMediaFile(db, Number(fileMatch[1]), {
+    await storeUpload(bucket, db, key, bytes, contentType, form)
+    const media = await replaceMediaFile(db, existing, {
       key,
       filename: file.name,
       contentType,
       bytes: bytes.byteLength
     })
-    if (!replaced) {
-      return json({ error: 'Not found' }, 404)
-    }
-    await bucket.put(key, bytes, { httpMetadata: { contentType } })
-    await incrementR2Usage(db, { classA: 1 })
-    await storeUploadedVariants(form, key, bucket, db)
-    await dropMediaCopies(replaced.previous.key, request.url, bucket, runtime, { deleteOriginal: true })
-    return json({ media: replaced.media })
+    await dropMediaCopies(existing.key, request.url, bucket, runtime)
+    return json({ media })
   }
 
   const match = path.match(/^\/api\/admin\/media\/(\d+)$/)
@@ -365,7 +492,7 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     if (!removed) {
       return json({ error: 'Not found' }, 404)
     }
-    await dropMediaCopies(removed.key, request.url, bucket, runtime, { deleteOriginal: true })
+    await dropMediaCopies(removed.key, request.url, bucket, runtime)
     return json({ ok: true })
   }
 

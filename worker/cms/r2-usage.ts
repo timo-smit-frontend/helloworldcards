@@ -1,4 +1,4 @@
-import type { CmsDb } from './db'
+import { batchAll, type CmsDb } from './db'
 
 export const R2_FREE_STORAGE_BYTES = 10 * 1024 * 1024 * 1024
 export const R2_FREE_CLASS_A = 1_000_000
@@ -87,11 +87,12 @@ export async function incrementR2Usage(db: CmsDb, ops: { classA?: number; classB
 
 export async function getR2Usage(db: CmsDb, now = new Date()): Promise<R2UsageSnapshot> {
   const month = usageMonth(now)
-  const storage = await db.prepare('SELECT COALESCE(SUM(bytes), 0) as total FROM media').first<{ total: number }>()
-  const row = await db.prepare('SELECT class_a as classA, class_b as classB FROM r2_usage WHERE month = ?').bind(month).first<{
-    classA: number
-    classB: number
-  }>()
+  const [storage, row] = await batchAll(db, [
+    db.prepare('SELECT COALESCE(SUM(bytes), 0) as total FROM media'),
+    db.prepare('SELECT class_a as classA, class_b as classB FROM r2_usage WHERE month = ?').bind(month)
+  ])
+  const total = (storage.results[0] as { total: number } | undefined)?.total
+  const counters = row.results[0] as { classA: number; classB: number } | undefined
 
-  return snapshotR2Usage(month, Number(storage?.total ?? 0), Number(row?.classA ?? 0), Number(row?.classB ?? 0))
+  return snapshotR2Usage(month, Number(total ?? 0), Number(counters?.classA ?? 0), Number(counters?.classB ?? 0))
 }

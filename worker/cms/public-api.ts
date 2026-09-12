@@ -1,12 +1,13 @@
 import { upcomingEvents } from '../../app/database/events'
+import { isShopListed, toPublicProduct } from '../../app/database/products'
+import type { CmsEvent, CmsFaq } from '../../app/cms/types'
 import { buildLlmsDocument } from '../../app/seo/llms'
 import { SITE_NAME, canonicalUrl } from '../../app/seo/site'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
-import type { CmsDb } from './db'
-import { listEvents, listFaqs, listPages, listShopProducts, getSettings } from './db'
+import { batchAll, rowToInventory, rowToPage, rowToSettings, SQL, type CmsDb, type PageRow, type ProductRow, type SettingsRow } from './db'
 import { json, normalizeApiPath } from './http'
 import { buildPublicPayload } from './public'
-import { ensureSeeded } from './seed'
+import { ensureSeeded, needsSeeding } from './seed'
 
 function dbOf(env: DashboardEnv, runtime?: DashboardRuntime): CmsDb | null {
   return runtime?.db ?? env.DB ?? null
@@ -28,6 +29,34 @@ export async function handlePublicApi(request: Request, env: DashboardEnv, runti
   return json(payload)
 }
 
+/**
+ * The published pages and shop products, plus what the llms documents add, read as one
+ * batch. The seed check rides on the settings row that is part of the batch anyway.
+ */
+async function readSiteIndex(db: CmsDb) {
+  const read = () =>
+    batchAll(db, [db.prepare(SQL.settings), db.prepare(SQL.pages), db.prepare(SQL.inventory), db.prepare(SQL.events), db.prepare(SQL.faqs)])
+
+  let rows = await read()
+  let settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)
+  if (needsSeeding(settings)) {
+    await ensureSeeded(db, settings)
+    rows = await read()
+    settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)
+  }
+
+  return {
+    settings,
+    pages: (rows[1].results as PageRow[]).map(rowToPage).filter((page) => page.status === 'published'),
+    products: (rows[2].results as ProductRow[])
+      .map(rowToInventory)
+      .filter(isShopListed)
+      .map((item) => toPublicProduct(item, item.slug)),
+    events: rows[3].results as CmsEvent[],
+    faqs: rows[4].results as CmsFaq[]
+  }
+}
+
 export async function handleSitemap(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
   const path = normalizeApiPath(new URL(request.url).pathname)
   if (path !== '/sitemap.xml' || request.method !== 'GET') {
@@ -39,9 +68,7 @@ export async function handleSitemap(request: Request, env: DashboardEnv, runtime
     return null
   }
 
-  await ensureSeeded(db)
-  const pages = (await listPages(db)).filter((page) => page.status === 'published')
-  const products = await listShopProducts(db)
+  const { pages, products } = await readSiteIndex(db)
   const urls = [...pages.map((page) => canonicalUrl(page.path)), ...products.map((product) => canonicalUrl(`/products/${product.slug}`))]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -66,13 +93,11 @@ export async function handleLlms(request: Request, env: DashboardEnv, runtime?: 
     return null
   }
 
-  await ensureSeeded(db)
-  const settings = await getSettings(db)
+  const { settings, pages, products, events, faqs } = await readSiteIndex(db)
   if (!settings) {
     return null
   }
 
-  const pages = (await listPages(db)).filter((page) => page.status === 'published')
   const text = buildLlmsDocument(
     {
       siteName: SITE_NAME,
@@ -80,9 +105,9 @@ export async function handleLlms(request: Request, env: DashboardEnv, runtime?: 
       contactEmail: settings.contactEmail,
       marktplaatsUrl: settings.marktplaatsUrl,
       pages,
-      products: await listShopProducts(db),
-      events: upcomingEvents(await listEvents(db)),
-      faqs: await listFaqs(db)
+      products,
+      events: upcomingEvents(events),
+      faqs
     },
     path === '/llms-full.txt'
   )

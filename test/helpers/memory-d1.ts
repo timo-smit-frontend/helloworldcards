@@ -36,6 +36,13 @@ class MemoryStatement {
       }
     }
   }
+
+  /** What D1 hands back for one statement of a batch: rows for a read, counts for a write. */
+  execute<T = Record<string, unknown>>(sqlite: DatabaseSync): { results: T[]; success: boolean; meta: D1Meta } {
+    const results = this.statement.all(...this.params) as T[]
+    const counts = sqlite.prepare('SELECT changes() AS changes, last_insert_rowid() AS id').get() as { changes: number; id: number }
+    return { results, success: true, meta: { last_row_id: Number(counts.id), changes: Number(counts.changes) } }
+  }
 }
 
 export class MemoryD1 {
@@ -50,16 +57,15 @@ export class MemoryD1 {
     return new MemoryStatement(this.sqlite.prepare(query))
   }
 
-  async batch<T = unknown>(statements: Array<Promise<T> | MemoryStatement | { run: () => Promise<T> }>): Promise<T[]> {
-    const results: T[] = []
+  /** Like D1: every statement in order inside one transaction, each with its own rows and counts. */
+  async batch<T = Record<string, unknown>>(
+    statements: MemoryStatement[]
+  ): Promise<Array<{ results: T[]; success: boolean; meta: D1Meta }>> {
+    const results: Array<{ results: T[]; success: boolean; meta: D1Meta }> = []
     this.sqlite.exec('BEGIN')
     try {
       for (const statement of statements) {
-        if (statement && typeof statement === 'object' && 'run' in statement) {
-          results.push((await (statement as MemoryStatement).run()) as T)
-        } else {
-          results.push(await (statement as Promise<T>))
-        }
+        results.push(statement.execute<T>(this.sqlite))
       }
       this.sqlite.exec('COMMIT')
     } catch (error) {

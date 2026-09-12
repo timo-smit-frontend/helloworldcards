@@ -12,9 +12,9 @@ import type {
   SlabReader
 } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
-import { listLedgerInventory, type CmsDb } from './cms/db'
+import { batchAll, rowToInventory, rowToSettings, SQL, type CmsDb, type ProductRow, type SettingsRow } from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
-import { ensureSeeded } from './cms/seed'
+import { ensureSeeded, needsSeeding } from './cms/seed'
 import { buildLedger } from './ledger'
 import {
   clearSessionCookie,
@@ -68,7 +68,8 @@ export type DashboardRuntime = {
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
   ctx?: { waitUntil(promise: Promise<unknown>): void }
-  purgeMediaCache?: (pathname: string) => Promise<void>
+  /** Drop these paths from the edge cache, all in one call. */
+  purgeMediaCache?: (pathnames: string[]) => Promise<void>
 }
 
 const MAX_BODY_BYTES = 4096
@@ -286,13 +287,23 @@ function logout(request: Request): Response {
   return json({ ok: true }, 200, { 'Set-Cookie': cookie })
 }
 
+/**
+ * The ledger's inventory: every live product plus the sold ones that were trashed, which
+ * stay on the books. The seed check rides on the settings row read in the same batch.
+ */
 async function inventoryFor(env: DashboardEnv, runtime?: DashboardRuntime) {
   const db = runtime?.db ?? env.DB
   if (!db) {
     return []
   }
-  await ensureSeeded(db)
-  return listLedgerInventory(db)
+  const read = () => batchAll(db, [db.prepare(SQL.settings), db.prepare(SQL.ledger)])
+  let rows = await read()
+  const settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)
+  if (needsSeeding(settings)) {
+    await ensureSeeded(db, settings)
+    rows = await read()
+  }
+  return (rows[1].results as ProductRow[]).map(rowToInventory)
 }
 
 export async function requireAdminSession(request: Request, env: DashboardEnv): Promise<Response | null> {

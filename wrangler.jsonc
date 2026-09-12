@@ -17,8 +17,12 @@
     "not_found_handling": "none",
     "run_worker_first": true
   },
+  // Only the media entrypoint is cached (see "exports"). Media keys never change — a
+  // replaced image gets a new key — so the cache is kept across deploys instead of
+  // starting cold every time the Worker is published.
   "cache": {
-    "enabled": true
+    "enabled": true,
+    "cross_version_cache": true
   },
   "exports": {
     "default": { "type": "worker", "cache": { "enabled": false } },

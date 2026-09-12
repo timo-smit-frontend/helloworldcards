@@ -1,4 +1,4 @@
-import type { CmsBlock, CmsEvent, CmsFaq, CmsPageStatus, CmsSettings } from '../../app/cms/types'
+import type { CmsBlock, CmsEvent, CmsFaq, CmsNavItem, CmsPageStatus, CmsSettings } from '../../app/cms/types'
 import { CMS_BLOCK_TYPES } from '../../app/cms/types'
 import type { ProductRecord } from '../../app/database/products'
 import { CARD_GRADERS, CARD_LANGUAGES, uniqueProductSlug } from '../../app/database/products'
@@ -9,27 +9,27 @@ import {
   getPageById,
   getProductById,
   getSettings,
+  getSettingsAndNav,
   insertEvent,
   insertFaq,
   insertPage,
   insertProduct,
+  listAllProductRows,
   listEvents,
   listFaqs,
-  listInventory,
   listAdminInventory,
-  listNav,
   listPages,
   listTrashedEvents,
   listTrashedFaqs,
   listTrashedPages,
   listTrashedProducts,
-  nextProductSlug,
   pagePathTaken,
   permanentlyDeleteRecord,
-  productSlugTaken,
   putSettings,
   replaceNav,
   restoreRecord,
+  rowToInventory,
+  rowToRecord,
   trashRecord,
   updateEvent,
   updateFaq,
@@ -144,6 +144,10 @@ function parsePage(body: Record<string, unknown>): Omit<import('../../app/cms/ty
 
 function parseSettings(body: Record<string, unknown>, current: CmsSettings): CmsSettings {
   return {
+    // The seed version records which one-shot migrations this database has had. Dropping
+    // it here would have the next request run them all again, seed products included,
+    // over whatever was edited in the admin since.
+    ...(current.cmsSeedVersion != null ? { cmsSeedVersion: current.cmsSeedVersion } : {}),
     siteDescription: asString(body.siteDescription)?.trim() || current.siteDescription,
     siteImage: asString(body.siteImage)?.trim() || current.siteImage,
     siteImageAlt: asString(body.siteImageAlt)?.trim() || current.siteImageAlt,
@@ -193,7 +197,7 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
 
   return withDb(env, runtime, async (db) => {
     if (path === '/api/admin/settings' && request.method === 'GET') {
-      return json({ settings: await getSettings(db), nav: await listNav(db) })
+      return json(await getSettingsAndNav(db))
     }
 
     if (path === '/api/admin/settings' && request.method === 'PUT') {
@@ -204,16 +208,21 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
       const current = (await getSettings(db))!
       const settings = parseSettings(body, current)
       await putSettings(db, settings)
+      let nav: CmsNavItem[]
       if (Array.isArray(body.nav)) {
-        const nav = (body.nav as Array<Record<string, unknown>>).map((item, index) => ({
-          location: item.location === 'footer' ? ('footer' as const) : ('header' as const),
-          label: asString(item.label)?.trim() || 'Link',
-          href: asString(item.href)?.trim() || '/',
-          sort: asNumber(item.sort) ?? index
-        }))
-        await replaceNav(db, nav)
+        nav = await replaceNav(
+          db,
+          (body.nav as Array<Record<string, unknown>>).map((item, index) => ({
+            location: item.location === 'footer' ? ('footer' as const) : ('header' as const),
+            label: asString(item.label)?.trim() || 'Link',
+            href: asString(item.href)?.trim() || '/',
+            sort: asNumber(item.sort) ?? index
+          }))
+        )
+      } else {
+        nav = (await getSettingsAndNav(db)).nav
       }
-      return json({ settings, nav: await listNav(db) })
+      return json({ settings, nav })
     }
 
     if (path === '/api/admin/products' && request.method === 'GET') {
@@ -226,8 +235,11 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
         return json({ error: 'Invalid JSON' }, 400)
       }
       const record = parseProduct(body, 0)
-      const slug = asString(body.slug)?.trim() || (await nextProductSlug(db, record))
-      if (await productSlugTaken(db, slug)) {
+      // Every row, trashed ones included: a slug stays reserved until its product is
+      // deleted for good.
+      const rows = await listAllProductRows(db)
+      const slug = asString(body.slug)?.trim() || uniqueProductSlug(record, rows.map(rowToRecord))
+      if (rows.some((row) => row.slug === slug)) {
         return json({ error: 'That slug is already used.' }, 400)
       }
       const id = await insertProduct(db, { ...record, slug })
@@ -262,14 +274,16 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
         if (!body) {
           return json({ error: 'Invalid JSON' }, 400)
         }
-        const existing = await getProductById(db, id)
-        if (!existing) {
+        const rows = await listAllProductRows(db)
+        const existingRow = rows.find((row) => row.id === id && row.deleted_at == null)
+        if (!existingRow) {
           return json({ error: 'Not found' }, 404)
         }
+        const existing = rowToInventory(existingRow)
         const record = parseProduct(body, id)
-        const others = (await listInventory(db)).filter((item) => item.id !== id)
+        const others = rows.filter((row) => row.id !== id && row.deleted_at == null).map(rowToInventory)
         const slug = asString(body.slug)?.trim() || uniqueProductSlug(record, others)
-        if (await productSlugTaken(db, slug, id)) {
+        if (rows.some((row) => row.slug === slug && row.id !== id)) {
           return json({ error: 'That slug is already used.' }, 400)
         }
         const merged: ProductRecord & { slug: string } = { ...existing, ...record, slug }

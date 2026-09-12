@@ -7,7 +7,7 @@ import { handleAdminRequest } from '../worker/cms/admin-api'
 import { autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
 import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
-import { handleDashboardRequest, type DashboardRuntime } from '../worker/dashboard-api'
+import type { DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
 import {
   closePlaywrightCardmarketFetcher,
@@ -46,13 +46,36 @@ function parseDotEnv(source: string): Record<string, string> {
 }
 
 /**
+ * `.dev.vars`, re-read only when the file changes. Every request to the dev CMS used to
+ * read and parse it twice.
+ */
+const devVars = new Map<string, { mtimeMs: number; values: Record<string, string> }>()
+
+function readDevVars(root: string): Record<string, string> {
+  const filePath = path.join(root, '.dev.vars')
+  let mtimeMs: number
+  try {
+    mtimeMs = fs.statSync(filePath).mtimeMs
+  } catch {
+    devVars.delete(filePath)
+    return {}
+  }
+  const cached = devVars.get(filePath)
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.values
+  }
+  const values = parseDotEnv(fs.readFileSync(filePath, 'utf8'))
+  devVars.set(filePath, { mtimeMs, values })
+  return values
+}
+
+/**
  * Keys the deal finder needs, read from `.dev.vars` like the dashboard login.
  * The label reader runs locally and needs nothing; PSA_API_TOKEN is optional too,
  * and without it the scan trusts the label it read off the photos.
  */
 export function loadScanSecrets(root = process.cwd()): { PSA_API_TOKEN?: string } {
-  const filePath = path.join(root, '.dev.vars')
-  const fromFile = fs.existsSync(filePath) ? parseDotEnv(fs.readFileSync(filePath, 'utf8')) : {}
+  const fromFile = readDevVars(root)
 
   return {
     PSA_API_TOKEN: process.env.PSA_API_TOKEN ?? fromFile.PSA_API_TOKEN
@@ -64,8 +87,7 @@ export function loadDashboardEnv(root = process.cwd()): {
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string
 } {
-  const filePath = path.join(root, '.dev.vars')
-  const fromFile = fs.existsSync(filePath) ? parseDotEnv(fs.readFileSync(filePath, 'utf8')) : {}
+  const fromFile = readDevVars(root)
 
   return {
     DASHBOARD_USERNAME: process.env.DASHBOARD_USERNAME ?? fromFile.DASHBOARD_USERNAME,
@@ -311,7 +333,6 @@ function cmsApiMiddleware(root: string) {
 
         const response =
           (await handleAdminRequest(request, env, withBrowser)) ??
-          (await handleDashboardRequest(request, env, withBrowser)) ??
           (await handlePublicApi(request, env, withBrowser)) ??
           (await handleMediaPublic(request, env, withBrowser)) ??
           (await handleSitemap(request, env, withBrowser)) ??

@@ -320,7 +320,7 @@ describe('CMS API', () => {
         body: form
       }),
       env,
-      { db, media, purgeMediaCache: async (path: string) => void purged.push(path) }
+      { db, media, purgeMediaCache: async (paths: string[]) => void purged.push(...paths) }
     )
     expect(replaced?.status).toBe(200)
     const saved = (await replaced!.json()) as {

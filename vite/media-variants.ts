@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { MediaBucket } from '../worker/cms/media'
 import { mediaVariantKey, variantWidthsFor, type ImageFormat } from '../app/services/responsiveImage'
-import { IMAGE_FORMATS, resizeToFormat } from './responsive-image-build'
+import { IMAGE_FORMATS, defaultVariantConcurrency, mapPool, resizeToFormat } from './responsive-image-build'
 
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 
@@ -31,15 +31,23 @@ export async function findSeedMediaOriginal(seedDir: string, stem: string): Prom
   return undefined
 }
 
+/**
+ * Every size and format of one original. The encodes run a few at a time — like the
+ * production build does — rather than one after another; the map keeps the build's
+ * width-then-format order so callers and manifests see the same sequence as before.
+ */
 export async function encodeMediaVariants(originalPath: string, originalKey: string): Promise<Map<string, Buffer>> {
-  const variants = new Map<string, Buffer>()
-  for (const width of variantWidthsFor()) {
-    for (const format of IMAGE_FORMATS) {
+  const jobs = variantWidthsFor().flatMap((width) => IMAGE_FORMATS.map((format) => ({ width, format })))
+  const encoded = new Map<string, Buffer>()
+  await mapPool(jobs, defaultVariantConcurrency(), async ({ width, format }) => {
+    encoded.set(mediaVariantKey(originalKey, width, format), await resizeToFormat(originalPath, width, format))
+  })
+  return new Map(
+    jobs.map(({ width, format }) => {
       const key = mediaVariantKey(originalKey, width, format)
-      variants.set(key, await resizeToFormat(originalPath, width, format))
-    }
-  }
-  return variants
+      return [key, encoded.get(key)!]
+    })
+  )
 }
 
 export async function putMediaVariants(
@@ -52,17 +60,18 @@ export async function putMediaVariants(
   const variants = await encodeMediaVariants(originalPath, originalKey)
   let uploaded = 0
 
-  for (const [key, buffer] of variants) {
+  // A few writes in flight at once: the bucket is local, but each put is still a round trip.
+  await mapPool([...variants], 4, async ([key, buffer]) => {
     if (signal?.aborted) {
-      return uploaded
+      return
     }
-    if (skipExisting && (await bucket.get(key))) {
-      continue
+    if (skipExisting && (await (bucket.head ? bucket.head(key) : bucket.get(key)))) {
+      return
     }
     const format = key.endsWith('.avif') ? 'avif' : 'webp'
     await bucket.put(key, buffer, { httpMetadata: { contentType: contentType(format) } })
     uploaded += 1
-  }
+  })
 
   return uploaded
 }
@@ -80,7 +89,7 @@ export async function seedMediaWithVariants(
       return
     }
     const originalPath = path.join(seedDir, file.filename)
-    if (!(await bucket.get(file.key))) {
+    if (!(await (bucket.head ? bucket.head(file.key) : bucket.get(file.key)))) {
       const bytes = await fs.readFile(originalPath)
       await bucket.put(file.key, bytes, { httpMetadata: { contentType: file.contentType } })
     }

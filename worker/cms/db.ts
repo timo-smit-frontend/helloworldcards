@@ -3,58 +3,76 @@ import type { CmsBlock, CmsEvent, CmsFaq, CmsMedia, CmsNavItem, CmsPage, CmsPage
 import type { InventoryProduct, ProductRecord } from '../../app/database/products'
 import { isShopListed, toInventoryProduct, toPublicProduct, uniqueProductSlug } from '../../app/database/products'
 
+export type CmsStatementResult<T = Record<string, unknown>> = {
+  results: T[]
+  meta?: { last_row_id: number; changes: number }
+}
+
 export type CmsPreparedStatement = {
   bind(...params: unknown[]): CmsPreparedStatement
   first<T = Record<string, unknown>>(colName?: string): Promise<T | null>
-  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>
+  all<T = Record<string, unknown>>(): Promise<CmsStatementResult<T>>
   run(): Promise<{ success?: boolean; meta: { last_row_id: number; changes: number } }>
 }
 
 export type CmsDb = {
   prepare(query: string): CmsPreparedStatement
+  /**
+   * D1 runs a batch in one round trip and one transaction. It is optional so that a
+   * database that only knows `prepare` — the Wrangler-backed one the sync uses — still
+   * works, statement by statement.
+   */
+  batch?<T = Record<string, unknown>>(statements: CmsPreparedStatement[]): Promise<CmsStatementResult<T>[]>
+}
+
+/**
+ * Run several statements in one round trip where the database can. Every request to the
+ * site used to spend a round trip per table it read; batching turns that into one.
+ */
+export async function batchAll<T = Record<string, unknown>>(
+  db: CmsDb,
+  statements: CmsPreparedStatement[]
+): Promise<CmsStatementResult<T>[]> {
+  if (statements.length === 0) {
+    return []
+  }
+  if (db.batch) {
+    return db.batch<T>(statements)
+  }
+  const results: CmsStatementResult<T>[] = []
+  for (const statement of statements) {
+    results.push(await statement.all<T>())
+  }
+  return results
 }
 
 type TrashTable = 'products' | 'events' | 'faqs' | 'pages'
 
-async function deletedAt(db: CmsDb, table: TrashTable, id: number): Promise<string | null | undefined> {
-  const row = await db.prepare(`SELECT deleted_at as deletedAt FROM ${table} WHERE id = ?`).bind(id).first<{ deletedAt: string | null }>()
-  if (!row) {
-    return undefined
-  }
-  return row.deletedAt
-}
-
+/**
+ * Each of these used to look the row up and then write it, two round trips apiece. The
+ * write is now conditional on the row's state, so its own change count says whether it
+ * applied; trashing is the one case that has to tell "already trashed" from "no such
+ * row", and that lookup travels in the same batch.
+ */
 export async function trashRecord(db: CmsDb, table: TrashTable, id: number): Promise<boolean> {
-  const current = await deletedAt(db, table, id)
-  if (current === undefined) {
-    return false
-  }
-  if (current) {
-    return true
-  }
-  await db.prepare(`UPDATE ${table} SET deleted_at = ? WHERE id = ?`).bind(new Date().toISOString(), id).run()
-  return true
+  const [, found] = await batchAll<{ id: number }>(db, [
+    db.prepare(`UPDATE ${table} SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(new Date().toISOString(), id),
+    db.prepare(`SELECT id FROM ${table} WHERE id = ?`).bind(id)
+  ])
+  return found.results.length > 0
 }
 
 export async function restoreRecord(db: CmsDb, table: TrashTable, id: number): Promise<boolean> {
-  const current = await deletedAt(db, table, id)
-  if (!current) {
-    return false
-  }
-  await db.prepare(`UPDATE ${table} SET deleted_at = NULL WHERE id = ?`).bind(id).run()
-  return true
+  const restored = await db.prepare(`UPDATE ${table} SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`).bind(id).run()
+  return restored.meta.changes > 0
 }
 
 export async function permanentlyDeleteRecord(db: CmsDb, table: TrashTable, id: number): Promise<boolean> {
-  const current = await deletedAt(db, table, id)
-  if (!current) {
-    return false
-  }
-  await db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run()
-  return true
+  const deleted = await db.prepare(`DELETE FROM ${table} WHERE id = ? AND deleted_at IS NOT NULL`).bind(id).run()
+  return deleted.meta.changes > 0
 }
 
-type ProductRow = {
+export type ProductRow = {
   id: number
   title: string
   subtitle: string
@@ -79,7 +97,7 @@ type ProductRow = {
   first_edition: number
 }
 
-type PageRow = {
+export type PageRow = {
   id: number
   path: string
   status: CmsPageStatus
@@ -137,14 +155,40 @@ export function rowToPage(row: PageRow): CmsPage {
   }
 }
 
-export async function getSettings(db: CmsDb): Promise<CmsSettings | null> {
-  const row = await db.prepare('SELECT json FROM settings WHERE id = 1').first<{ json: string }>()
+/**
+ * The reads the site and the admin share. They are kept here as text so that a request
+ * can batch several of them into one round trip and still parse the rows with the same
+ * helpers the one-off readers below use.
+ */
+export const SQL = {
+  settings: 'SELECT json FROM settings WHERE id = 1',
+  nav: 'SELECT id, location, label, href, sort FROM nav_items ORDER BY location ASC, sort ASC, id ASC',
+  inventory: 'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC',
+  // Sold cards stay on the books even once trashed.
+  ledger: 'SELECT * FROM products WHERE deleted_at IS NULL OR sold = 1 ORDER BY id ASC',
+  productBySlug: 'SELECT * FROM products WHERE slug = ? AND deleted_at IS NULL',
+  events: 'SELECT id, title, date, location FROM events WHERE deleted_at IS NULL ORDER BY date ASC, id ASC',
+  faqs: 'SELECT id, question, answer FROM faqs WHERE deleted_at IS NULL ORDER BY id ASC',
+  pages: 'SELECT * FROM pages WHERE deleted_at IS NULL ORDER BY path ASC',
+  pageByPath: 'SELECT * FROM pages WHERE path = ? AND deleted_at IS NULL',
+  // Only the copy the site needs: media without a title or alt has nothing to contribute.
+  mediaCopy: "SELECT key, title, alt FROM media WHERE title != '' OR alt != ''"
+} as const
+
+export type SettingsRow = { json: string }
+export type MediaCopyRow = { key: string; title: string; alt: string }
+
+export function rowToSettings(row: SettingsRow | null | undefined): CmsSettings | null {
   if (!row) {
     return null
   }
   const parsed = JSON.parse(row.json) as CmsSettings & { siteName?: string }
   delete parsed.siteName
   return parsed
+}
+
+export async function getSettings(db: CmsDb): Promise<CmsSettings | null> {
+  return rowToSettings(await db.prepare(SQL.settings).first<SettingsRow>())
 }
 
 export async function putSettings(db: CmsDb, settings: CmsSettings): Promise<void> {
@@ -155,25 +199,46 @@ export async function putSettings(db: CmsDb, settings: CmsSettings): Promise<voi
 }
 
 export async function listNav(db: CmsDb): Promise<CmsNavItem[]> {
-  const { results } = await db
-    .prepare('SELECT id, location, label, href, sort FROM nav_items ORDER BY location ASC, sort ASC, id ASC')
-    .all<CmsNavItem>()
+  const { results } = await db.prepare(SQL.nav).all<CmsNavItem>()
   return results
 }
 
-export async function replaceNav(db: CmsDb, items: Array<Omit<CmsNavItem, 'id'>>): Promise<void> {
-  await db.prepare('DELETE FROM nav_items').run()
-  for (const [index, item] of items.entries()) {
-    await db
-      .prepare('INSERT INTO nav_items (location, label, href, sort) VALUES (?, ?, ?, ?)')
-      .bind(item.location, item.label, item.href, item.sort ?? index)
-      .run()
-  }
+/** Settings and navigation together, the way the admin reads them: one round trip. */
+export async function getSettingsAndNav(db: CmsDb): Promise<{ settings: CmsSettings | null; nav: CmsNavItem[] }> {
+  const [settings, nav] = await batchAll(db, [db.prepare(SQL.settings), db.prepare(SQL.nav)])
+  return { settings: rowToSettings(settings.results[0] as SettingsRow | undefined), nav: nav.results as CmsNavItem[] }
+}
+
+/**
+ * Swap the whole navigation in one batch and hand back the rows as they now stand,
+ * ids included. The delete, the inserts and the read-back used to be a round trip each.
+ */
+export async function replaceNav(db: CmsDb, items: Array<Omit<CmsNavItem, 'id'>>): Promise<CmsNavItem[]> {
+  const results = await batchAll<CmsNavItem>(db, [
+    db.prepare('DELETE FROM nav_items'),
+    ...items.map((item, index) =>
+      db
+        .prepare('INSERT INTO nav_items (location, label, href, sort) VALUES (?, ?, ?, ?)')
+        .bind(item.location, item.label, item.href, item.sort ?? index)
+    ),
+    db.prepare(SQL.nav)
+  ])
+  return results[results.length - 1].results
 }
 
 export async function listInventory(db: CmsDb): Promise<InventoryProduct[]> {
-  const { results } = await db.prepare('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC').all<ProductRow>()
+  const { results } = await db.prepare(SQL.inventory).all<ProductRow>()
   return results.map(rowToInventory)
+}
+
+/**
+ * Every product row there is, trashed ones included. The admin's product writes need the
+ * live rows for slugs and the trashed rows for the slugs they still reserve; one read
+ * serves both instead of a query per question.
+ */
+export async function listAllProductRows(db: CmsDb): Promise<Array<ProductRow & { deleted_at: string | null }>> {
+  const { results } = await db.prepare('SELECT * FROM products ORDER BY id ASC').all<ProductRow & { deleted_at: string | null }>()
+  return results
 }
 
 export async function listAdminInventory(db: CmsDb): Promise<InventoryProduct[]> {
@@ -184,7 +249,7 @@ export async function listAdminInventory(db: CmsDb): Promise<InventoryProduct[]>
 }
 
 export async function listLedgerInventory(db: CmsDb): Promise<InventoryProduct[]> {
-  const { results } = await db.prepare('SELECT * FROM products WHERE deleted_at IS NULL OR sold = 1 ORDER BY id ASC').all<ProductRow>()
+  const { results } = await db.prepare(SQL.ledger).all<ProductRow>()
   return results.map(rowToInventory)
 }
 
@@ -201,7 +266,7 @@ export async function listShopProducts(db: CmsDb) {
 }
 
 export async function getProductBySlugRow(db: CmsDb, slug: string): Promise<InventoryProduct | null> {
-  const row = await db.prepare('SELECT * FROM products WHERE slug = ? AND deleted_at IS NULL').bind(slug).first<ProductRow>()
+  const row = await db.prepare(SQL.productBySlug).bind(slug).first<ProductRow>()
   return row ? rowToInventory(row) : null
 }
 
@@ -283,9 +348,7 @@ export async function nextProductSlug(db: CmsDb, product: ProductRecord): Promis
 }
 
 export async function listEvents(db: CmsDb): Promise<CmsEvent[]> {
-  const { results } = await db
-    .prepare('SELECT id, title, date, location FROM events WHERE deleted_at IS NULL ORDER BY date ASC, id ASC')
-    .all<CmsEvent>()
+  const { results } = await db.prepare(SQL.events).all<CmsEvent>()
   return results
 }
 
@@ -312,7 +375,7 @@ export async function updateEvent(db: CmsDb, id: number, event: Omit<CmsEvent, '
 }
 
 export async function listFaqs(db: CmsDb): Promise<CmsFaq[]> {
-  const { results } = await db.prepare('SELECT id, question, answer FROM faqs WHERE deleted_at IS NULL ORDER BY id ASC').all<CmsFaq>()
+  const { results } = await db.prepare(SQL.faqs).all<CmsFaq>()
   return results
 }
 
@@ -351,7 +414,7 @@ export async function upsertEventWithId(db: CmsDb, id: number, event: Omit<CmsEv
 }
 
 export async function listPages(db: CmsDb): Promise<CmsPage[]> {
-  const { results } = await db.prepare('SELECT * FROM pages WHERE deleted_at IS NULL ORDER BY path ASC').all<PageRow>()
+  const { results } = await db.prepare(SQL.pages).all<PageRow>()
   return results.map(rowToPage)
 }
 
@@ -361,7 +424,7 @@ export async function listTrashedPages(db: CmsDb): Promise<CmsPage[]> {
 }
 
 export async function getPageByPath(db: CmsDb, path: string): Promise<CmsPage | null> {
-  const row = await db.prepare('SELECT * FROM pages WHERE path = ? AND deleted_at IS NULL').bind(path).first<PageRow>()
+  const row = await db.prepare(SQL.pageByPath).bind(path).first<PageRow>()
   return row ? rowToPage(row) : null
 }
 
@@ -430,15 +493,37 @@ export async function listMedia(db: CmsDb): Promise<CmsMedia[]> {
   return sortMediaLibrary(results.map(toCmsMedia))
 }
 
+/**
+ * The media screen's whole read — the library plus the storage and request counters the
+ * usage widget shows — in one round trip instead of three.
+ */
+export async function mediaLibrarySnapshot(
+  db: CmsDb,
+  month: string
+): Promise<{ media: CmsMedia[]; storageBytes: number; classA: number; classB: number }> {
+  const [rows, storage, usage] = await batchAll(db, [
+    db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media ORDER BY id DESC`),
+    db.prepare('SELECT COALESCE(SUM(bytes), 0) as total FROM media'),
+    db.prepare('SELECT class_a as classA, class_b as classB FROM r2_usage WHERE month = ?').bind(month)
+  ])
+  const counters = usage.results[0] as { classA: number; classB: number } | undefined
+  return {
+    media: sortMediaLibrary((rows.results as MediaRow[]).map(toCmsMedia)),
+    storageBytes: Number((storage.results[0] as { total: number } | undefined)?.total ?? 0),
+    classA: Number(counters?.classA ?? 0),
+    classB: Number(counters?.classB ?? 0)
+  }
+}
+
 export async function getMediaById(db: CmsDb, id: number): Promise<CmsMedia | null> {
   const row = await db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media WHERE id = ?`).bind(id).first<MediaRow>()
   return row ? toCmsMedia(row) : null
 }
 
-export async function insertMedia(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<number> {
-  const result = await db
+function insertMediaStatement(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>, ignoreExisting = false): CmsPreparedStatement {
+  return db
     .prepare(
-      'INSERT INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      `INSERT ${ignoreExisting ? 'OR IGNORE ' : ''}INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       media.key,
@@ -451,32 +536,51 @@ export async function insertMedia(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>
       media.alt ?? '',
       media.createdAt
     )
-    .run()
+}
+
+export async function insertMedia(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<number> {
+  const result = await insertMediaStatement(db, media).run()
   return result.meta.last_row_id
 }
 
+/** Keys are unique, so the database can skip a duplicate itself: no lookup first. */
 export async function insertMediaIfAbsent(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<void> {
-  const existing = await db.prepare('SELECT id FROM media WHERE key = ?').bind(media.key).first()
-  if (existing) {
-    return
-  }
-  await insertMedia(db, media)
+  await insertMediaStatement(db, media, true).run()
+}
+
+function fillEmptyMediaCopyStatement(db: CmsDb, key: string, title: string, alt: string): CmsPreparedStatement {
+  return db.prepare("UPDATE media SET title = ?, alt = ? WHERE key = ? AND title = '' AND alt = ''").bind(title, alt, key)
 }
 
 export async function fillEmptyMediaCopy(db: CmsDb, key: string, title: string, alt: string): Promise<void> {
   if (!title && !alt) {
     return
   }
-  await db.prepare("UPDATE media SET title = ?, alt = ? WHERE key = ? AND title = '' AND alt = ''").bind(title, alt, key).run()
+  await fillEmptyMediaCopyStatement(db, key, title, alt).run()
 }
 
-export async function updateMedia(db: CmsDb, id: number, fields: { title: string; alt: string }): Promise<CmsMedia | null> {
-  const existing = await getMediaById(db, id)
-  if (!existing) {
-    return null
+/**
+ * Register a set of files in the library — the seed images — writing the rows and their
+ * default copy in one batch rather than two round trips per image.
+ */
+export async function seedMediaRows(db: CmsDb, files: Array<Omit<CmsMedia, 'id' | 'url'>>): Promise<void> {
+  const statements = files.flatMap((file) => [
+    insertMediaStatement(db, file, true),
+    ...(file.title || file.alt ? [fillEmptyMediaCopyStatement(db, file.key, file.title, file.alt)] : [])
+  ])
+  // Every statement is idempotent, so the batch can be cut into modest pieces.
+  for (let index = 0; index < statements.length; index += 40) {
+    await batchAll(db, statements.slice(index, index + 40))
   }
-  await db.prepare('UPDATE media SET title = ?, alt = ? WHERE id = ?').bind(fields.title, fields.alt, id).run()
-  return { ...existing, title: fields.title, alt: fields.alt }
+}
+
+/** Write the copy and read the row back in the same round trip; a missing row reads back as null. */
+export async function updateMedia(db: CmsDb, id: number, fields: { title: string; alt: string }): Promise<CmsMedia | null> {
+  const [, row] = await batchAll<MediaRow>(db, [
+    db.prepare('UPDATE media SET title = ?, alt = ? WHERE id = ?').bind(fields.title, fields.alt, id),
+    db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media WHERE id = ?`).bind(id)
+  ])
+  return row.results[0] ? toCmsMedia(row.results[0]) : null
 }
 
 // Media URLs are served immutable for a year, so a replacement has to live under a new
@@ -488,40 +592,37 @@ const MEDIA_REFERENCE_COLUMNS: ReadonlyArray<{ table: string; column: string }> 
   { table: 'settings', column: 'json' }
 ]
 
+/**
+ * Point a library row at freshly uploaded bytes. The row update and the four reference
+ * rewrites go as one batch, and the row the caller gets back is the one it would read.
+ */
 export async function replaceMediaFile(
   db: CmsDb,
-  id: number,
+  existing: CmsMedia,
   fields: { key: string; filename: string; contentType: string; bytes: number }
-): Promise<{ media: CmsMedia; previous: CmsMedia } | null> {
-  const existing = await getMediaById(db, id)
-  if (!existing) {
-    return null
-  }
-  await db
-    .prepare('UPDATE media SET key = ?, filename = ?, content_type = ?, bytes = ?, width = NULL, height = NULL WHERE id = ?')
-    .bind(fields.key, fields.filename, fields.contentType, fields.bytes, id)
-    .run()
-
+): Promise<CmsMedia> {
   const previousUrl = `/media/${existing.key}`
   const nextUrl = `/media/${fields.key}`
-  for (const { table, column } of MEDIA_REFERENCE_COLUMNS) {
-    await db
-      .prepare(`UPDATE ${table} SET ${column} = REPLACE(${column}, ?, ?) WHERE ${column} LIKE ?`)
-      .bind(previousUrl, nextUrl, `%${previousUrl}%`)
-      .run()
-  }
-
-  const media = await getMediaById(db, id)
-  return media ? { media, previous: existing } : null
+  await batchAll(db, [
+    db
+      .prepare('UPDATE media SET key = ?, filename = ?, content_type = ?, bytes = ?, width = NULL, height = NULL WHERE id = ?')
+      .bind(fields.key, fields.filename, fields.contentType, fields.bytes, existing.id),
+    ...MEDIA_REFERENCE_COLUMNS.map(({ table, column }) =>
+      db
+        .prepare(`UPDATE ${table} SET ${column} = REPLACE(${column}, ?, ?) WHERE ${column} LIKE ?`)
+        .bind(previousUrl, nextUrl, `%${previousUrl}%`)
+    )
+  ])
+  return { ...existing, ...fields, width: null, height: null, url: nextUrl }
 }
 
+/** Remove a row and hand back what it was, read and delete in one round trip. */
 export async function deleteMedia(db: CmsDb, id: number): Promise<CmsMedia | null> {
-  const existing = await getMediaById(db, id)
-  if (!existing) {
-    return null
-  }
-  await db.prepare('DELETE FROM media WHERE id = ?').bind(id).run()
-  return existing
+  const [row] = await batchAll<MediaRow>(db, [
+    db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media WHERE id = ?`).bind(id),
+    db.prepare('DELETE FROM media WHERE id = ?').bind(id)
+  ])
+  return row.results[0] ? toCmsMedia(row.results[0]) : null
 }
 
 /**
@@ -559,6 +660,10 @@ export async function upsertMediaByKey(db: CmsDb, media: Omit<CmsMedia, 'id' | '
 
 /** Drop the rows a library snapshot no longer holds: a replaced or a deleted image. */
 export async function deleteMediaExcept(db: CmsDb, keys: string[]): Promise<void> {
+  // An empty list would be a syntax error, and emptying the library is never the intent.
+  if (keys.length === 0) {
+    return
+  }
   const placeholders = keys.map(() => '?').join(', ')
   await db
     .prepare(`DELETE FROM media WHERE key NOT IN (${placeholders})`)
