@@ -1,7 +1,14 @@
 import type { CardGrader, CardLanguage, InventoryProduct } from '../../database/products'
 import { toMediaSrc } from '../imageCopy'
 import { parseListedPrice } from '../price'
-import { marketFloorPrice, sameOrBetterGrade, suggestListedPrice, type MarketListing, type PriceSuggestion } from './grades'
+import {
+  marketFloorPrice,
+  nearestLowerGrades,
+  sameOrBetterGrade,
+  suggestListedPrice,
+  type MarketListing,
+  type PriceSuggestion
+} from './grades'
 import { parseArticleListings } from './html'
 
 export type CardmarketProductReport = {
@@ -10,12 +17,19 @@ export type CardmarketProductReport = {
   image: string | null
   listed: number
   url: string
+  /** The slab being priced. Optional because older saved reports predate it. */
+  grader?: CardGrader
+  grade?: number
+  /** Cheapest listing at exactly this grader and grade, or null when nobody lists one. */
+  floor?: number | null
   listings: MarketListing[]
   /**
    * Everyone selling the same card at your grade or better, cheapest first. Optional
    * because a report saved before this field existed is still read back and rendered.
    */
   competitors?: MarketListing[]
+  /** Lower grades on offer, closest first — the fallback read when `competitors` is empty. */
+  similar?: MarketListing[]
   suggestion: PriceSuggestion | null
   gone: MarketListing[]
   error: string | null
@@ -136,12 +150,15 @@ export async function runCardmarketScan({
       firstEdition: product.firstEdition,
       grade: product.grade
     })
-    const base: Omit<CardmarketProductReport, 'listings' | 'competitors' | 'suggestion' | 'gone' | 'error'> = {
+    const base: Omit<CardmarketProductReport, 'listings' | 'competitors' | 'similar' | 'suggestion' | 'gone' | 'error'> = {
       id: product.id,
       title: product.title,
       image: product.images[0] ? toMediaSrc(product.images[0]) : null,
       listed,
-      url
+      url,
+      grader: product.grader!,
+      grade: product.grade!,
+      floor: null
     }
 
     try {
@@ -191,8 +208,10 @@ export async function runCardmarketScan({
 
       productsReport.push({
         ...base,
+        floor: marketFloorPrice({ grader: product.grader!, grade: product.grade!, listings })?.floor ?? null,
         listings,
         competitors: sameOrBetterGrade({ grade: product.grade!, listings }),
+        similar: nearestLowerGrades({ grade: product.grade!, listings }),
         suggestion,
         gone,
         error: null

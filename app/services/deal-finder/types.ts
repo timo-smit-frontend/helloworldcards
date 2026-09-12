@@ -147,8 +147,6 @@ export type SourceSummary = {
   error: string | null
   /** How many listings the source says match the search, when it tells us. */
   total: number | null
-  /** Set when the scan could not reach the end of the results, saying why not. */
-  truncated: string | null
   /** What went wrong part-way through this source's walk, e.g. a page that would not load. */
   notes: string[]
   /** Priced fine but the edge was too small to bother with. */

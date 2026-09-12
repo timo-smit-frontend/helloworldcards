@@ -4,6 +4,7 @@ import { MorphIcon } from 'morphicons/react'
 import Image from '~/components/elements/Image'
 import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
+import type { MarketListing } from '~/services/cardmarket/grades'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
 import PriceFigure from './PriceFigure'
 import { formatEuros, formatListedEuros, formatSignedEuros, moneyTone } from './money'
@@ -68,6 +69,41 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 /** Competitors shown per card — the cheapest few are the ones a price is judged against. */
 const SHOWN_COMPETITORS = 5
 
+function slabLabel(item: CardmarketProductReport): string {
+  if (item.grader == null || item.grade == null) return 'this grade'
+  return `${item.grader === 'psa' ? 'PSA' : 'BGS'} ${item.grade}`
+}
+
+/** The scan's stored error strings, said the way a person would. */
+function friendlyError(error: string): string {
+  if (/blocked|challenge/i.test(error)) return 'Cardmarket blocked this scan — try again in a bit.'
+  if (/no cardmarket listings/i.test(error)) return 'Cardmarket showed no offers — the card link may be wrong.'
+  return `The scan failed: ${error}`
+}
+
+/** One line on where this card stands, so a row without a price change still tells you something. */
+function marketStatus(item: CardmarketProductReport, competing: MarketListing[], similar: MarketListing[]): string | null {
+  if (item.error) return friendlyError(item.error)
+  if (item.listings.length === 0) return 'No competing slabs currently.'
+  if (competing.length === 0 && similar.length === 0) return 'No competing slabs currently.'
+  if (item.suggestion == null && item.floor != null && item.floor === item.listed) {
+    return `Even with the cheapest ${slabLabel(item)}.`
+  }
+  // Other grades speak for themselves: the grade is in every row's comment.
+  return null
+}
+
+/**
+ * Reading order: cards being undercut first, then ones priced under the market, then
+ * ones sitting even with it, and last the ones with nothing to compare against.
+ */
+function rowRank(item: CardmarketProductReport): number {
+  if (item.suggestion?.direction === 'down') return 0
+  if (item.suggestion?.direction === 'up') return 1
+  if (!item.error && (item.competitors?.length || item.similar?.length || item.listings.length)) return 2
+  return 3
+}
+
 function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   const suggestion = item.suggestion
   const delta = suggestion ? suggestion.target - item.listed : null
@@ -75,13 +111,20 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   // from — a PSA 10 sitting under your PSA 9 is why a price is wrong, so it has to show.
   // A report saved before the scan collected those falls back to what it did save.
   const competing = item.competitors?.length ? item.competitors : (suggestion?.basis ?? [])
+  // Nothing at this grade or better still leaves the lower grades as a read on the market.
+  const similar = competing.length === 0 ? (item.similar ?? []) : []
+  const status = marketStatus(item, competing, similar)
   const listings = [
     // The scan reads the whole offer list, but only the cheapest few are worth reading:
     // they are already sorted, so this is the top of the list rather than an arbitrary cut.
-    ...competing.slice(0, SHOWN_COMPETITORS).map((listing) => ({ listing, suffix: undefined as string | undefined })),
+    ...(competing.length > 0 ? competing : similar)
+      .slice(0, SHOWN_COMPETITORS)
+      .map((listing) => ({ listing, suffix: undefined as string | undefined })),
     ...item.gone.map((listing) => ({ listing, suffix: 'gone' }))
   ]
-  const notes = [...(suggestion?.notes ?? []), ...(item.error ? [item.error] : [])]
+  const notes = suggestion?.notes ?? []
+  // The floor is the price to know even when it is yours; the suggestion only exists when it is not.
+  const marketPrice = suggestion?.target ?? item.floor ?? null
 
   return (
     <li>
@@ -109,6 +152,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         </div>
         <div className="min-w-0">
           <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
+          {status ? <p className="mt-1 text-sm text-site-mantle">{status}</p> : null}
           {listings.length > 0 || notes.length > 0 ? (
             <ul className="mt-1 grid w-max grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
               {listings.map(({ listing, suffix }) => {
@@ -138,8 +182,8 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
           <PriceFigure label="Current" value={formatListedEuros(item.listed)} />
           <PriceFigure
-            label="Suggested"
-            value={suggestion ? formatListedEuros(suggestion.target) : '—'}
+            label={suggestion ? 'Suggested' : 'Floor'}
+            value={marketPrice != null ? formatListedEuros(marketPrice) : '—'}
             tone={delta == null || delta === 0 ? undefined : moneyTone(delta)}
           />
         </div>
@@ -159,7 +203,9 @@ export function PriceSuggestions({
   scanError: string | null
   onScan: () => void
 }) {
-  const rows = (report?.products ?? []).filter((product) => product.suggestion != null || product.error != null || product.gone.length > 0)
+  // Every scanned card, not just the ones whose price should move: the page is for
+  // seeing what the competition is doing, and a price that is already right still has one.
+  const rows = [...(report?.products ?? [])].sort((left, right) => rowRank(left) - rowRank(right))
 
   return (
     <section className="flex flex-col gap-4">
@@ -180,7 +226,7 @@ export function PriceSuggestions({
         <p className="content-m text-site-mantle">Scanning Cardmarket…</p>
       ) : rows.length === 0 ? (
         <p className="content-m text-site-mantle">
-          {report ? 'Prices are even with the lowest same-grade listing.' : 'Scan Cardmarket to see which prices should go up or down.'}
+          {report ? 'No cards with a Cardmarket link to scan.' : 'Scan Cardmarket to see what the competition is doing.'}
         </p>
       ) : (
         <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">

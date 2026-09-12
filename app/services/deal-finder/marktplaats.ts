@@ -222,17 +222,6 @@ export function marktplaatsResultCount(payload: string, offeredSince: string | n
   return match ? Number(match[1]) : null
 }
 
-/**
- * Marktplaats refuses to page past the first 300 listings of a search and says so at the
- * foot of the results. Everything after that is invisible to us, so a search broad enough
- * to hit it has to be reported rather than answered with a partial list.
- */
-export const MARKTPLAATS_RESULT_CAP = /(?:we (?:only )?show|we tonen(?:\s+alleen)?)[^.]{0,30}\b(?:first|eerste)\s+300\b/i
-
-export function isMarktplaatsResultCap(payload: string): boolean {
-  return MARKTPLAATS_RESULT_CAP.test(payload)
-}
-
 export function parseMarktplaatsOverview(html: string): SourceListing[] {
   const marker = html.indexOf('"listings":[')
   if (marker === -1) {

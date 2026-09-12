@@ -163,8 +163,8 @@ const SET_CODE =
 
 /**
  * A raw card advertised by the grade its seller hopes for or promises — "PSA 10
- * mogelijk", "potential PSA 10", "PSA 10 waardig", "uitstekende staat gegarandeerd
- * PSA 10". A guarantee is no more a slab than a guess is: the card is still loose,
+ * mogelijk", "potential PSA 10", "PSA 10 contender", "PSA 10 waardig", "uitstekende
+ * staat gegarandeerd PSA 10". A guarantee is no more a slab than a guess is: the card is still loose,
  * and the number must never be read as a grade. Masking the phrase leaves any real
  * grade in the same listing ("PSA 10 slab, plus a raw PSA 10 candidate") readable.
  *
@@ -172,9 +172,9 @@ const SET_CODE =
  * "PSA 10 gegarandeerd snel verzonden" guarantees the postage, not the slab.
  */
 const SPECULATIVE_BEFORE =
-  /\b(?:mogelijk[a-z]*|misschien|wellicht|waarschijnlijk|potenti[eë][a-z]*|kans\s+op(?:\s+(?:een|de))?|kandidaat\s+voor(?:\s+een)?|denk(?:\s+(?:ik|aan))?|verwacht(?:ing)?|hoop|hopelijk|haalbaar|goed\s+voor|(?:ge)?garandeer[a-z]*|garantie|possibl[ey]|potential(?:ly)?|likely|probably|maybe|candidate\s+for|worthy\s+of|hoping\s+for|good\s+for|guarantee[a-z]*)\s+(?:een\s+|a\s+)?psa\s*\d{1,2}(?:\.\d)?\b/gi
+  /\b(?:mogelijk[a-z]*|misschien|wellicht|waarschijnlijk|potenti[eë][a-z]*|kans\s+op(?:\s+(?:een|de))?|kandidaat\s+voor(?:\s+een)?|denk(?:\s+(?:ik|aan))?|verwacht(?:ing)?|hoop|hopelijk|haalbaar|goed\s+voor|(?:ge)?garandeer[a-z]*|garantie|possibl[ey]|potential(?:ly)?|likely|probably|maybe|candidate\s+for|contender\s+for|worthy\s+of|hoping\s+for|good\s+for|guarantee[a-z]*)\s+(?:een\s+|a\s+)?psa\s*\d{1,2}(?:\.\d)?\b/gi
 const SPECULATIVE_AFTER =
-  /\bpsa\s*\d{1,2}(?:\.\d)?\s*(?:\?|(?:is\s+|zeker\s+|zeer\s+)?(?:(?:(?:ge)?garandeer[a-z]*|garantie|guarantee[a-z]*)(?=\s*(?:[.,;!?)\n]|$))|mogelijk[a-z]*|waardig|waard\b|potentie(?:el)?|kandidaat|materiaal|material|haalbaar|verwacht|te\s+halen|denk\s+ik|hopelijk|possible|potential|candidate|worthy|ready|gradeable|kwaliteit|quality|hopefully))/gi
+  /\bpsa\s*\d{1,2}(?:\.\d)?\s*(?:\?|(?:is\s+|zeker\s+|zeer\s+)?(?:(?:(?:ge)?garandeer[a-z]*|garantie|guarantee[a-z]*)(?=\s*(?:[.,;!?)\n]|$))|mogelijk[a-z]*|waardig|waard\b|potentie(?:el)?|kandidaat|materiaal|material|haalbaar|verwacht|te\s+halen|denk\s+ik|hopelijk|kanshebber|kansmaker|possible|potential|candidate|contender|prospect|hopeful|worthy|ready|gradeable|kwaliteit|quality|hopefully))/gi
 
 /** A modal earlier in the same sentence makes the grade a hypothetical: "zou zeker een PSA 10 moeten zijn". */
 const SPECULATIVE_MODAL =

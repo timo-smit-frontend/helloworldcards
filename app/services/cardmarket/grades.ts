@@ -127,3 +127,12 @@ export function suggestListedPrice({
 export function sameOrBetterGrade({ grade, listings }: { grade: number; listings: MarketListing[] }): MarketListing[] {
   return listings.filter((item) => item.grade >= grade).sort((left, right) => left.price - right.price)
 }
+
+/**
+ * What is on offer when nobody lists your grade or better: the lower grades, closest to
+ * yours first and cheapest within a grade. Not competition, but still the only read on
+ * the market a BGS 9.5 next to a page of PSA 9s is going to get.
+ */
+export function nearestLowerGrades({ grade, listings }: { grade: number; listings: MarketListing[] }): MarketListing[] {
+  return listings.filter((item) => item.grade < grade).sort((left, right) => right.grade - left.grade || left.price - right.price)
+}

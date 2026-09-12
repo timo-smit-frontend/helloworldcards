@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseArticleListings } from '~/services/cardmarket/html'
 import { cardmarketOffersUrl, isCardmarketChallenge, runCardmarketScan, withProductFrontImages } from '~/services/cardmarket/scan'
-import { sameOrBetterGrade } from '~/services/cardmarket/grades'
+import { nearestLowerGrades, sameOrBetterGrade } from '~/services/cardmarket/grades'
 import type { InventoryProduct } from '~/database/products'
 
 const ROW = (id: string, seller: string, comment: string, price: string) => `
@@ -122,6 +122,15 @@ describe('sameOrBetterGrade', () => {
     // The PSA 8 undercutting at €20 is a different card to a buyer, so it is left out;
     // the PSA 10 at €60 is not, and it is exactly what a PSA 9 at €80 is losing to.
     expect(sameOrBetterGrade({ grade: 9, listings }).map((item) => item.id)).toEqual(['d', 'b', 'a'])
+  })
+
+  it('falls back to the lower grades, closest first, when nobody lists yours or better', () => {
+    const listings = [listing('a', 8, 20), listing('b', 9, 80), listing('c', 9, 45), listing('d', 7, 10)]
+
+    // A BGS 9.5 next to a page of PSA 9s still wants to see those PSA 9s, nearest grade
+    // first and cheapest within it, rather than an empty row.
+    expect(sameOrBetterGrade({ grade: 9.5, listings })).toEqual([])
+    expect(nearestLowerGrades({ grade: 9.5, listings }).map((item) => item.id)).toEqual(['c', 'b', 'a', 'd'])
   })
 })
 

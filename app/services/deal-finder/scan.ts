@@ -28,7 +28,6 @@ import {
 import { displayTitle, identifyCard } from './identify'
 import {
   isMarktplaatsChallenge,
-  isMarktplaatsResultCap,
   isWithinOfferedSince,
   marktplaatsOfferedSince,
   marktplaatsResultCount,
@@ -242,8 +241,6 @@ async function collectSource({
   let found = 0
   let outOfScope = 0
   let total: number | null = null
-  let capped = false
-  let reachedEnd = false
   // Sellers put up several listings at once, so their review count is asked for once.
   const reviewCounts = new Map<string, number | null>()
 
@@ -256,7 +253,6 @@ async function collectSource({
       candidates: 0,
       error,
       total,
-      truncated: null,
       notes: [],
       belowEdge: 0,
       outOfScope: 0,
@@ -291,7 +287,6 @@ async function collectSource({
 
     if (source === 'marktplaats') {
       total ??= marktplaatsResultCount(html, offeredSince)
-      capped ||= isMarktplaatsResultCap(html)
     }
 
     const parsed = source === 'marktplaats' ? parseMarktplaatsOverview(html) : parseVintedOverview(html)
@@ -302,7 +297,6 @@ async function collectSource({
       if (page === 1) {
         return failed(`No ${label(source)} listings on the search page.`)
       }
-      reachedEnd = true
       break
     }
     for (const listing of unseen) {
@@ -316,7 +310,6 @@ async function collectSource({
     // load before being priced, and the date window was the one filter never applied.
     const fresh = unseen.filter((listing) => isWithinOfferedSince(listing.listedOn, offeredSince))
     if (fresh.length === 0) {
-      reachedEnd = true
       break
     }
 
@@ -352,7 +345,6 @@ async function collectSource({
     // read there is no next page worth asking for. A date window's count is only a
     // guide — see `marktplaatsResultCount` — so the walk is not ended on it.
     if (offeredSince == null && total != null && found >= total) {
-      reachedEnd = true
       break
     }
   }
@@ -366,7 +358,6 @@ async function collectSource({
       candidates: listings.length,
       error: null,
       total,
-      truncated: truncation({ source, found, total, capped, reachedEnd, maxPages }),
       notes,
       belowEdge: 0,
       outOfScope,
@@ -423,37 +414,6 @@ function withSellerStanding(listing: SourceListing, screening: Screening, counts
     return screening
   }
   return counts.get(listing.sellerId) === 0 ? { keep: false, scope: 'out-of-scope', reason: 'Seller has no reviews' } : screening
-}
-
-/**
- * Say so when the scan never reached the end of a search.
- *
- * Marktplaats refuses to page past its first 300 listings, and the scan has a page bound
- * of its own on top of that; either way the listings beyond the cut were never looked at.
- * A short list that quietly leaves most of the results unread is the one failure the deal
- * finder cannot show as an answer, so it is reported and the fix is named: filter harder.
- */
-function truncation({
-  source,
-  found,
-  total,
-  capped,
-  reachedEnd,
-  maxPages
-}: {
-  source: 'marktplaats' | 'vinted'
-  found: number
-  total: number | null
-  capped: boolean
-  reachedEnd: boolean
-  maxPages: number
-}): string | null {
-  if (reachedEnd || total == null || total <= found) {
-    return capped ? `${label(source)} only pages through the first 300 listings of a search — narrow the search filters.` : null
-  }
-
-  const why = capped ? `${label(source)} only pages through the first 300 listings of a search` : `the scan stops after ${maxPages} pages`
-  return `Read ${found} of ${total} listings — ${why}, so narrow the search filters to see the rest.`
 }
 
 function label(source: 'marktplaats' | 'vinted'): string {

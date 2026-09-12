@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  isMarktplaatsResultCap,
   isWithinOfferedSince,
   marktplaatsOfferedSince,
   marktplaatsPhotoUrl,
@@ -210,12 +209,9 @@ describe('search page URLs', () => {
     )
   })
 
-  it('reads how many listings Marktplaats says the search has, and when it caps them', () => {
+  it('reads how many listings Marktplaats says the search has', () => {
     expect(marktplaatsResultCount('{"totalResultCount":14700,"maxAllowedPageNumber":167}')).toBe(14700)
     expect(marktplaatsResultCount('{"listings":[]}')).toBeNull()
-    expect(isMarktplaatsResultCap('<p>We only show the first 300 articles. Please use the filters.</p>')).toBe(true)
-    expect(isMarktplaatsResultCap('We tonen alleen de eerste 300 advertenties.')).toBe(true)
-    expect(isMarktplaatsResultCap('<p>300 advertenties gevonden</p>')).toBe(false)
   })
 
   describe('the date window Marktplaats echoes but never applies', () => {

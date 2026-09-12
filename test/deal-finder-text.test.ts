@@ -51,7 +51,10 @@ describe('detectGrade', () => {
       'Snorlax PSA 10?',
       'Mega Latias ex, zou zeker een PSA 10 moeten zijn',
       'Blastoise PSA 10 haalbaar',
-      'Gengar should get a PSA 10'
+      'Gengar should get a PSA 10',
+      'Meowth (106) PSA 10 contender',
+      'Meowth ex (107) contender for PSA 10',
+      'Eevee PSA 10 kanshebber'
     ]) {
       expect(detectGrade(title), title).toBeNull()
       expect(detectAnyGrade(title), title).toBeNull()

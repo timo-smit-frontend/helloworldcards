@@ -586,25 +586,6 @@ describe('runDealFinderScan', () => {
     expect(report.outOfScope).toBe(1)
   })
 
-  it('says the search was too broad when it could not read to the end of the results', async () => {
-    const page = (id: string) => marktplaatsOverview([{ id, title: `Charmander ${id} 168/165 151 PSA 9`, cents: 12000 }], 900)
-    const { report } = await run({
-      fetchPage: fetcher({
-        marktplaats: [page('m1'), page('m2')],
-        google: () => googleResults('151', 'Charmander-V2-MEW168'),
-        offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
-      }).fetchPage,
-      readSlabs: readCharmander,
-      // A scan that stops two pages into nine hundred listings has not answered the question.
-      maxPages: { marktplaats: 2, vinted: 1 }
-    })
-
-    expect(report.sources[0]).toMatchObject({ total: 900, found: 2 })
-    expect(report.sources[0]?.truncated).toBe(
-      'Read 2 of 900 listings — the scan stops after 2 pages, so narrow the search filters to see the rest.'
-    )
-  })
-
   it('only looks at the listings put up inside the date window, and stops at the first page without one', async () => {
     const page1 = marktplaatsOverview([
       { id: 'm1', title: 'Charmander m1 168/165 151 PSA 9', cents: 12000 },
@@ -622,7 +603,7 @@ describe('runDealFinderScan', () => {
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
     // Yesterday's rows were never opened, and the third page was never asked for.
-    expect(report.sources[0]).toMatchObject({ found: 1, candidates: 1, truncated: null })
+    expect(report.sources[0]).toMatchObject({ found: 1, candidates: 1 })
     expect(calls.filter((url) => url.startsWith(MARKTPLAATS_API))).toHaveLength(2)
     expect(calls.some((url) => url.includes('/v/hobby/m2-slug'))).toBe(false)
     expect(report.deals.map((deal) => deal.listingUrl)).toEqual(['https://www.marktplaats.nl/v/hobby/m1-slug'])
@@ -648,7 +629,7 @@ describe('runDealFinderScan', () => {
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander, maxPages: { marktplaats: 2, vinted: 1 } })
 
-    expect(report.sources[0]).toMatchObject({ found: 2, total: 1, truncated: null })
+    expect(report.sources[0]).toMatchObject({ found: 2, total: 1 })
     expect(report.deals.map((deal) => deal.listingUrl).sort()).toEqual([
       'https://www.marktplaats.nl/v/hobby/m1-slug',
       'https://www.marktplaats.nl/v/hobby/m4-slug'
@@ -662,20 +643,7 @@ describe('runDealFinderScan', () => {
 
     const { report } = await run({ fetchPage, readSlabs: readCharmander })
 
-    expect(report.sources[0]).toMatchObject({ error: null, found: 0, candidates: 0, truncated: null })
-  })
-
-  it('says nothing about the size of a search it read to the end', async () => {
-    const { report } = await run({
-      fetchPage: fetcher({
-        marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
-        google: () => googleResults('151', 'Charmander-V2-MEW168'),
-        offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
-      }).fetchPage,
-      readSlabs: readCharmander
-    })
-
-    expect(report.sources[0]?.truncated).toBeNull()
+    expect(report.sources[0]).toMatchObject({ error: null, found: 0, candidates: 0 })
   })
 
   it('says so when a source blocks the scan', async () => {
