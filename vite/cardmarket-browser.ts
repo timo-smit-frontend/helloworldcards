@@ -42,6 +42,10 @@ export type CardmarketFetcher = {
  */
 export type ScanBrowser = {
   openTab: () => Promise<CardmarketFetcher>
+  /** A bare tab in the same window, for work that drives pages itself. */
+  openPage: () => Promise<Page>
+  /** False once the window is gone — closed by hand, or Chrome quit — and nothing in it can be used. */
+  isOpen: () => boolean
   close: () => Promise<void>
 }
 
@@ -111,11 +115,38 @@ export function fileDealFinderStore(root: string): DealFinderStore {
   }
 }
 
+/**
+ * Until when the window is to be left alone once the work in it is done.
+ *
+ * A relist that finds Vinted logged out can only be finished by someone logging in
+ * in this window — and there is nobody to do that if the window closes the moment the
+ * request answers. The pin holds the window open long enough for that; the next
+ * piece of work to finish after it has lapsed closes the window as usual.
+ */
+let pinnedUntil = 0
+
+export function keepScanBrowserOpen(ms: number) {
+  pinnedUntil = Math.max(pinnedUntil, Date.now() + ms)
+}
+
+export function isScanBrowserPinned(): boolean {
+  return Date.now() < pinnedUntil
+}
+
+/** How much longer the window is held open, in ms; 0 when it is not. */
+export function scanBrowserPinnedForMs(): number {
+  return Math.max(0, pinnedUntil - Date.now())
+}
+
 export function resetScanBrowser() {
   shared = null
+  pinnedUntil = 0
 }
 
 export async function closeScanBrowser() {
+  if (Date.now() < pinnedUntil) {
+    return
+  }
   const current = shared
   shared = null
   const browser = await current?.catch(() => null)
@@ -126,6 +157,15 @@ export async function getScanBrowser(
   root = process.cwd(),
   create: (root: string) => Promise<ScanBrowser> = createScanBrowser
 ): Promise<ScanBrowser> {
+  // A window closed by hand — which a stuck Vinted session asks for — leaves the
+  // memoised browser pointing at nothing; every tab opened on it would fail. It is
+  // forgotten here, so the next piece of work starts a window of its own.
+  if (shared) {
+    const current = await shared.catch(() => null)
+    if (current && !current.isOpen()) {
+      shared = null
+    }
+  }
   if (!shared) {
     const launching = create(root)
     shared = launching
@@ -280,7 +320,7 @@ function pageLooksChallenged(title: string, html: string): boolean {
 }
 
 /** Pause the scan while the user completes a Cloudflare / Google bot check in Chrome. */
-async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = BOT_CHECK_WAIT_MS): Promise<boolean> {
+export async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = BOT_CHECK_WAIT_MS): Promise<boolean> {
   const title = await page.title().catch(() => '')
   const html = await page.content().catch(() => '')
   if (!pageLooksChallenged(title, html)) {
@@ -416,7 +456,18 @@ export async function createScanBrowser(root = process.cwd()): Promise<ScanBrows
   // leaving it sitting there, and every scan after it opens its own.
   const spare = context.pages()
 
+  let open = true
+  context.on('close', () => {
+    open = false
+  })
+  browser?.on('disconnected', () => {
+    open = false
+  })
+
   return {
+    isOpen() {
+      return open && (browser ? browser.isConnected() : true)
+    },
     async openTab() {
       const page = spare.shift() ?? (await context.newPage())
       const withTab = createLock()
@@ -439,6 +490,9 @@ export async function createScanBrowser(root = process.cwd()): Promise<ScanBrows
           await page.close().catch(() => undefined)
         }
       }
+    },
+    async openPage() {
+      return spare.shift() ?? (await context.newPage())
     },
     async close() {
       if (mode === 'persistent') {

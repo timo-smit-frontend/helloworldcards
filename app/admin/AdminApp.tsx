@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   ArrowDown,
@@ -19,6 +19,7 @@ import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
 import DealFinder, { sourceLabel, type ScanningSources } from '~/components/dashboard/DealFinder'
+import VintedRelist from '~/components/dashboard/VintedRelist'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
@@ -29,6 +30,7 @@ import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
 import type { DealFinderReport } from '~/services/deal-finder/types'
+import type { VintedRelistReport } from '~/services/vinted-relist'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -76,6 +78,7 @@ const NAV = [
   { to: '/faqs', label: 'FAQs', dev: false },
   { to: '/price-suggestions', label: 'Price suggestions', dev: true },
   { to: '/deal-finder', label: 'Deal finder', dev: true },
+  { to: '/vinted-relist', label: 'Vinted relist', dev: true },
   { to: '/settings', label: 'Settings', dev: false }
 ] as const
 
@@ -1016,6 +1019,88 @@ function DealFinderScreen() {
             // way for this request to end. Without this the button would spin for good.
             .catch(() => setScanError(`The ${sourceLabel(source)} scan stopped before it answered. Try again.`))
             .finally(() => setScanning((current) => ({ ...current, [source]: false })))
+        }}
+      />
+    </div>
+  )
+}
+
+/**
+ * A relist can take a couple of minutes — photos up, form filled, publish — and the
+ * request stays open for all of it, so the screen waits on one listing at a time.
+ */
+function VintedRelistScreen() {
+  const [report, setReport] = useState<VintedRelistReport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [relisting, setRelisting] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // One read at a time: each one drives the Chrome tab, and StrictMode mounts twice.
+  const reading = useRef(false)
+
+  const refresh = useCallback(() => {
+    if (reading.current) {
+      return
+    }
+    reading.current = true
+    setLoading(true)
+    setError(null)
+    void adminJson<{ report: VintedRelistReport | null; error?: string }>('/vinted-relist')
+      .then((result) => {
+        if (!result.ok || !result.data?.report) {
+          setError(result.data?.error ?? 'Could not read the Vinted wardrobe. Try again.')
+          return
+        }
+        setReport(result.data.report)
+      })
+      .catch(() => setError('The dev server stopped answering while reading Vinted. Try again.'))
+      .finally(() => {
+        reading.current = false
+        setLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+    refresh()
+  }, [refresh])
+
+  if (!import.meta.env.DEV) {
+    return <Navigate to={adminTo('/')} replace />
+  }
+
+  return (
+    <div className="admin-page">
+      <VintedRelist
+        report={report}
+        loading={loading}
+        relisting={relisting}
+        error={error}
+        onRefresh={refresh}
+        onRelist={(itemId, title) => {
+          if (!window.confirm(`Relist "${title}"?\n\nThe current Vinted post is deleted first and an exact copy is uploaded.`)) {
+            return
+          }
+          setRelisting(itemId)
+          setError(null)
+          void adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
+            .then((result) => {
+              const body = result.data
+              if (!result.ok || !body?.report) {
+                setError(body?.error ?? 'The relist failed. Check the Chrome window.')
+                // The delete may have gone through: read back what Vinted has now —
+                // unless Vinted wants a login first, or has rate-limited us, in which
+                // case a read would only ask (or make it worse) again.
+                if (result.status !== 401 && result.status !== 503 && result.status !== 429) {
+                  refresh()
+                }
+                return
+              }
+              setReport(body.report)
+            })
+            .catch(() => setError('The dev server stopped answering mid-relist. Refresh to see where it got to.'))
+            .finally(() => setRelisting(null))
         }}
       />
     </div>
@@ -3387,6 +3472,8 @@ export default function AdminApp() {
       <Route path="price-suggestions/" element={<PriceSuggestionsScreen />} />
       <Route path="deal-finder" element={<DealFinderScreen />} />
       <Route path="deal-finder/" element={<DealFinderScreen />} />
+      <Route path="vinted-relist" element={<VintedRelistScreen />} />
+      <Route path="vinted-relist/" element={<VintedRelistScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="settings/" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to={adminTo('/')} replace />} />

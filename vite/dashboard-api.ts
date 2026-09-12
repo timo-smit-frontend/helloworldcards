@@ -9,7 +9,16 @@ import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/med
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import type { DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
-import { closeScanBrowser, fileCardmarketStore, fileDealFinderStore, getScanBrowser, type CardmarketFetcher } from './cardmarket-browser'
+import {
+  closeScanBrowser,
+  fileCardmarketStore,
+  fileDealFinderStore,
+  getScanBrowser,
+  isScanBrowserPinned,
+  scanBrowserPinnedForMs,
+  type CardmarketFetcher
+} from './cardmarket-browser'
+import { createVintedRelistService } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
 import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
@@ -158,6 +167,7 @@ function isCmsDevPath(pathname: string): boolean {
     pathname.startsWith('/dashboard/ledger') ||
     pathname.startsWith('/dashboard/cardmarket') ||
     pathname.startsWith('/dashboard/deal-finder') ||
+    pathname.startsWith('/dashboard/vinted-relist') ||
     pathname === '/api/public' ||
     pathname.startsWith('/media/') ||
     pathname === '/sitemap.xml' ||
@@ -293,6 +303,35 @@ const scanPacer = createPacer()
  * moment the first one answered, which took the browser away from the other mid-scan.
  */
 let scansInFlight = 0
+let idleClose: NodeJS.Timeout | null = null
+
+/**
+ * A window held open past its work — for someone to log in to Vinted, or so the
+ * next Vinted read finds the tab already there — is closed once the hold lapses,
+ * provided nothing has started using it by then.
+ */
+function closeScanBrowserWhenIdle() {
+  if (idleClose) {
+    clearTimeout(idleClose)
+    idleClose = null
+  }
+  if (!isScanBrowserPinned()) {
+    return
+  }
+  idleClose = setTimeout(async () => {
+    idleClose = null
+    if (scansInFlight > 0) {
+      return
+    }
+    if (isScanBrowserPinned()) {
+      closeScanBrowserWhenIdle()
+      return
+    }
+    await closeScanBrowser().catch(() => undefined)
+    await closeSlabReader().catch(() => undefined)
+  }, scanBrowserPinnedForMs() + 500)
+  idleClose.unref()
+}
 
 function cmsApiMiddleware(root: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
@@ -337,12 +376,22 @@ function cmsApiMiddleware(root: string) {
         }
       }
 
+      // A relist drives Vinted's own pages in a tab of the window that it opens for
+      // itself, once, and keeps between requests — so the window is only counted here.
+      const needsRelist = url.startsWith('/dashboard/vinted-relist') || url.startsWith('/api/admin/vinted-relist')
+      if (needsRelist) {
+        scansInFlight += 1
+      }
+
       try {
         const env = loadDashboardEnv(root)
         const withBrowser = {
           ...runtime,
           ...(browser
             ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews }
+            : {}),
+          ...(needsRelist
+            ? { vintedRelist: createVintedRelistService({ root, openPage: async () => (await getScanBrowser(root)).openPage() }) }
             : {}),
           ...(scanBrowserError ? { scanBrowserError } : {})
         }
@@ -366,10 +415,15 @@ function cmsApiMiddleware(root: string) {
       } finally {
         if (browser) {
           await browser.close()
+        }
+        if (browser || needsRelist) {
           scansInFlight -= 1
+          // Closing the window also closes the relist tab — unless the window is being
+          // held open for someone to log in to Vinted, in which case both stay.
           if (scansInFlight === 0) {
             await closeScanBrowser()
             await closeSlabReader()
+            closeScanBrowserWhenIdle()
           }
         }
       }

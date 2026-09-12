@@ -15,6 +15,7 @@ afterEach(() => {
 })
 
 function fakeBrowser(onClose: () => void = () => undefined): ScanBrowser {
+  let open = true
   return {
     openTab: async () => ({
       fetchPage: async () => '',
@@ -22,7 +23,12 @@ function fakeBrowser(onClose: () => void = () => undefined): ScanBrowser {
       sellerReviews: async () => null,
       close: async () => undefined
     }),
-    close: async () => onClose()
+    openPage: async () => ({}) as never,
+    isOpen: () => open,
+    close: async () => {
+      open = false
+      onClose()
+    }
   }
 }
 
@@ -86,6 +92,21 @@ describe('getScanBrowser', () => {
     await getScanBrowser('.', create)
 
     expect(closed).toBe(1)
+  })
+
+  it('starts a new window when the shared one was closed by hand', async () => {
+    let created = 0
+    const create = async () => {
+      created += 1
+      return fakeBrowser()
+    }
+
+    const first = await getScanBrowser('.', create)
+    await first.close()
+    const second = await getScanBrowser('.', create)
+
+    expect(created).toBe(2)
+    expect(second).not.toBe(first)
   })
 })
 

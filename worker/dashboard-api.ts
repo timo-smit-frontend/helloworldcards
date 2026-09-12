@@ -14,7 +14,19 @@ import type {
   SlabReader
 } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
-import { batchAll, rowToInventory, rowToSettings, SQL, type CmsDb, type ProductRow, type SettingsRow } from './cms/db'
+import { VintedRelistError, type VintedRelistService } from '../app/services/vinted-relist'
+import {
+  batchAll,
+  listAllProductRows,
+  rowToInventory,
+  rowToRecord,
+  rowToSettings,
+  SQL,
+  updateProduct,
+  type CmsDb,
+  type ProductRow,
+  type SettingsRow
+} from './cms/db'
 import { json, normalizeApiPath } from './cms/http'
 import { ensureSeeded, needsSeeding } from './cms/seed'
 import { buildLedger } from './ledger'
@@ -68,6 +80,9 @@ export type DashboardRuntime = {
   sellerReviews?: SellerReviews
   /** Shared by every scan going at once, so together they still pace each site. */
   pacer?: Pacer
+  /** Deletes and re-uploads Vinted listings through the local Chrome window. */
+  vintedRelist?: VintedRelistService
+  vintedRelistError?: string
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -106,8 +121,13 @@ const API_PATHS = new Set([
   '/api/admin/cardmarket/report',
   '/api/admin/cardmarket/scan',
   '/api/admin/deal-finder/report',
-  '/api/admin/deal-finder/scan'
+  '/api/admin/deal-finder/scan',
+  '/dashboard/vinted-relist',
+  '/api/admin/vinted-relist'
 ])
+
+/** `/dashboard/vinted-relist/9878696344` — the listing to relist is in the path. */
+const VINTED_RELIST_ITEM = /^\/(?:dashboard|api\/admin)\/vinted-relist\/(\d+)$/
 const CARDMARKET_REPORT_KEY = 'report'
 const DEAL_FINDER_REPORT_KEY = 'deal-finder'
 const DEAL_FINDER_CACHE_KEY = 'deal-finder-cache'
@@ -179,7 +199,8 @@ export function normalizeDashboardPath(pathname: string): string {
 }
 
 export function isDashboardApiPath(pathname: string): boolean {
-  return API_PATHS.has(normalizeDashboardPath(pathname))
+  const path = normalizeDashboardPath(pathname)
+  return API_PATHS.has(path) || VINTED_RELIST_ITEM.test(path)
 }
 
 export function isDashboardPath(pathname: string): boolean {
@@ -489,13 +510,83 @@ async function dealFinderScan(
   }
 }
 
+function relistUnavailable(runtime?: DashboardRuntime): Response {
+  return json({ error: runtime?.vintedRelistError ?? 'Vinted relisting only runs locally.' }, 404)
+}
+
+function relistFailure(error: unknown): Response {
+  if (error instanceof VintedRelistError) {
+    return json({ error: error.message }, error.status)
+  }
+  return json({ error: error instanceof Error ? error.message : 'The Vinted relist failed.' }, 500)
+}
+
+async function vintedRelistReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+  if (!runtime?.vintedRelist) {
+    return relistUnavailable(runtime)
+  }
+  try {
+    return json({ report: await runtime.vintedRelist.report(await inventoryFor(env, runtime)) })
+  } catch (error) {
+    return relistFailure(error)
+  }
+}
+
+/**
+ * Point the product at the listing that replaced its old one.
+ *
+ * The shop's "View on Vinted" link and the next relist both go by `vintedUrl`, so a
+ * relist is not finished until the product says the new id.
+ */
+async function moveProductVintedUrl(db: CmsDb, productId: number, url: string): Promise<void> {
+  const row = (await listAllProductRows(db)).find((candidate) => candidate.id === productId && candidate.deleted_at == null)
+  if (!row) {
+    return
+  }
+  await updateProduct(db, productId, { ...rowToRecord(row), vintedUrl: url, slug: row.slug })
+}
+
+/**
+ * Delete a listing and put it up again, then answer with the wardrobe as it is now.
+ *
+ * The whole run — snapshot, delete, upload, product update — is one request, because
+ * the Chrome tab it drives is opened for the request and closed after it.
+ */
+async function vintedRelist(request: Request, env: DashboardEnv, itemId: string, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+  if (!runtime?.vintedRelist) {
+    return relistUnavailable(runtime)
+  }
+
+  const products = await inventoryFor(env, runtime)
+  try {
+    const relisted = await runtime.vintedRelist.relist(itemId, products)
+    const db = runtime.db ?? env.DB
+    if (relisted.productId != null && db) {
+      await moveProductVintedUrl(db, relisted.productId, relisted.url)
+    }
+    const report = await runtime.vintedRelist.report(await inventoryFor(env, runtime))
+    return json({ relisted, report })
+  } catch (error) {
+    return relistFailure(error)
+  }
+}
+
 function routeKey(path: string): string {
   return path.replace(/^\/api\/admin\//, '/dashboard/')
 }
 
 export async function handleDashboardRequest(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
   const path = normalizeDashboardPath(new URL(request.url).pathname)
-  if (!API_PATHS.has(path)) {
+  const relistItem = path.match(VINTED_RELIST_ITEM)?.[1]
+  if (!API_PATHS.has(path) && !relistItem) {
     return null
   }
 
@@ -504,6 +595,14 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
   }
 
   const key = routeKey(path)
+
+  if (relistItem && request.method === 'POST') {
+    return vintedRelist(request, env, relistItem, runtime)
+  }
+
+  if (key === '/dashboard/vinted-relist' && request.method === 'GET') {
+    return vintedRelistReport(request, env, runtime)
+  }
 
   if (key === '/dashboard/session' && request.method === 'POST') {
     return login(request, env)
