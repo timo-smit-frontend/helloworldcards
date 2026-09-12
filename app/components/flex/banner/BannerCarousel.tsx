@@ -4,8 +4,8 @@ import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
 import { Carousel, CarouselContent, CarouselDots, CarouselItem } from '~/components/elements/Carousel'
 import EnhanceImage from '~/components/elements/EnhanceImage'
-import Image from '~/components/elements/Image'
 import Pokemon from '~/components/elements/Pokemon'
+import SkeletonImage from '~/components/elements/SkeletonImage'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { imageTitleFor } from '~/services/imageCopy'
 import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
@@ -38,7 +38,7 @@ export default function BannerCarousel({
           {(title || subtitle || description || price || link) && (
             <div className="flex flex-col gap-8 lg:h-full lg:gap-0">
               {isFirst && <Breadcrumbs />}
-              <Animated delay={100}>
+              <Animated delay={100} reveal="load">
                 <div className="w-full shrink-0 lg:hidden">
                   <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
                 </div>
@@ -47,7 +47,7 @@ export default function BannerCarousel({
                 {(title || subtitle || description || price) && (
                   <div className="flex flex-col gap-2 lg:gap-4">
                     {(subtitle || title) && (
-                      <Animated delay={100}>
+                      <Animated delay={100} reveal="load">
                         <div className="flex flex-col gap-1">
                           {subtitle && <p className="content-l font-semibold text-site-mantle">{subtitle}</p>}
                           {title && <h1 className="title-xl">{title}</h1>}
@@ -55,19 +55,19 @@ export default function BannerCarousel({
                       </Animated>
                     )}
                     {description && (
-                      <Animated delay={200}>
+                      <Animated delay={200} reveal="load">
                         <p className="content-m text-site-mantle">{description}</p>
                       </Animated>
                     )}
                     {price && (
-                      <Animated delay={300}>
+                      <Animated delay={300} reveal="load">
                         <p className="content-xl font-semibold">{price}</p>
                       </Animated>
                     )}
                   </div>
                 )}
                 {link?.title && (
-                  <Animated delay={400}>
+                  <Animated delay={400} reveal="load">
                     <div>
                       {link.url ? (
                         <a
@@ -90,7 +90,7 @@ export default function BannerCarousel({
               </div>
             </div>
           )}
-          <Animated delay={400}>
+          <Animated delay={400} reveal="load">
             <div className="max-lg:hidden">
               <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
             </div>
@@ -158,7 +158,8 @@ function BannerSlider({ images, alt, className }: { images: string[]; alt: strin
                 aria-label={`Enlarge ${alt}`}
                 onClick={() => setController({ toggler: true, slide: index + 1 })}
               >
-                <Image
+                <SkeletonImage
+                  skeletonClassName="aspect-[5/7] w-full max-w-[calc(25rem*5/7)] lg:max-w-[calc(30rem*5/7)]"
                   src={src}
                   alt=""
                   title={imageTitleFor(src) ?? (images.length > 1 ? `${alt}, photo ${index + 1}` : alt)}
