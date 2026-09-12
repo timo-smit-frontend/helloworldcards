@@ -1,4 +1,5 @@
 {
+  "folders": [],
   "media": [
     {
       "key": "136389084_back.jpg",
@@ -9,6 +10,7 @@
       "bytes": 1079561,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -20,6 +22,7 @@
       "bytes": 1356377,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -31,6 +34,7 @@
       "bytes": 993608,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -42,6 +46,7 @@
       "bytes": 1102681,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -53,6 +58,7 @@
       "bytes": 1031122,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -64,6 +70,7 @@
       "bytes": 1050438,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -75,6 +82,7 @@
       "bytes": 959585,
       "title": "Mewtwo, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -86,6 +94,7 @@
       "bytes": 904854,
       "title": "Mewtwo, front",
       "alt": "PSA 9 XY Evolutions Mewtwo reverse holo, 51/108, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -97,6 +106,7 @@
       "bytes": 950653,
       "title": "Mega Gengar ex, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-06T00:00:00.000Z"
     },
     {
@@ -108,6 +118,7 @@
       "bytes": 1190130,
       "title": "Mega Gengar ex, front",
       "alt": "PSA 10 Phantasmal Flames Mega Gengar ex, 056/094, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-06T00:00:00.000Z"
     },
     {
@@ -119,6 +130,7 @@
       "bytes": 576797,
       "title": "Zorua AR, back",
       "alt": "The back of a graded Japanese Pokémon card in a Beckett slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -130,6 +142,7 @@
       "bytes": 624094,
       "title": "Zorua AR, front",
       "alt": "BGS 9.5 White Flare Japanese Zorua Art Rare, 140/086, in a Beckett grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -141,6 +154,7 @@
       "bytes": 1334693,
       "title": "Charizard, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -152,6 +166,7 @@
       "bytes": 1516885,
       "title": "Charizard, front",
       "alt": "PSA 9 XY Generations Radiant Collection Charizard holo, RC5/RC32, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -163,6 +178,7 @@
       "bytes": 1381739,
       "title": "Ekans, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -174,6 +190,7 @@
       "bytes": 1315185,
       "title": "Ekans, front",
       "alt": "PSA 9 1st Edition Team Rocket Ekans, 56/82, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -185,6 +202,7 @@
       "bytes": 1236958,
       "title": "Lugia V, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -196,6 +214,7 @@
       "bytes": 2004089,
       "title": "Lugia V, front",
       "alt": "PSA 9 Silver Tempest Lugia V full art, 185/195, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -207,6 +226,7 @@
       "bytes": 1098866,
       "title": "Poke Kid, back",
       "alt": "The back of a graded Japanese Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -218,6 +238,7 @@
       "bytes": 1082659,
       "title": "Poke Kid, front",
       "alt": "PSA 10 Shiny Star V Japanese Poke Kid full art, 197/190, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -229,6 +250,7 @@
       "bytes": 76444,
       "title": "Banner with image and caption",
       "alt": "Preview of the banner with image and caption component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -240,6 +262,7 @@
       "bytes": 49259,
       "title": "About with people",
       "alt": "Preview of the about with people component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -251,6 +274,7 @@
       "bytes": 32589,
       "title": "Event agenda",
       "alt": "Preview of the event agenda component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -262,6 +286,7 @@
       "bytes": 60979,
       "title": "Call to action with image",
       "alt": "Preview of the call to action with image component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -273,6 +298,7 @@
       "bytes": 40758,
       "title": "Frequently asked questions",
       "alt": "Preview of the frequently asked questions component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -284,6 +310,7 @@
       "bytes": 99506,
       "title": "Product listing",
       "alt": "Preview of the product listing component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -295,6 +322,7 @@
       "bytes": 20071,
       "title": "Text with image",
       "alt": "Preview of the text with image component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -306,6 +334,7 @@
       "bytes": 18461,
       "title": "Contact form",
       "alt": "Preview of the contact form component.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -317,6 +346,7 @@
       "bytes": 223978,
       "title": "Pokémon tournament with a giant Pikachu balloon",
       "alt": "A packed Pokémon card tournament in a convention hall, with a giant yellow Pikachu balloon hanging from the ceiling.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -328,6 +358,7 @@
       "bytes": 140495,
       "title": "",
       "alt": "",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -339,6 +370,7 @@
       "bytes": 534888,
       "title": "Wooper",
       "alt": "Wooper, a smiling blue Pokémon with branching pink gills.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
@@ -350,6 +382,7 @@
       "bytes": 1048421,
       "title": "Mewtwo GX, front",
       "alt": "PSA 9 Shining Legends Mewtwo GX Full Art, 39/73, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-06T14:39:18.821Z"
     },
     {
@@ -361,6 +394,7 @@
       "bytes": 957899,
       "title": "Mewtwo GX, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-06T14:39:18.966Z"
     },
     {
@@ -372,6 +406,7 @@
       "bytes": 923983,
       "title": "Dragonite V, front",
       "alt": "PSA 9 Pokémon GO Dragonite V Full Art, 049/078, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-06T14:39:19.099Z"
     },
     {
@@ -383,6 +418,7 @@
       "bytes": 947262,
       "title": "Dragonite V, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-06T14:39:19.204Z"
     },
     {
@@ -394,6 +430,7 @@
       "bytes": 2736596,
       "title": "Mega Gardevoir ex, back",
       "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": null,
       "createdAt": "2026-09-10T06:56:07.206Z"
     },
     {
@@ -405,6 +442,7 @@
       "bytes": 2742376,
       "title": "Mega Gardevoir ex, front",
       "alt": "PSA 10 Black Star Promo Mega Gardevoir ex, 032, in a grading slab.",
+      "folder": null,
       "createdAt": "2026-09-10T06:56:21.048Z"
     },
     {
@@ -416,6 +454,7 @@
       "bytes": 33014,
       "title": "Product",
       "alt": "Preview of a product page.",
+      "folder": null,
       "createdAt": "2026-09-01T00:00:00.000Z"
     }
   ]

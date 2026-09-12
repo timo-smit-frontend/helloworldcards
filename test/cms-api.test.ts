@@ -291,6 +291,104 @@ describe('CMS API', () => {
     })
   })
 
+  it('groups media in folders: create, rename, move images in and out, and delete', async () => {
+    const db = createMemoryD1()
+    const media = memoryR2()
+    const token = await signIn(db as unknown as CmsDb)
+    const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
+    const request = (path: string, init?: RequestInit) =>
+      handleAdminRequest(new Request(`${ADMIN}/api/admin${path}`, { headers, ...init }), env, { db, media })
+
+    const created = await request('/media/folders', { method: 'POST', body: JSON.stringify({ name: '  Card   photos ' }) })
+    expect(created?.status).toBe(201)
+    const { folder } = (await created!.json()) as { folder: { id: number; name: string } }
+    expect(folder.name).toBe('Card photos')
+
+    // Names are unique whatever the case, or the grid would show two tiles that read the same.
+    const duplicate = await request('/media/folders', { method: 'POST', body: JSON.stringify({ name: 'card PHOTOS' }) })
+    expect(duplicate?.status).toBe(400)
+    const unnamed = await request('/media/folders', { method: 'POST', body: JSON.stringify({ name: '   ' }) })
+    expect(unnamed?.status).toBe(400)
+
+    const listed = (await (await request('/media'))!.json()) as {
+      media: Array<{ id: number; key: string; folderId: number | null }>
+      folders: Array<{ id: number; name: string }>
+    }
+    expect(listed.folders).toEqual([folder])
+    expect(listed.media.every((item) => item.folderId === null)).toBe(true)
+    const hero = listed.media.find((item) => item.key === 'hero.jpg')!
+
+    // Moving an image touches nothing but its folder.
+    const titled = await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ title: 'Hall', alt: 'The hall' }) })
+    expect(titled?.status).toBe(200)
+    const moved = await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ folderId: folder.id }) })
+    expect(moved?.status).toBe(200)
+    const inFolder = (await moved!.json()) as { media: { folderId: number | null; title: string; alt: string } }
+    expect(inFolder.media).toMatchObject({ folderId: folder.id, title: 'Hall', alt: 'The hall' })
+
+    const nowhere = await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ folderId: 999 }) })
+    expect(nowhere?.status).toBe(400)
+    const nonsense = await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ folderId: 'abc' }) })
+    expect(nonsense?.status).toBe(400)
+
+    const renamed = await request(`/media/folders/${folder.id}`, { method: 'PUT', body: JSON.stringify({ name: 'Cards' }) })
+    expect(renamed?.status).toBe(200)
+    expect(((await renamed!.json()) as { folder: { name: string } }).folder.name).toBe('Cards')
+    const renamedMissing = await request('/media/folders/999', { method: 'PUT', body: JSON.stringify({ name: 'Nope' }) })
+    expect(renamedMissing?.status).toBe(404)
+
+    const out = await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ folderId: null }) })
+    expect(((await out!.json()) as { media: { folderId: number | null } }).media.folderId).toBeNull()
+    await request(`/media/${hero.id}`, { method: 'PUT', body: JSON.stringify({ folderId: folder.id }) })
+
+    // Deleting the folder keeps the images: they go back to the top of the library.
+    const deleted = await request(`/media/folders/${folder.id}`, { method: 'DELETE' })
+    expect(deleted?.status).toBe(200)
+    const after = (await (await request('/media'))!.json()) as {
+      media: Array<{ id: number; folderId: number | null }>
+      folders: unknown[]
+    }
+    expect(after.folders).toEqual([])
+    expect(after.media.find((item) => item.id === hero.id)?.folderId).toBeNull()
+    expect(after.media).toHaveLength(listed.media.length)
+    const deletedAgain = await request(`/media/folders/${folder.id}`, { method: 'DELETE' })
+    expect(deletedAgain?.status).toBe(404)
+  })
+
+  it('puts an upload made from inside a folder into that folder', async () => {
+    const db = createMemoryD1()
+    const media = memoryR2()
+    const token = await signIn(db as unknown as CmsDb)
+    const created = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/media/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
+        body: JSON.stringify({ name: 'Uploads' })
+      }),
+      env,
+      { db, media }
+    )
+    const { folder } = (await created!.json()) as { folder: { id: number } }
+
+    const upload = (folderId: string) => {
+      const form = new FormData()
+      form.append('file', new File([new Uint8Array([137, 80, 78, 71])], 'card.png', { type: 'image/png' }))
+      form.append('folderId', folderId)
+      return handleAdminRequest(
+        new Request(`${ADMIN}/api/admin/media`, { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` }, body: form }),
+        env,
+        { db, media }
+      )
+    }
+
+    const uploaded = await upload(String(folder.id))
+    expect(uploaded?.status).toBe(201)
+    expect(((await uploaded!.json()) as { media: { folderId: number | null } }).media.folderId).toBe(folder.id)
+
+    const stray = await upload('999')
+    expect(stray?.status).toBe(400)
+  })
+
   it('replaces a media file and repoints every reference to the new URL', async () => {
     const db = createMemoryD1()
     const media = memoryR2()

@@ -171,6 +171,13 @@ export type CmsMedia = {
   alt: string
   url: string
   createdAt: string
+  /** The folder the image sits in, or null for the top of the library. One level deep: folders hold no folders. */
+  folderId: number | null
+}
+
+export type CmsMediaFolder = {
+  id: number
+  name: string
 }
 
 export type CmsMediaCopy = {

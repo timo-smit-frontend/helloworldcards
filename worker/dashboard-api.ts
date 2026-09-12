@@ -1,5 +1,6 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
+import { mergeCaches } from '../app/services/deal-finder/cache'
 import { DEAL_SOURCES } from '../app/services/deal-finder/constants'
 import { isCurrentReport, mergeReports } from '../app/services/deal-finder/report'
 import type {
@@ -7,6 +8,7 @@ import type {
   DealFinderCache,
   DealFinderReport,
   DealSource,
+  Pacer,
   ResolveUrl,
   SellerReviews,
   SlabReader
@@ -64,6 +66,8 @@ export type DashboardRuntime = {
   resolveUrl?: ResolveUrl
   /** Looks up how many reviews a Marktplaats seller has. */
   sellerReviews?: SellerReviews
+  /** Shared by every scan going at once, so together they still pace each site. */
+  pacer?: Pacer
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -420,6 +424,37 @@ function dealFinderSources(key: string): readonly DealSource[] | null {
   return DEAL_SOURCES.includes(requested as DealSource) ? [requested as DealSource] : null
 }
 
+/**
+ * Fold a finished scan into the stored report and cache.
+ *
+ * The two marketplaces are scanned side by side, each from its own button, and a scan
+ * takes minutes — so what the store holds when a scan ends is not what it held when
+ * the scan began: the other marketplace may have finished in between. Reading the
+ * store only now, and letting one scan at a time do it, keeps the run that finishes
+ * second from writing over the one that finished first.
+ */
+let committing: Promise<unknown> = Promise.resolve()
+
+function commitScan(
+  store: DealFinderStore,
+  report: DealFinderReport,
+  cache: DealFinderCache,
+  sources: readonly DealSource[]
+): Promise<DealFinderReport> {
+  const commit = committing.then(async () => {
+    const merged = mergeReports(await store.getReport(), report)
+    await store.putReport(merged)
+    await store.putCache(mergeCaches(await store.getCache(), cache, sources))
+    return merged
+  })
+  // A commit that failed still has to hand the turn on.
+  committing = commit.then(
+    () => undefined,
+    () => undefined
+  )
+  return commit
+}
+
 async function dealFinderScan(
   request: Request,
   env: DashboardEnv,
@@ -437,21 +472,18 @@ async function dealFinderScan(
 
   const store = resolveDealsStore(env, runtime)
   try {
-    const previous = await store.getReport()
     const { report, cache } = await runDealFinderScan({
       fetchPage: runtime.fetchCardmarketPage,
       readSlabs: runtime.readSlabs,
       lookupCert: runtime.lookupCert,
       resolveUrl: runtime.resolveUrl,
       sellerReviews: runtime.sellerReviews,
+      pace: runtime.pacer,
       cache: await store.getCache(),
       ownListings: await inventoryFor(env, runtime),
       sources
     })
-    const merged = mergeReports(previous, report)
-    await store.putReport(merged)
-    await store.putCache(cache)
-    return json({ report: merged })
+    return json({ report: await commitScan(store, report, cache, sources) })
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'The deal finder scan failed.' }, 500)
   }

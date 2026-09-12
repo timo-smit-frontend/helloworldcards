@@ -6,7 +6,17 @@ import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import { seedProductRecords } from '../app/cms/seed-products'
 import { contentSnapshotsMatch, formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
 import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
-import { listFaqs, listInventory, listMedia, listPages, replaceMediaFile, trashRecord } from '../worker/cms/db'
+import {
+  insertMediaFolder,
+  listFaqs,
+  listInventory,
+  listMedia,
+  listMediaFolders,
+  listPages,
+  replaceMediaFile,
+  trashRecord,
+  updateMedia
+} from '../worker/cms/db'
 import { readCmsState, writeCmsState } from '../vite/cms-state'
 import { ensureSeeded, syncSeedProducts } from '../worker/cms/seed'
 import { inlineParams } from '../vite/cms-sync'
@@ -180,17 +190,79 @@ describe('media library sync', () => {
 
   it('never empties a library from a snapshot that has no rows', async () => {
     const db = await seededDb()
-    await pushMediaLibrary(db, { media: [] })
+    await pushMediaLibrary(db, { folders: [], media: [] })
     expect((await listMedia(db)).length).toBeGreaterThan(0)
+  })
+
+  /**
+   * Folder ids are handed out by each database, so a folder travels by name: the target
+   * gets a folder of that name, the images inside it point at that folder, and an empty
+   * folder still comes across.
+   */
+  it('carries folders and what is in them by name', async () => {
+    const source = await seededDb()
+    const cards = await insertMediaFolder(source, 'Cards')
+    await insertMediaFolder(source, 'Empty')
+    const wooper = (await listMedia(source)).find((media) => media.key === 'wooper.png')!
+    await updateMedia(source, wooper.id, { folderId: cards })
+
+    const snapshot = await pullMediaLibrary(source)
+    expect(snapshot.folders).toEqual(['Cards', 'Empty'])
+    expect(snapshot.media.find((entry) => entry.key === 'wooper.png')?.folder).toBe('Cards')
+    expect(snapshot.media.find((entry) => entry.key === 'hero.jpg')?.folder).toBeNull()
+
+    const target = await seededDb()
+    await pushMediaLibrary(target, snapshot)
+
+    const targetFolders = await listMediaFolders(target)
+    expect(targetFolders.map((folder) => folder.name)).toEqual(['Cards', 'Empty'])
+    const moved = (await listMedia(target)).find((media) => media.key === 'wooper.png')!
+    expect(moved.folderId).toBe(targetFolders.find((folder) => folder.name === 'Cards')!.id)
+    expect(await pullMediaLibrary(target)).toEqual(snapshot)
+  })
+
+  it('drops a folder the snapshot no longer holds and puts its images back at the top', async () => {
+    const target = await seededDb()
+    const old = await insertMediaFolder(target, 'Old')
+    const wooper = (await listMedia(target)).find((media) => media.key === 'wooper.png')!
+    await updateMedia(target, wooper.id, { folderId: old })
+
+    await pushMediaLibrary(target, await pullMediaLibrary(await seededDb()))
+
+    expect(await listMediaFolders(target)).toEqual([])
+    expect((await listMedia(target)).find((media) => media.key === 'wooper.png')?.folderId).toBeNull()
+  })
+
+  it('reads a snapshot written before folders existed', () => {
+    const snapshot = parseMediaSnapshot(
+      JSON.stringify({
+        media: [
+          {
+            key: 'a.jpg',
+            filename: 'a.jpg',
+            contentType: 'image/jpeg',
+            width: null,
+            height: null,
+            bytes: 1,
+            title: '',
+            alt: '',
+            createdAt: '2026-09-01T00:00:00.000Z'
+          }
+        ]
+      })
+    )
+    expect(snapshot.folders).toEqual([])
+    expect(snapshot.media[0].folder).toBeNull()
   })
 
   it('parses only a real snapshot', () => {
     expect(() => parseMediaSnapshot('{"nope":true}')).toThrow()
   })
 
-  it('formats the committed seed/cms-media.json the way a pull writes it', () => {
-    const source = fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8')
-    expect(formatMediaSnapshot(parseMediaSnapshot(source))).toBe(source)
+  it('formats the committed seed/cms-media.json the way a pull writes it', async () => {
+    const file = path.join(process.cwd(), 'seed/cms-media.json')
+    const source = fs.readFileSync(file, 'utf8')
+    expect(await formatted(formatMediaSnapshot(parseMediaSnapshot(source)), file)).toBe(source)
   })
 
   /**

@@ -154,7 +154,7 @@ describe('database round trips', () => {
     trips.length = 0
     const media = await handleAdminRequest(new Request(`${ADMIN}/api/admin/media`, { headers }), env, { db, media: memoryBucket() })
     expect(media?.status).toBe(200)
-    expect(trips).toEqual(['first SELECT json FROM settings', 'batch of 3'])
+    expect(trips).toEqual(['first SELECT json FROM settings', 'batch of 4'])
   })
 
   it('swaps the navigation in one batch and returns the rows with their ids', async () => {

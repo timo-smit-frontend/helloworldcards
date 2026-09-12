@@ -505,7 +505,8 @@ export async function runDealFinderScan({
   vintedUrl = VINTED_SEARCH_URL,
   maxPages,
   now = new Date(),
-  delayMs = FETCH_DELAY_MS
+  delayMs = FETCH_DELAY_MS,
+  pace = createPacer()
 }: {
   fetchPage: FetchCardmarketPage
   readSlabs?: SlabReader
@@ -524,11 +525,16 @@ export async function runDealFinderScan({
   maxPages?: Partial<Record<DealSource, number>>
   now?: Date
   delayMs?: number
+  /**
+   * Spaces this run's requests out per site. Two runs going at once — Marktplaats and
+   * Vinted each started from their own button — should share one, or Google and
+   * Cardmarket see both runs' requests with only one run's pauses between them.
+   */
+  pace?: Pacer
 }): Promise<{ report: DealFinderReport; cache: DealFinderCache }> {
   const report = emptyReport(now.toISOString())
   const cache: DealFinderCache = usableCache(previousCache)
   const ids = ownListingIds(ownListings)
-  const pace = createPacer()
   // A listing page is paced far more lightly than a search or a Cardmarket load, but a
   // caller that asked for no pauses at all — a test — still gets none.
   const listingDelayMs = Math.min(delayMs, LISTING_DELAY_MS)

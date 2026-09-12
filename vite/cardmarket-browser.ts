@@ -23,6 +23,7 @@ const DEALS_CACHE_FILE = path.join('.cache', 'deal-finder-cache.json')
 const BROWSER_PROFILE = path.join('.cache', 'cardmarket-chrome')
 const CDP_URL = process.env.CARDMARKET_CDP_URL ?? 'http://127.0.0.1:9333'
 
+/** One scan's tab: everything it loads goes through this page, and nothing else does. */
 export type CardmarketFetcher = {
   fetchPage: FetchCardmarketPage
   resolveUrl: ResolveUrl
@@ -30,9 +31,28 @@ export type CardmarketFetcher = {
   close: () => Promise<void>
 }
 
+/**
+ * The Chrome window every scan shares, handing each scan a tab of its own.
+ *
+ * Marktplaats and Vinted are scanned side by side. Sharing one tab between them
+ * queued every Google and Cardmarket load of one scan behind the other's, so the
+ * second scan mostly sat waiting; on a tab each, both get on with it. The window is
+ * still one window: the Cardmarket session and a cleared bot check are the profile's,
+ * so a check ticked in either tab holds for both.
+ */
+export type ScanBrowser = {
+  openTab: () => Promise<CardmarketFetcher>
+  close: () => Promise<void>
+}
+
 export type ChromeAction = 'connect' | 'launch'
 
-let shared: CardmarketFetcher | null = null
+/**
+ * The one Chrome window, held as the promise of it rather than the window itself.
+ * The two scans arrive together: memoising only the finished launch let both see
+ * nothing there and both start Chrome on the same profile, which the second cannot.
+ */
+let shared: Promise<ScanBrowser> | null = null
 
 export function fileCardmarketStore(root: string): CardmarketStore {
   const filePath = path.join(root, REPORT_FILE)
@@ -91,24 +111,32 @@ export function fileDealFinderStore(root: string): DealFinderStore {
   }
 }
 
-export function resetPlaywrightCardmarketFetcher() {
+export function resetScanBrowser() {
   shared = null
 }
 
-export async function closePlaywrightCardmarketFetcher() {
+export async function closeScanBrowser() {
   const current = shared
   shared = null
-  await current?.close()
+  const browser = await current?.catch(() => null)
+  await browser?.close()
 }
 
-export async function getPlaywrightCardmarketFetcher(
+export async function getScanBrowser(
   root = process.cwd(),
-  create: (root: string) => Promise<CardmarketFetcher> = createPlaywrightCardmarketFetcher
-): Promise<CardmarketFetcher> {
+  create: (root: string) => Promise<ScanBrowser> = createScanBrowser
+): Promise<ScanBrowser> {
   if (!shared) {
-    shared = await create(root)
+    const launching = create(root)
+    shared = launching
+    // A launch that failed is not kept: the next scan gets to try again.
+    launching.catch(() => {
+      if (shared === launching) {
+        shared = null
+      }
+    })
   }
-  return shared
+  return await shared
 }
 
 export function chromeLaunchArgs(port: number, userDataDir: string): string[] {
@@ -316,17 +344,17 @@ async function connectCdpContext(chromium: typeof import('playwright').chromium)
   return { context, browser }
 }
 
-/** Holds a piece of work until the Chrome tab is free, and keeps it to itself. */
+/** Holds a piece of work until the scan's Chrome tab is free, and keeps it to itself. */
 type TabLock = <T>(run: () => Promise<T>) => Promise<T>
 
 /**
- * Serialise everything that drives the shared Chrome tab.
+ * Serialise everything that drives one scan's Chrome tab.
  *
- * There is one tab, and a scan now reads listing pages while it is working its way
- * through Google and Cardmarket. Those listing pages are plain requests and never come
- * near the tab — but a Marktplaats page that comes back blocked falls back to it, and
- * two navigations at once on one tab would leave both callers reading whichever page
- * won. Every use of the tab goes through here, so that cannot happen.
+ * A scan reads listing pages while it is working its way through Google and
+ * Cardmarket. Those listing pages are plain requests and never come near the tab — but
+ * a Marktplaats page that comes back blocked falls back to it, and two navigations at
+ * once on one tab would leave both callers reading whichever page won. Every use of
+ * the tab goes through here, so that cannot happen.
  */
 function createLock(): TabLock {
   let tail: Promise<unknown> = Promise.resolve()
@@ -341,7 +369,7 @@ function createLock(): TabLock {
   }
 }
 
-export async function createPlaywrightCardmarketFetcher(root = process.cwd()): Promise<CardmarketFetcher> {
+export async function createScanBrowser(root = process.cwd()): Promise<ScanBrowser> {
   const { chromium } = await import('playwright')
   const userDataDir = path.join(root, BROWSER_PROFILE)
   fs.mkdirSync(userDataDir, { recursive: true })
@@ -384,28 +412,40 @@ export async function createPlaywrightCardmarketFetcher(root = process.cwd()): P
     }
   }
 
-  const page = context.pages()[0] ?? (await context.newPage())
-  const withTab = createLock()
-
-  // Warmed up at most once, and only if a Cardmarket page is actually asked for. A
-  // failed warmup is not fatal — the page that wanted it deals with its own bot check.
-  let warmed: Promise<void> | null = null
-  const ensureWarm = () => (warmed ??= warmup(page).catch(() => undefined))
+  // A fresh window comes with a blank tab; the first scan takes that one rather than
+  // leaving it sitting there, and every scan after it opens its own.
+  const spare = context.pages()
 
   return {
-    sellerReviews: marktplaatsSellerReviews,
-    async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
-      return await fetchWithBotChecks(page, url, options, withTab, ensureWarm)
-    },
-    async resolveUrl(url: string) {
-      return await followRedirect(page, url, withTab)
+    async openTab() {
+      const page = spare.shift() ?? (await context.newPage())
+      const withTab = createLock()
+
+      // Warmed up at most once per tab, and only if a Cardmarket page is actually asked
+      // for. A failed warmup is not fatal — the page that wanted it deals with its own
+      // bot check.
+      let warmed: Promise<void> | null = null
+      const ensureWarm = () => (warmed ??= warmup(page).catch(() => undefined))
+
+      return {
+        sellerReviews: marktplaatsSellerReviews,
+        async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
+          return await fetchWithBotChecks(page, url, options, withTab, ensureWarm)
+        },
+        async resolveUrl(url: string) {
+          return await followRedirect(page, url, withTab)
+        },
+        async close() {
+          await page.close().catch(() => undefined)
+        }
+      }
     },
     async close() {
       if (mode === 'persistent') {
         await context.close().catch(() => undefined)
         return
       }
-      await page.close().catch(() => undefined)
+      await Promise.all(context.pages().map((page) => page.close().catch(() => undefined)))
       await browser?.close().catch(() => undefined)
     }
   }

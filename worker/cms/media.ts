@@ -1,5 +1,19 @@
 import { json, normalizeApiPath, readJson } from './http'
-import { deleteMedia, getMediaById, insertMedia, mediaLibrarySnapshot, replaceMediaFile, updateMedia, type CmsDb } from './db'
+import {
+  deleteMedia,
+  deleteMediaFolder,
+  getMediaById,
+  getMediaFolderById,
+  insertMedia,
+  insertMediaFolder,
+  mediaFolderNameTaken,
+  mediaLibrarySnapshot,
+  renameMediaFolder,
+  replaceMediaFile,
+  updateMedia,
+  type CmsDb,
+  type MediaUpdate
+} from './db'
 import { getR2Usage, incrementR2Usage, snapshotR2Usage, usageMonth } from './r2-usage'
 import { ensureSeeded } from './seed'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
@@ -12,6 +26,7 @@ import {
 } from '../../app/services/responsiveImage'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+const MAX_FOLDER_NAME_LENGTH = 60
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
 const ORIGINAL_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const
 // Same contract as denofdata.com CMS media: browsers keep a year, shared caches a week.
@@ -387,6 +402,35 @@ export async function handleMediaPublic(request: Request, env: DashboardEnv, run
   return response
 }
 
+/** A folder name as the grid will show it: trimmed, single-spaced, and short enough for a tile. */
+function parseFolderName(value: unknown): string | Response {
+  const name = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
+  if (!name) {
+    return json({ error: 'Give the folder a name.' }, 400)
+  }
+  if (name.length > MAX_FOLDER_NAME_LENGTH) {
+    return json({ error: `Keep the folder name under ${MAX_FOLDER_NAME_LENGTH} characters.` }, 400)
+  }
+  return name
+}
+
+/**
+ * The folder an image is being put in: a folder id, or null for the top of the library.
+ * Anything that is not one of those is left as undefined, meaning "not sent".
+ */
+function parseFolderId(value: unknown): number | null | undefined {
+  if (value === null || value === '') {
+    return null
+  }
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    return Number(value)
+  }
+  return undefined
+}
+
 export async function handleMediaRequest(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
   const path = normalizeApiPath(new URL(request.url).pathname)
   if (!path.startsWith('/api/admin/media')) {
@@ -402,8 +446,49 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
 
   if (path === '/api/admin/media' && request.method === 'GET') {
     const month = usageMonth()
-    const { media, storageBytes, classA, classB } = await mediaLibrarySnapshot(db, month)
-    return json({ media, r2: snapshotR2Usage(month, storageBytes, classA, classB) })
+    const { media, folders, storageBytes, classA, classB } = await mediaLibrarySnapshot(db, month)
+    return json({ media, folders, r2: snapshotR2Usage(month, storageBytes, classA, classB) })
+  }
+
+  if (path === '/api/admin/media/folders' && request.method === 'POST') {
+    const body = await readJson<Record<string, unknown>>(request)
+    if (!body) {
+      return json({ error: 'Invalid JSON' }, 400)
+    }
+    const name = parseFolderName(body.name)
+    if (name instanceof Response) {
+      return name
+    }
+    if (await mediaFolderNameTaken(db, name)) {
+      return json({ error: 'There is already a folder with that name.' }, 400)
+    }
+    const id = await insertMediaFolder(db, name)
+    return json({ folder: { id, name } }, 201)
+  }
+
+  const folderMatch = path.match(/^\/api\/admin\/media\/folders\/(\d+)$/)
+  if (folderMatch && request.method === 'PUT') {
+    const id = Number(folderMatch[1])
+    const body = await readJson<Record<string, unknown>>(request)
+    if (!body) {
+      return json({ error: 'Invalid JSON' }, 400)
+    }
+    const name = parseFolderName(body.name)
+    if (name instanceof Response) {
+      return name
+    }
+    if (await mediaFolderNameTaken(db, name, id)) {
+      return json({ error: 'There is already a folder with that name.' }, 400)
+    }
+    if (!(await renameMediaFolder(db, id, name))) {
+      return json({ error: 'Not found' }, 404)
+    }
+    return json({ folder: { id, name } })
+  }
+
+  if (folderMatch && request.method === 'DELETE') {
+    // The images inside are kept; they go back to the top of the library.
+    return (await deleteMediaFolder(db, Number(folderMatch[1]))) ? json({ ok: true }) : json({ error: 'Not found' }, 404)
   }
 
   if (path === '/api/admin/media' && request.method === 'POST') {
@@ -413,6 +498,11 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
       return validated
     }
     const { file, contentType } = validated
+    // An upload made from inside a folder lands in that folder.
+    const folderId = parseFolderId(form.get('folderId')) ?? null
+    if (folderId != null && !(await getMediaFolderById(db, folderId))) {
+      return json({ error: 'That folder no longer exists.' }, 400)
+    }
     const key = slugKey(file.name)
     const bytes = await file.arrayBuffer()
     await storeUpload(bucket, db, key, bytes, contentType, form)
@@ -426,7 +516,8 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
       bytes: bytes.byteLength,
       title: '',
       alt: '',
-      createdAt
+      createdAt,
+      folderId
     }
     const id = await insertMedia(db, media)
     // The usage figures travel with the answer, so the admin need not ask for the
@@ -478,9 +569,26 @@ export async function handleMediaRequest(request: Request, env: DashboardEnv, ru
     if (!body) {
       return json({ error: 'Invalid JSON' }, 400)
     }
-    const title = typeof body.title === 'string' ? body.title.trim() : ''
-    const alt = typeof body.alt === 'string' ? body.alt.trim() : ''
-    const media = await updateMedia(db, Number(match[1]), { title, alt })
+    // Only what was sent is written: the copy comes from the details form, the folder
+    // from a drag or the folder picker, and neither should wipe the other.
+    const fields: MediaUpdate = {}
+    if ('title' in body) {
+      fields.title = typeof body.title === 'string' ? body.title.trim() : ''
+    }
+    if ('alt' in body) {
+      fields.alt = typeof body.alt === 'string' ? body.alt.trim() : ''
+    }
+    if ('folderId' in body) {
+      const folderId = parseFolderId(body.folderId)
+      if (folderId === undefined) {
+        return json({ error: 'Choose a folder or none.' }, 400)
+      }
+      if (folderId != null && !(await getMediaFolderById(db, folderId))) {
+        return json({ error: 'That folder no longer exists.' }, 400)
+      }
+      fields.folderId = folderId
+    }
+    const media = await updateMedia(db, Number(match[1]), fields)
     if (!media) {
       return json({ error: 'Not found' }, 404)
     }

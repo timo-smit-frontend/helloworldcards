@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CACHE_VERSION } from '../app/services/deal-finder/cache'
 import { handleDashboardRequest, memoryCardmarketStore, memoryDealFinderStore } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
@@ -276,5 +277,76 @@ describe('dashboard API', () => {
       { dealFinderStore: memoryDealFinderStore() }
     )
     expect(unknown).toBeNull()
+  })
+
+  it('keeps both marketplaces when their scans run side by side', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+    const store = memoryDealFinderStore()
+    // Both marketplaces have something remembered; an empty feed prunes a source's own
+    // entries and must leave the other's alone.
+    const entry = (id: string) => ({
+      id,
+      ask: 10,
+      shipping: null,
+      identifiedAt: new Date().toISOString(),
+      identity: null,
+      label: null,
+      query: null,
+      googleUrl: null,
+      cardmarketUrl: null,
+      pricedAt: null,
+      floor: null,
+      comps: [],
+      problem: null
+    })
+    await store.putCache({ version: CACHE_VERSION, entries: { 'marktplaats:1': entry('marktplaats:1'), 'vinted:1': entry('vinted:1') } })
+
+    // Marktplaats is held until Vinted has finished and been saved, so both scans have
+    // read the store before either writes to it.
+    let releaseMarktplaats = () => {}
+    const marktplaatsGate = new Promise<void>((resolve) => {
+      releaseMarktplaats = resolve
+    })
+    const fetchCardmarketPage = async (url: string) => {
+      if (url.includes('marktplaats.nl')) {
+        await marktplaatsGate
+        return '{"listings":[],"facets":[],"totalResultCount":0}'
+      }
+      return '<html></html>'
+    }
+    const scan = (source: string) =>
+      handleDashboardRequest(
+        new Request(`https://example.com/dashboard/deal-finder/scan/${source}`, {
+          method: 'POST',
+          headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+        }),
+        env,
+        seededRuntime({ dealFinderStore: store, fetchCardmarketPage })
+      )
+
+    const marktplaats = scan('marktplaats')
+    const vinted = await scan('vinted')
+    expect(vinted?.status).toBe(200)
+    const afterVinted = (await vinted!.json()) as { report: { sources: Array<{ source: string }> } }
+    expect(afterVinted.report.sources.map((source) => source.source)).toEqual(['vinted'])
+
+    releaseMarktplaats()
+    const response = await marktplaats
+    expect(response?.status).toBe(200)
+    const { report } = (await response!.json()) as { report: { sources: Array<{ source: string }> } }
+    expect(report.sources.map((source) => source.source)).toEqual(['marktplaats', 'vinted'])
+
+    const stored = await store.getReport()
+    expect(stored?.sources.map((source) => source.source)).toEqual(['marktplaats', 'vinted'])
+    // Each scan pruned its own marketplace; neither put the other's stale entry back.
+    await expect(store.getCache()).resolves.toEqual({ version: CACHE_VERSION, entries: {} })
   })
 })

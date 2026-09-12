@@ -1,52 +1,89 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   chromeLaunchArgs,
+  closeScanBrowser,
   fetchVintedPage,
+  getScanBrowser,
   isVintedHost,
-  closePlaywrightCardmarketFetcher,
-  getPlaywrightCardmarketFetcher,
   nextChromeAction,
-  resetPlaywrightCardmarketFetcher
+  resetScanBrowser,
+  type ScanBrowser
 } from '../vite/cardmarket-browser'
 
 afterEach(() => {
-  resetPlaywrightCardmarketFetcher()
+  resetScanBrowser()
 })
 
-describe('getPlaywrightCardmarketFetcher', () => {
+function fakeBrowser(onClose: () => void = () => undefined): ScanBrowser {
+  return {
+    openTab: async () => ({
+      fetchPage: async () => '',
+      resolveUrl: async () => null,
+      sellerReviews: async () => null,
+      close: async () => undefined
+    }),
+    close: async () => onClose()
+  }
+}
+
+describe('getScanBrowser', () => {
   it('reuses the already-activated browser instead of launching another', async () => {
     let launches = 0
     const create = async () => {
       launches += 1
-      return {
-        fetchPage: async () => '',
-        resolveUrl: async () => null,
-        sellerReviews: async () => null,
-        close: async () => undefined
-      }
+      return fakeBrowser()
     }
 
-    const first = await getPlaywrightCardmarketFetcher('.', create)
-    const second = await getPlaywrightCardmarketFetcher('.', create)
+    const first = await getScanBrowser('.', create)
+    const second = await getScanBrowser('.', create)
 
     expect(launches).toBe(1)
     expect(second).toBe(first)
   })
 
+  it('launches once for two scans that start together', async () => {
+    let launches = 0
+    let finishLaunch = () => {}
+    const create = () =>
+      new Promise<ScanBrowser>((resolve) => {
+        launches += 1
+        finishLaunch = () => resolve(fakeBrowser())
+      })
+
+    // Marktplaats and Vinted both ask while Chrome is still coming up.
+    const marktplaats = getScanBrowser('.', create)
+    const vinted = getScanBrowser('.', create)
+    finishLaunch()
+
+    expect(await vinted).toBe(await marktplaats)
+    expect(launches).toBe(1)
+  })
+
+  it('forgets a launch that failed so the next scan can try again', async () => {
+    let launches = 0
+    const create = async () => {
+      launches += 1
+      if (launches === 1) {
+        throw new Error('Google Chrome is not installed.')
+      }
+      return fakeBrowser()
+    }
+
+    await expect(getScanBrowser('.', create)).rejects.toThrow('not installed')
+    await expect(getScanBrowser('.', create)).resolves.toBeDefined()
+    expect(launches).toBe(2)
+  })
+
   it('closes the scan browser when the check is done', async () => {
     let closed = 0
-    const create = async () => ({
-      fetchPage: async () => '',
-      resolveUrl: async () => null,
-      sellerReviews: async () => null,
-      close: async () => {
+    const create = async () =>
+      fakeBrowser(() => {
         closed += 1
-      }
-    })
+      })
 
-    await getPlaywrightCardmarketFetcher('.', create)
-    await closePlaywrightCardmarketFetcher()
-    await getPlaywrightCardmarketFetcher('.', create)
+    await getScanBrowser('.', create)
+    await closeScanBrowser()
+    await getScanBrowser('.', create)
 
     expect(closed).toBe(1)
   })

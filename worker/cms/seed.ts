@@ -54,7 +54,8 @@ async function seedMediaLibrary(db: CmsDb): Promise<void> {
         bytes: file.bytes,
         title: copy?.title ?? '',
         alt: copy?.alt ?? '',
-        createdAt: SEED_MEDIA_CREATED_AT
+        createdAt: SEED_MEDIA_CREATED_AT,
+        folderId: null
       }
     })
   )

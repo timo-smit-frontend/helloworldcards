@@ -1,6 +1,20 @@
-import { FormEvent, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide'
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  FolderOutput,
+  FolderPlus,
+  Pencil,
+  Plus,
+  Trash2,
+  X
+} from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
@@ -21,6 +35,7 @@ import {
   type CmsBlock,
   type CmsBlockType,
   type CmsMedia,
+  type CmsMediaFolder,
   type CmsNavItem,
   type CmsPage,
   type CmsSettings,
@@ -33,6 +48,16 @@ import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleto
 import { adminJson } from './api'
 import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
+import { DRAG_GHOST_SIZE, createDragGhost, discardDragGhost, landDragGhost, type DragGhost } from './media-drag'
+import {
+  MEDIA_DRAG_TYPE,
+  countMediaByFolder,
+  folderOfUrl,
+  imageCountLabel,
+  mediaInFolder,
+  moveMediaTo,
+  sortMediaFolders
+} from './media-folders'
 import { adminPrefix, adminTo } from './runtime'
 import { DialogCloseButton } from './DialogClose'
 import { MediaImageEditor, canEditImage } from './MediaImageEditor'
@@ -217,18 +242,20 @@ function mediaLabel(item: { title: string; filename: string; url: string }) {
   return item.title || item.filename || item.url.split('/').filter(Boolean).at(-1) || item.url
 }
 
+type MediaLibrary = { media: CmsMedia[]; folders: CmsMediaFolder[] }
+
 function useMediaLibrary(open: boolean) {
-  const [items, setItems] = useState<CmsMedia[] | null>(null)
+  const [library, setLibrary] = useState<MediaLibrary | null>(null)
 
   useEffect(() => {
     if (!open) {
       return
     }
     let cancelled = false
-    setItems(null)
-    void adminJson<{ media: CmsMedia[] }>('/media').then((result) => {
+    setLibrary(null)
+    void adminJson<{ media: CmsMedia[]; folders?: CmsMediaFolder[] }>('/media').then((result) => {
       if (!cancelled) {
-        setItems(result.data?.media ?? [])
+        setLibrary({ media: result.data?.media ?? [], folders: sortMediaFolders(result.data?.folders ?? []) })
       }
     })
     return () => {
@@ -236,7 +263,7 @@ function useMediaLibrary(open: boolean) {
     }
   }, [open])
 
-  return items
+  return library
 }
 
 function mediaTileClass(selected: boolean) {
@@ -249,21 +276,111 @@ function mediaImageClass() {
   return 'box-border size-full object-contain p-1'
 }
 
+function mediaGridClass() {
+  return 'm-0 grid list-none grid-cols-3 gap-2 p-0.5 sm:grid-cols-4 md:grid-cols-5'
+}
+
+/** The face of a folder in a grid: the icon, the name and how much is inside, sized like an image tile. */
+function FolderTileFace({ folder, count, open }: { folder: CmsMediaFolder; count: number; open?: boolean }) {
+  return (
+    <span className="pointer-events-none flex size-full flex-col items-center justify-center gap-1.5 px-2">
+      <MorphIcon icon={open ? FolderOpen : Folder} size={40} strokeWidth={1.5} className="text-site-envy" />
+      <span className="w-full truncate text-center text-sm font-semibold">{folder.name}</span>
+      <span className="text-xs text-site-mantle">{imageCountLabel(count)}</span>
+    </span>
+  )
+}
+
+function folderTileClass(active: boolean) {
+  return `flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 smooth ${
+    active ? 'bg-site-gunmetal ring-2 ring-site-envy' : 'ring-site-mulled-wine hover:ring-site-envy'
+  }`
+}
+
+/** The way back up from inside a folder, in a picker or on the media screen. */
+function FolderBreadcrumb({ folder, onBack }: { folder: CmsMediaFolder; onBack: () => void }) {
+  return (
+    <div className="mb-3 flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        className="flex shrink-0 cursor-pointer items-center gap-1 text-sm font-semibold text-site-mantle hover:text-site-gray-nurse"
+        onClick={onBack}
+      >
+        <MorphIcon icon={ChevronLeft} size={16} strokeWidth={2.5} />
+        Media
+      </button>
+      <span className="text-site-mantle">/</span>
+      <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+        <MorphIcon icon={FolderOpen} size={16} strokeWidth={2.25} className="shrink-0 text-site-envy" />
+        <span className="truncate">{folder.name}</span>
+      </span>
+    </div>
+  )
+}
+
+/**
+ * One level of the library at a time, the way a file browser shows it: the folders first,
+ * then the images at that level. It starts inside the folder that holds `startUrl`, so
+ * changing an image opens on the one that is there now.
+ */
+function MediaLibraryBrowser({
+  library,
+  startUrl,
+  renderItem
+}: {
+  library: MediaLibrary
+  startUrl?: string
+  renderItem: (item: CmsMedia) => ReactNode
+}) {
+  const [folderId, setFolderId] = useState<number | null>(() => (startUrl ? folderOfUrl(library.media, startUrl) : null))
+  const folder = folderId != null ? (library.folders.find((item) => item.id === folderId) ?? null) : null
+  const visible = mediaInFolder(library.media, folder?.id ?? null)
+  const counts = countMediaByFolder(library.media)
+
+  return (
+    <>
+      {folder ? <FolderBreadcrumb folder={folder} onBack={() => setFolderId(null)} /> : null}
+      {folder && visible.length === 0 ? <p className="content-s text-site-mantle">This folder is empty.</p> : null}
+      <ul className={mediaGridClass()}>
+        {folder
+          ? null
+          : library.folders.map((item) => (
+              <li key={`folder-${item.id}`}>
+                <button
+                  type="button"
+                  aria-label={`Open folder ${item.name}`}
+                  className={folderTileClass(false)}
+                  onClick={() => setFolderId(item.id)}
+                >
+                  <FolderTileFace folder={item} count={counts.get(item.id) ?? 0} />
+                </button>
+              </li>
+            ))}
+        {visible.map((item) => (
+          <li key={item.id}>{renderItem(item)}</li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
 function MediaLibraryShell({
   open,
   title,
   description,
-  items,
+  library,
+  startUrl,
   onOpenChange,
-  children,
+  renderItem,
   footer
 }: {
   open: boolean
   title: string
   description: string
-  items: CmsMedia[] | null
+  library: MediaLibrary | null
+  startUrl?: string
   onOpenChange: (open: boolean) => void
-  children: (items: CmsMedia[]) => ReactNode
+  renderItem: (item: CmsMedia) => ReactNode
   footer?: ReactNode
 }) {
   return (
@@ -277,12 +394,12 @@ function MediaLibraryShell({
             <DialogPrimitive.Description className="sr-only">{description}</DialogPrimitive.Description>
           </div>
           <div className="min-h-0 overflow-y-auto px-5 pt-1 pb-5">
-            {items == null ? (
+            {library == null ? (
               <p className="content-s text-site-mantle">Loading…</p>
-            ) : items.length === 0 ? (
+            ) : library.media.length === 0 && library.folders.length === 0 ? (
               <p className="content-s text-site-mantle">No media yet. Upload images in Media first.</p>
             ) : (
-              children(items)
+              <MediaLibraryBrowser library={library} startUrl={startUrl} renderItem={renderItem} />
             )}
           </div>
           {footer}
@@ -294,8 +411,8 @@ function MediaLibraryShell({
 
 function MediaPicker({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const [open, setOpen] = useState(false)
-  const items = useMediaLibrary(open)
-  const current = items?.find((item) => item.url === value)
+  const library = useMediaLibrary(open)
+  const current = library?.media.find((item) => item.url === value)
 
   function choose(url: string) {
     onChange(url)
@@ -334,35 +451,29 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
       <MediaLibraryShell
         open={open}
         title="Choose media"
-        description="Pick an image from the media library."
-        items={items}
+        description="Pick an image from the media library. Open a folder to see the images inside it."
+        library={library}
+        startUrl={value || undefined}
         onOpenChange={setOpen}
-      >
-        {(library) => (
-          <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0.5 sm:grid-cols-4 md:grid-cols-5">
-            {library.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  aria-label={mediaLabel(item)}
-                  aria-pressed={item.url === value}
-                  className={mediaTileClass(item.url === value)}
-                  onClick={() => choose(item.url)}
-                >
-                  <Image
-                    src={item.url}
-                    alt={item.alt || mediaLabel(item)}
-                    width={160}
-                    height={160}
-                    maxwidth={400}
-                    className={mediaImageClass()}
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
+        renderItem={(item) => (
+          <button
+            type="button"
+            aria-label={mediaLabel(item)}
+            aria-pressed={item.url === value}
+            className={mediaTileClass(item.url === value)}
+            onClick={() => choose(item.url)}
+          >
+            <Image
+              src={item.url}
+              alt={item.alt || mediaLabel(item)}
+              width={160}
+              height={160}
+              maxwidth={400}
+              className={mediaImageClass()}
+            />
+          </button>
         )}
-      </MediaLibraryShell>
+      />
     </>
   )
 }
@@ -370,7 +481,7 @@ function MediaPicker({ value, onChange }: { value: string; onChange: (url: strin
 function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (urls: string[]) => void }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<string[]>([])
-  const items = useMediaLibrary(open)
+  const library = useMediaLibrary(open)
   const chosen = value.filter((src) => src.trim() !== '')
 
   function openLibrary() {
@@ -416,11 +527,11 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
       <MediaLibraryShell
         open={open}
         title="Choose images"
-        description="Select up to 8 images from the media library."
-        items={items}
+        description="Select up to 8 images from the media library. Open a folder to see the images inside it; your selection is kept while you browse."
+        library={library}
         onOpenChange={setOpen}
         footer={
-          items != null && items.length > 0 ? (
+          library != null && library.media.length > 0 ? (
             <div className="flex items-center justify-between gap-3 px-5 py-4">
               <p className="content-s text-site-mantle">
                 {draft.length} / {MAX_PRODUCT_IMAGES}
@@ -431,42 +542,35 @@ function MediaImagesPicker({ value, onChange }: { value: string[]; onChange: (ur
             </div>
           ) : null
         }
-      >
-        {(library) => (
-          <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0.5 sm:grid-cols-4 md:grid-cols-5">
-            {library.map((item) => {
-              const selected = draft.includes(item.url)
-              const atMax = !selected && draft.length >= MAX_PRODUCT_IMAGES
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    aria-label={mediaLabel(item)}
-                    aria-pressed={selected}
-                    disabled={atMax}
-                    className={`${mediaTileClass(selected)} disabled:cursor-not-allowed disabled:opacity-40`}
-                    onClick={() => setDraft(toggleMediaSelection(draft, item.url))}
-                  >
-                    <Image
-                      src={item.url}
-                      alt={item.alt || mediaLabel(item)}
-                      width={160}
-                      height={160}
-                      maxwidth={400}
-                      className={mediaImageClass()}
-                    />
-                    {selected ? (
-                      <span className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-site-envy text-site-dark">
-                        <MorphIcon icon={Check} size={14} strokeWidth={2.5} />
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </MediaLibraryShell>
+        renderItem={(item) => {
+          const selected = draft.includes(item.url)
+          const atMax = !selected && draft.length >= MAX_PRODUCT_IMAGES
+          return (
+            <button
+              type="button"
+              aria-label={mediaLabel(item)}
+              aria-pressed={selected}
+              disabled={atMax}
+              className={`${mediaTileClass(selected)} disabled:cursor-not-allowed disabled:opacity-40`}
+              onClick={() => setDraft(toggleMediaSelection(draft, item.url))}
+            >
+              <Image
+                src={item.url}
+                alt={item.alt || mediaLabel(item)}
+                width={160}
+                height={160}
+                maxwidth={400}
+                className={mediaImageClass()}
+              />
+              {selected ? (
+                <span className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-site-envy text-site-dark">
+                  <MorphIcon icon={Check} size={14} strokeWidth={2.5} />
+                </span>
+              ) : null}
+            </button>
+          )
+        }}
+      />
     </>
   )
 }
@@ -1756,7 +1860,19 @@ function R2UsageMeter({ label, used, limit, format }: { label: string; used: num
   )
 }
 
-function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (next: CmsMedia) => void; onDelete: () => void }) {
+function MediaEditor({
+  item,
+  folders,
+  onChange,
+  onMove,
+  onDelete
+}: {
+  item: CmsMedia
+  folders: CmsMediaFolder[]
+  onChange: (next: CmsMedia) => void
+  onMove: (folderId: number | null) => void
+  onDelete: () => void
+}) {
   const [title, setTitle] = useState(item.title)
   const [alt, setAlt] = useState(item.alt)
   const [copied, setCopied] = useState(false)
@@ -1832,6 +1948,15 @@ function MediaEditor({ item, onChange, onDelete }: { item: CmsMedia; onChange: (
           onBlur={() => void saveCopy()}
         />
       </label>
+      <div className="flex flex-col gap-1 text-xs font-semibold tracking-[0.18em] text-site-mantle uppercase">
+        <span id={`media-folder-${item.id}`}>Folder</span>
+        <ChoiceSelect
+          aria-labelledby={`media-folder-${item.id}`}
+          value={item.folderId != null ? String(item.folderId) : ''}
+          options={[{ value: '', label: 'No folder' }, ...folders.map((folder) => ({ value: String(folder.id), label: folder.name }))]}
+          onChange={(next) => onMove(next === '' ? null : Number(next))}
+        />
+      </div>
       {replaceError ? <p className="content-s text-site-loss">{replaceError}</p> : null}
       <div className="mt-auto flex flex-col items-start gap-2 border-t border-site-mulled-wine pt-4 md:flex-row md:items-center">
         <button type="button" className="button-quiet md:order-2" onClick={() => void copyUrl()}>
@@ -1941,19 +2066,174 @@ function MediaNeighbourPrefetch({ items }: { items: CmsMedia[] }) {
   )
 }
 
+/** Name a folder, new or renamed. The name is checked by the server, and its objection is shown in place. */
+function FolderNameDialog({
+  open,
+  title,
+  initialName,
+  confirmLabel,
+  onOpenChange,
+  onSubmit
+}: {
+  open: boolean
+  title: string
+  initialName: string
+  confirmLabel: string
+  onOpenChange: (open: boolean) => void
+  onSubmit: (name: string) => Promise<string | null>
+}) {
+  const [name, setName] = useState(initialName)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const nameInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      setName(initialName)
+      setError('')
+      setSaving(false)
+    }
+  }, [open, initialName])
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setError('Give the folder a name.')
+      return
+    }
+    setSaving(true)
+    const problem = await onSubmit(trimmed)
+    setSaving(false)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    onOpenChange(false)
+  }
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-site-dark/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content
+          className="fixed top-1/2 left-1/2 z-100 w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-panel bg-site-gunmetal p-6 pr-14 shadow-card ring-1 ring-site-mulled-wine focus:outline-none"
+          // The name field is what the dialog is for, so it takes the focus rather than the close button.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            nameInput.current?.focus()
+          }}
+        >
+          <DialogCloseButton />
+          <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+            <DialogPrimitive.Title className="title-xs md:mt-8">{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">Type a name for the folder.</DialogPrimitive.Description>
+            <AdminField label="Name">
+              <input
+                ref={nameInput}
+                className={fieldClass()}
+                value={name}
+                maxLength={60}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  setError('')
+                }}
+              />
+            </AdminField>
+            {error ? (
+              <p className="content-s text-site-loss" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row-reverse sm:justify-start">
+              <button type="submit" className="button-green sm:w-fit" disabled={saving}>
+                {saving ? 'Saving…' : confirmLabel}
+              </button>
+              <button
+                type="button"
+                className="cursor-pointer text-sm font-semibold text-site-mantle sm:w-fit"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+/** Only a library image being dragged counts; a file dragged in from the desktop is left to the browser. */
+function isMediaDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer.types).includes(MEDIA_DRAG_TYPE)
+}
+
+/**
+ * The drag-and-drop handlers a folder tile needs. The tile's own children ignore the
+ * pointer, so enter and leave fire for the tile as a whole rather than for every child
+ * the cursor crosses.
+ */
+function dropHandlers(active: boolean, onEnter: () => void, onLeave: () => void, onDrop: (id: number, event: DragEvent) => void) {
+  return {
+    onDragEnter: (event: DragEvent) => {
+      if (!isMediaDrag(event)) return
+      event.preventDefault()
+      onEnter()
+    },
+    onDragOver: (event: DragEvent) => {
+      if (!isMediaDrag(event)) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      if (!active) onEnter()
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (!isMediaDrag(event)) return
+      onLeave()
+    },
+    onDrop: (event: DragEvent) => {
+      if (!isMediaDrag(event)) return
+      event.preventDefault()
+      onLeave()
+      const id = Number(event.dataTransfer.getData(MEDIA_DRAG_TYPE))
+      if (Number.isInteger(id) && id > 0) onDrop(id, event)
+    }
+  }
+}
+
 function MediaScreen() {
+  const { folderId: folderParam } = useParams<{ folderId?: string }>()
+  const navigate = useNavigate()
   const fileInput = useRef<HTMLInputElement>(null)
   const ignoreOutsideClick = useRef(false)
   const [media, setMedia] = useState<CmsMedia[]>([])
+  const [folders, setFolders] = useState<CmsMediaFolder[]>([])
   const [r2, setR2] = useState<R2UsageSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
-  const selectedIndex = media.findIndex((item) => item.id === selectedId)
-  const selected = selectedIndex >= 0 ? media[selectedIndex] : null
+  const [dragging, setDragging] = useState<number | null>(null)
+  // Where a dragged image would land if let go now: a folder, the top of the library, or nowhere.
+  const [dropTarget, setDropTarget] = useState<'root' | number | null>(null)
+  // The folder — or the way out — that has just taken an image, for the moment it swells.
+  const [landed, setLanded] = useState<'root' | number | null>(null)
+  const landedTimer = useRef<number | null>(null)
+  const ghost = useRef<DragGhost | null>(null)
+  const [folderDialog, setFolderDialog] = useState<'new' | 'rename' | null>(null)
+  const [deletingFolder, setDeletingFolder] = useState(false)
+  const [moveError, setMoveError] = useState('')
+
+  const folderId = folderParam ? Number(folderParam) : null
+  const folder = folderId != null ? (folders.find((item) => item.id === folderId) ?? null) : null
+  // Inside a folder the grid shows its images; at the top, the folders and the loose images.
+  const visible = useMemo(() => mediaInFolder(media, folder?.id ?? null), [media, folder?.id])
+  const counts = useMemo(() => countMediaByFolder(media), [media])
+  const selectedIndex = visible.findIndex((item) => item.id === selectedId)
+  // The dialog follows the image, not the grid: moved out of view, it stays open showing its new folder.
+  const selected = media.find((item) => item.id === selectedId) ?? null
 
   function step(delta: number) {
-    const next = media[selectedIndex + delta]
+    const next = visible[selectedIndex + delta]
     if (next) setSelectedId(next.id)
   }
 
@@ -1970,7 +2250,7 @@ function MediaScreen() {
       if (target?.isContentEditable || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
         return
       }
-      const next = media[selectedIndex + (event.key === 'ArrowLeft' ? -1 : 1)]
+      const next = visible[selectedIndex + (event.key === 'ArrowLeft' ? -1 : 1)]
       if (next) {
         event.preventDefault()
         setSelectedId(next.id)
@@ -1978,7 +2258,7 @@ function MediaScreen() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selected, editing, media, selectedIndex])
+  }, [selected, editing, visible, selectedIndex])
 
   function openItem(id: number) {
     ignoreOutsideClick.current = true
@@ -1989,17 +2269,27 @@ function MediaScreen() {
   }
 
   useEffect(() => {
-    void adminJson<{ media: CmsMedia[]; r2: R2UsageSnapshot }>('/media')
+    void adminJson<{ media: CmsMedia[]; folders?: CmsMediaFolder[]; r2: R2UsageSnapshot }>('/media')
       .then((result) => {
         if (result.data?.media) setMedia(result.data.media)
+        if (result.data?.folders) setFolders(sortMediaFolders(result.data.folders))
         if (result.data?.r2) setR2(result.data.r2)
       })
       .finally(() => setLoading(false))
   }, [])
 
+  // A folder that is gone — deleted, or never there — falls back to the top of the library.
+  useEffect(() => {
+    if (!loading && folderId != null && !folders.some((item) => item.id === folderId)) {
+      navigate(adminTo('/media'), { replace: true })
+    }
+  }, [loading, folderId, folders, navigate])
+
   async function upload(file: File) {
     const body = new FormData()
     body.append('file', file)
+    // An upload made from inside a folder goes into that folder.
+    if (folder) body.append('folderId', String(folder.id))
     await appendUploadVariants(body, file)
     const result = await adminJson<{ media: CmsMedia; r2?: R2UsageSnapshot }>('/media', { method: 'POST', body })
     if (result.data?.media) {
@@ -2010,14 +2300,143 @@ function MediaScreen() {
     if (result.data?.r2) setR2(result.data.r2)
   }
 
+  /**
+   * Put an image in a folder, or back at the top with null. The grid changes at once —
+   * the image leaves the level it was dragged from — and is put back if the server
+   * refuses.
+   */
+  async function move(id: number, target: number | null) {
+    const item = media.find((row) => row.id === id)
+    if (!item || (item.folderId ?? null) === target) {
+      return
+    }
+    setMoveError('')
+    setMedia((current) => moveMediaTo(current, id, target))
+    const result = await adminJson<{ media?: CmsMedia; error?: string }>(`/media/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ folderId: target })
+    })
+    if (result.data?.media) {
+      setMedia((current) => current.map((row) => (row.id === id ? result.data!.media! : row)))
+      return
+    }
+    setMedia((current) => moveMediaTo(current, id, item.folderId ?? null))
+    setMoveError(result.data?.error ?? 'Could not move the image. Try again.')
+  }
+
+  useEffect(
+    () => () => {
+      discardDragGhost(ghost.current)
+      if (landedTimer.current) window.clearTimeout(landedTimer.current)
+    },
+    []
+  )
+
+  /**
+   * An image let go on a folder, or on the way out of one. The grid changes at once; the
+   * thumbnail that was being carried flies into the tile, which swells as it arrives.
+   */
+  async function drop(id: number, target: 'root' | number, event: DragEvent) {
+    const carried = ghost.current
+    ghost.current = null
+    const tile = event.currentTarget.getBoundingClientRect()
+    const from = { x: event.clientX, y: event.clientY }
+    void move(id, target === 'root' ? null : target)
+    if (carried) {
+      await landDragGhost(carried, from, tile)
+    }
+    if (landedTimer.current) window.clearTimeout(landedTimer.current)
+    setLanded(target)
+    landedTimer.current = window.setTimeout(() => setLanded(null), 450)
+  }
+
+  async function createFolder(name: string): Promise<string | null> {
+    const result = await adminJson<{ folder?: CmsMediaFolder; error?: string }>('/media/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    })
+    if (!result.data?.folder) {
+      return result.data?.error ?? 'Could not create the folder.'
+    }
+    const created = result.data.folder
+    setFolders((current) => sortMediaFolders([...current, created]))
+    return null
+  }
+
+  async function renameFolder(name: string): Promise<string | null> {
+    if (!folder) return null
+    const result = await adminJson<{ folder?: CmsMediaFolder; error?: string }>(`/media/folders/${folder.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name })
+    })
+    if (!result.data?.folder) {
+      return result.data?.error ?? 'Could not rename the folder.'
+    }
+    const renamed = result.data.folder
+    setFolders((current) => sortMediaFolders(current.map((item) => (item.id === renamed.id ? renamed : item))))
+    return null
+  }
+
+  async function deleteFolder() {
+    if (!folder) return
+    const id = folder.id
+    // The images are kept: they go back to the top of the library, which is where the screen goes too.
+    setFolders((current) => current.filter((item) => item.id !== id))
+    setMedia((current) => current.map((item) => (item.folderId === id ? { ...item, folderId: null } : item)))
+    navigate(adminTo('/media'))
+    await adminJson(`/media/folders/${id}`, { method: 'DELETE' })
+  }
+
   const alert = r2?.warnings.some((warning) => warning.level === 'alert')
   const warn = r2?.warnings.length
+  const folderCount = folder ? (counts.get(folder.id) ?? 0) : 0
 
   return (
     <div className="admin-page flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="title-l">Media</h1>
-        <div>
+        {folder ? (
+          // The path, the way a file browser shows it. The "Media" crumb is also where a
+          // dragged image can be let go to take it out of the folder.
+          <h1 className="title-l flex min-w-0 items-center gap-3">
+            <Link
+              to={adminTo('/media')}
+              draggable={false}
+              className={`shrink-0 rounded-panel smooth ${
+                dropTarget === 'root'
+                  ? 'text-site-envy'
+                  : dragging != null
+                    ? 'text-site-gray-nurse outline-2 outline-offset-6 outline-site-mulled-wine outline-dashed'
+                    : 'text-site-mantle hover:text-site-gray-nurse'
+              } ${landed === 'root' ? 'media-landed' : ''}`}
+              {...dropHandlers(
+                dropTarget === 'root',
+                () => setDropTarget('root'),
+                () => setDropTarget(null),
+                (id, event) => void drop(id, 'root', event)
+              )}
+            >
+              Media
+            </Link>
+            <span aria-hidden className="text-site-mantle">
+              /
+            </span>
+            <span className="truncate">{folder.name}</span>
+          </h1>
+        ) : (
+          <h1 className="title-l">Media</h1>
+        )}
+        <div className="flex flex-wrap items-center gap-4">
+          {folder ? (
+            <>
+              <IconButton label="Rename folder" icon={Pencil} onClick={() => setFolderDialog('rename')} />
+              <IconButton label="Delete folder" icon={Trash2} onClick={() => setDeletingFolder(true)} />
+            </>
+          ) : (
+            <button type="button" className="button-quiet w-fit!" onClick={() => setFolderDialog('new')}>
+              <MorphIcon icon={FolderPlus} size={18} strokeWidth={2.25} className="mr-2" />
+              New folder
+            </button>
+          )}
           <button type="button" className="button-green cursor-pointer" onClick={() => fileInput.current?.click()}>
             Upload image
           </button>
@@ -2048,7 +2467,17 @@ function MediaScreen() {
           <R2UsageMeter label="Class B (origin reads)" used={r2.classB} limit={r2.limits.classB} format={formatCount} />
         </div>
       ) : null}
-      <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 sm:grid-cols-4 md:grid-cols-5">
+      {moveError ? (
+        <p className="content-s text-site-loss" role="alert">
+          {moveError}
+        </p>
+      ) : null}
+      {folder && !loading && visible.length === 0 ? (
+        <p className="content-s text-site-mantle">
+          This folder is empty. Upload an image here, or drag images onto the folder from the media library.
+        </p>
+      ) : null}
+      <ul className={mediaGridClass()}>
         {loading
           ? Array.from({ length: 9 }, (_, index) => (
               <li
@@ -2059,15 +2488,54 @@ function MediaScreen() {
               />
             ))
           : null}
-        {media.map((item) => (
-          <li key={item.id}>
+        {folder
+          ? null
+          : folders.map((item) => (
+              <li key={`folder-${item.id}`}>
+                <Link
+                  to={adminTo(`/media/folders/${item.id}`)}
+                  draggable={false}
+                  aria-label={`Open folder ${item.name}, ${imageCountLabel(counts.get(item.id) ?? 0)}`}
+                  className={`${folderTileClass(dropTarget === item.id)} ${landed === item.id ? 'media-landed' : ''}`}
+                  {...dropHandlers(
+                    dropTarget === item.id,
+                    () => setDropTarget(item.id),
+                    () => setDropTarget(null),
+                    (id, event) => void drop(id, item.id, event)
+                  )}
+                >
+                  <FolderTileFace folder={item} count={counts.get(item.id) ?? 0} open={dropTarget === item.id} />
+                </Link>
+              </li>
+            ))}
+        {visible.map((item) => (
+          <li key={item.id} className={`group relative smooth ${dragging === item.id ? 'opacity-40' : ''}`}>
             <button
               type="button"
               aria-label={item.title || item.filename}
+              draggable
               className={`flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-panel bg-site-dark ring-1 smooth ${
                 selectedId === item.id ? 'ring-site-envy' : 'ring-site-mulled-wine hover:ring-site-envy'
               }`}
               onClick={() => openItem(item.id)}
+              onDragStart={(event) => {
+                event.dataTransfer.setData(MEDIA_DRAG_TYPE, String(item.id))
+                event.dataTransfer.effectAllowed = 'move'
+                // A thumbnail in the hand rather than the whole tile.
+                const carried = createDragGhost(event.currentTarget, { x: event.clientX, y: event.clientY })
+                if (carried) {
+                  event.dataTransfer.setDragImage(carried, DRAG_GHOST_SIZE / 2, DRAG_GHOST_SIZE / 2)
+                  ghost.current = carried
+                }
+                setDragging(item.id)
+              }}
+              onDragEnd={() => {
+                // Still here when the drag was cancelled; a drop has taken it by now.
+                discardDragGhost(ghost.current)
+                ghost.current = null
+                setDragging(null)
+                setDropTarget(null)
+              }}
             >
               <Image
                 src={item.url}
@@ -2076,12 +2544,52 @@ function MediaScreen() {
                 width={200}
                 height={200}
                 maxwidth={400}
+                draggable={false}
                 className={mediaImageClass()}
               />
             </button>
+            {folder ? (
+              <button
+                type="button"
+                aria-label="Move out of folder"
+                title="Move out of folder"
+                className="absolute top-1.5 right-1.5 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full bg-site-dark/85 text-site-gray-nurse opacity-0 ring-1 ring-site-mulled-wine pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-site-envy [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+                onClick={() => void move(item.id, null)}
+              >
+                <MorphIcon icon={FolderOutput} size={15} strokeWidth={2.25} />
+              </button>
+            ) : null}
           </li>
         ))}
       </ul>
+      <FolderNameDialog
+        open={folderDialog === 'new'}
+        title="New folder"
+        initialName=""
+        confirmLabel="Create folder"
+        onOpenChange={(open) => setFolderDialog(open ? 'new' : null)}
+        onSubmit={createFolder}
+      />
+      <FolderNameDialog
+        open={folderDialog === 'rename'}
+        title="Rename folder"
+        initialName={folder?.name ?? ''}
+        confirmLabel="Rename"
+        onOpenChange={(open) => setFolderDialog(open ? 'rename' : null)}
+        onSubmit={renameFolder}
+      />
+      <ConfirmDialog
+        open={deletingFolder}
+        title="Delete folder"
+        description={
+          folderCount > 0
+            ? `The ${imageCountLabel(folderCount)} inside will go back to the media library. No image is deleted.`
+            : 'This folder is empty.'
+        }
+        confirmLabel="Delete folder"
+        onOpenChange={setDeletingFolder}
+        onConfirm={() => void deleteFolder()}
+      />
       <DialogPrimitive.Root
         open={selected != null}
         onOpenChange={(open) => {
@@ -2107,14 +2615,14 @@ function MediaScreen() {
               <div className="sticky top-0 z-20 flex items-stretch justify-between border-b border-site-mulled-wine bg-site-gunmetal md:col-span-2">
                 <DialogPrimitive.Title className="title-xs self-center px-5 py-4">Media details</DialogPrimitive.Title>
                 <DialogPrimitive.Description className="sr-only">
-                  Edit title, alt text, and URL for this image, or step through the library.
+                  Edit title, alt text, folder and URL for this image, or step through the images at this level of the library.
                 </DialogPrimitive.Description>
                 <div className="flex items-stretch">
                   <MediaStepButton label="Previous image" icon={ChevronLeft} disabled={selectedIndex <= 0} onClick={() => step(-1)} />
                   <MediaStepButton
                     label="Next image"
                     icon={ChevronRight}
-                    disabled={selectedIndex < 0 || selectedIndex >= media.length - 1}
+                    disabled={selectedIndex < 0 || selectedIndex >= visible.length - 1}
                     onClick={() => step(1)}
                   />
                   <DialogPrimitive.Close
@@ -2138,7 +2646,7 @@ function MediaScreen() {
                   style={detailPlaceholderStyle(selected.url)}
                   className="max-h-[min(70dvh,40rem)] w-auto object-contain"
                 />
-                <MediaNeighbourPrefetch items={mediaNeighbours(media, selectedIndex)} />
+                <MediaNeighbourPrefetch items={mediaNeighbours(visible, selectedIndex)} />
                 {canEditImage(selected.contentType) ? (
                   <button
                     type="button"
@@ -2152,7 +2660,9 @@ function MediaScreen() {
               <div className="flex flex-col p-5">
                 <MediaEditor
                   item={selected}
+                  folders={folders}
                   onChange={(next) => setMedia((current) => current.map((row) => (row.id === next.id ? next : row)))}
+                  onMove={(target) => void move(selected.id, target)}
                   onDelete={() => {
                     void adminJson(`/media/${selected.id}`, { method: 'DELETE' })
                     setMedia((current) => current.filter((row) => row.id !== selected.id))
@@ -2846,6 +3356,8 @@ export default function AdminApp() {
       <Route path="pages/:id/" element={<PageEditor />} />
       <Route path="media" element={<MediaScreen />} />
       <Route path="media/" element={<MediaScreen />} />
+      <Route path="media/folders/:folderId" element={<MediaScreen />} />
+      <Route path="media/folders/:folderId/" element={<MediaScreen />} />
       <Route path="products" element={<ProductsScreen />} />
       <Route path="products/" element={<ProductsScreen />} />
       <Route path="products/trash" element={<ProductsTrashScreen />} />

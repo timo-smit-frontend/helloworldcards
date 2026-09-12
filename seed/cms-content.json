@@ -34,30 +34,6 @@
       "label": "Contact",
       "href": "/contact/",
       "sort": 3
-    },
-    {
-      "location": "header",
-      "label": "Products",
-      "href": "/products/",
-      "sort": 0
-    },
-    {
-      "location": "header",
-      "label": "Agenda",
-      "href": "/agenda/",
-      "sort": 1
-    },
-    {
-      "location": "header",
-      "label": "About",
-      "href": "/about/",
-      "sort": 2
-    },
-    {
-      "location": "header",
-      "label": "Contact",
-      "href": "/contact/",
-      "sort": 3
     }
   ],
   "pages": [

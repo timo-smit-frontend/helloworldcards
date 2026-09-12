@@ -132,3 +132,28 @@ export function pruneCache(cache: DealFinderCache, liveIds: Set<string>, sources
   }
   return { version: CACHE_VERSION, entries }
 }
+
+/**
+ * Fold the cache one scan hands back into the one in the store.
+ *
+ * The two marketplaces can be scanned at the same time. Each run starts from a copy of
+ * the stored cache and only ever writes entries for the sources it walked, and by the
+ * time it is done the other run may well have rewritten its own. So the scan's entries
+ * stand for the marketplaces it scanned, and the store's for every other — a Vinted
+ * run that finishes second keeps what the Marktplaats run just learned.
+ */
+export function mergeCaches(stored: DealFinderCache | null, scanned: DealFinderCache, sources: readonly DealSource[]): DealFinderCache {
+  const walked = new Set<string>(sources)
+  const entries: Record<string, CacheEntry> = {}
+  for (const [id, entry] of Object.entries(usableCache(stored).entries)) {
+    if (!walked.has(sourceOf(id))) {
+      entries[id] = entry
+    }
+  }
+  for (const [id, entry] of Object.entries(scanned.entries)) {
+    if (walked.has(sourceOf(id))) {
+      entries[id] = entry
+    }
+  }
+  return { version: CACHE_VERSION, entries }
+}

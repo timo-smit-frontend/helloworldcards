@@ -236,12 +236,14 @@ export const seedProductRecords: ProductRecord[] = [
       'A Black Star Promo from the 2026 Mega Evolution promo series, number 032, released in the ASC Premium Poster Collection. Promos come from the collection itself, not from a main set print run. This copy is graded PSA 10 Gem Mint, cert 167185846. The PSA population is 7,832.',
     images: ['/media/mtv6bukp-167185846-front.jpg', '/media/mtv6bjoe-167185846-back.jpg'],
     pokemonId: 282,
-    price: '€135',
+    price: '€130',
     language: 'english',
     grader: 'psa',
     grade: 10,
     year: 2026,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/MEP-Black-Star-Promos/Mega-Gardevoir-ex-MEP032',
     cost: 72,
-    concept: true
+    concept: true,
+    acquiredAt: '2026-09-11'
   }
 ]

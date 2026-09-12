@@ -9,13 +9,9 @@ import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/med
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import type { DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
-import {
-  closePlaywrightCardmarketFetcher,
-  fileCardmarketStore,
-  fileDealFinderStore,
-  getPlaywrightCardmarketFetcher
-} from './cardmarket-browser'
+import { closeScanBrowser, fileCardmarketStore, fileDealFinderStore, getScanBrowser, type CardmarketFetcher } from './cardmarket-browser'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
+import { createPacer } from '../app/services/deal-finder/scan'
 import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
 import { seedMediaWithVariants, type SeedSignal } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
@@ -280,6 +276,24 @@ function viteCmsRuntime(): Promise<ViteCmsRuntime> {
   return runtimePromise
 }
 
+/**
+ * One pacer for every scan the dev server runs.
+ *
+ * Marktplaats and Vinted are scanned from their own buttons and often at the same
+ * time. Each request gets its own runtime, but the pauses between requests to Google
+ * and Cardmarket only mean anything if both scans wait in the same queue.
+ */
+const scanPacer = createPacer()
+
+/**
+ * How many scans are driving the shared Chrome window and OCR pool right now.
+ *
+ * Both marketplaces lean on the one window, and each is its own request. The window
+ * and the pool are closed once the last of them is done — not, as they were, the
+ * moment the first one answered, which took the browser away from the other mid-scan.
+ */
+let scansInFlight = 0
+
 function cmsApiMiddleware(root: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
     try {
@@ -298,13 +312,14 @@ function cmsApiMiddleware(root: string) {
         cardmarketStore: fileCardmarketStore(root),
         dealFinderStore: fileDealFinderStore(root),
         readSlabs: createSlabReader({ root }),
+        pacer: scanPacer,
         ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
       }
 
-      let browser: Awaited<ReturnType<typeof getPlaywrightCardmarketFetcher>> | null = null
+      let browser: CardmarketFetcher | null = null
       let scanBrowserError: string | undefined
       // The deal finder scan is one route per marketplace as well as a combined one,
-      // and every one of them drives the Chrome window.
+      // and every one of them drives a tab of the Chrome window.
       const needsBrowser =
         (url === '/dashboard/cardmarket/scan' ||
           url === '/api/admin/cardmarket/scan' ||
@@ -313,7 +328,8 @@ function cmsApiMiddleware(root: string) {
         req.method === 'POST'
       if (needsBrowser) {
         try {
-          browser = await getPlaywrightCardmarketFetcher(root)
+          browser = await (await getScanBrowser(root)).openTab()
+          scansInFlight += 1
         } catch (error) {
           browser = null
           scanBrowserError = error instanceof Error ? error.message : 'Could not start Chrome for scanning.'
@@ -349,8 +365,12 @@ function cmsApiMiddleware(root: string) {
         }
       } finally {
         if (browser) {
-          await closePlaywrightCardmarketFetcher()
-          await closeSlabReader()
+          await browser.close()
+          scansInFlight -= 1
+          if (scansInFlight === 0) {
+            await closeScanBrowser()
+            await closeSlabReader()
+          }
         }
       }
     } catch (error) {

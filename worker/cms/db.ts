@@ -1,5 +1,15 @@
 import { sortMediaLibrary } from '../../app/cms/block-previews'
-import type { CmsBlock, CmsEvent, CmsFaq, CmsMedia, CmsNavItem, CmsPage, CmsPageStatus, CmsSettings } from '../../app/cms/types'
+import type {
+  CmsBlock,
+  CmsEvent,
+  CmsFaq,
+  CmsMedia,
+  CmsMediaFolder,
+  CmsNavItem,
+  CmsPage,
+  CmsPageStatus,
+  CmsSettings
+} from '../../app/cms/types'
 import type { InventoryProduct, ProductRecord } from '../../app/database/products'
 import { isShopListed, toInventoryProduct, toPublicProduct, uniqueProductSlug } from '../../app/database/products'
 
@@ -480,12 +490,14 @@ type MediaRow = {
   title: string
   alt: string
   createdAt: string
+  folderId: number | null
 }
 
-const MEDIA_COLUMNS = 'id, key, filename, content_type as contentType, width, height, bytes, title, alt, created_at as createdAt'
+const MEDIA_COLUMNS =
+  'id, key, filename, content_type as contentType, width, height, bytes, title, alt, created_at as createdAt, folder_id as folderId'
 
 function toCmsMedia(row: MediaRow): CmsMedia {
-  return { ...row, title: row.title ?? '', alt: row.alt ?? '', url: `/media/${row.key}` }
+  return { ...row, title: row.title ?? '', alt: row.alt ?? '', folderId: row.folderId ?? null, url: `/media/${row.key}` }
 }
 
 export async function listMedia(db: CmsDb): Promise<CmsMedia[]> {
@@ -493,26 +505,72 @@ export async function listMedia(db: CmsDb): Promise<CmsMedia[]> {
   return sortMediaLibrary(results.map(toCmsMedia))
 }
 
+// Folders are listed the way a file browser lists them: by name, regardless of case.
+const MEDIA_FOLDERS_SQL = 'SELECT id, name FROM media_folders ORDER BY name COLLATE NOCASE ASC, id ASC'
+
+export async function listMediaFolders(db: CmsDb): Promise<CmsMediaFolder[]> {
+  const { results } = await db.prepare(MEDIA_FOLDERS_SQL).all<CmsMediaFolder>()
+  return results
+}
+
 /**
- * The media screen's whole read — the library plus the storage and request counters the
- * usage widget shows — in one round trip instead of three.
+ * The media screen's whole read — the library, its folders, and the storage and request
+ * counters the usage widget shows — in one round trip instead of four.
  */
 export async function mediaLibrarySnapshot(
   db: CmsDb,
   month: string
-): Promise<{ media: CmsMedia[]; storageBytes: number; classA: number; classB: number }> {
-  const [rows, storage, usage] = await batchAll(db, [
+): Promise<{ media: CmsMedia[]; folders: CmsMediaFolder[]; storageBytes: number; classA: number; classB: number }> {
+  const [rows, folders, storage, usage] = await batchAll(db, [
     db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media ORDER BY id DESC`),
+    db.prepare(MEDIA_FOLDERS_SQL),
     db.prepare('SELECT COALESCE(SUM(bytes), 0) as total FROM media'),
     db.prepare('SELECT class_a as classA, class_b as classB FROM r2_usage WHERE month = ?').bind(month)
   ])
   const counters = usage.results[0] as { classA: number; classB: number } | undefined
   return {
     media: sortMediaLibrary((rows.results as MediaRow[]).map(toCmsMedia)),
+    folders: folders.results as CmsMediaFolder[],
     storageBytes: Number((storage.results[0] as { total: number } | undefined)?.total ?? 0),
     classA: Number(counters?.classA ?? 0),
     classB: Number(counters?.classB ?? 0)
   }
+}
+
+export async function getMediaFolderById(db: CmsDb, id: number): Promise<CmsMediaFolder | null> {
+  return db.prepare('SELECT id, name FROM media_folders WHERE id = ?').bind(id).first<CmsMediaFolder>()
+}
+
+/** Two folders that differ only in case would be indistinguishable in the grid, so the check ignores it. */
+export async function mediaFolderNameTaken(db: CmsDb, name: string, exceptId?: number): Promise<boolean> {
+  const row =
+    exceptId != null
+      ? await db.prepare('SELECT id FROM media_folders WHERE name = ? COLLATE NOCASE AND id != ?').bind(name, exceptId).first()
+      : await db.prepare('SELECT id FROM media_folders WHERE name = ? COLLATE NOCASE').bind(name).first()
+  return row != null
+}
+
+export async function insertMediaFolder(db: CmsDb, name: string): Promise<number> {
+  const result = await db.prepare('INSERT INTO media_folders (name) VALUES (?)').bind(name).run()
+  return result.meta.last_row_id
+}
+
+export async function renameMediaFolder(db: CmsDb, id: number, name: string): Promise<boolean> {
+  const result = await db.prepare('UPDATE media_folders SET name = ? WHERE id = ?').bind(name, id).run()
+  return result.meta.changes > 0
+}
+
+/**
+ * Drop a folder and put whatever it held back at the top of the library, in one batch.
+ * The images themselves are never touched: a folder is only a way of grouping them.
+ */
+export async function deleteMediaFolder(db: CmsDb, id: number): Promise<boolean> {
+  const [found] = await batchAll<{ id: number }>(db, [
+    db.prepare('SELECT id FROM media_folders WHERE id = ?').bind(id),
+    db.prepare('UPDATE media SET folder_id = NULL WHERE folder_id = ?').bind(id),
+    db.prepare('DELETE FROM media_folders WHERE id = ?').bind(id)
+  ])
+  return found.results.length > 0
 }
 
 export async function getMediaById(db: CmsDb, id: number): Promise<CmsMedia | null> {
@@ -523,7 +581,7 @@ export async function getMediaById(db: CmsDb, id: number): Promise<CmsMedia | nu
 function insertMediaStatement(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>, ignoreExisting = false): CmsPreparedStatement {
   return db
     .prepare(
-      `INSERT ${ignoreExisting ? 'OR IGNORE ' : ''}INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT ${ignoreExisting ? 'OR IGNORE ' : ''}INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       media.key,
@@ -534,7 +592,8 @@ function insertMediaStatement(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>, ig
       media.bytes,
       media.title ?? '',
       media.alt ?? '',
-      media.createdAt
+      media.createdAt,
+      media.folderId ?? null
     )
 }
 
@@ -574,13 +633,34 @@ export async function seedMediaRows(db: CmsDb, files: Array<Omit<CmsMedia, 'id' 
   }
 }
 
-/** Write the copy and read the row back in the same round trip; a missing row reads back as null. */
-export async function updateMedia(db: CmsDb, id: number, fields: { title: string; alt: string }): Promise<CmsMedia | null> {
-  const [, row] = await batchAll<MediaRow>(db, [
-    db.prepare('UPDATE media SET title = ?, alt = ? WHERE id = ?').bind(fields.title, fields.alt, id),
+export type MediaUpdate = Partial<{ title: string; alt: string; folderId: number | null }>
+
+/**
+ * Write whichever of the copy and the folder the caller sent and read the row back in
+ * the same round trip; a missing row reads back as null. Fields left out stay as they
+ * are, so moving an image between folders never blanks its title.
+ */
+export async function updateMedia(db: CmsDb, id: number, fields: MediaUpdate): Promise<CmsMedia | null> {
+  const assignments: string[] = []
+  const values: unknown[] = []
+  if (fields.title !== undefined) {
+    assignments.push('title = ?')
+    values.push(fields.title)
+  }
+  if (fields.alt !== undefined) {
+    assignments.push('alt = ?')
+    values.push(fields.alt)
+  }
+  if (fields.folderId !== undefined) {
+    assignments.push('folder_id = ?')
+    values.push(fields.folderId)
+  }
+  const results = await batchAll<MediaRow>(db, [
+    ...(assignments.length > 0 ? [db.prepare(`UPDATE media SET ${assignments.join(', ')} WHERE id = ?`).bind(...values, id)] : []),
     db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media WHERE id = ?`).bind(id)
   ])
-  return row.results[0] ? toCmsMedia(row.results[0]) : null
+  const row = results[results.length - 1].results[0]
+  return row ? toCmsMedia(row) : null
 }
 
 // Media URLs are served immutable for a year, so a replacement has to live under a new
@@ -628,12 +708,17 @@ export async function deleteMedia(db: CmsDb, id: number): Promise<CmsMedia | nul
 /**
  * Write one media row addressed by its key rather than its id, so a library snapshot
  * pulled from one environment can be applied to another whose autoincrement ids differ.
+ * The folder is named for the same reason: its id is local to each database, its name
+ * is not, and `upsertMediaFolderByName` has already made sure it exists.
  */
-export async function upsertMediaByKey(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<void> {
+export async function upsertMediaByKey(
+  db: CmsDb,
+  media: Omit<CmsMedia, 'id' | 'url' | 'folderId'> & { folder: string | null }
+): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO media (key, filename, content_type, width, height, bytes, title, alt, created_at, folder_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM media_folders WHERE name = ?))
        ON CONFLICT(key) DO UPDATE SET
          filename = excluded.filename,
          content_type = excluded.content_type,
@@ -642,7 +727,8 @@ export async function upsertMediaByKey(db: CmsDb, media: Omit<CmsMedia, 'id' | '
          bytes = excluded.bytes,
          title = excluded.title,
          alt = excluded.alt,
-         created_at = excluded.created_at`
+         created_at = excluded.created_at,
+         folder_id = excluded.folder_id`
     )
     .bind(
       media.key,
@@ -653,8 +739,33 @@ export async function upsertMediaByKey(db: CmsDb, media: Omit<CmsMedia, 'id' | '
       media.bytes,
       media.title ?? '',
       media.alt ?? '',
-      media.createdAt
+      media.createdAt,
+      media.folder
     )
+    .run()
+}
+
+/** Make sure a folder of this name exists; one that is already there is left alone. */
+export async function upsertMediaFolderByName(db: CmsDb, name: string): Promise<void> {
+  await db.prepare('INSERT INTO media_folders (name) VALUES (?) ON CONFLICT(name) DO NOTHING').bind(name).run()
+}
+
+/**
+ * Drop the folders a library snapshot no longer holds. Whatever they still held goes
+ * back to the top of the library rather than pointing at a folder that is gone. Two
+ * plain writes rather than a batch: on the Wrangler-backed database a push queues
+ * writes and ships them together, and a batch there would run ahead of the queue.
+ */
+export async function deleteMediaFoldersExcept(db: CmsDb, names: string[]): Promise<void> {
+  const placeholders = names.map(() => '?').join(', ')
+  const missing = names.length > 0 ? `name NOT IN (${placeholders})` : '1 = 1'
+  await db
+    .prepare(`UPDATE media SET folder_id = NULL WHERE folder_id IN (SELECT id FROM media_folders WHERE ${missing})`)
+    .bind(...names)
+    .run()
+  await db
+    .prepare(`DELETE FROM media_folders WHERE ${missing}`)
+    .bind(...names)
     .run()
 }
 

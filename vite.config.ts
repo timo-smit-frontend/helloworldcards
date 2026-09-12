@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type IndexHtmlTransformContext, type Plugin } from 'vite'
 import { applySeoHead } from './app/seo/head'
 import { getSeoForPath } from './app/seo/pages'
+import { CMS_SEED_FILES } from './vite/cms-state'
 import { dashboardApiPlugin, stripProductCostsPlugin } from './vite/dashboard-api'
 import { responsiveImagesPlugin } from './vite/responsive-images'
 
@@ -84,7 +85,15 @@ export default defineConfig({
   base: '/',
   server: {
     host: true,
-    allowedHosts: true
+    allowedHosts: true,
+    watch: {
+      // The CMS auto-sync rewrites these after every admin edit. `seed-products.ts` is
+      // reached from this config through the worker's seeding code, which makes it a
+      // config dependency: Vite would restart the server on every write and reload the
+      // admin mid-edit. The files only feed an empty database, so a running server has
+      // no reason to notice them.
+      ignored: Object.values(CMS_SEED_FILES).map((file) => `**/${file}`)
+    }
   },
   plugins: [
     react(),
