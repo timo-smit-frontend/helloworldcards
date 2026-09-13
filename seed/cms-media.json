@@ -446,6 +446,30 @@
       "createdAt": "2026-09-10T06:56:21.048Z"
     },
     {
+      "key": "mu00djsz-122301454-front.jpg",
+      "filename": "122301454_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 1011129,
+      "title": "",
+      "alt": "",
+      "folder": "Slabs",
+      "createdAt": "2026-09-13T16:08:32.457Z"
+    },
+    {
+      "key": "mu00dp1r-122301454-back.jpg",
+      "filename": "122301454_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 920013,
+      "title": "",
+      "alt": "",
+      "folder": "Slabs",
+      "createdAt": "2026-09-13T16:08:39.264Z"
+    },
+    {
       "key": "Product.png",
       "filename": "Product.png",
       "contentType": "image/png",

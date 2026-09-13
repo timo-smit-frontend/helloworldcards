@@ -246,5 +246,23 @@ export const seedProductRecords: ProductRecord[] = [
     cost: 72,
     concept: true,
     acquiredAt: '2026-09-11'
+  },
+  {
+    id: 14,
+    title: 'Pikachu',
+    subtitle: '2023 Crown Zenith - #160',
+    description:
+      'A Full Art secret rare from the 2023 Sword & Shield Crown Zenith set, number 160/159. This is the Full Art secret rare, not the regular set print. This copy is graded PSA 9 Mint, cert 122301454. The PSA population is 23,981.',
+    images: ['/media/mu00djsz-122301454-front.jpg', '/media/mu00dp1r-122301454-back.jpg'],
+    pokemonId: 25,
+    price: '€100',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2023,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Crown-Zenith/Pikachu-CRZ160',
+    cost: 64,
+    concept: true,
+    acquiredAt: '2026-09-13'
   }
 ]

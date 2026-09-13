@@ -28,7 +28,8 @@ describe('product inventory', () => {
       [10, 'Mega Gengar ex', '2025 Phantasmal Flames - #056', 'mega-gengar-ex-2025-phantasmal-flames-056'],
       [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
       [12, 'Dragonite V', '2022 Pokemon GO - #049', 'dragonite-v-2022-pokemon-go-049'],
-      [13, 'Mega Gardevoir ex', '2026 Black Star Promo - #032', 'mega-gardevoir-ex-2026-black-star-promo-032']
+      [13, 'Mega Gardevoir ex', '2026 Black Star Promo - #032', 'mega-gardevoir-ex-2026-black-star-promo-032'],
+      [14, 'Pikachu', '2023 Crown Zenith - #160', 'pikachu-2023-crown-zenith-160']
     ])
   })
 
