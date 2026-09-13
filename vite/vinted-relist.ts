@@ -15,6 +15,7 @@ import {
   parseVintedUploadedText,
   parseWardrobeItems,
   RATE_LIMIT_COOLDOWN_MS,
+  settlePendingByHand,
   vintedItemUrl,
   vintedPriceInput,
   VintedRelistError,
@@ -637,11 +638,19 @@ async function guarded<T>(store: RelistStateStore, work: () => Promise<T>): Prom
  * The wardrobe itself is one call. The ages are the expensive part — a whole listing
  * page each — so they are read once per listing and kept in the state file; from
  * then on the screen costs Vinted nothing but the wardrobe call.
+ *
+ * The wardrobe also shows which pending relists the seller finished by hand; those
+ * are settled here, and their saved photos are no longer needed.
  */
-async function readReport(page: Page, store: RelistStateStore, products: InventoryProduct[]): Promise<VintedRelistReport> {
+async function readReport(page: Page, root: string, store: RelistStateStore, products: InventoryProduct[]): Promise<VintedRelistReport> {
   const memo = lastWardrobe && Date.now() - lastWardrobe.at < REPORT_TTL_MS ? lastWardrobe : null
   const { login, wardrobe } = memo ?? (await readFreshWardrobe(page))
   const state = store.get()
+
+  const byHand = settlePendingByHand(state, wardrobe)
+  for (const done of byHand) {
+    fs.rmSync(path.join(root, PHOTO_DIR, done.previousItemId), { recursive: true, force: true })
+  }
 
   const unknownAge = listingsWithoutAge(wardrobe, state)
   if (unknownAge.length > 0) {
@@ -663,7 +672,7 @@ async function readReport(page: Page, store: RelistStateStore, products: Invento
   }
   store.put(state)
 
-  return buildRelistReport({ wardrobe, products, state, login })
+  return buildRelistReport({ wardrobe, products, state, login, byHand })
 }
 
 async function readFreshWardrobe(page: Page): Promise<{ login: string; wardrobe: VintedWardrobeItem[] }> {
@@ -685,7 +694,7 @@ export function createVintedRelistService({
 }): VintedRelistService {
   return {
     report(products) {
-      return guarded(store, () => withTab(openPage, (page) => readReport(page, store, products)))
+      return guarded(store, () => withTab(openPage, (page) => readReport(page, root, store, products)))
     },
 
     relist(itemId, products) {

@@ -12,7 +12,9 @@ import {
   parseVintedSnapshot,
   parseVintedUploadedText,
   parseWardrobeItems,
+  settlePendingByHand,
   vintedFlightData,
+  vintedFlightRows,
   vintedItemId,
   vintedPriceInput,
   wardrobeUploadedAt,
@@ -51,13 +53,31 @@ const EDIT_PHOTOS = [
   { id: 42154042579, url: 'https://images1.vinted.net/tc/06_01d21/f800/1789158391.webp?s=4d59', tempUuid: '$undefined' }
 ]
 
-function editPage(): string {
+/** The model's row, with any rows it refers to in front of it, as React writes them. */
+function editFlight(model: object, ...outlined: string[]): string {
   const head = 'a1:["$","$La2",null,{"config":{"numberOfImagesPerItem":20},"itemEditModel":'
   const tail = ',"parcelModel":"$undefined","photos":' + JSON.stringify(EDIT_PHOTOS) + ',"children":"$Lc0"}]\n'
-  // Split across two pushes, the way a long page arrives.
-  const whole = head + JSON.stringify(EDIT_MODEL) + tail
-  return rscPage(whole.slice(0, 120), whole.slice(120))
+  return outlined.join('') + head + JSON.stringify(model) + tail
 }
+
+/** A string of 1 KB or more gets a row of its own: its id, then its length in UTF-8 bytes (hex), then the text. */
+function textRow(id: string, text: string): string {
+  return `${id}:T${new TextEncoder().encode(text).length.toString(16)},${text}`
+}
+
+/** Split across pushes at arbitrary points, the way a long page arrives (never inside a character). */
+function pushes(flight: string, size: number): string[] {
+  return flight.match(new RegExp(`[\\s\\S]{1,${size}}`, 'gu')) ?? []
+}
+
+function editPage(): string {
+  return rscPage(...pushes(editFlight(EDIT_MODEL), 120))
+}
+
+/** Long enough to be outlined, with characters of every UTF-8 width and the quotes a text row does not escape. */
+const LONG_DESCRIPTION =
+  'Mooie Zorua Art Rare uit de Japanse Pokémon White Flare set van 2025. "Gem Mint" — lage pop.\n\n' +
+  'Details:\n• Grade: BGS 9.5 Gem Mint\n• Centering: 9.5\n\n📦 Verzenden of ophalen mogelijk.\n'.repeat(14)
 
 describe('vinted listing ids', () => {
   it('reads the item id off every shape of Vinted URL', () => {
@@ -97,6 +117,36 @@ describe('parseVintedSnapshot', () => {
 
   it('joins the pushed chunks back into one payload', () => {
     expect(vintedFlightData(rscPage('ab"c', 'd\\e'))).toBe('ab"cd\\e')
+  })
+
+  it('follows a long description to the text row React wrote it as', () => {
+    expect(LONG_DESCRIPTION.length).toBeGreaterThanOrEqual(1024)
+    const flight = editFlight({ ...EDIT_MODEL, description: '$c0' }, textRow('c0', LONG_DESCRIPTION))
+    const snapshot = parseVintedSnapshot(rscPage(...pushes(flight, 333)))
+    expect(snapshot?.description).toBe(LONG_DESCRIPTION)
+    expect(snapshot?.title).toBe(EDIT_MODEL.title)
+    expect(snapshot?.photos).toHaveLength(2)
+  })
+
+  it('reads a brand the page keeps in a row of its own', () => {
+    const flight = editFlight({ ...EDIT_MODEL, brand: '$c1' }, 'c1:{"id":191646,"title":"Pokémon","isHvf":false}\n')
+    expect(parseVintedSnapshot(rscPage(flight))).toMatchObject({ brandId: 191646, brandTitle: 'Pokémon' })
+  })
+
+  it('refuses a listing whose description points at a row that is not on the page', () => {
+    // Copying the reference itself is what put "$c0" in a listing's description once.
+    const page = rscPage(editFlight({ ...EDIT_MODEL, description: '$c0' }))
+    expect(() => parseVintedSnapshot(page)).toThrow(/"\$c0", which is not on the page/)
+    expect(() => parseVintedSnapshot(rscPage(editFlight({ ...EDIT_MODEL, description: '$L5' })))).toThrow(/"\$L5"/)
+  })
+
+  it('splits the payload into rows, a text row by its byte length', () => {
+    const text = 'héllo\n"wörld" 📦'
+    const rows = vintedFlightRows('1:I["x"]\n' + textRow('c0', text) + '2:["$","div"]\n' + '3:"$$dollar"')
+    expect(rows.get('1')).toEqual({ kind: 'line', value: 'I["x"]' })
+    expect(rows.get('c0')).toEqual({ kind: 'text', value: text })
+    expect(rows.get('2')).toEqual({ kind: 'line', value: '["$","div"]' })
+    expect(rows.get('3')).toEqual({ kind: 'line', value: '"$$dollar"' })
   })
 
   it('gives up on a page without the edit model', () => {
@@ -239,12 +289,24 @@ describe('buildRelistReport', () => {
     expect(wardrobeUploadedAt({ id: 1, title: 'x' }, now)).toBeNull()
   })
 
-  it('lists a deleted-but-not-reuploaded listing as pending, not as missing', () => {
+  it('joins a relisted listing to its product while the product still names the old one', () => {
     const state = emptyRelistState()
-    state.pending['444'] = {
+    state.records['555'] = { itemId: '555', previousItemId: '444', productId: 3, listedAt: '2026-09-13T08:40:00Z' }
+    const report = buildRelistReport({
+      wardrobe: parseWardrobeItems({ items: [{ id: 555, title: 'Fresh copy', price: '10.00' }] }),
+      products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
+      state,
+      login: null
+    })
+    expect(report.rows[0].product).toEqual({ id: 3, title: 'Gone', slug: 'p-3' })
+    expect(report.missing).toEqual([])
+  })
+
+  function pendingEntry(title: string, productId: number | null) {
+    return {
       snapshot: {
         itemId: '444',
-        title: 'Gone card',
+        title,
         description: '',
         catalogId: 4875,
         brandId: null,
@@ -256,11 +318,16 @@ describe('buildRelistReport', () => {
         colorIds: [],
         photos: []
       },
-      productId: 3,
+      productId,
       photoFiles: [],
       deletedAt: '2026-09-12T10:00:00Z',
       error: 'Vinted did not publish the listing.'
     }
+  }
+
+  it('lists a deleted-but-not-reuploaded listing as pending, not as missing', () => {
+    const state = emptyRelistState()
+    state.pending['444'] = pendingEntry('Gone card', 3)
     const report = buildRelistReport({
       wardrobe: [],
       products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
@@ -277,6 +344,50 @@ describe('buildRelistReport', () => {
       }
     ])
     expect(report.missing).toEqual([])
+    expect(report.byHand).toEqual([])
+  })
+
+  it('takes a newer listing with the pending title as the relist done by hand', () => {
+    const now = new Date('2026-09-13T12:00:00Z')
+    const state = emptyRelistState()
+    state.pending['9878798267'] = pendingEntry('Zorua 140/086 AR - BGS 9.5 - White Flare Japanese', 5)
+    const fresh = parseWardrobeItems({
+      items: [
+        // An older listing with the same title is not the one, nor is a closed one.
+        { id: 9878000000, title: 'Zorua 140/086 AR - BGS 9.5 - White Flare Japanese', price: '65.00' },
+        { id: 9982400000, title: 'Zorua 140/086 AR - BGS 9.5 - White Flare Japanese', price: '65.00', is_closed: true },
+        {
+          id: 9982493582,
+          title: 'Zorua 140/086 AR  - BGS 9.5 - White Flare Japanese',
+          price: '65.00',
+          photos: [{ url: 'https://img/z.jpg', high_resolution: { timestamp: Date.UTC(2026, 8, 13, 8, 40) / 1000 } }]
+        }
+      ]
+    })
+
+    expect(settlePendingByHand(state, fresh, now)).toEqual([
+      {
+        itemId: '9982493582',
+        previousItemId: '9878798267',
+        productId: 5,
+        url: 'https://www.vinted.nl/items/9982493582'
+      }
+    ])
+    expect(state.pending).toEqual({})
+    expect(state.records['9982493582']).toEqual({
+      itemId: '9982493582',
+      previousItemId: '9878798267',
+      productId: 5,
+      listedAt: '2026-09-13T08:40:00.000Z'
+    })
+  })
+
+  it('keeps a relist pending while nothing newer with its title is up', () => {
+    const state = emptyRelistState()
+    state.pending['444'] = pendingEntry('Gone card', 3)
+    const older = parseWardrobeItems({ items: [{ id: 443, title: 'Gone card', price: '10.00' }] })
+    expect(settlePendingByHand(state, older)).toEqual([])
+    expect(Object.keys(state.pending)).toEqual(['444'])
   })
 })
 
@@ -324,7 +435,7 @@ async function signIn(): Promise<string> {
 }
 
 function emptyReport(): VintedRelistReport {
-  return { rows: [], pending: [], missing: [], login: 'helloworldcards', fetchedAt: '2026-09-12T12:00:00Z' }
+  return { rows: [], pending: [], missing: [], byHand: [], login: 'helloworldcards', fetchedAt: '2026-09-12T12:00:00Z' }
 }
 
 describe('vinted relist API', () => {
@@ -392,6 +503,33 @@ describe('vinted relist API', () => {
 
     const after = (await db.prepare('SELECT vinted_url FROM products WHERE id = ?').bind(row.id).first()) as { vinted_url: string }
     expect(after.vinted_url).toBe('https://www.vinted.nl/items/9999')
+  })
+
+  it('moves the product to a listing the seller relisted by hand', async () => {
+    const token = await signIn()
+    const db = createMemoryD1()
+    let byHand: VintedRelistReport['byHand'] = []
+    const vintedRelist: VintedRelistService = {
+      async report(products) {
+        const owner = products.find((candidate) => candidate.vintedUrl?.includes('/items/'))!
+        const previousItemId = vintedItemId(owner.vintedUrl!)!
+        byHand = [{ itemId: '8888', previousItemId, productId: owner.id, url: 'https://www.vinted.nl/items/8888' }]
+        return { ...emptyReport(), byHand }
+      },
+      async relist() {
+        throw new Error('unused')
+      }
+    }
+    const response = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/vinted-relist', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      { db, vintedRelist }
+    )
+    expect(response?.status).toBe(200)
+    const after = (await db.prepare('SELECT vinted_url FROM products WHERE id = ?').bind(byHand[0].productId).first()) as {
+      vinted_url: string
+    }
+    expect(after.vinted_url).toBe('https://www.vinted.nl/items/8888')
   })
 
   it('reports a relist that needs the user with its own status', async () => {

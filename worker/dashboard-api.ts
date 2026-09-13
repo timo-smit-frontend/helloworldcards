@@ -530,7 +530,15 @@ async function vintedRelistReport(request: Request, env: DashboardEnv, runtime?:
     return relistUnavailable(runtime)
   }
   try {
-    return json({ report: await runtime.vintedRelist.report(await inventoryFor(env, runtime)) })
+    const report = await runtime.vintedRelist.report(await inventoryFor(env, runtime))
+    // A relist the seller finished by hand still has its product on the old listing.
+    const db = runtime.db ?? env.DB
+    for (const done of report.byHand) {
+      if (done.productId != null && db) {
+        await moveProductVintedUrl(db, done.productId, done.url)
+      }
+    }
+    return json({ report })
   } catch (error) {
     return relistFailure(error)
   }

@@ -49,7 +49,7 @@ export type VintedSnapshot = {
 type EditModel = {
   id?: number
   title?: string
-  description?: string
+  description?: string | null
   catalogId?: number
   brandId?: number | null
   brand?: { id?: number; title?: string } | null
@@ -77,6 +77,61 @@ export function vintedFlightData(html: string): string {
     }
   }
   return chunks.join('')
+}
+
+/** One row of the flight data: a string outlined on its own, or a line of JSON and the like. */
+export type VintedFlightRow = { kind: 'text'; value: string } | { kind: 'line'; value: string }
+
+/**
+ * The flight data row by row, keyed on the row's id (in hex).
+ *
+ * A row is `<id>:<data>` up to the end of the line — except that a string of 1 KB or
+ * more, such as a long description, is not written where it belongs. It gets a text
+ * row of its own, `c0:T45f,<the text>`, and where it belongs the model says `"$c0"`
+ * instead. The text can hold newlines, so a text row does not end at one: its header
+ * carries the length in UTF-8 bytes, and the next row follows straight after.
+ */
+export function vintedFlightRows(flight: string): Map<string, VintedFlightRow> {
+  const rows = new Map<string, VintedFlightRow>()
+  const header = /([0-9a-f]+):(?:T([0-9a-f]+),)?/y
+  let at = 0
+  while (at < flight.length) {
+    header.lastIndex = at
+    const match = header.exec(flight)
+    if (!match) {
+      // Not the start of a row: pick the rows up again from the next line.
+      const newline = flight.indexOf('\n', at)
+      if (newline === -1) {
+        break
+      }
+      at = newline + 1
+      continue
+    }
+    const [head, id, textBytes] = match
+    at += head.length
+    if (textBytes !== undefined) {
+      const text = utf8Prefix(flight, at, parseInt(textBytes, 16))
+      rows.set(id, { kind: 'text', value: text })
+      at += text.length
+    } else {
+      const end = flight.indexOf('\n', at)
+      rows.set(id, { kind: 'line', value: end === -1 ? flight.slice(at) : flight.slice(at, end) })
+      at = end === -1 ? flight.length : end + 1
+    }
+  }
+  return rows
+}
+
+/** The run of `text` from `start` that takes up `bytes` bytes in UTF-8. */
+function utf8Prefix(text: string, start: number, bytes: number): string {
+  let end = start
+  let taken = 0
+  while (end < text.length && taken < bytes) {
+    const code = text.codePointAt(end) ?? 0
+    taken += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4
+    end += code >= 0x10000 ? 2 : 1
+  }
+  return text.slice(start, end)
 }
 
 /** The JSON object that starts at `start` (which must point at its `{` or `[`). */
@@ -123,11 +178,64 @@ function jsonAfterKey<T>(text: string, key: string): T | null {
     return null
   }
   try {
-    // RSC writes `"$undefined"` where a value is missing; JSON has null for that.
-    return JSON.parse(raw.replace(/"\$undefined"/g, 'null')) as T
+    return JSON.parse(raw) as T
   } catch {
     return null
   }
+}
+
+/**
+ * A model with its `$` strings made good.
+ *
+ * RSC spells things it cannot put in JSON as strings that start with `$`: `$undefined`
+ * for a missing value, `$$…` for a string that starts with a dollar itself, and `$c0`
+ * for the row with id c0 — a long string, or an object the page uses in more than one
+ * place. The rest of what `$` can introduce (a lazy component, a promise, a date) has
+ * no place in a listing, and is refused rather than typed into one word for word.
+ */
+function followFlightRefs(value: unknown, rows: Map<string, VintedFlightRow>): unknown {
+  if (typeof value === 'string') {
+    return followFlightRef(value, rows)
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => followFlightRefs(entry, rows))
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, followFlightRefs(entry, rows)]))
+  }
+  return value
+}
+
+function followFlightRef(value: string, rows: Map<string, VintedFlightRow>): unknown {
+  if (!value.startsWith('$')) {
+    return value
+  }
+  if (value === '$undefined') {
+    return null
+  }
+  if (value.startsWith('$$')) {
+    return value.slice(1)
+  }
+  const id = value.match(/^\$([0-9a-f]+)$/)?.[1]
+  if (id === undefined) {
+    throw new VintedRelistError(
+      `Could not read the listing off its edit page: it holds "${value}", a kind of value this reader does not know.`
+    )
+  }
+  const row = rows.get(id)
+  if (!row) {
+    throw new VintedRelistError(`Could not read the listing off its edit page: it refers to "${value}", which is not on the page.`)
+  }
+  if (row.kind === 'text') {
+    return row.value
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(row.value)
+  } catch {
+    throw new VintedRelistError(`Could not read the listing off its edit page: "${value}" points at a row that is not data.`)
+  }
+  return followFlightRefs(parsed, rows)
 }
 
 /** The signed photo URL, with the `&` the flight data spells as a `u0026` escape restored. */
@@ -135,11 +243,22 @@ function photoUrl(url: string): string {
   return url.replace(/\\u0026/g, '&')
 }
 
-/** Read a listing's `itemEditModel` (and its photos) off `/items/{id}/edit`. */
+/**
+ * Read a listing's `itemEditModel` (and its photos) off `/items/{id}/edit`.
+ *
+ * Null when the page has no listing on it. A page whose listing cannot be read whole —
+ * a description that is a reference to a row that is not there — throws instead, so
+ * that a relist stops before it deletes anything.
+ */
 export function parseVintedSnapshot(html: string): VintedSnapshot | null {
   const flight = vintedFlightData(html)
-  const model = jsonAfterKey<EditModel>(flight, 'itemEditModel')
-  if (!model || model.id == null || !model.title || model.catalogId == null) {
+  const outline = jsonAfterKey<EditModel>(flight, 'itemEditModel')
+  if (!outline) {
+    return null
+  }
+  const rows = vintedFlightRows(flight)
+  const model = followFlightRefs(outline, rows) as EditModel
+  if (model.id == null || !model.title || model.catalogId == null) {
     return null
   }
 
@@ -147,7 +266,7 @@ export function parseVintedSnapshot(html: string): VintedSnapshot | null {
   const modelStart = flight.indexOf('"itemEditModel":')
   const modelRaw = balancedJson(flight, modelStart + '"itemEditModel":'.length) ?? ''
   const photoText = flight.slice(modelStart + modelRaw.length)
-  const photos = (jsonAfterKey<EditPhoto[]>(photoText, 'photos') ?? [])
+  const photos = (followFlightRefs(jsonAfterKey<EditPhoto[]>(photoText, 'photos') ?? [], rows) as EditPhoto[])
     .filter((photo): photo is { id: number; url: string } => typeof photo.id === 'number' && typeof photo.url === 'string')
     .map((photo) => ({ id: photo.id, url: photoUrl(photo.url) }))
 
@@ -362,9 +481,53 @@ export type VintedRelistReport = {
   pending: Array<{ itemId: string; title: string; deletedAt: string; error: string; product: VintedRelistRow['product'] }>
   /** Products the shop says are on Vinted but the wardrobe does not have. */
   missing: Array<{ product: NonNullable<VintedRelistRow['product']>; url: string }>
+  /** Relists finished by hand since the last look; their products still point at the old listing. */
+  byHand: VintedHandRelist[]
   /** Which Vinted account the wardrobe belongs to. */
   login: string | null
   fetchedAt: string
+}
+
+/** A pending relist that turned out to be done: the seller uploaded the listing again themselves. */
+export type VintedHandRelist = { itemId: string; previousItemId: string; productId: number | null; url: string }
+
+function sameTitle(a: string, b: string): boolean {
+  const fold = (title: string) => title.replace(/\s+/g, ' ').trim().toLowerCase()
+  return fold(a) === fold(b)
+}
+
+/**
+ * Settle the pending relists the seller finished by hand.
+ *
+ * A relist that failed after its delete leaves the upload form open in the Chrome
+ * window, and the seller may well finish it there. The tool then sees a listing with
+ * the pending one's title in the wardrobe, newer than the one it deleted — Vinted's
+ * ids only go up — and takes that as the relist done: the pending entry becomes a
+ * record of the new listing, as if the upload had gone through here. What is settled
+ * is handed back so the products can be pointed at their new listings.
+ */
+export function settlePendingByHand(state: VintedRelistState, wardrobe: VintedWardrobeItem[], now = new Date()): VintedHandRelist[] {
+  const settled: VintedHandRelist[] = []
+  for (const [previousItemId, entry] of Object.entries(state.pending)) {
+    const replacement = wardrobe
+      .filter((item) => !item.is_closed && item.id > Number(previousItemId) && sameTitle(item.title, entry.snapshot.title))
+      .sort((a, b) => b.id - a.id)[0]
+    if (!replacement) {
+      continue
+    }
+    const itemId = String(replacement.id)
+    const uploadedAt = wardrobeUploadedAt(replacement, now)
+    delete state.pending[previousItemId]
+    delete state.records[previousItemId]
+    state.records[itemId] = {
+      itemId,
+      previousItemId,
+      productId: entry.productId,
+      listedAt: uploadedAt != null ? new Date(uploadedAt).toISOString() : now.toISOString()
+    }
+    settled.push({ itemId, previousItemId, productId: entry.productId, url: vintedItemUrl(itemId) })
+  }
+  return settled
 }
 
 function wardrobeStatus(item: VintedWardrobeItem): VintedListingStatus {
@@ -447,6 +610,7 @@ export function buildRelistReport(input: {
   products: InventoryProduct[]
   state: VintedRelistState
   login: string | null
+  byHand?: VintedHandRelist[]
   now?: Date
 }): VintedRelistReport {
   const now = input.now ?? new Date()
@@ -457,13 +621,20 @@ export function buildRelistReport(input: {
       byItemId.set(id, product)
     }
   }
+  // A listing we relisted knows its product even while the product still names the
+  // old listing — as it does until the relist's product update has gone through.
+  const byProductId = new Map(input.products.map((product) => [product.id, product]))
+  const productOf = (itemId: string): InventoryProduct | undefined => {
+    const record = input.state.records[itemId]
+    return byItemId.get(itemId) ?? (record?.productId != null ? byProductId.get(record.productId) : undefined)
+  }
 
   const productRef = (product: InventoryProduct | undefined) =>
     product ? { id: product.id, title: product.title, slug: product.slug } : null
 
   const rows: VintedRelistRow[] = input.wardrobe.map((item) => {
     const itemId = String(item.id)
-    const product = byItemId.get(itemId)
+    const product = productOf(itemId)
     const record = input.state.records[itemId]
     const uploadedAt = wardrobeUploadedAt(item, now)
     const note = input.state.ages[itemId]
@@ -499,18 +670,24 @@ export function buildRelistReport(input: {
     product: productRef(entry.productId != null ? input.products.find((product) => product.id === entry.productId) : undefined)
   }))
   const pendingIds = new Set(pending.map((entry) => entry.itemId))
+  // The old ids of relisted listings whose replacements are up: a product still naming one is not missing.
+  const replaced = new Set(
+    Object.values(input.state.records)
+      .filter((record) => seen.has(record.itemId))
+      .map((record) => record.previousItemId)
+  )
 
   const missing = input.products
     .filter((product) => !product.sold && !product.concept && product.vintedUrl)
     .flatMap((product) => {
       const id = vintedItemId(product.vintedUrl ?? '')
-      if (!id || seen.has(id) || pendingIds.has(id)) {
+      if (!id || seen.has(id) || pendingIds.has(id) || replaced.has(id)) {
         return []
       }
       return [{ product: productRef(product)!, url: product.vintedUrl! }]
     })
 
-  return { rows, pending, missing, login: input.login, fetchedAt: now.toISOString() }
+  return { rows, pending, missing, byHand: input.byHand ?? [], login: input.login, fetchedAt: now.toISOString() }
 }
 
 /** One node of `/api/v2/item_upload/catalogs`. */
