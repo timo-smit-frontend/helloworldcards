@@ -260,9 +260,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2023,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442365911',
+    vintedUrl: 'https://www.vinted.nl/items/9990559139',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Crown-Zenith/Pikachu-CRZ160',
     cost: 64,
-    concept: true,
     acquiredAt: '2026-09-13'
   }
 ]
