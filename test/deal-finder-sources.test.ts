@@ -11,6 +11,7 @@ import {
 import {
   isVintedChallenge,
   parseVintedDetail,
+  vintedSellerReviews,
   parseVintedHoverTitle,
   parseVintedOverview,
   titleFromVintedSlug,
@@ -140,6 +141,23 @@ describe('parseVintedDetail', () => {
       'https://images1.vinted.net/t/06_y/800x1200/b.webp?s=3'
     ])
     expect(detail.description).toBe('Umbreon VMAX PSA 10, s8b 245')
+  })
+})
+
+describe('vintedSellerReviews', () => {
+  it('reads the count out of the item JSON the page ships with', () => {
+    expect(vintedSellerReviews('<script>{"user":{"id":1,"login":"x","feedback_count":23,"feedback_reputation":0.98}}</script>')).toBe(23)
+    expect(vintedSellerReviews('<script>{"user":{"positive_feedback_count":0,"feedback_count":0}}</script>')).toBe(0)
+  })
+
+  it('reads the seller box when there is no JSON to go on', () => {
+    expect(vintedSellerReviews('<div><span class="web_ui__Text__caption">Nog geen beoordelingen</span></div>')).toBe(0)
+    expect(vintedSellerReviews('<div><span class="web_ui__Text__caption">No reviews yet</span></div>')).toBe(0)
+    expect(vintedSellerReviews('<div class="web_ui__Rating__rating"></div><span class="web_ui__Rating__label">(37)</span>')).toBe(37)
+  })
+
+  it('does not guess when the page says nothing about the seller', () => {
+    expect(vintedSellerReviews('<html><div itemprop="description">Just a description</div></html>')).toBeNull()
   })
 })
 

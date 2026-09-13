@@ -407,7 +407,8 @@ async function loadSellerReviews(
  * An unreviewed Marktplaats seller is not a risk worth taking at any price, so the
  * listing is dropped before its photos are ever read — the review count is the last
  * check rather than the first only because it costs a request and the cheap rules
- * usually settle it.
+ * usually settle it. Vinted sellers get the same verdict, but only once their item
+ * page has been read — see `loadListingDetail`.
  */
 function withSellerStanding(listing: SourceListing, screening: Screening, counts: Map<string, number | null>): Screening {
   if (!screening.keep || listing.source !== 'marktplaats' || !listing.sellerId) {
@@ -468,27 +469,36 @@ async function followToCardmarket({
   return null
 }
 
-/** Overview rows carry a clipped description and one small photo; the listing page has both in full. */
+/**
+ * Overview rows carry a clipped description and one small photo; the listing page has
+ * both in full. A Vinted page also carries the seller's review count, which the
+ * catalogue does not — the overview knows nothing about the seller at all — so it is
+ * the first place the scan can tell an unreviewed Vinted seller apart. Marktplaats
+ * sellers were already judged on the overview, through their own review endpoint.
+ */
 async function loadListingDetail(
   listing: SourceListing,
   fetchPage: FetchCardmarketPage,
   pace: Pacer,
   delayMs: number
-): Promise<SourceListing> {
+): Promise<{ listing: SourceListing; sellerReviews: number | null }> {
   try {
     const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
     const detail = listing.source === 'marktplaats' ? parseMarktplaatsDetail(html) : parseVintedDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
     return {
-      ...listing,
-      description,
-      imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
-      shipping: detail.shipping ?? listing.shipping
+      listing: {
+        ...listing,
+        description,
+        imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
+        shipping: detail.shipping ?? listing.shipping
+      },
+      sellerReviews: 'sellerReviews' in detail ? detail.sellerReviews : null
     }
   } catch {
     // A listing page that will not load is not fatal — the overview row still has a title.
-    return listing
+    return { listing, sellerReviews: null }
   }
 }
 
@@ -698,7 +708,13 @@ async function identifyCandidate({
     return { step: 'matched', listing, evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl } }
   }
 
-  const detailed = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+  const { listing: detailed, sellerReviews } = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+
+  // The same rule as for Marktplaats: an unreviewed seller is not a risk worth taking at
+  // any price, so the listing is dropped before its photos are ever read.
+  if (sellerReviews === 0) {
+    return { step: 'unidentified', listing: detailed, scope: 'out-of-scope', reason: 'Seller has no reviews', detail: null }
+  }
 
   let reading: SlabReading = { slabs: [], note: null }
   if (readSlabs && detailed.imageUrls.length > 0) {

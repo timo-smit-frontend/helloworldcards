@@ -149,7 +149,37 @@ export function vintedShipping(html: string): number | null {
   return raw ? euros(decodeEntities(raw)) : null
 }
 
-export function parseVintedDetail(html: string): { description: string | null; imageUrls: string[]; shipping: number | null } {
+/**
+ * How many reviews the seller has, as the item page prints it in the seller box.
+ *
+ * A reviewed seller gets a star rating with the count in brackets after it; one without
+ * any gets the caption "Nog geen beoordelingen" instead. The item JSON the page ships
+ * with carries the same figure as `feedback_count`, and is read first because it does
+ * not depend on the page's language. Null when none of that is on the page — an item
+ * page that did not render its seller box is not held against the seller.
+ */
+const FEEDBACK_COUNT = /"feedback_?[cC]ount"\s*:\s*(\d+)/
+const NO_REVIEWS_YET = /(?:nog\s+)?geen\s+beoordelingen|no\s+reviews\s+yet|noch\s+keine\s+bewertungen/i
+const RATING_COUNT = /web_ui__Rating__label[^>]*>\s*\(?\s*(\d+)\s*\)?\s*</i
+
+export function vintedSellerReviews(html: string): number | null {
+  const embedded = html.match(FEEDBACK_COUNT)?.[1]
+  if (embedded != null) {
+    return Number(embedded)
+  }
+  if (NO_REVIEWS_YET.test(html)) {
+    return 0
+  }
+  const printed = html.match(RATING_COUNT)?.[1]
+  return printed != null ? Number(printed) : null
+}
+
+export function parseVintedDetail(html: string): {
+  description: string | null
+  imageUrls: string[]
+  shipping: number | null
+  sellerReviews: number | null
+} {
   const byImage = new Map<string, string>()
   for (const match of html.matchAll(VINTED_PHOTO)) {
     const url = decodeEntities(match[0])
@@ -164,7 +194,8 @@ export function parseVintedDetail(html: string): { description: string | null; i
   return {
     description: detailDescription(html),
     imageUrls: [...byImage.values()],
-    shipping: vintedShipping(html)
+    shipping: vintedShipping(html),
+    sellerReviews: vintedSellerReviews(html)
   }
 }
 
