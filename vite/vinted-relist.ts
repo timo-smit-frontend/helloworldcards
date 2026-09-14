@@ -183,8 +183,8 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
     keepScanBrowserOpen(LOGIN_GRACE_MS)
     // Only if the tab is not already showing it: a refresh while logged out must not
     // start the sign-in over.
-    if (!/\/member\/(?:signup|register)\//.test(page.url())) {
-      await gotoVinted(page, `${VINTED}/member/signup/select_type?ref_url=%2F`).catch(() => undefined)
+    if (!/\/member\/(?:signup|register|login)\//.test(page.url())) {
+      await gotoVinted(page, `${VINTED}/member/login/email?ref_url=%2F`).catch(() => undefined)
     }
     await page.bringToFront().catch(() => undefined)
     throw new VintedRelistError('Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.', 401)
