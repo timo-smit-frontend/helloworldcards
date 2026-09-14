@@ -20,6 +20,7 @@ import {
   vintedPriceInput,
   VintedRelistError,
   type VintedCatalogNode,
+  type VintedRelistOptions,
   type VintedRelistReport,
   type VintedRelistService,
   type VintedRelistState,
@@ -697,10 +698,10 @@ export function createVintedRelistService({
       return guarded(store, () => withTab(openPage, (page) => readReport(page, root, store, products)))
     },
 
-    relist(itemId, products) {
+    relist(itemId, products, options = {}) {
       // The wardrobe is about to change; nobody gets the old one after this.
       lastWardrobe = null
-      return guarded(store, () => withTab(openPage, (page) => relistWithTab(page, root, store, itemId, products)))
+      return guarded(store, () => withTab(openPage, (page) => relistWithTab(page, root, store, itemId, products, options)))
     }
   }
 }
@@ -710,28 +711,51 @@ async function relistWithTab(
   root: string,
   store: RelistStateStore,
   itemId: string,
-  products: InventoryProduct[]
+  products: InventoryProduct[],
+  { price }: VintedRelistOptions
 ): Promise<{ itemId: string; url: string; productId: number | null }> {
   const { userId } = await ensureSession(page)
   const state = store.get()
   let pending = state.pending[itemId]
+  const resumed = Boolean(pending)
 
   if (!pending) {
     const productId = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`))?.id ?? null
     const snapshot = await readSnapshot(page, itemId)
     const photoFiles = await downloadPhotos(page, root, snapshot)
 
-    // From here the listing can be rebuilt without Vinted, so it is safe to delete.
+    // From here the listing can be rebuilt without Vinted, so it is safe to delete —
+    // and it is written down first: once the confirm button is clicked the listing
+    // may be gone even when Vinted's answer afterwards is lost, and a relist the
+    // state file does not know about could not be retried.
     pending = { snapshot, productId, photoFiles, deletedAt: '', error: '' }
-    await deleteListing(page, userId, itemId)
-    pending.deletedAt = new Date().toISOString()
     state.pending[itemId] = pending
+    store.put(state)
+  }
+
+  if (!pending.deletedAt) {
+    try {
+      // A retry after a delete that went wrong asks the wardrobe once whether the
+      // listing is still up, rather than trying to delete it twice.
+      if (!resumed || (await stillListed(page, userId, itemId))) {
+        await deleteListing(page, userId, itemId)
+      }
+      pending.deletedAt = new Date().toISOString()
+      pending.error = ''
+    } catch (error) {
+      pending.error = error instanceof Error ? error.message : 'The delete failed.'
+      state.pending[itemId] = pending
+      store.put(state)
+      throw error
+    }
     store.put(state)
   }
 
   let newItemId: string
   try {
-    newItemId = await uploadListing(page, userId, pending.snapshot, pending.photoFiles)
+    // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
+    const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
+    newItemId = await uploadListing(page, userId, snapshot, pending.photoFiles)
   } catch (error) {
     pending.error = error instanceof Error ? error.message : 'The upload failed.'
     state.pending[itemId] = pending

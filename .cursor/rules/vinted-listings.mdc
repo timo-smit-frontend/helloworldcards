@@ -28,6 +28,8 @@ Reuse the title and photos already drafted for the Marktplaats ad (see `marktpla
 
 **Stop** before publishing — same rule as Marktplaats: tell the user the form is ready and wait for them to check it. Only after they confirm, publish. Copy the resulting item URL (`https://www.vinted.nl/items/{id}`) onto the product's `vintedUrl` field. The shop then shows **View on Vinted** as a secondary link next to the Marktplaats CTA.
 
+**Publishing the record is part of the same task, not a follow-up.** Once the card is live on both marketplaces, immediately edit `app/cms/seed-products.ts`: set `marktplaatsUrl` and `vintedUrl`, remove `concept: true`, and let the dev server sync it (or `npx vite-node scripts/cms-sync.mts --remote --products`). If the user published the listings themselves, ask for the two URLs right away. Never end the task with a live card still marked `concept` — Pikachu (September 2026) and Mega Gardevoir ex (September 2026) were both left as concepts and the user had to point it out. `scripts/hooks/listing-publish-check.mjs` (wired in `.claude/settings.json`) warns when a concept product already has a branded ad photo in `public/ads`.
+
 ## Description (English)
 
 Same structure, sections, bold and blank lines as the Marktplaats description (`marktplaats-listings.mdc` → Description), translated one-to-one. Draft the Dutch Marktplaats description first, then translate it — do not add or drop anything. Same pop rule: only mention pop when it is low; skip subgrades / graded date / pop when we do not have them. Never a cert number.

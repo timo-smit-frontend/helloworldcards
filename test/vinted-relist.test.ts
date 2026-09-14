@@ -389,6 +389,16 @@ describe('buildRelistReport', () => {
     expect(settlePendingByHand(state, older)).toEqual([])
     expect(Object.keys(state.pending)).toEqual(['444'])
   })
+
+  it('does not take a listing whose delete never finished for its own replacement', () => {
+    const state = emptyRelistState()
+    state.pending['444'] = { ...pendingEntry('Gone card', 3), deletedAt: '', error: 'Vinted did not open a confirmation.' }
+    const stillUp = parseWardrobeItems({ items: [{ id: 444, title: 'Gone card', price: '10.00' }] })
+    expect(settlePendingByHand(state, stillUp)).toEqual([])
+    const report = buildRelistReport({ wardrobe: stillUp, products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })], state, login: 'x' })
+    expect(report.pending.map((entry) => entry.itemId)).toEqual(['444'])
+    expect(report.missing).toEqual([])
+  })
 })
 
 describe('rate limiting', () => {
@@ -503,6 +513,42 @@ describe('vinted relist API', () => {
 
     const after = (await db.prepare('SELECT vinted_url FROM products WHERE id = ?').bind(row.id).first()) as { vinted_url: string }
     expect(after.vinted_url).toBe('https://www.vinted.nl/items/9999')
+  })
+
+  it('passes a new price from the body to the service and rejects a bad one', async () => {
+    const token = await signIn()
+    const db = createMemoryD1()
+    const calls: Array<{ itemId: string; price?: number }> = []
+    const vintedRelist: VintedRelistService = {
+      async report() {
+        return emptyReport()
+      },
+      async relist(itemId, _products, options) {
+        calls.push({ itemId, price: options?.price })
+        return { itemId: '9999', url: 'https://www.vinted.nl/items/9999', productId: null }
+      }
+    }
+    const runtime = { db, vintedRelist }
+    const post = (body?: string) =>
+      handleDashboardRequest(
+        new Request('https://example.com/api/admin/vinted-relist/9878696344', {
+          method: 'POST',
+          headers: { Cookie: `${SESSION_COOKIE}=${token}`, 'Content-Type': 'application/json' },
+          body
+        }),
+        env,
+        runtime
+      )
+
+    expect((await post(JSON.stringify({ price: 59.99 })))?.status).toBe(200)
+    expect((await post())?.status).toBe(200)
+    expect(calls).toEqual([
+      { itemId: '9878696344', price: 59.99 },
+      { itemId: '9878696344', price: undefined }
+    ])
+    expect((await post(JSON.stringify({ price: '60' })))?.status).toBe(400)
+    expect((await post(JSON.stringify({ price: -1 })))?.status).toBe(400)
+    expect(calls).toHaveLength(2)
   })
 
   it('moves the product to a listing the seller relisted by hand', async () => {

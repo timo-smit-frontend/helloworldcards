@@ -15,7 +15,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
-    vintedUrl: 'https://www.vinted.nl/items/9991130612',
+    vintedUrl: 'https://www.vinted.nl/items/10003896597',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51',
     reverseHolo: true,
     cost: 55,
@@ -53,7 +53,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738233',
-    vintedUrl: 'https://www.vinted.nl/items/9990977709',
+    vintedUrl: 'https://www.vinted.nl/items/10003961594',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Generations/Charizard-GENRC5',
     cost: 75,
     acquiredAt: '2026-08-25'
@@ -86,13 +86,13 @@ export const seedProductRecords: ProductRecord[] = [
       'An Art Rare from the 2025 Scarlet & Violet White Flare Japanese set, number 140/086. Art Rares are the full-illustration prints from the Japanese set. This copy was graded BGS 9.5 Gem Mint on 3 September 2025, cert 18501427. Subgrades are centering 9.5, corners 10, edges 10, and surface 9.5. The Beckett population is 35.',
     images: ['/media/18501427_front.jpg', '/media/18501427_back.jpg'],
     pokemonId: 570,
-    price: '€65',
+    price: '€60',
     language: 'japanese',
     grader: 'beckett',
     grade: 9.5,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
-    vintedUrl: 'https://www.vinted.nl/items/9990690792',
+    vintedUrl: 'https://www.vinted.nl/items/10003820901',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/White-Flare-JP/Zorua-V2-sv11W140',
     cost: 40,
     acquiredAt: '2026-08-30'
@@ -149,7 +149,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244101',
-    vintedUrl: 'https://www.vinted.nl/items/9991162815',
+    vintedUrl: 'https://www.vinted.nl/items/10003873203',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Zekrom-BRSTG05',
     cost: 28,
     acquiredAt: '2026-08-30'
@@ -167,7 +167,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2020,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438647317',
-    vintedUrl: 'https://www.vinted.nl/items/9990705898',
+    vintedUrl: 'https://www.vinted.nl/items/10004010073',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197',
     cost: 61,
     acquiredAt: '2026-08-31'
@@ -186,7 +186,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440336973',
-    vintedUrl: 'https://www.vinted.nl/items/9990890353',
+    vintedUrl: 'https://www.vinted.nl/items/10003920041',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Mega-Gengar-ex-V1-PFL056',
     cost: 63,
     acquiredAt: '2026-09-06'
@@ -224,7 +224,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440340001',
-    vintedUrl: 'https://www.vinted.nl/items/9991071535',
+    vintedUrl: 'https://www.vinted.nl/items/10003983974',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
     cost: 25,
     acquiredAt: '2026-09-06'
@@ -242,9 +242,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 10,
     year: 2026,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442709776',
+    vintedUrl: 'https://www.vinted.nl/items/10002423138',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/MEP-Black-Star-Promos/Mega-Gardevoir-ex-MEP032',
     cost: 72,
-    concept: true,
     acquiredAt: '2026-09-11'
   },
   {
@@ -261,7 +262,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2023,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442365911',
-    vintedUrl: 'https://www.vinted.nl/items/9990559139',
+    vintedUrl: 'https://www.vinted.nl/items/10004260813',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Crown-Zenith/Pikachu-CRZ160',
     cost: 64,
     acquiredAt: '2026-09-13'

@@ -717,13 +717,23 @@ export function vintedPriceInput(price: number): string {
 }
 
 /** What the browser side of a relist has to offer the dashboard API. */
+export type VintedRelistOptions = {
+  price?: number
+}
+
 export type VintedRelistService = {
   report(products: InventoryProduct[]): Promise<VintedRelistReport>
   /**
    * Delete `itemId` and upload it again. Answers with the new listing's id and URL.
    * A listing that is already in `pending` is uploaded from its snapshot instead.
+   * `options.price` (euros, e.g. `59.99`) replaces the listing's price on the copy,
+   * for a price change that should also bump the listing.
    */
-  relist(itemId: string, products: InventoryProduct[]): Promise<{ itemId: string; url: string; productId: number | null }>
+  relist(
+    itemId: string,
+    products: InventoryProduct[],
+    options?: VintedRelistOptions
+  ): Promise<{ itemId: string; url: string; productId: number | null }>
 }
 
 /** How long Vinted is left alone after it says it is rate limiting this computer. */

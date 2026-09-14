@@ -139,10 +139,12 @@ function PendingRow({
       <div className="min-w-0">
         <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
         <ProductLink product={item.product} />
-        <p className="mt-1 text-sm text-site-loss">{item.error || 'The upload did not finish.'}</p>
+        <p className="mt-1 text-sm text-site-loss">
+          {item.error || (item.deletedAt ? 'The upload did not finish.' : 'The delete did not finish.')}
+        </p>
       </div>
       <div className="flex justify-end">
-        <RelistButton label="Retry upload" busy={busy} disabled={blocked} onClick={onRetry} />
+        <RelistButton label={item.deletedAt ? 'Retry upload' : 'Retry relist'} busy={busy} disabled={blocked} onClick={onRetry} />
       </div>
     </li>
   )

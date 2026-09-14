@@ -14,7 +14,7 @@ import type {
   SlabReader
 } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
-import { VintedRelistError, type VintedRelistService } from '../app/services/vinted-relist'
+import { VintedRelistError, type VintedRelistOptions, type VintedRelistService } from '../app/services/vinted-relist'
 import {
   batchAll,
   listAllProductRows,
@@ -558,6 +558,28 @@ async function moveProductVintedUrl(db: CmsDb, productId: number, url: string): 
   await updateProduct(db, productId, { ...rowToRecord(row), vintedUrl: url, slug: row.slug })
 }
 
+/** An optional `{ "price": 59.99 }` body puts a new price on the copy instead of the old one. */
+async function relistOptions(request: Request): Promise<VintedRelistOptions | Response> {
+  const raw = await request.text()
+  if (!raw.trim()) {
+    return {}
+  }
+  let body: unknown
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    return json({ error: 'The relist body must be JSON.' }, 400)
+  }
+  const price = (body as { price?: unknown })?.price
+  if (price === undefined) {
+    return {}
+  }
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+    return json({ error: 'The relist price must be a positive number of euros.' }, 400)
+  }
+  return { price: Math.round(price * 100) / 100 }
+}
+
 /**
  * Delete a listing and put it up again, then answer with the wardrobe as it is now.
  *
@@ -573,9 +595,13 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
     return relistUnavailable(runtime)
   }
 
+  const options = await relistOptions(request)
+  if (options instanceof Response) {
+    return options
+  }
   const products = await inventoryFor(env, runtime)
   try {
-    const relisted = await runtime.vintedRelist.relist(itemId, products)
+    const relisted = await runtime.vintedRelist.relist(itemId, products, options)
     const db = runtime.db ?? env.DB
     if (relisted.productId != null && db) {
       await moveProductVintedUrl(db, relisted.productId, relisted.url)
