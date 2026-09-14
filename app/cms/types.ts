@@ -221,6 +221,7 @@ export type CmsProductRecord = {
   slug: string
   cost?: number
   sold: boolean
+  reserved: boolean
   concept: boolean
   soldAt?: string
   acquiredAt?: string
@@ -243,6 +244,7 @@ export type PublicProduct = {
   year?: number
   marktplaatsUrl?: string
   vintedUrl?: string
+  reserved?: boolean
   slug: string
 }
 

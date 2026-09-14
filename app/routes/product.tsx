@@ -46,7 +46,8 @@ export default function Product() {
         title={product.title}
         subtitle={product.subtitle}
         description={product.description}
-        price={product.price != null ? String(product.price) : undefined}
+        // A reserved card has no price to show; the CTA says it is reserved instead.
+        price={!product.reserved && product.price != null ? String(product.price) : undefined}
         link={buyLink}
         images={product.images}
         pokemonId={product.pokemonId}

@@ -1,5 +1,5 @@
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
-import { runCardmarketScan, withProductFrontImages } from '../app/services/cardmarket/scan'
+import { runCardmarketScan, withProductFrontImages, withWatchedProductsOnly } from '../app/services/cardmarket/scan'
 import { mergeCaches } from '../app/services/deal-finder/cache'
 import { DEAL_SOURCES } from '../app/services/deal-finder/constants'
 import { isCurrentReport, mergeReports } from '../app/services/deal-finder/report'
@@ -14,7 +14,7 @@ import type {
   SlabReader
 } from '../app/services/deal-finder/scan'
 import { runDealFinderScan } from '../app/services/deal-finder/scan'
-import { VintedRelistError, type VintedRelistOptions, type VintedRelistService } from '../app/services/vinted-relist'
+import { VintedRelistError, vintedItemId, type VintedRelistOptions, type VintedRelistService } from '../app/services/vinted-relist'
 import {
   batchAll,
   listAllProductRows,
@@ -391,7 +391,7 @@ async function cardmarketReport(request: Request, env: DashboardEnv, runtime?: D
 
   const products = await inventoryFor(env, runtime)
   const report = await resolveStore(env, runtime).getReport()
-  return json({ report: report ? withProductFrontImages(report, products) : null })
+  return json({ report: report ? withProductFrontImages(withWatchedProductsOnly(report, products), products) : null })
 }
 
 async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
@@ -600,6 +600,12 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
     return options
   }
   const products = await inventoryFor(env, runtime)
+  // The relist screen no longer shows a reserved card, but a tab opened before it was
+  // reserved still has the button: a sold card must not go back up as a fresh listing.
+  const reserved = products.find((product) => product.reserved && vintedItemId(product.vintedUrl ?? '') === itemId)
+  if (reserved) {
+    return json({ error: `${reserved.title} is reserved — a sold card is not relisted.` }, 409)
+  }
   try {
     const relisted = await runtime.vintedRelist.relist(itemId, products, options)
     const db = runtime.db ?? env.DB

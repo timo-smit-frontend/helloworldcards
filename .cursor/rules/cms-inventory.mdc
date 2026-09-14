@@ -22,13 +22,15 @@ Check with `lsof -nP -iTCP:5173 -sTCP:LISTEN`.
 
 ## Two paths — always finish both sides of the mirror
 
-### A. User asks in chat to change inventory (price, sold, concept, copy, Marktplaats/Vinted URL, …)
+### A. User asks in chat to change inventory (price, sold, reserved, concept, copy, Marktplaats/Vinted URL, …)
 
 Do **all** of these before saying done:
 
 1. Change the product as described above, and update tests that assert those fields.
-2. If the card has `marktplaatsUrl` and price/listing status changed → update or delete Marktplaats per `marktplaats-listings` rules (Vraagprijs = shop − €0,01).
-3. If the card has `vintedUrl` and price/listing status changed → update or delete the Vinted listing per `vinted-listings` rules (same price as the current Marktplaats Vraagprijs).
+2. If the card has `marktplaatsUrl` and price/listing status changed → update, mark reserved, or delete Marktplaats per `marktplaats-listings` rules (Vraagprijs = shop − €0,01).
+3. If the card has `vintedUrl` and price/listing status changed → update, mark reserved, or delete the Vinted listing per `vinted-listings` rules (same price as the current Marktplaats Vraagprijs).
+
+Status flags, one at a time: `concept` (not listed yet), none (live), `reserved` (sold, on its way, money not in — stays in the shop without a price, saying **This card is reserved**; ads stay up marked reserved; out of relist and price suggestions), `sold` (money in — off the shop, ads deleted). “Gereserveerd”, “sold but still shipping”, “waiting for the payout” all mean `reserved`, never `sold`.
 
 ### B. User changed something in the admin CMS
 
@@ -49,5 +51,6 @@ Admin saves already update **live D1 / website**, and a running dev server write
 ## Do not
 
 - Stop after editing `seed-products.ts` alone when no dev server is running.
+- Set `sold: true` for a card whose money has not arrived; that card is `reserved: true` until it has.
 - Run seed→D1 sync when seed is behind CMS without pulling first (that overwrites live CMS edits).
 - Assume deploy alone refreshed product rows (only empty DB seed + one-shot `cmsSeedVersion` migrations do that).

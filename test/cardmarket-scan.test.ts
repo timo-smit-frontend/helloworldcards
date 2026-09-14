@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { parseArticleListings } from '~/services/cardmarket/html'
-import { cardmarketOffersUrl, isCardmarketChallenge, runCardmarketScan, withProductFrontImages } from '~/services/cardmarket/scan'
+import {
+  cardmarketOffersUrl,
+  isCardmarketChallenge,
+  runCardmarketScan,
+  watchableInventory,
+  withProductFrontImages,
+  withWatchedProductsOnly
+} from '~/services/cardmarket/scan'
 import { nearestLowerGrades, sameOrBetterGrade } from '~/services/cardmarket/grades'
 import type { InventoryProduct } from '~/database/products'
 
@@ -301,6 +308,39 @@ describe('runCardmarketScan', () => {
     expect(report.products[0]?.error).toBeNull()
     expect(report.products[0]?.listings).toEqual([])
     expect(report.products[0]?.suggestion).toBeNull()
+  })
+})
+
+describe('watchableInventory', () => {
+  it('leaves out a reserved card along with the sold ones: neither has a price left to move', () => {
+    const reserved = { ...pokeKid, id: 3, title: 'Charizard', reserved: true }
+    const sold = { ...pokeKid, id: 1, title: 'Mewtwo', sold: true }
+
+    expect(watchableInventory([pokeKid, reserved, sold]).map((product) => product.id)).toEqual([9])
+  })
+})
+
+describe('withWatchedProductsOnly', () => {
+  it('drops a card that was reserved after the report was saved, without a rescan', () => {
+    const entry = (id: number, title: string) => ({
+      id,
+      title,
+      image: null,
+      listed: 95,
+      url: pokeKid.cardmarketUrl!,
+      listings: [],
+      competitors: [],
+      suggestion: null,
+      gone: [],
+      error: null
+    })
+    const report = withWatchedProductsOnly(
+      { scannedAt: '2026-08-30T12:00:00.000Z', products: [entry(9, 'Poke Kid'), entry(3, 'Charizard')] },
+      [pokeKid, { ...pokeKid, id: 3, title: 'Charizard', reserved: true }]
+    )
+
+    expect(report.products.map((item) => item.id)).toEqual([9])
+    expect(report.scannedAt).toBe('2026-08-30T12:00:00.000Z')
   })
 })
 

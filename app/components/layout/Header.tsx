@@ -104,7 +104,8 @@ export default function Header() {
   const cms = useCms()
   const [isSticky, setIsSticky] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const items = cms?.nav.header.map((item) => ({ href: item.href, label: item.label })) ?? FALLBACK_NAV
+  const cmsItems = cms?.nav.header.map((item) => ({ href: item.href, label: item.label }))
+  const items = cmsItems && cmsItems.length > 0 ? cmsItems : FALLBACK_NAV
 
   useEffect(() => {
     setMenuOpen(false)

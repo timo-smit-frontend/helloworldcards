@@ -255,6 +255,20 @@
   }
 }
 
+/* A sash over a sold card, running from the card's real top-left corner to its real bottom-right one.
+   The overlay is sized by its insets rather than its content, so it can be a size container; the sash
+   then takes its angle and length from the overlay's own diagonal, whatever the card's aspect ratio. */
+@utility sold-sash-overlay {
+  @apply pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden;
+  container-type: size;
+}
+
+@utility sold-sash {
+  @apply shrink-0 text-center text-lg font-bold uppercase tracking-[0.3em];
+  width: hypot(100cqw, 100cqh);
+  rotate: atan2(100cqh, 100cqw);
+}
+
 @utility link-underline {
   @apply relative inline-block;
 

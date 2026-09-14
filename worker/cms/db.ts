@@ -98,6 +98,7 @@ export type ProductRow = {
   slug: string
   cost: number | null
   sold: number
+  reserved: number
   concept: number
   sold_at: string | null
   acquired_at: string | null
@@ -138,6 +139,7 @@ export function rowToRecord(row: ProductRow): ProductRecord {
     ...(row.vinted_url ? { vintedUrl: row.vinted_url } : {}),
     ...(row.cost != null ? { cost: row.cost } : {}),
     ...(asBool(row.sold) ? { sold: true } : {}),
+    ...(asBool(row.reserved) ? { reserved: true } : {}),
     ...(asBool(row.concept) ? { concept: true } : {}),
     ...(row.sold_at ? { soldAt: row.sold_at } : {}),
     ...(row.acquired_at ? { acquiredAt: row.acquired_at } : {}),
@@ -308,6 +310,7 @@ export function productWriteValues(product: ProductRecord & { slug: string }) {
     product.slug,
     product.cost ?? null,
     product.sold ? 1 : 0,
+    product.reserved ? 1 : 0,
     product.concept ? 1 : 0,
     product.soldAt ?? null,
     product.acquiredAt ?? null,
@@ -318,11 +321,11 @@ export function productWriteValues(product: ProductRecord & { slug: string }) {
   ]
 }
 
-const PRODUCT_COLUMNS = `title, subtitle, description, images, pokemon_id, price, language, grader, year, marktplaats_url, vinted_url, slug, cost, sold, concept, sold_at, acquired_at, grade, cardmarket_url, reverse_holo, first_edition`
+const PRODUCT_COLUMNS = `title, subtitle, description, images, pokemon_id, price, language, grader, year, marktplaats_url, vinted_url, slug, cost, sold, reserved, concept, sold_at, acquired_at, grade, cardmarket_url, reverse_holo, first_edition`
 
 export async function insertProduct(db: CmsDb, product: ProductRecord & { slug: string }): Promise<number> {
   const result = await db
-    .prepare(`INSERT INTO products (${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .prepare(`INSERT INTO products (${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(...productWriteValues(product))
     .run()
   return result.meta.last_row_id
@@ -331,7 +334,7 @@ export async function insertProduct(db: CmsDb, product: ProductRecord & { slug: 
 export async function updateProduct(db: CmsDb, id: number, product: ProductRecord & { slug: string }): Promise<void> {
   await db
     .prepare(
-      `UPDATE products SET title = ?, subtitle = ?, description = ?, images = ?, pokemon_id = ?, price = ?, language = ?, grader = ?, year = ?, marktplaats_url = ?, vinted_url = ?, slug = ?, cost = ?, sold = ?, concept = ?, sold_at = ?, acquired_at = ?, grade = ?, cardmarket_url = ?, reverse_holo = ?, first_edition = ? WHERE id = ?`
+      `UPDATE products SET title = ?, subtitle = ?, description = ?, images = ?, pokemon_id = ?, price = ?, language = ?, grader = ?, year = ?, marktplaats_url = ?, vinted_url = ?, slug = ?, cost = ?, sold = ?, reserved = ?, concept = ?, sold_at = ?, acquired_at = ?, grade = ?, cardmarket_url = ?, reverse_holo = ?, first_edition = ? WHERE id = ?`
     )
     .bind(...productWriteValues(product), id)
     .run()
@@ -346,7 +349,7 @@ export async function upsertProductWithId(db: CmsDb, id: number, product: Produc
     .join(', ')
   await db
     .prepare(
-      `INSERT INTO products (id, ${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET ${assignments}, deleted_at = NULL`
+      `INSERT INTO products (id, ${PRODUCT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET ${assignments}, deleted_at = NULL`
     )
     .bind(id, ...productWriteValues(product))
     .run()

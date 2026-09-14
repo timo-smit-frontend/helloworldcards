@@ -122,6 +122,54 @@ describe('CMS API', () => {
     expect(body.products.some((product) => product.title === 'Mewtwo')).toBe(false)
   })
 
+  it('keeps a reserved card on the public shop, flagged, until the flag is sent back as false', async () => {
+    const db = createMemoryD1()
+    const token = await signIn(db as unknown as CmsDb)
+    const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
+    const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
+    const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
+    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const shop = async () => {
+      const payload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
+      const body = (await payload!.json()) as { products: Array<{ title: string; reserved?: boolean }> }
+      return body.products.find((product) => product.title === 'Mewtwo')
+    }
+
+    await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...mewtwo, reserved: true, soldAt: '2026-09-14', price: '€90' })
+      }),
+      env,
+      { db }
+    )
+    expect(await shop()).toMatchObject({ title: 'Mewtwo', reserved: true })
+
+    // The admin form sends every flag, off ones as false; a body without the flag keeps it.
+    await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...mewtwo, price: '€90' })
+      }),
+      env,
+      { db }
+    )
+    expect(await shop()).toMatchObject({ title: 'Mewtwo', reserved: true })
+
+    await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...mewtwo, reserved: false, price: '€90' })
+      }),
+      env,
+      { db }
+    )
+    expect('reserved' in (await shop())!).toBe(false)
+  })
+
   it('accepts a euro-formatted purchase cost', async () => {
     const db = createMemoryD1()
     const token = await signIn(db as unknown as CmsDb)

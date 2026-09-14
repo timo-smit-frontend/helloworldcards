@@ -115,6 +115,43 @@ describe('dashboard API', () => {
     await expect(signedIn?.json()).resolves.toEqual({ report: null })
   })
 
+  it('serves a saved report without the cards reserved or sold since it was scanned', async () => {
+    const login = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+      }),
+      env
+    )
+    const token = cookieFrom(login!)
+    const store = memoryCardmarketStore()
+    const entry = (id: number, title: string) => ({
+      id,
+      title,
+      image: null,
+      listed: 95,
+      url: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Generations/Charizard-GENRC5',
+      listings: [],
+      competitors: [],
+      suggestion: null,
+      gone: [],
+      error: null
+    })
+    // Charizard (3) is reserved in the seed; Poke Kid (9) is still for sale.
+    await store.putReport({ scannedAt: '2026-09-13T12:00:00.000Z', products: [entry(3, 'Charizard'), entry(9, 'Poke Kid')] })
+
+    const response = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/report', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      seededRuntime({ cardmarketStore: store })
+    )
+
+    expect(response?.status).toBe(200)
+    const body = (await response!.json()) as { report: { products: Array<{ id: number; title: string }> } }
+    expect(body.report.products.map((product) => product.title)).toEqual(['Poke Kid'])
+  })
+
   it('scans watchable cards and stores suggestions', async () => {
     const login = await handleDashboardRequest(
       new Request('https://example.com/dashboard/session', {

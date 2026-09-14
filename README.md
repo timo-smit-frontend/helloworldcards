@@ -35,7 +35,7 @@ See [CMS sync](#cms-sync) for the commands that move content and images between 
 
 ## Dashboard (`/dashboard/`)
 
-The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spent, sold, and remaining potential, plus margin stats and a recently-sold list. Mark a card sold with `sold: true` and `soldAt: 'YYYY-MM-DD'` in `app/database/products.ts` — it leaves the shop and stays on the books.
+The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spent, sold, and remaining potential, plus margin stats and a recently-sold list. Mark a card sold with `sold: true` and `soldAt: 'YYYY-MM-DD'` in `app/cms/seed-products.ts` — it leaves the shop and stays on the books. A card that has sold but is still on its way, with the money not paid out yet, is `reserved: true` instead (with `soldAt` and the sale `price`): it stays in the shop without a price or buy link, saying **This card is reserved**, and leaves the Vinted relist tab and the price suggestions. Switch it to `sold: true` once the money is in.
 
 Set these as **Worker secrets** (Cloudflare dashboard or `wrangler secret put`), never in source or `wrangler.jsonc`:
 

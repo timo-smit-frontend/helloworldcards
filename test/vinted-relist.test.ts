@@ -269,6 +269,26 @@ describe('buildRelistReport', () => {
     expect(report.login).toBe('helloworldcards')
   })
 
+  it('leaves a reserved card out: sold, so neither a row to relist nor a listing gone missing', () => {
+    const now = new Date('2026-09-12T12:00:00Z')
+    const report = buildRelistReport({
+      wardrobe,
+      products: [
+        product({ id: 1, title: 'Mewtwo', vintedUrl: 'https://www.vinted.nl/items/111-mewtwo' }),
+        // Sold on Marktplaats and marked reserved on Vinted, so the wardrobe still has it.
+        product({ id: 2, title: 'Dragonite', vintedUrl: 'https://www.vinted.nl/items/222', reserved: true }),
+        // Sold on Vinted itself, which took the listing down; nothing to chase.
+        product({ id: 3, title: 'Charizard', vintedUrl: 'https://www.vinted.nl/items/999', reserved: true })
+      ],
+      state: emptyRelistState(),
+      login: 'helloworldcards',
+      now
+    })
+
+    expect(report.rows.map((row) => row.itemId).sort()).toEqual(['111', '333', '444'])
+    expect(report.missing).toEqual([])
+  })
+
   it('only wants a listing page read when nothing on hand tells the age', () => {
     const now = new Date('2026-09-12T12:00:00Z')
     const state = emptyRelistState()
@@ -395,7 +415,12 @@ describe('buildRelistReport', () => {
     state.pending['444'] = { ...pendingEntry('Gone card', 3), deletedAt: '', error: 'Vinted did not open a confirmation.' }
     const stillUp = parseWardrobeItems({ items: [{ id: 444, title: 'Gone card', price: '10.00' }] })
     expect(settlePendingByHand(state, stillUp)).toEqual([])
-    const report = buildRelistReport({ wardrobe: stillUp, products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })], state, login: 'x' })
+    const report = buildRelistReport({
+      wardrobe: stillUp,
+      products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
+      state,
+      login: 'x'
+    })
     expect(report.pending.map((entry) => entry.itemId)).toEqual(['444'])
     expect(report.missing).toEqual([])
   })
@@ -513,6 +538,41 @@ describe('vinted relist API', () => {
 
     const after = (await db.prepare('SELECT vinted_url FROM products WHERE id = ?').bind(row.id).first()) as { vinted_url: string }
     expect(after.vinted_url).toBe('https://www.vinted.nl/items/9999')
+  })
+
+  it('refuses to relist a reserved card, whatever tab the button was pressed in', async () => {
+    const token = await signIn()
+    const db = createMemoryD1()
+    const calls: string[] = []
+    const vintedRelist: VintedRelistService = {
+      async report() {
+        return emptyReport()
+      },
+      async relist(itemId) {
+        calls.push(itemId)
+        return { itemId: '9999', url: 'https://www.vinted.nl/items/9999', productId: null }
+      }
+    }
+    const runtime = { db, vintedRelist }
+    // Reading the report seeds the database; the seed has Charizard reserved.
+    await handleDashboardRequest(
+      new Request('https://example.com/dashboard/vinted-relist', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      runtime
+    )
+    const row = (await db.prepare('SELECT vinted_url FROM products WHERE reserved = 1').first()) as { vinted_url: string }
+
+    const response = await handleDashboardRequest(
+      new Request(`https://example.com/api/admin/vinted-relist/${vintedItemId(row.vinted_url)}`, {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      runtime
+    )
+    expect(response?.status).toBe(409)
+    await expect(response?.json()).resolves.toEqual({ error: 'Charizard is reserved — a sold card is not relisted.' })
+    expect(calls).toEqual([])
   })
 
   it('passes a new price from the body to the service and rejects a bad one', async () => {

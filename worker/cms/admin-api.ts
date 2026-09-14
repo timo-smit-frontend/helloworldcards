@@ -82,6 +82,7 @@ function parseProduct(body: Record<string, unknown>, id: number): ProductRecord 
     ...(asString(body.vintedUrl) ? { vintedUrl: asString(body.vintedUrl) } : {}),
     ...(cost != null ? { cost } : {}),
     ...(asBool(body.sold) ? { sold: true } : {}),
+    ...(asBool(body.reserved) ? { reserved: true } : {}),
     ...(asBool(body.concept) ? { concept: true } : {}),
     ...(asString(body.soldAt) ? { soldAt: asString(body.soldAt) } : {}),
     ...(asString(body.acquiredAt) ? { acquiredAt: asString(body.acquiredAt) } : {}),
@@ -287,7 +288,7 @@ export async function handleAdminRequest(request: Request, env: DashboardEnv, ru
           return json({ error: 'That slug is already used.' }, 400)
         }
         const merged: ProductRecord & { slug: string } = { ...existing, ...record, slug }
-        for (const flag of ['sold', 'concept', 'reverseHolo', 'firstEdition'] as const) {
+        for (const flag of ['sold', 'reserved', 'concept', 'reverseHolo', 'firstEdition'] as const) {
           if (flag in body) {
             if (asBool(body[flag])) {
               merged[flag] = true

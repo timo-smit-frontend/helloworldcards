@@ -116,10 +116,12 @@ export function isCardmarketChallenge(html: string): boolean {
   return CHALLENGE.test(html)
 }
 
+/** The cards still for sale with a Cardmarket link to price them by; a sold or reserved card has no price left to move. */
 export function watchableInventory(products: InventoryProduct[]): InventoryProduct[] {
   return products.filter(
     (product) =>
       product.sold !== true &&
+      product.reserved !== true &&
       Boolean(product.cardmarketUrl) &&
       product.grade != null &&
       product.grader != null &&
@@ -232,6 +234,15 @@ export async function runCardmarketScan({
     scannedAt: now.toISOString(),
     products: productsReport
   }
+}
+
+/**
+ * A saved report minus the cards a scan would no longer visit — sold or reserved since,
+ * or without a Cardmarket link — so they leave the page without waiting for a rescan.
+ */
+export function withWatchedProductsOnly(report: CardmarketReport, products: InventoryProduct[]): CardmarketReport {
+  const watched = new Set(watchableInventory(products).map((product) => product.id))
+  return { ...report, products: report.products.filter((item) => watched.has(item.id)) }
 }
 
 export function withProductFrontImages(report: CardmarketReport, products: InventoryProduct[]): CardmarketReport {

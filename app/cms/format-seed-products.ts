@@ -40,6 +40,7 @@ const FIELD_ORDER: Array<keyof ProductRecord> = [
   'firstEdition',
   'cost',
   'sold',
+  'reserved',
   'concept',
   'soldAt',
   'acquiredAt'

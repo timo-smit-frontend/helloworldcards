@@ -13,10 +13,11 @@ Do not post a card that is `concept` or not in stock. Do not change prices on ot
 
 - **Go live / list {card}:** pre-flight → fill the form → **stop and wait** for the user to check it → only then publish. After they confirm, drop `concept` and set `marktplaatsUrl`. Shop shows **View on Marktplaats**. Then also post the card to Vinted per **`vinted-listings`** (same title/photos/price, English description) and set `vintedUrl`. A card never goes to Vinted while still `concept`.
 - **Change price / lower price / set price to €X** (for a card): follow **cms-inventory** (seed + D1 push, or CMS pull) then **always** update Marktplaats (Vraagprijs **and** Bieden vanaf) when the card has a `marktplaatsUrl`, and Vinted when it has a `vintedUrl`. See **Shop vs Marktplaats price** below (Vinted keeps the plain shop price, no cent trick).
-- **{card} is sold for €X** (or “sold for X euros”): **shop first**, then delete the Marktplaats ad as sold, then delete the Vinted ad too if `vintedUrl` is set. See Sold below.
+- **{card} is gereserveerd / reserved / sold but still on its way / sold on Vinted, waiting for the payout** (a sale whose money has not come in yet): **shop first** (`reserved: true`, `soldAt`, the sale `price`, both URLs kept), then set the Marktplaats ad to **Gereserveerd**, then the Vinted listing (nothing to do when the sale was on Vinted). Nothing is deleted yet. See **Reserved** below.
+- **{card} is sold for €X** (or “sold for X euros”, “the money is in”): **shop first**, then delete the Marktplaats ad as sold, then delete the Vinted ad too if `vintedUrl` is set. See Sold below. A reserved card takes the same path; only the deletes are new.
 - **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the Marktplaats ad as **not** sold, then delete the Vinted ad too if `vintedUrl` is set.
 
-Until a card is live it stays `concept: true` with no listing URL.
+Until a card is live it stays `concept: true` with no listing URL. A card is `reserved: true` from the moment it sells until the money is in, and `sold: true` after that — never `sold` while a payout is still pending.
 
 ## Live CMS (D1)
 
@@ -96,6 +97,32 @@ Every live ad has bidding on (rolled out 14 September 2026). The numbers come fr
 5. **Stop.** Do **not** click **Plaats je advertentie** (or **Plaats advertentie** on the last step). Tell the user the form is ready and wait until they say it looks good (or ask for a fix).
 6. Only after they confirm: **Plaats je advertentie**. Copy `marktplaatsSellerViewUrl(itemId)` onto the product; drop `concept`. Update tests if they assert concept/URL.
 
+## Reserved — sold, still on its way
+
+A card is reserved when it has been sold but the buyer has not received it yet and the money has not been paid out (Vinted holds the payment until the buyer confirms; a Marktplaats buyer may still be paying). It is off the market but not settled, so it is neither `concept` nor `sold`.
+
+### Shop first
+
+In `app/cms/seed-products.ts` on that card (or the local admin: status **Reserved**):
+
+- `reserved: true`
+- `soldAt: 'YYYY-MM-DD'` — the day it sold; today unless the user says otherwise
+- `price: '€X'` — the actual sale amount, when the user gives one (the dashboard reads revenue from `price`)
+- keep `marktplaatsUrl` and `vintedUrl`; never `sold: true` yet
+
+The shop keeps the card but hides its price: the card in the grid and the button on its page both say **This card is reserved** instead. The card leaves the Vinted relist tab and the price suggestions on its own, and the relist API refuses it. Sync per **cms-inventory** and update tests that assert the card's price or status.
+
+### Then the ads — mark, do not delete
+
+- **Marktplaats:** open `marktplaatsUrl` on seller view (fallback: **Mijn advertenties**) and switch the ad to **Gereserveerd**. The ad stays up with that label; deleting it comes later, with the money.
+- **Vinted:** sold **on Vinted** → nothing to do, Vinted has already marked the listing sold and holds the payout. Sold **elsewhere** → mark the Vinted listing reserved (the seller's reserve option on the listing page), so nobody buys it twice.
+
+If Playwright is not logged in, still update the shop first, then ask the user to log in for the ads.
+
+### When the money is in
+
+The user says the card **is sold** (“sold for €X”, “the money is in”): follow **Sold for €X — shop first** below. `soldAt` and `price` are already set — check the amount — so what changes is `sold: true`, dropping `reserved` and both URLs, and the deletes: Marktplaats as **Verkocht via Marktplaats**, and the Vinted listing unless Vinted already closed it.
+
 ## Sold / delete an ad
 
 Marktplaats delete is an **in-page** choice, not a native `alert`. After **Verwijder**, click:
@@ -110,9 +137,9 @@ Do not `dialog.accept()`. Open `marktplaatsUrl` on seller view (fallback: **Mijn
 In `app/database/products.ts` on that card:
 
 - `sold: true`
-- `soldAt: 'YYYY-MM-DD'` (today)
+- `soldAt: 'YYYY-MM-DD'` (today, or the day it sold if the card was reserved first)
 - `price: '€X'` — **actual sale amount** (dashboard revenue reads `price`)
-- remove `marktplaatsUrl`, `vintedUrl`, and `concept`
+- remove `marktplaatsUrl`, `vintedUrl`, `concept`, and `reserved`
 
 That hides it from the shop (`isShopListed`) and keeps it on the dashboard. Then delete the Marktplaats ad as **Verkocht via Marktplaats**. Update `test/products.test.ts` (and any catalog assertions) so the card is no longer expected in the shop.
 

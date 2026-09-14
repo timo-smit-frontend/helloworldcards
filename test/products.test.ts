@@ -55,6 +55,8 @@ describe('product inventory', () => {
     expect(isShopListed({})).toBe(true)
     expect(isShopListed({ sold: false })).toBe(true)
     expect(isShopListed({ sold: true })).toBe(false)
+    // Reserved is sold-but-not-settled: the card stays on the shop, shown as reserved.
+    expect(isShopListed({ reserved: true })).toBe(true)
 
     const { inventory, products } = await seededShop()
     const sold = inventory.filter((item) => item.sold)
@@ -130,9 +132,28 @@ describe('product inventory', () => {
 
     expect(product?.title).toBe('Charizard')
     expect(product?.pokemonId).toBe(6)
-    expect(product?.price).toBe('€125')
+    // The price a reserved card shows is what it sold for, not what it was listed at.
+    expect(product?.price).toBe('€115')
     expect(product?.images).toEqual(['/media/61958598_front.jpg', '/media/61958598_back.jpg'])
     expect(inventory.find((item) => item.id === 3)?.cost).toBe(75)
+  })
+
+  it('keeps the reserved Charizard in the shop as sold, with its ads still on record', async () => {
+    const { inventory, products } = await seededShop()
+    const record = inventory.find((item) => item.id === 3)
+    const product = products.find((item) => item.id === 3)
+
+    // Sold on Vinted, on its way, money not in yet: reserved, not sold — but the sale
+    // itself is on record already, date and amount.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-14')
+    expect(record?.price).toBe('€115')
+    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436738233')
+    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10003961594')
+    // The shop still shows the card, flagged so the page can say it is reserved instead of a price.
+    expect(product?.reserved).toBe(true)
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
   it('lists the 1st Edition Rocket Ekans with slab photos', async () => {
@@ -154,7 +175,7 @@ describe('product inventory', () => {
     expect(product?.title).toBe('Zorua AR')
     expect(product?.language).toBe('japanese')
     expect(product?.grader).toBe('beckett')
-    expect(product?.price).toBe('€65')
+    expect(product?.price).toBe('€60')
     expect(record?.cost).toBe(40)
     expect(record?.acquiredAt).toBe('2026-08-30')
   })
@@ -219,6 +240,16 @@ describe('product inventory', () => {
     expect(productBuyLink({})).toEqual({ title: 'Not yet available to buy' })
   })
 
+  it('says a reserved card is reserved instead of linking to its ads', () => {
+    expect(
+      productBuyLink({
+        reserved: true,
+        marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
+        vintedUrl: 'https://www.vinted.nl/items/1234567'
+      })
+    ).toEqual({ title: 'This card is reserved' })
+  })
+
   it('keeps Marktplaats as the only CTA when a Vinted listing also exists', () => {
     expect(
       productBuyLink({
@@ -245,5 +276,8 @@ describe('product inventory', () => {
     const publicProduct = toPublicProduct(inventory[0], inventory[0].slug)
     expect('cost' in publicProduct).toBe(false)
     expect('concept' in publicProduct).toBe(false)
+    // Only a reserved card carries the flag; the rest do not say "reserved: false".
+    expect('reserved' in publicProduct).toBe(false)
+    expect(toPublicProduct({ ...inventory[0], reserved: true }, inventory[0].slug).reserved).toBe(true)
   })
 })

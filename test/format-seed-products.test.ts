@@ -25,7 +25,25 @@ describe('formatSeedProductsSource', () => {
     expect(source).toContain('price: "€95"')
     expect(source).toContain('reverseHolo: true')
     expect(source).not.toContain('sold:')
+    expect(source).not.toContain('reserved:')
     expect(source).not.toContain('concept:')
     expect(source).toContain('export const seedProductRecords')
+  })
+
+  it('writes a reserved card between its cost and its dates, where the pull puts it', () => {
+    const source = formatSeedProductsSource([
+      {
+        id: 3,
+        title: 'Charizard',
+        subtitle: '2016 Radiant Collection - #RC5',
+        description: 'A holo.',
+        images: [],
+        cost: 75,
+        reserved: true,
+        acquiredAt: '2026-08-25'
+      }
+    ])
+
+    expect(source).toContain(['    cost: 75,', '    reserved: true,', '    acquiredAt: "2026-08-25",'].join('\n'))
   })
 })

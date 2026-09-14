@@ -715,10 +715,14 @@ function AdminRowLink({ to, children, className }: { to: string; children: React
   )
 }
 
-function productStatus(product: Pick<InventoryProduct, 'sold' | 'concept'>) {
-  if (product.sold) return 'sold'
-  if (product.concept) return 'concept'
-  return 'published'
+/** A product's one status flag, as the status select and the list show it. */
+const PRODUCT_STATUS_FLAGS = ['sold', 'reserved', 'concept'] as const
+
+/** Every boolean on a product; the ones the save has to spell out even when off. */
+const PRODUCT_FLAGS = [...PRODUCT_STATUS_FLAGS, 'reverseHolo', 'firstEdition'] as const
+
+function productStatus(product: Pick<InventoryProduct, (typeof PRODUCT_STATUS_FLAGS)[number]>) {
+  return PRODUCT_STATUS_FLAGS.find((flag) => product[flag]) ?? 'published'
 }
 
 function AdminStickyBar({ children, end }: { children: ReactNode; end?: boolean }) {
@@ -1644,6 +1648,8 @@ function ProductEditor() {
       body: JSON.stringify({
         ...draft,
         pokemonId: draft.pokemonId ?? null,
+        // A cleared flag has to travel as false: left out, the server keeps the one it has.
+        ...Object.fromEntries(PRODUCT_FLAGS.map((flag) => [flag, draft[flag] === true])),
         images: (draft.images ?? []).filter((src) => src.trim() !== '').slice(0, MAX_PRODUCT_IMAGES)
       })
     })
@@ -1833,13 +1839,13 @@ function ProductEditor() {
                 options={[
                   { value: 'concept', label: 'Concept' },
                   { value: 'published', label: 'Published' },
+                  { value: 'reserved', label: 'Reserved' },
                   { value: 'sold', label: 'Sold' }
                 ]}
                 onChange={(status) =>
                   patchProduct((current) => ({
                     ...current,
-                    concept: status === 'concept' ? true : undefined,
-                    sold: status === 'sold' ? true : undefined
+                    ...Object.fromEntries(PRODUCT_STATUS_FLAGS.map((flag) => [flag, status === flag ? true : undefined]))
                   }))
                 }
               />

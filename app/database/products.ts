@@ -19,6 +19,11 @@ export type Product = {
   year?: number
   marktplaatsUrl?: string
   vintedUrl?: string
+  /**
+   * Sold, but still on its way and not paid out yet. The card stays in the shop without a
+   * price or buy link, saying it is reserved, until the money is in and it becomes `sold`.
+   */
+  reserved?: boolean
   slug: string
 }
 
@@ -49,7 +54,12 @@ export type ProductBuyLink = {
   target?: '_blank'
 }
 
-export function productBuyLink(product: Pick<Product, 'marktplaatsUrl' | 'vintedUrl'>): ProductBuyLink {
+export function productBuyLink(product: Pick<Product, 'marktplaatsUrl' | 'vintedUrl' | 'reserved'>): ProductBuyLink {
+  // The ads are still up, marked reserved, but there is nothing left to buy.
+  if (product.reserved) {
+    return { title: 'This card is reserved' }
+  }
+
   if (product.marktplaatsUrl) {
     return { url: product.marktplaatsUrl, title: 'View on Marktplaats', target: '_blank' }
   }
@@ -65,6 +75,7 @@ export type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   images?: string[]
   cost?: number
   sold?: boolean
+  reserved?: boolean
   concept?: boolean
   soldAt?: string
   acquiredAt?: string
@@ -98,7 +109,8 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
     ...(product.grader ? { grader: product.grader } : {}),
     ...(product.year != null ? { year: product.year } : {}),
     ...(product.marktplaatsUrl ? { marktplaatsUrl: product.marktplaatsUrl } : {}),
-    ...(product.vintedUrl ? { vintedUrl: product.vintedUrl } : {})
+    ...(product.vintedUrl ? { vintedUrl: product.vintedUrl } : {}),
+    ...(product.reserved ? { reserved: true } : {})
   }
 }
 
@@ -117,6 +129,7 @@ export function toInventoryProduct(product: ProductRecord, slug: string): Invent
   }
 }
 
-export function isShopListed(product: Pick<InventoryProduct, 'sold'>): boolean {
+/** Reserved cards stay listed — the shop shows them as reserved — and only a settled sale takes a card off. */
+export function isShopListed(product: Pick<InventoryProduct, 'sold' | 'reserved'>): boolean {
   return product.sold !== true
 }

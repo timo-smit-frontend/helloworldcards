@@ -47,7 +47,7 @@ export const seedProductRecords: ProductRecord[] = [
       'A holo from the 2016 XY Generations Radiant Collection, number RC5/RC32. Radiant Collection uses the classic Charizard art on a holographic foil. This copy is graded PSA 9 Mint, cert 61958598. The PSA population is 2,625.',
     images: ['/media/61958598_front.jpg', '/media/61958598_back.jpg'],
     pokemonId: 6,
-    price: '€125',
+    price: '€115',
     language: 'english',
     grader: 'psa',
     grade: 9,
@@ -56,6 +56,8 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10003961594',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Generations/Charizard-GENRC5',
     cost: 75,
+    reserved: true,
+    soldAt: '2026-09-14',
     acquiredAt: '2026-08-25'
   },
   {

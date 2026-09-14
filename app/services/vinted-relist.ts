@@ -632,7 +632,11 @@ export function buildRelistReport(input: {
   const productRef = (product: InventoryProduct | undefined) =>
     product ? { id: product.id, title: product.title, slug: product.slug } : null
 
-  const rows: VintedRelistRow[] = input.wardrobe.map((item) => {
+  // A reserved card is sold, whatever its listing says: there is nothing to bump, so it
+  // leaves the screen rather than sitting there with a button that must not be pressed.
+  const forSale = input.wardrobe.filter((item) => productOf(String(item.id))?.reserved !== true)
+
+  const rows: VintedRelistRow[] = forSale.map((item) => {
     const itemId = String(item.id)
     const product = productOf(itemId)
     const record = input.state.records[itemId]
@@ -661,7 +665,7 @@ export function buildRelistReport(input: {
   // Oldest first: the ones most in need of a relist sit at the top.
   rows.sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1) || a.title.localeCompare(b.title))
 
-  const seen = new Set(rows.map((row) => row.itemId))
+  const seen = new Set(input.wardrobe.map((item) => String(item.id)))
   const pending = Object.entries(input.state.pending).map(([itemId, entry]) => ({
     itemId,
     title: entry.snapshot.title,
@@ -678,7 +682,7 @@ export function buildRelistReport(input: {
   )
 
   const missing = input.products
-    .filter((product) => !product.sold && !product.concept && product.vintedUrl)
+    .filter((product) => !product.sold && !product.reserved && !product.concept && product.vintedUrl)
     .flatMap((product) => {
       const id = vintedItemId(product.vintedUrl ?? '')
       if (!id || seen.has(id) || pendingIds.has(id) || replaced.has(id)) {
