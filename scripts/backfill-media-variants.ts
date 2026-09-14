@@ -8,6 +8,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { localBin } from '../vite/local-bin'
 import { encodeMediaVariants } from '../vite/media-variants'
 import { mediaVariantKey } from '../app/services/responsiveImage'
 
@@ -19,7 +20,8 @@ const remote = !process.argv.includes('--local')
 const location = remote ? '--remote' : '--local'
 
 function wrangler(args: string[], options: { quiet?: boolean } = {}): string {
-  return execFileSync('npx', ['wrangler', ...args], {
+  const wrangler = localBin('wrangler')
+  return execFileSync(wrangler.command, [...wrangler.args, ...args], {
     cwd: root,
     encoding: 'utf8',
     stdio: options.quiet ? ['ignore', 'pipe', 'ignore'] : ['ignore', 'pipe', 'inherit']

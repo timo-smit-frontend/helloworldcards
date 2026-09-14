@@ -92,7 +92,12 @@ export default defineConfig({
       // config dependency: Vite would restart the server on every write and reload the
       // admin mid-edit. The files only feed an empty database, so a running server has
       // no reason to notice them.
-      ignored: Object.values(CMS_SEED_FILES).map((file) => `**/${file}`)
+      //
+      // `.cache` holds the scan Chrome profile and the saved scan reports. Chrome keeps
+      // its session files locked while it runs, and on Windows watching a locked file
+      // fails with EBUSY — which the watcher raises as a fatal error, taking the whole
+      // dev server down a few seconds into every Cardmarket scan.
+      ignored: [...Object.values(CMS_SEED_FILES).map((file) => `**/${file}`), '**/.cache/**', '**/.wrangler/**']
     }
   },
   plugins: [

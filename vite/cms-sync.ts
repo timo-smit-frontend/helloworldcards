@@ -7,6 +7,7 @@ import { seedProductRecords } from '../app/cms/seed-products'
 import type { ProductRecord } from '../app/database/products'
 import { upsertProductWithId, type CmsDb, type CmsPreparedStatement } from '../worker/cms/db'
 import type { MediaBucket } from '../worker/cms/media'
+import { localBin } from './local-bin'
 
 const DATABASE = 'helloworldcards'
 
@@ -33,7 +34,8 @@ type WranglerRow = Record<string, unknown>
 type WranglerResult = { results?: WranglerRow[]; success?: boolean }
 
 function runWrangler(args: string[], stdio: 'pipe' | 'inherit' = 'pipe'): string {
-  return execFileSync('npx', ['wrangler', ...args], { encoding: 'utf8', stdio, maxBuffer: 64 * 1024 * 1024 }) ?? ''
+  const wrangler = localBin('wrangler')
+  return execFileSync(wrangler.command, [...wrangler.args, ...args], { encoding: 'utf8', stdio, maxBuffer: 64 * 1024 * 1024 }) ?? ''
 }
 
 function queryRemote(sql: string): WranglerRow[] {
@@ -92,7 +94,8 @@ export function remoteCmsDb(): RemoteCmsDb {
 /** Generated files are committed, so they go through Prettier like everything else. */
 export function formatGeneratedFile(filePath: string): void {
   try {
-    execFileSync('npx', ['prettier', '--write', filePath], { stdio: 'ignore' })
+    const prettier = localBin('prettier')
+    execFileSync(prettier.command, [...prettier.args, '--write', filePath], { stdio: 'ignore' })
   } catch {
     // Formatting is cosmetic; never fail a sync over it.
   }

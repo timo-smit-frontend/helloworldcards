@@ -24,6 +24,7 @@ import {
   type CmsSeedPart,
   type CmsState
 } from './cms-state'
+import { localBin } from './local-bin'
 import { cacheMediaOriginal, cachedMediaSource, firstMediaSource } from './media-originals'
 import { publicMediaSource, syncLocalMedia } from './media-sync'
 
@@ -153,7 +154,8 @@ function runCmsSync(root: string, args: string[]): Promise<void> {
     // HWC_CMS_AUTOSYNC keeps the child from starting a sync of its own, whatever server
     // `vite-node` decides to boot on the way to running the script.
     const options = { cwd: root, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, HWC_CMS_AUTOSYNC: '0' } }
-    execFile('npx', ['vite-node', 'scripts/cms-sync.mts', ...args], options, (error, stdout, stderr) => {
+    const viteNode = localBin('vite-node')
+    execFile(viteNode.command, [...viteNode.args, 'scripts/cms-sync.mts', ...args], options, (error, stdout, stderr) => {
       for (const line of String(stdout).split('\n')) {
         const reported = line.match(/^(?:cms|media)-sync: (.*)$/)
         if (reported) {

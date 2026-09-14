@@ -14,6 +14,7 @@ import {
 } from '../app/services/mediaSync'
 import { allMediaVariantKeys } from '../app/services/responsiveImage'
 import type { MediaBucket } from '../worker/cms/media'
+import { localBin } from './local-bin'
 import { encodeMediaVariants } from './media-variants'
 import { variantSettingsKey } from './responsive-image-build'
 
@@ -151,7 +152,8 @@ function localStore(bucket: MediaBucket & { list?: (options?: unknown) => Promis
 }
 
 function wrangler(args: string[], options: { stdio?: 'inherit' | 'ignore' | 'pipe' } = {}): string {
-  return execFileSync('npx', ['wrangler', ...args], { encoding: 'utf8', stdio: options.stdio ?? 'pipe' }) ?? ''
+  const wrangler = localBin('wrangler')
+  return execFileSync(wrangler.command, [...wrangler.args, ...args], { encoding: 'utf8', stdio: options.stdio ?? 'pipe' }) ?? ''
 }
 
 function remoteStore(cacheDir: string): MediaStore {
