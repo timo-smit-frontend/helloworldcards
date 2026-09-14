@@ -284,7 +284,7 @@ describe('media library sync', () => {
   it('files every product image under the Slabs folder', () => {
     const library = parseMediaSnapshot(fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8'))
     const folderOf = new Map(library.media.map((entry) => [entry.key, entry.folder]))
-    const productImages = seedProductRecords.flatMap((product) => product.images.map((image) => image.replace(/^\/media\//, '')))
+    const productImages = seedProductRecords.flatMap((product) => (product.images ?? []).map((image) => image.replace(/^\/media\//, '')))
     expect(productImages.filter((key) => folderOf.get(key) !== 'Slabs')).toEqual([])
   })
 })

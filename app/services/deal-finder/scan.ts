@@ -484,7 +484,8 @@ async function loadListingDetail(
 ): Promise<{ listing: SourceListing; sellerReviews: number | null }> {
   try {
     const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
-    const detail = listing.source === 'marktplaats' ? parseMarktplaatsDetail(html) : parseVintedDetail(html)
+    const detail =
+      listing.source === 'marktplaats' ? { ...parseMarktplaatsDetail(html), sellerReviews: null } : parseVintedDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
     return {
@@ -494,7 +495,7 @@ async function loadListingDetail(
         imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
         shipping: detail.shipping ?? listing.shipping
       },
-      sellerReviews: 'sellerReviews' in detail ? detail.sellerReviews : null
+      sellerReviews: detail.sellerReviews
     }
   } catch {
     // A listing page that will not load is not fatal — the overview row still has a title.
