@@ -51,3 +51,44 @@ export function marktplaatsVraagprijsFromShop(shopPrice: string | number | undef
   const euros = marktplaatsListingEuros(shopPrice)
   return euros == null ? null : formatMarktplaatsVraagprijs(euros)
 }
+
+const BID_STEP_EUROS = 5
+
+export interface MarktplaatsBidding {
+  /**
+   * "Bieden vanaf" on the ad form: one €5 step under the floor, minus one cent like the Vraagprijs
+   * (e.g. `84.99` for a €100 shop price).
+   */
+  minimumBid: number
+  /** Lowest price we sell at, and the tegenbod to any bid below it — always a round €5 (e.g. `90` for €100). */
+  counterOffer: number
+}
+
+/**
+ * Marktplaats bidding for a shop price. The floor is the shop price minus €5 (under €100) or €10
+ * (from €100 up), rounded up to a whole €5. The minimum bid sits one €5 step under that floor, less
+ * one cent, so a buyer who bids the minimum gets countered at the floor and the gap is too small to
+ * split into another round number. Returns null when the shop price is missing, invalid, or too low
+ * to bid on.
+ */
+export function marktplaatsBiddingFromShop(shopPrice: string | number | undefined): MarktplaatsBidding | null {
+  const euros = parseListedPrice(shopPrice)
+  if (euros == null || euros <= 0) {
+    return null
+  }
+
+  const maxDiscount = euros < 100 ? 5 : 10
+  const counterOffer = Math.ceil((euros - maxDiscount) / BID_STEP_EUROS) * BID_STEP_EUROS
+  const minimumBidStep = counterOffer - BID_STEP_EUROS
+  if (minimumBidStep < BID_STEP_EUROS) {
+    return null
+  }
+
+  return { minimumBid: Math.round((minimumBidStep - 0.01) * 100) / 100, counterOffer }
+}
+
+/** Dutch "Bieden vanaf" field, e.g. `84,99` for a €100 shop price. Null when there is nothing to bid on. */
+export function marktplaatsBiedenVanafFromShop(shopPrice: string | number | undefined): string | null {
+  const bidding = marktplaatsBiddingFromShop(shopPrice)
+  return bidding == null ? null : formatMarktplaatsVraagprijs(bidding.minimumBid)
+}

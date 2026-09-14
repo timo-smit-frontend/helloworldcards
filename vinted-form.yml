@@ -1,0 +1,97 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - banner [ref=f3e5]:
+        - generic [ref=f3e7]:
+          - link [ref=f3e8] [cursor=pointer]:
+            - /url: "#content"
+          - link "Vinted-logo" [ref=f3e14] [cursor=pointer]:
+            - /url: /
+            - img "Vinted-logo" [ref=f3e18]
+          - generic [ref=f3e24]:
+            - button "Artikelen" [ref=f3e28] [cursor=pointer]
+            - textbox "Artikelen" [ref=f3e42]:
+              - /placeholder: Vind artikelen
+            - button "Zoeken met foto" [ref=f3e45] [cursor=pointer]
+          - generic [ref=f3e52]:
+            - generic [ref=f3e53]:
+              - link "Berichten" [ref=f3e55] [cursor=pointer]:
+                - /url: /inbox
+              - link "Notificaties" [ref=f3e63] [cursor=pointer]:
+                - /url: /member/notifications
+              - link "Favorieten" [ref=f3e70] [cursor=pointer]:
+                - /url: /member/items/favourite_list
+            - generic [ref=f3e76]:
+              - button [ref=f3e79] [cursor=pointer]:
+                - figure [ref=f3e81]:
+                  - img "helloworldcards" [ref=f3e83]
+              - link "Verkoop nu" [ref=f3e84] [cursor=pointer]:
+                - /url: /items/new
+              - link "Helpdesk" [ref=f3e87] [cursor=pointer]:
+                - /url: /help?access_channel=vinted_guide
+              - button "NL" [ref=f3e99] [cursor=pointer]
+      - navigation [ref=f3e111]:
+        - tablist [ref=f3e114]:
+          - tab "Dames" [ref=f3e115] [cursor=pointer]
+          - tab "Heren" [ref=f3e118] [cursor=pointer]
+          - tab "Designer" [ref=f3e121] [cursor=pointer]
+          - tab "Kinderen" [ref=f3e124] [cursor=pointer]
+          - tab "Home" [ref=f3e127] [cursor=pointer]
+          - tab "Elektronica" [ref=f3e130] [cursor=pointer]
+          - tab "Boeken & multimedia" [ref=f3e133] [cursor=pointer]
+          - tab "Hobby's & verzamelen" [ref=f3e136] [cursor=pointer]
+          - tab "Sport" [ref=f3e139] [cursor=pointer]
+    - main [ref=f3e142]:
+      - generic [ref=f3e149]:
+        - heading "Artikel plaatsen" [level=1] [ref=f3e151]
+        - paragraph [ref=f3e153]: Foto's
+        - generic [ref=f3e159]:
+          - status [ref=f3e160]
+          - button "Foto's toevoegen" [ref=f3e163] [cursor=pointer]
+        - paragraph [ref=f3e171]: Over je artikel
+        - generic [ref=f3e173]:
+          - generic [ref=f3e174]:
+            - generic [ref=f3e175]: Titel
+            - textbox "Titel" [ref=f3e177]:
+              - /placeholder: Vertel kopers wat je verkoopt
+          - generic [ref=f3e179]:
+            - generic [ref=f3e180]: Beschrijving
+            - textbox "Beschrijving" [ref=f3e182]:
+              - /placeholder: Vertel kopers er meer over
+        - paragraph [ref=f3e184]: Details
+        - list [ref=f3e187]:
+          - listitem [ref=f3e188]:
+            - generic [ref=f3e189]:
+              - generic [ref=f3e190]: Categorie
+              - generic [ref=f3e191]:
+                - textbox "Categorie" [ref=f3e192] [cursor=pointer]:
+                  - /placeholder: Kies een categorie
+                - button [ref=f3e193]
+        - paragraph [ref=f3e198]: Prijs
+        - generic [ref=f3e203]:
+          - generic [ref=f3e204]: Prijs
+          - textbox "Prijs" [ref=f3e206]:
+            - /placeholder: € 0,00
+        - generic [ref=f3e211]:
+          - button "Opslaan" [ref=f3e212] [cursor=pointer]
+          - button "Toevoegen" [ref=f3e215] [cursor=pointer]
+    - contentinfo [ref=f3e219]:
+      - list [ref=f3e224]:
+        - listitem [ref=f3e225]:
+          - link "Privacycentrum" [ref=f3e226] [cursor=pointer]:
+            - /url: /privacy
+        - listitem [ref=f3e227]:
+          - link "Cookiebeleid" [ref=f3e228] [cursor=pointer]:
+            - /url: /cookie-policy
+        - listitem [ref=f3e229]:
+          - button "Cookie-instellingen" [ref=f3e230] [cursor=pointer]
+        - listitem [ref=f3e231]:
+          - link "Gebruiksvoorwaarden" [ref=f3e232] [cursor=pointer]:
+            - /url: /terms_and_conditions
+        - listitem [ref=f3e233]:
+          - link "Ons Platform" [ref=f3e234] [cursor=pointer]:
+            - /url: /our-platform
+        - listitem [ref=f3e235]:
+          - link "Vinted Pro’s Algemene Voorwaarden" [ref=f3e236] [cursor=pointer]:
+            - /url: /pro-terms-and-conditions
+  - alert [ref=f3e237]

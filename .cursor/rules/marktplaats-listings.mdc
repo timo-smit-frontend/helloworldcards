@@ -12,7 +12,7 @@ Do not post a card that is `concept` or not in stock. Do not change prices on ot
 ## Chat triggers — do this immediately
 
 - **Go live / list {card}:** pre-flight → fill the form → **stop and wait** for the user to check it → only then publish. After they confirm, drop `concept` and set `marktplaatsUrl`. Shop shows **View on Marktplaats**. Then also post the card to Vinted per **`vinted-listings`** (same title/photos/price, English description) and set `vintedUrl`. A card never goes to Vinted while still `concept`.
-- **Change price / lower price / set price to €X** (for a card): follow **cms-inventory** (seed + D1 push, or CMS pull) then **always** update Marktplaats when the card has a `marktplaatsUrl`, and Vinted when it has a `vintedUrl`. See **Shop vs Marktplaats price** below (Vinted keeps the plain shop price, no cent trick).
+- **Change price / lower price / set price to €X** (for a card): follow **cms-inventory** (seed + D1 push, or CMS pull) then **always** update Marktplaats (Vraagprijs **and** Bieden vanaf) when the card has a `marktplaatsUrl`, and Vinted when it has a `vintedUrl`. See **Shop vs Marktplaats price** below (Vinted keeps the plain shop price, no cent trick).
 - **{card} is sold for €X** (or “sold for X euros”): **shop first**, then delete the Marktplaats ad as sold, then delete the Vinted ad too if `vintedUrl` is set. See Sold below.
 - **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the Marktplaats ad as **not** sold, then delete the Vinted ad too if `vintedUrl` is set.
 
@@ -50,7 +50,8 @@ Use `marktplaatsEditUrlFromListingUrl(product.marktplaatsUrl)` from `app/service
 1. Shop first — seed file + **D1 sync** (see **Live CMS (D1)**); update tests if they assert `price`.
 2. If the product has `marktplaatsUrl`, navigate to `marktplaatsEditUrlFromListingUrl(marktplaatsUrl)` (fallback: seller view → **Wijzig**).
 3. Set **Vraagprijs** to `marktplaatsVraagprijsFromShop(shop price)` — not the shop amount.
-4. **Opslaan**. Confirm the seller view shows the Marktplaats price (e.g. `€ 99,99`).
+4. Set **Bieden vanaf** to `marktplaatsBiedenVanafFromShop(shop price)` — see **Bieden**.
+5. **Opslaan**. Confirm the seller view shows the Marktplaats price (e.g. `€ 99,99`).
 
 ## Always (form)
 
@@ -58,14 +59,39 @@ Use `marktplaatsEditUrlFromListingUrl(product.marktplaatsUrl)` from `app/service
 - **Category:** title → **Vind categorie** → Verzamelkaartspellen | Pokémon (Hobby en Vrije tijd).
 - **Kenmerken:** Zo goed als nieuw, Type Losse kaart, Foil on.
 - **Levering:** Ophalen of Verzenden. Pakketgrootte **Brievenbuspakje** (never Klein pakket).
-- **Prijs:** Vraagprijs = `marktplaatsVraagprijsFromShop(shop price)` (one cent below shop). Bieden off unless asked.
+- **Prijs:** Vraagprijs = `marktplaatsVraagprijsFromShop(shop price)` (one cent below shop). **Bieden toestaan** on, **Bieden vanaf** = `marktplaatsBiedenVanafFromShop(shop price)` (e.g. `84,99`). See **Bieden**.
 - **Adverteren:** **Gratis** only. Never Plus/Premium unless asked.
+
+## Bieden
+
+Every live ad has bidding on (rolled out 14 September 2026). The numbers come from `marktplaatsBiddingFromShop(shop price)` / `marktplaatsBiedenVanafFromShop(shop price)` in `app/services/price.ts` — never improvise them:
+
+- **Floor** (`counterOffer`): shop price minus **€5** under €100, minus **€10** from €100 up, rounded up to a whole €5. This is the lowest price we ever sell at, and it is always a round number.
+- **Bieden vanaf** (`minimumBid`): one €5 step under the floor, less one cent — the same trick as the Vraagprijs. Marktplaats shows it publicly on the ad as `Vanaf € 84,99`, so it is the buyer's anchor.
+
+| Shop | Vraagprijs | Bieden vanaf | Floor / tegenbod |
+| --- | --- | --- | --- |
+| €50 | 49,99 | 39,99 | 45 |
+| €65 | 64,99 | 54,99 | 60 |
+| €95 | 94,99 | 84,99 | 90 |
+| €100 | 99,99 | 84,99 | 90 |
+| €110 | 109,99 | 94,99 | 100 |
+| €130 | 129,99 | 114,99 | 120 |
+
+**On the form** (place and edit): toggle `[data-testid="syi-bidding-switch"]` (**Bieden toestaan**), which reveals the **Bieden vanaf** textbox `input[name="price.minimumBidPrice"]`; fill it with the `84,99`-style string. After **Opslaan** the seller view shows `Biedingen … Vanaf € 84,99`.
+
+**Responding to a bid** (Marktplaats messages: Accepteren / Afwijzen / Tegenbod):
+
+- Bid **≥ floor** → accept.
+- Bid **< floor** (usually exactly the Bieden vanaf amount) → **tegenbod at the floor**, once, with a message like: `Bedankt voor je bod! €85 is net te weinig, maar voor €90 is hij voor jou — dat is echt het minste wat ik kan doen.` The floor is one step above their bid, so there is no round number left to "meet in the middle" on.
+- Never go under the floor, never split the difference, never a second tegenbod. If they walk, they walk (see the no-price-drops rule).
+- A price change moves the floor and the Bieden vanaf with it — update both on the edit form.
 
 ## Place an ad
 
 1. Draft title + description from the frozen references **before** opening the form.
 2. **Plaats advertentie** → paste title → **Vind categorie** → Pokémon → **Verder**.
-3. Photos, kenmerken, levering, prijs, Gratis (defaults above).
+3. Photos, kenmerken, levering, prijs (Vraagprijs **and** Bieden toestaan + Bieden vanaf), Gratis (defaults above).
 4. Description last, in `.RichTextEditor-module-editorInput`. Type it — see Description. Never `fill()` or set `innerHTML`.
 5. **Stop.** Do **not** click **Plaats je advertentie** (or **Plaats advertentie** on the last step). Tell the user the form is ready and wait until they say it looks good (or ask for a fix).
 6. Only after they confirm: **Plaats je advertentie**. Copy `marktplaatsSellerViewUrl(itemId)` onto the product; drop `concept`. Update tests if they assert concept/URL.
