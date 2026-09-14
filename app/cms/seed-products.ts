@@ -245,7 +245,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442709776',
-    vintedUrl: 'https://www.vinted.nl/items/10002423138',
+    vintedUrl: 'https://www.vinted.nl/items/10005207599',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/MEP-Black-Star-Promos/Mega-Gardevoir-ex-MEP032',
     cost: 72,
     acquiredAt: '2026-09-11'
@@ -264,7 +264,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2023,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442365911',
-    vintedUrl: 'https://www.vinted.nl/items/10004260813',
+    vintedUrl: 'https://www.vinted.nl/items/10005185939',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Crown-Zenith/Pikachu-CRZ160',
     cost: 64,
     acquiredAt: '2026-09-13'
