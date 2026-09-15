@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatAge } from '../app/components/dashboard/VintedRelist'
 import type { InventoryProduct } from '../app/database/products'
 import {
   buildRelistReport,
@@ -180,6 +181,21 @@ describe('listing age', () => {
     expect(dutchRelativeDays('onbekend')).toBeNull()
     expect(dutchRelativeDays(null)).toBeNull()
   })
+
+  it('shows hours instead of days for a listing from today', () => {
+    const now = new Date('2026-09-15T15:30:00Z')
+    const age = (ageDays: number | null, listedAt: string | null, ageText: string | null = null) =>
+      formatAge({ ageDays, ageText, listedAt }, now)
+    expect(age(0, '2026-09-15T15:29:30Z')).toBe('0 min')
+    expect(age(0, '2026-09-15T15:05:00Z')).toBe('25 min')
+    expect(age(0, '2026-09-15T14:20:00Z')).toBe('1 hour')
+    expect(age(0, '2026-09-15T09:00:00Z')).toBe('6 hours')
+    expect(age(0, null)).toBe('Today')
+    expect(age(1, '2026-09-14T09:00:00Z')).toBe('1 day')
+    expect(age(12, '2026-09-03T09:00:00Z')).toBe('12 days')
+    expect(age(null, null, 'een week geleden')).toBe('een week geleden')
+    expect(age(null, null)).toBe('Age unknown')
+  })
 })
 
 describe('catalogPathTo', () => {
@@ -269,6 +285,30 @@ describe('buildRelistReport', () => {
     // A product whose listing is gone is flagged; a concept product is not expected on Vinted.
     expect(report.missing).toEqual([{ product: { id: 3, title: 'Gone', slug: 'p-3' }, url: 'https://www.vinted.nl/items/999' }])
     expect(report.login).toBe('helloworldcards')
+  })
+
+  it('runs listings from the same day from the earliest to the latest bump', () => {
+    const now = new Date('2026-09-12T12:00:00Z')
+    const state = emptyRelistState()
+    state.records['1'] = { itemId: '1', previousItemId: '0', productId: 1, listedAt: '2026-09-12T11:30:00Z' }
+    state.records['2'] = { itemId: '2', previousItemId: '0', productId: 2, listedAt: '2026-09-12T08:00:00Z' }
+    state.records['3'] = { itemId: '3', previousItemId: '0', productId: 3, listedAt: '2026-09-12T10:00:00Z' }
+    state.records['4'] = { itemId: '4', previousItemId: '0', productId: 4, listedAt: '2026-09-10T18:00:00Z' }
+    const report = buildRelistReport({
+      wardrobe: parseWardrobeItems({
+        items: [
+          { id: 1, title: 'A late', price: '1.00' },
+          { id: 2, title: 'C early', price: '1.00' },
+          { id: 3, title: 'B midday', price: '1.00' },
+          { id: 4, title: 'D older', price: '1.00' }
+        ]
+      }),
+      products: [],
+      state,
+      login: 'helloworldcards',
+      now
+    })
+    expect(report.rows.map((row) => row.title)).toEqual(['D older', 'C early', 'B midday', 'A late'])
   })
 
   it('leaves a reserved card out: sold, so neither a row to relist nor a listing gone missing', () => {

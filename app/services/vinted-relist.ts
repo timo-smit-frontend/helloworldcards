@@ -742,8 +742,15 @@ export function buildRelistReport(input: {
     }
   })
 
-  // Oldest first: the ones most in need of a relist sit at the top.
-  rows.sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1) || a.title.localeCompare(b.title))
+  // Oldest first: the ones most in need of a relist sit at the top. Within the same day the
+  // exact upload time decides (today's listings run from the earliest to the latest bump);
+  // the title only breaks a tie when that time is not known for both.
+  const listedTime = (row: VintedRelistRow) => (row.listedAt ? new Date(row.listedAt).getTime() : Number.NaN)
+  const byListedTime = (a: VintedRelistRow, b: VintedRelistRow) => {
+    const diff = listedTime(a) - listedTime(b)
+    return Number.isNaN(diff) ? 0 : diff
+  }
+  rows.sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1) || byListedTime(a, b) || a.title.localeCompare(b.title))
 
   const seen = new Set(input.wardrobe.map((item) => String(item.id)))
   const pending = Object.entries(input.state.pending).map(([itemId, entry]) => ({

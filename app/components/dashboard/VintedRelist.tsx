@@ -13,13 +13,25 @@ const STATUS_LABEL: Record<VintedListingStatus, string> = {
   closed: 'Closed'
 }
 
-/** `0` → today, `1` → 1 day, `12` → 12 days. */
-export function formatAge(row: Pick<VintedRelistRow, 'ageDays' | 'ageText'>): string {
+/**
+ * `1` → 1 day, `12` → 12 days. A listing from today shows its age in hours (or minutes
+ * within the first hour) when we know the exact moment it went up, plain "Today" otherwise.
+ */
+export function formatAge(row: Pick<VintedRelistRow, 'ageDays' | 'ageText' | 'listedAt'>, now = new Date()): string {
   if (row.ageDays == null) {
     return row.ageText ?? 'Age unknown'
   }
   if (row.ageDays === 0) {
-    return 'Today'
+    const listedAt = row.listedAt ? new Date(row.listedAt).getTime() : Number.NaN
+    if (Number.isNaN(listedAt)) {
+      return 'Today'
+    }
+    const minutes = Math.max(0, Math.floor((now.getTime() - listedAt) / 60_000))
+    if (minutes < 60) {
+      return `${minutes} min`
+    }
+    const hours = Math.floor(minutes / 60)
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
   }
   return `${row.ageDays} ${row.ageDays === 1 ? 'day' : 'days'}`
 }

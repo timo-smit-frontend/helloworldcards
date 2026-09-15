@@ -172,10 +172,35 @@ function AdminLogoLink({ className, onClick }: { className: string; onClick?: ()
   )
 }
 
-function AdminScreenHeader({ title, to, label, trashTo }: { title: string; to: string; label: string; trashTo?: string }) {
+// The number of things a list screen holds, shown muted behind its title once they are loaded.
+function AdminCount({ count, className = 'ml-3' }: { count: number | null | undefined; className?: string }) {
+  if (count == null) return null
+  return (
+    <span aria-label={`${count} in total`} className={`align-middle text-[0.6em] font-medium text-site-mantle ${className}`}>
+      {count}
+    </span>
+  )
+}
+
+function AdminScreenHeader({
+  title,
+  count,
+  to,
+  label,
+  trashTo
+}: {
+  title: string
+  count?: number | null
+  to: string
+  label: string
+  trashTo?: string
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <h1 className="title-l">{title}</h1>
+      <h1 className="title-l">
+        {title}
+        <AdminCount count={count} />
+      </h1>
       <div className="flex items-center gap-4">
         {trashTo ? (
           <Link
@@ -726,6 +751,26 @@ function productStatus(product: Pick<InventoryProduct, (typeof PRODUCT_STATUS_FL
   return PRODUCT_STATUS_FLAGS.find((flag) => product[flag]) ?? 'published'
 }
 
+type ProductStatus = ReturnType<typeof productStatus>
+
+/** One colour per status, so the lists can be read at a glance: live is green, money not in yet is gold, gone is red. */
+const PRODUCT_STATUS_TONE: Record<ProductStatus, string> = {
+  published: 'border-site-envy/50 bg-site-envy/15 text-site-envy',
+  reserved: 'border-site-foil/50 bg-site-foil/15 text-site-foil',
+  sold: 'border-site-loss/50 bg-site-loss/15 text-site-loss',
+  concept: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle'
+}
+
+function ProductStatusBadge({ status }: { status: ProductStatus }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${PRODUCT_STATUS_TONE[status]}`}
+    >
+      {status}
+    </span>
+  )
+}
+
 function AdminStickyBar({ children, end }: { children: ReactNode; end?: boolean }) {
   return (
     <div className="admin-sticky-bar">
@@ -1190,7 +1235,13 @@ function PagesScreen() {
 
   return (
     <div className="admin-page flex flex-col gap-6">
-      <AdminScreenHeader title="Pages" to={adminTo('/pages/new')} label="New page" trashTo={adminTo('/pages/trash')} />
+      <AdminScreenHeader
+        title="Pages"
+        count={loading ? null : pages.length}
+        to={adminTo('/pages/new')}
+        label="New page"
+        trashTo={adminTo('/pages/trash')}
+      />
       <AdminTable
         caption="Pages"
         loading={loading}
@@ -1639,7 +1690,13 @@ function ProductsScreen() {
   }, [])
   return (
     <div className="admin-page flex flex-col gap-6">
-      <AdminScreenHeader title="Products" to={adminTo('/products/new')} label="New product" trashTo={adminTo('/products/trash')} />
+      <AdminScreenHeader
+        title="Products"
+        count={loading ? null : products.length}
+        to={adminTo('/products/new')}
+        label="New product"
+        trashTo={adminTo('/products/trash')}
+      />
       <AdminTable
         caption="Products"
         loading={loading}
@@ -1658,7 +1715,9 @@ function ProductsScreen() {
               {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
             </td>
             <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
-            <td className={adminTableCellPad('text-sm whitespace-nowrap text-site-mantle capitalize')}>{productStatus(product)}</td>
+            <td className={adminTableCellPad('whitespace-nowrap')}>
+              <ProductStatusBadge status={productStatus(product)} />
+            </td>
           </AdminClickableRow>
         ))}
       </AdminTable>
@@ -1894,8 +1953,9 @@ function ProductEditor() {
           <div className="flex flex-col gap-5">
             <h2 className="title-xs">Sale</h2>
             <div className="flex flex-col gap-2">
-              <label htmlFor="product-status" className="text-sm font-medium">
+              <label htmlFor="product-status" className="flex items-center justify-between gap-3 text-sm font-medium">
                 Status
+                <ProductStatusBadge status={listingStatus} />
               </label>
               <ChoiceSelect
                 id="product-status"
@@ -2581,9 +2641,13 @@ function MediaScreen() {
               /
             </span>
             <span className="truncate">{folder.name}</span>
+            <AdminCount count={loading ? null : folderCount} className="shrink-0" />
           </h1>
         ) : (
-          <h1 className="title-l">Media</h1>
+          <h1 className="title-l">
+            Media
+            <AdminCount count={loading ? null : media.length} />
+          </h1>
         )}
         <div className="flex flex-wrap items-center gap-4">
           {folder ? (
@@ -2852,6 +2916,8 @@ type CollectionColumn = {
   className?: string
   cellClassName?: string
   value?: (item: Record<string, unknown>) => string
+  /** Custom cell content; wins over `value` and the plain text span. */
+  render?: (item: Record<string, unknown>) => ReactNode
 }
 
 function CollectionScreen({
@@ -2882,7 +2948,13 @@ function CollectionScreen({
 
   return (
     <div className="admin-page flex flex-col gap-6">
-      <AdminScreenHeader title={title} to={adminTo(`${path}/new`)} label={newLabel} trashTo={adminTo(`${path}/trash`)} />
+      <AdminScreenHeader
+        title={title}
+        count={loading ? null : items.length}
+        to={adminTo(`${path}/new`)}
+        label={newLabel}
+        trashTo={adminTo(`${path}/trash`)}
+      />
       <AdminTable
         caption={title}
         loading={loading}
@@ -3123,7 +3195,10 @@ function TrashScreen({
   return (
     <div className="admin-page flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="title-l">{title}</h1>
+        <h1 className="title-l">
+          {title}
+          <AdminCount count={loading ? null : items.length} />
+        </h1>
         <Link to={backTo} className="cursor-pointer text-sm font-semibold text-site-mantle hover:text-site-gray-nurse">
           {backLabel}
         </Link>
@@ -3148,9 +3223,13 @@ function TrashScreen({
             <tr key={String(item.id)} className="border-b border-site-mulled-wine">
               {columns.map((column) => (
                 <td key={column.key} className={adminTableCellPad(column.className)}>
-                  <span className={adminTableCellTextClass(column.cellClassName)}>
-                    {column.value ? column.value(item) : String(item[column.key] ?? '')}
-                  </span>
+                  {column.render ? (
+                    column.render(item)
+                  ) : (
+                    <span className={adminTableCellTextClass(column.cellClassName)}>
+                      {column.value ? column.value(item) : String(item[column.key] ?? '')}
+                    </span>
+                  )}
                 </td>
               ))}
               <td className={adminTableCellPad('max-sm:pl-0 sm:pl-4 text-right whitespace-nowrap')}>
@@ -3219,7 +3298,7 @@ function ProductsTrashScreen() {
           key: 'status',
           label: 'Status',
           className: 'whitespace-nowrap',
-          value: (item) => productStatus(item as unknown as InventoryProduct)
+          render: (item) => <ProductStatusBadge status={productStatus(item as unknown as InventoryProduct)} />
         }
       ]}
     />
