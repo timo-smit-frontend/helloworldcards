@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { seedMediaFiles } from '../app/cms/seed-media'
 import type { MediaSourceReader } from './media-sync'
 
 /**
@@ -24,6 +25,14 @@ export async function cacheMediaOriginal(root: string, key: string, bytes: Uint8
 
 export function cachedMediaSource(root: string): MediaSourceReader {
   return async (key) => fs.readFile(originalPath(root, key)).catch(() => null)
+}
+
+/** The originals committed under `seed/media`, by media key. */
+export function seedMediaSource(root: string): MediaSourceReader {
+  return async (key) => {
+    const file = seedMediaFiles.find((entry) => entry.key === key)
+    return file ? fs.readFile(path.join(root, 'seed/media', file.filename)).catch(() => null) : null
+  }
 }
 
 /** Chain readers so the cheapest source that has the bytes wins. */

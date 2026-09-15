@@ -819,23 +819,32 @@ export function vintedPriceInput(price: number): string {
   return price.toFixed(2).replace('.', ',')
 }
 
+export type OriginalPhotos = {
+  /** The branded ad photo, as a path under the project root; null when the cert cannot be read off the front photo. */
+  ad: string | null
+  /** The slab photos as media library keys, front first, in the product's order. */
+  media: string[]
+}
+
 /**
- * The original photos of a product's listing, as paths under the project root:
- * the branded ad photo first, then the slab's front and back.
+ * The original photos of a product's listing: the branded ad photo, then the slab's
+ * front and back.
  *
  * The listing's own photos are not copied. Vinted re-encodes every upload, so a
  * copy of a copy of a copy is what the listing would end up with after a few
- * relists. The ad lives in `public/ads/<cert>.jpeg` and the slab photos are the
- * product's `images` (`/media/<cert>_front.jpg`), whose files are in `seed/media`.
- * Empty when the product has no images to name them from.
+ * relists. The ad lives in `public/ads/<cert>.jpeg`; the slab photos are the
+ * product's `images`, named `<cert>_front.jpg` when the card came with the seed and
+ * `<id>-<cert>-front.jpg` when its photos were uploaded through the admin — and
+ * where their files are is for the dev server to know. Null when the product has
+ * no site images to name them from.
  */
-export function originalPhotoPaths(product: Pick<InventoryProduct, 'images'>): string[] {
-  const slab = product.images.map((image) => /^\/media\/([^/]+)$/.exec(image)?.[1] ?? null).filter((name): name is string => name !== null)
-  if (slab.length === 0) {
-    return []
+export function originalPhotos(product: Pick<InventoryProduct, 'images'>): OriginalPhotos | null {
+  const media = product.images.map((image) => /^\/media\/([^/]+)$/.exec(image)?.[1] ?? null).filter((name): name is string => name !== null)
+  if (media.length === 0) {
+    return null
   }
-  const cert = /^(\d+)_front\./.exec(slab[0])?.[1]
-  return [...(cert ? [`public/ads/${cert}.jpeg`] : []), ...slab.map((name) => `seed/media/${name}`)]
+  const cert = /(\d+)[-_]front\.[a-z0-9]+$/i.exec(media[0])?.[1]
+  return { ad: cert ? `public/ads/${cert}.jpeg` : null, media }
 }
 
 /** What the browser side of a relist has to offer the dashboard API. */

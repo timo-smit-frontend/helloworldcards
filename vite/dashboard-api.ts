@@ -18,6 +18,8 @@ import {
   scanBrowserPinnedForMs,
   type CardmarketFetcher
 } from './cardmarket-browser'
+import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
+import { bucketMediaSource } from './media-sync'
 import { createVintedRelistService } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
@@ -394,7 +396,15 @@ function cmsApiMiddleware(root: string) {
             ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews }
             : {}),
           ...(needsRelist
-            ? { vintedRelist: createVintedRelistService({ root, openPage: async () => (await getScanBrowser(root)).openPage() }) }
+            ? {
+                vintedRelist: createVintedRelistService({
+                  root,
+                  openPage: async () => (await getScanBrowser(root)).openPage(),
+                  // A slab photo uploaded through the admin is in the local bucket and,
+                  // once a sync has run, in its cache of uploads; the seed files come first.
+                  readMedia: firstMediaSource(seedMediaSource(root), bucketMediaSource(cms.media), cachedMediaSource(root))
+                })
+              }
             : {}),
           ...(scanBrowserError ? { scanBrowserError } : {})
         }

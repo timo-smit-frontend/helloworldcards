@@ -9,7 +9,7 @@ import {
   emptyRelistState,
   listingsWithoutAge,
   normalizeRelistState,
-  originalPhotoPaths,
+  originalPhotos,
   pageLooksRateLimited,
   parseVintedSnapshot,
   parseVintedUploadedText,
@@ -200,22 +200,28 @@ describe('listing age', () => {
   })
 })
 
-describe('originalPhotoPaths', () => {
-  it('names the branded ad photo first, then the slab photos from seed media', () => {
-    expect(originalPhotoPaths({ images: ['/media/148651617_front.jpg', '/media/148651617_back.jpg'] })).toEqual([
-      'public/ads/148651617.jpeg',
-      'seed/media/148651617_front.jpg',
-      'seed/media/148651617_back.jpg'
-    ])
+describe('originalPhotos', () => {
+  it('names the branded ad photo and the slab photos of a card that came with the seed', () => {
+    expect(originalPhotos({ images: ['/media/148651617_front.jpg', '/media/148651617_back.jpg'] })).toEqual({
+      ad: 'public/ads/148651617.jpeg',
+      media: ['148651617_front.jpg', '148651617_back.jpg']
+    })
+  })
+
+  it('reads the cert off a photo uploaded through the admin, whose key carries the upload id', () => {
+    expect(originalPhotos({ images: ['/media/mtpx3uh1-155373625-front.jpg', '/media/mtpx3uk6-155373625-back.jpg'] })).toEqual({
+      ad: 'public/ads/155373625.jpeg',
+      media: ['mtpx3uh1-155373625-front.jpg', 'mtpx3uk6-155373625-back.jpg']
+    })
   })
 
   it('leaves the ad photo out when the cert cannot be read off the front photo', () => {
-    expect(originalPhotoPaths({ images: ['/media/charizard.jpg'] })).toEqual(['seed/media/charizard.jpg'])
+    expect(originalPhotos({ images: ['/media/charizard.jpg'] })).toEqual({ ad: null, media: ['charizard.jpg'] })
   })
 
   it('has nothing for a product without site images', () => {
-    expect(originalPhotoPaths({ images: [] })).toEqual([])
-    expect(originalPhotoPaths({ images: ['https://elsewhere.example/x.jpg'] })).toEqual([])
+    expect(originalPhotos({ images: [] })).toBeNull()
+    expect(originalPhotos({ images: ['https://elsewhere.example/x.jpg'] })).toBeNull()
   })
 })
 

@@ -662,6 +662,7 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
     return options
   }
   // The reserved check below is only as good as the local rows are current.
+  console.info(`[vinted-relist] ${itemId}: bringing the local database in step with production first`)
   const stale = await settleInventory(runtime)
   if (stale) {
     return json({ error: stale }, 503)

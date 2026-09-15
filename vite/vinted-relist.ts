@@ -10,7 +10,7 @@ import {
   emptyRelistState,
   listingsWithoutAge,
   normalizeRelistState,
-  originalPhotoPaths,
+  originalPhotos,
   pageLooksRateLimited,
   parseVintedSnapshot,
   parseVintedUploadedText,
@@ -23,6 +23,7 @@ import {
   vintedItemUrl,
   vintedPriceInput,
   VintedRelistError,
+  type OriginalPhotos,
   type VintedCatalogNode,
   type VintedRelistOptions,
   type VintedRelistReport,
@@ -32,11 +33,20 @@ import {
   type VintedWardrobeItem
 } from '../app/services/vinted-relist'
 import { keepScanBrowserOpen, waitForBotChallengeClear } from './cardmarket-browser'
+import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
+import type { MediaSourceReader } from './media-sync'
 
 const STATE_FILE = path.join('.cache', 'vinted-relist.json')
 const PHOTO_DIR = path.join('.cache', 'vinted-relist')
 const VINTED = 'https://www.vinted.nl'
 const LOAD_TIMEOUT_MS = 30_000
+/**
+ * How long one `fetch` from inside the tab may take. Playwright's `evaluate` has no
+ * limit of its own, so a request Vinted never answers used to hang the relist — and
+ * the screen's spinner — for good, with the tab sitting on the home page as if
+ * nothing had been started.
+ */
+const IN_PAGE_FETCH_TIMEOUT_MS = 30_000
 /** How long the window stays open for someone to log in to Vinted. */
 const LOGIN_GRACE_MS = 10 * 60_000
 /** Photos upload one by one; a listing of three can take a while on a slow line. */
@@ -166,8 +176,11 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
   }
 
   const current = await page
-    .evaluate(async () => {
-      const response = await fetch('/api/v2/users/current', { headers: { accept: 'application/json' } })
+    .evaluate(async (timeout) => {
+      const response = await fetch('/api/v2/users/current', {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(timeout)
+      })
       if (response.status === 429) {
         throw new Error('Vinted answered 429 for the current user.')
       }
@@ -176,7 +189,7 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
       }
       const body = (await response.json()) as { user?: { id?: number; login?: string } }
       return body.user?.id && body.user.login ? { userId: body.user.id, login: body.user.login } : null
-    })
+    }, IN_PAGE_FETCH_TIMEOUT_MS)
     .catch((error: unknown) => {
       if (isRateLimited(error)) {
         throw error
@@ -198,22 +211,28 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
 }
 
 async function readWardrobe(page: Page, userId: number): Promise<VintedWardrobeItem[]> {
-  const pages = await page.evaluate(async (id) => {
-    const out: unknown[] = []
-    for (let pageNo = 1; pageNo <= 10; pageNo += 1) {
-      const response = await fetch(`/api/v2/wardrobe/${id}/items?page=${pageNo}&per_page=96`, { headers: { accept: 'application/json' } })
-      if (!response.ok) {
-        // A 429 here is Vinted's rate limit; the message is what the caller looks for.
-        throw new Error(`Vinted answered ${response.status} for the wardrobe.`)
+  const pages = await page.evaluate(
+    async ({ id, timeout }) => {
+      const out: unknown[] = []
+      for (let pageNo = 1; pageNo <= 10; pageNo += 1) {
+        const response = await fetch(`/api/v2/wardrobe/${id}/items?page=${pageNo}&per_page=96`, {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(timeout)
+        })
+        if (!response.ok) {
+          // A 429 here is Vinted's rate limit; the message is what the caller looks for.
+          throw new Error(`Vinted answered ${response.status} for the wardrobe.`)
+        }
+        const body = (await response.json()) as { pagination?: { total_pages?: number } }
+        out.push(body)
+        if ((body.pagination?.total_pages ?? 1) <= pageNo) {
+          break
+        }
       }
-      const body = (await response.json()) as { pagination?: { total_pages?: number } }
-      out.push(body)
-      if ((body.pagination?.total_pages ?? 1) <= pageNo) {
-        break
-      }
-    }
-    return out
-  }, userId)
+      return out
+    },
+    { id: userId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+  )
   return pages.flatMap(parseWardrobeItems)
 }
 
@@ -225,13 +244,13 @@ async function readWardrobe(page: Page, userId: number): Promise<VintedWardrobeI
  */
 async function readUploadedText(page: Page, itemIds: string[]): Promise<Record<string, string | null>> {
   const windows = await page.evaluate(
-    async ({ ids, gap }) => {
+    async ({ ids, gap, timeout }) => {
       const result: Record<string, string | null> = {}
       for (const [index, id] of ids.entries()) {
         if (index > 0) {
           await new Promise((resolve) => setTimeout(resolve, gap))
         }
-        const response = await fetch(`/items/${id}`, { headers: { accept: 'text/html' } })
+        const response = await fetch(`/items/${id}`, { headers: { accept: 'text/html' }, signal: AbortSignal.timeout(timeout) })
         if (response.status === 429) {
           throw new Error('Vinted answered 429 for a listing page.')
         }
@@ -246,7 +265,7 @@ async function readUploadedText(page: Page, itemIds: string[]): Promise<Record<s
       }
       return result
     },
-    { ids: itemIds.slice(0, AGE_READS_PER_REPORT), gap: AGE_READ_GAP_MS }
+    { ids: itemIds.slice(0, AGE_READS_PER_REPORT), gap: AGE_READ_GAP_MS, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
   )
 
   const texts: Record<string, string | null> = {}
@@ -257,18 +276,49 @@ async function readUploadedText(page: Page, itemIds: string[]): Promise<Record<s
 }
 
 async function readSnapshot(page: Page, itemId: string): Promise<VintedSnapshot> {
-  const html = await page.evaluate(async (id) => {
-    const response = await fetch(`/items/${id}/edit`, { headers: { accept: 'text/html' } })
-    if (!response.ok) {
-      throw new Error(`Vinted answered ${response.status} for the listing's edit page.`)
-    }
-    return await response.text()
-  }, itemId)
+  const html = await page.evaluate(
+    async ({ id, timeout }) => {
+      const response = await fetch(`/items/${id}/edit`, { headers: { accept: 'text/html' }, signal: AbortSignal.timeout(timeout) })
+      if (!response.ok) {
+        throw new Error(`Vinted answered ${response.status} for the listing's edit page.`)
+      }
+      return await response.text()
+    },
+    { id: itemId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+  )
   const snapshot = parseVintedSnapshot(html)
   if (!snapshot) {
     throw new VintedRelistError('Could not read the listing off its edit page. Vinted may have changed the page.')
   }
   return snapshot
+}
+
+/**
+ * The bytes of a product's original photos, ad first, in upload order.
+ *
+ * The ad is a file in the repo. A slab photo is a media library key, and its file is
+ * wherever the library keeps originals: under `seed/media` for a card that came with
+ * the seed, in the local bucket or the sync's cache of uploads for one whose photos
+ * went in through the admin. The relist used to look in the seed directory alone,
+ * so a card whose photos went in through the admin could not be relisted at all.
+ */
+export async function readOriginalPhotos(root: string, originals: OriginalPhotos, readMedia: MediaSourceReader): Promise<Buffer[]> {
+  const photos: Buffer[] = []
+  if (originals.ad) {
+    const ad = await fs.promises.readFile(path.join(root, originals.ad)).catch(() => null)
+    if (!ad) {
+      throw new VintedRelistError(`The ad photo ${originals.ad} is missing, so the listing was left alone.`)
+    }
+    photos.push(ad)
+  }
+  for (const key of originals.media) {
+    const bytes = await readMedia(key)
+    if (!bytes) {
+      throw new VintedRelistError(`The photo ${key} is not in seed/media or the media library, so the listing was left alone.`)
+    }
+    photos.push(bytes)
+  }
+  return photos
 }
 
 /**
@@ -281,13 +331,32 @@ async function readSnapshot(page: Page, itemId: string): Promise<VintedSnapshot>
  * copied over. Either way the files land in the cache, which is what a retry needs
  * after the original listing is gone.
  */
-async function preparePhotos(page: Page, root: string, snapshot: VintedSnapshot, product: InventoryProduct | null): Promise<string[]> {
-  const sources = product ? originalPhotoPaths(product) : []
-  if (product && sources.length === 0) {
+async function preparePhotos(
+  page: Page,
+  root: string,
+  snapshot: VintedSnapshot,
+  product: InventoryProduct | null,
+  readMedia: MediaSourceReader
+): Promise<string[]> {
+  const originals = product ? originalPhotos(product) : null
+  if (product && !originals) {
     throw new VintedRelistError(`${product.title} has no photos on the site to relist with, so the listing was left alone.`)
   }
   if (!product && snapshot.photos.length === 0) {
     throw new VintedRelistError('The listing has no photos to copy, so it was left alone.')
+  }
+
+  // Everything is read before anything is written, so a photo that cannot be found
+  // leaves no half-made cache behind.
+  const sources: Buffer[] = originals ? await readOriginalPhotos(root, originals, readMedia) : []
+  if (!originals) {
+    for (const [index, photo] of snapshot.photos.entries()) {
+      const response = await page.context().request.get(photo.url, { timeout: 30_000 })
+      if (!response.ok()) {
+        throw new VintedRelistError(`Could not download photo ${index + 1} of the listing (${response.status()}).`)
+      }
+      sources.push(Buffer.from(await response.body()))
+    }
   }
 
   const dir = path.join(root, PHOTO_DIR, snapshot.itemId)
@@ -295,22 +364,7 @@ async function preparePhotos(page: Page, root: string, snapshot: VintedSnapshot,
   fs.mkdirSync(dir, { recursive: true })
 
   const files: string[] = []
-  const count = product ? sources.length : snapshot.photos.length
-  for (let index = 0; index < count; index += 1) {
-    let bytes: Buffer
-    if (product) {
-      const source = path.join(root, sources[index])
-      if (!fs.existsSync(source)) {
-        throw new VintedRelistError(`The photo ${sources[index]} is missing, so the listing was left alone.`)
-      }
-      bytes = fs.readFileSync(source)
-    } else {
-      const response = await page.context().request.get(snapshot.photos[index].url, { timeout: 30_000 })
-      if (!response.ok()) {
-        throw new VintedRelistError(`Could not download photo ${index + 1} of the listing (${response.status()}).`)
-      }
-      bytes = Buffer.from(await response.body())
-    }
+  for (const [index, bytes] of sources.entries()) {
     // The upload form takes JPEG for certain, and `rotate()` bakes in the EXIF orientation.
     const file = path.join(dir, `${String(index + 1).padStart(2, '0')}.jpg`)
     fs.writeFileSync(file, await sharp(bytes).rotate().jpeg({ quality: 92 }).toBuffer())
@@ -740,12 +794,15 @@ async function readFreshWardrobe(page: Page): Promise<{ login: string; wardrobe:
 export function createVintedRelistService({
   root,
   openPage,
-  store = fileRelistStateStore(root)
+  store = fileRelistStateStore(root),
+  readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root))
 }: {
   root: string
   /** Opens a tab in the shared Chrome window; called only when there is none yet. */
   openPage: () => Promise<Page>
   store?: RelistStateStore
+  /** Where a product's slab photos are read from, by media key; the seed files and the sync's cache of uploads by default. */
+  readMedia?: MediaSourceReader
 }): VintedRelistService {
   return {
     report(products) {
@@ -755,7 +812,7 @@ export function createVintedRelistService({
     relist(itemId, products, options = {}) {
       // The wardrobe is about to change; nobody gets the old one after this.
       lastWardrobe = null
-      return guarded(store, () => withTab(openPage, (page) => relistWithTab(page, root, store, itemId, products, options)))
+      return guarded(store, () => withTab(openPage, (page) => relistWithTab(page, root, store, readMedia, itemId, products, options)))
     }
   }
 }
@@ -764,10 +821,14 @@ async function relistWithTab(
   page: Page,
   root: string,
   store: RelistStateStore,
+  readMedia: MediaSourceReader,
   itemId: string,
   products: InventoryProduct[],
   { price }: VintedRelistOptions
 ): Promise<{ itemId: string; url: string; productId: number | null }> {
+  // Each step is named in the terminal, so a relist that stops shows where it stopped.
+  const step = (what: string) => console.info(`[vinted-relist] ${itemId}: ${what}`)
+  step('checking the Vinted session')
   const { userId, login } = await ensureSession(page)
   const state = store.get()
   let pending = state.pending[itemId]
@@ -776,8 +837,10 @@ async function relistWithTab(
   if (!pending) {
     const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
     const productId = product?.id ?? null
+    step('reading the listing off its edit page')
     const snapshot = await readSnapshot(page, itemId)
-    const photoFiles = await preparePhotos(page, root, snapshot, product)
+    step('preparing the photos')
+    const photoFiles = await preparePhotos(page, root, snapshot, product, readMedia)
 
     // From here the listing can be rebuilt without Vinted, so it is safe to delete —
     // and it is written down first: once the confirm button is clicked the listing
@@ -793,6 +856,7 @@ async function relistWithTab(
       // A retry after a delete that went wrong asks the wardrobe once whether the
       // listing is still up, rather than trying to delete it twice.
       if (!resumed || (await stillListed(page, userId, itemId))) {
+        step('deleting the listing')
         await deleteListing(page, userId, itemId)
       }
       pending.deletedAt = new Date().toISOString()
@@ -810,6 +874,7 @@ async function relistWithTab(
   try {
     // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
     const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
+    step('uploading the new listing')
     published = await uploadListing(page, userId, snapshot, pending.photoFiles)
   } catch (error) {
     pending.error = error instanceof Error ? error.message : 'The upload failed.'
@@ -819,6 +884,7 @@ async function relistWithTab(
   }
 
   const newItemId = published.itemId
+  step(`published as ${newItemId}`)
   delete state.pending[itemId]
   delete state.records[itemId]
   state.records[newItemId] = {
