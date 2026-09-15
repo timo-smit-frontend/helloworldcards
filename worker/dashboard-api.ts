@@ -671,7 +671,7 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
   // reserved still has the button: a sold card must not go back up as a fresh listing.
   const reserved = products.find((product) => product.reserved && vintedItemId(product.vintedUrl ?? '') === itemId)
   if (reserved) {
-    return json({ error: `${reserved.title} is reserved — a sold card is not relisted.` }, 409)
+    return json({ error: `${reserved.title} is reserved. A sold card is not relisted.` }, 409)
   }
   try {
     const relisted = await runtime.vintedRelist.relist(itemId, products, options)

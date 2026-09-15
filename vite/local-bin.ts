@@ -22,7 +22,7 @@ const require = createRequire(import.meta.url)
 export function localBin(name: string): { command: string; args: string[] } {
   const packageJson = installedPackageJson(name)
   if (!packageJson) {
-    throw new Error(`${name} is not installed — run \`npm install\`.`)
+    throw new Error(`${name} is not installed. Run \`npm install\`.`)
   }
   const { bin } = require(packageJson) as { bin?: string | Record<string, string> }
   const entry = typeof bin === 'string' ? bin : bin?.[name]

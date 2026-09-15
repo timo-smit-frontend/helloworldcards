@@ -44,13 +44,13 @@ describe('isPopularCard', () => {
 
 describe('splitStar', () => {
   it('takes the star off a starred title', () => {
-    expect(splitStar('★ Umbreon VMAX (EVS 215) EN — PSA 10')).toEqual({
+    expect(splitStar('★ Umbreon VMAX (EVS 215) EN, PSA 10')).toEqual({
       starred: true,
-      title: 'Umbreon VMAX (EVS 215) EN — PSA 10'
+      title: 'Umbreon VMAX (EVS 215) EN, PSA 10'
     })
   })
 
   it('leaves an unstarred title alone', () => {
-    expect(splitStar('Wobbuffet (CRZ 92) EN — PSA 9')).toEqual({ starred: false, title: 'Wobbuffet (CRZ 92) EN — PSA 9' })
+    expect(splitStar('Wobbuffet (CRZ 92) EN, PSA 9')).toEqual({ starred: false, title: 'Wobbuffet (CRZ 92) EN, PSA 9' })
   })
 })

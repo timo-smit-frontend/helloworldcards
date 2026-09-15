@@ -269,7 +269,7 @@ async function collectSource({
       if (page === 1) {
         return failed(reason)
       }
-      notes.push(`${label(source)} page ${page} would not load — stopped after page ${page - 1}.`)
+      notes.push(`${label(source)} page ${page} would not load, stopped after page ${page - 1}.`)
       break
     }
 
@@ -278,7 +278,7 @@ async function collectSource({
       if (page === 1) {
         return failed(`${label(source)} showed a bot check instead of results.`)
       }
-      notes.push(`${label(source)} showed a bot check on page ${page} — stopped after page ${page - 1}.`)
+      notes.push(`${label(source)} showed a bot check on page ${page}, stopped after page ${page - 1}.`)
       break
     }
 
@@ -579,7 +579,7 @@ export async function runDealFinderScan({
   if (!readSlabs) {
     // Without the label reader we are back to guessing from the seller's words alone,
     // which is exactly what used to go wrong — so say so rather than quietly degrading.
-    report.errors.push('No PSA label reader configured — the scan is going on the listing text alone.')
+    report.errors.push('No PSA label reader configured, so the scan is going on the listing text alone.')
   }
 
   const deals: DealRow[] = []
@@ -1036,7 +1036,7 @@ function bucket({
     report.problems.push({
       ...listingRef(listing),
       stage: 'match',
-      reason: 'Cardmarket price is far above the ask — probably a different card',
+      reason: 'Cardmarket price is far above the ask, probably a different card',
       detail: `Asking €${listing.ask}, Cardmarket floor €${floor}`,
       googleUrl,
       query,

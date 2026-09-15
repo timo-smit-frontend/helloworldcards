@@ -9,11 +9,13 @@ import {
   emptyRelistState,
   listingsWithoutAge,
   normalizeRelistState,
+  originalPhotoPaths,
   pageLooksRateLimited,
   parseVintedSnapshot,
   parseVintedUploadedText,
   parseWardrobeItems,
   listingTitleNamesProduct,
+  replacementListing,
   settleMissingByHand,
   settlePendingByHand,
   vintedFlightData,
@@ -195,6 +197,25 @@ describe('listing age', () => {
     expect(age(12, '2026-09-03T09:00:00Z')).toBe('12 days')
     expect(age(null, null, 'een week geleden')).toBe('een week geleden')
     expect(age(null, null)).toBe('Age unknown')
+  })
+})
+
+describe('originalPhotoPaths', () => {
+  it('names the branded ad photo first, then the slab photos from seed media', () => {
+    expect(originalPhotoPaths({ images: ['/media/148651617_front.jpg', '/media/148651617_back.jpg'] })).toEqual([
+      'public/ads/148651617.jpeg',
+      'seed/media/148651617_front.jpg',
+      'seed/media/148651617_back.jpg'
+    ])
+  })
+
+  it('leaves the ad photo out when the cert cannot be read off the front photo', () => {
+    expect(originalPhotoPaths({ images: ['/media/charizard.jpg'] })).toEqual(['seed/media/charizard.jpg'])
+  })
+
+  it('has nothing for a product without site images', () => {
+    expect(originalPhotoPaths({ images: [] })).toEqual([])
+    expect(originalPhotoPaths({ images: ['https://elsewhere.example/x.jpg'] })).toEqual([])
   })
 })
 
@@ -468,6 +489,35 @@ describe('buildRelistReport', () => {
   })
 })
 
+describe('replacementListing', () => {
+  const title = 'Lugia V Full Art 185/195 - PSA 9 - Silver Tempest'
+
+  it("finds the listing that went up in a deleted one's place, straight after the upload", () => {
+    // What the wardrobe shows a moment after publishing: the old listing gone, the copy up.
+    const wardrobe = parseWardrobeItems({
+      items: [
+        { id: 10016398906, title, price: '89.99' },
+        { id: 10014396668, title: 'Arceus V Full Art 165/172 - PSA 9 - Brilliant Stars', price: '59.99' }
+      ]
+    })
+    expect(replacementListing(wardrobe, '10014364490', title)?.id).toBe(10016398906)
+  })
+
+  it('takes the newest of several, and never an older, closed or differently titled one', () => {
+    const wardrobe = parseWardrobeItems({
+      items: [
+        { id: 10014000000, title, price: '89.99' },
+        { id: 10016400000, title, price: '89.99', is_closed: true },
+        { id: 10016398906, title: '  lugia v full art 185/195 - psa 9 -  silver tempest ', price: '89.99' },
+        { id: 10016500000, title: 'Lugia V Full Art 185/195 - PSA 10 - Silver Tempest', price: '189.99' }
+      ]
+    })
+    expect(replacementListing(wardrobe, '10014364490', title)?.id).toBe(10016398906)
+    expect(replacementListing(wardrobe, '10016398906', title)).toBeNull()
+    expect(replacementListing([], '10014364490', title)).toBeNull()
+  })
+})
+
 describe('settleMissingByHand', () => {
   const now = new Date('2026-09-15T10:00:00Z')
   const pikachu = product({ id: 14, title: 'Pikachu', grader: 'psa', grade: 9, vintedUrl: 'https://www.vinted.nl/items/10004260813' })
@@ -701,7 +751,7 @@ describe('vinted relist API', () => {
       runtime
     )
     expect(response?.status).toBe(409)
-    await expect(response?.json()).resolves.toEqual({ error: 'Charizard is reserved — a sold card is not relisted.' })
+    await expect(response?.json()).resolves.toEqual({ error: 'Charizard is reserved. A sold card is not relisted.' })
     expect(calls).toEqual([])
   })
 

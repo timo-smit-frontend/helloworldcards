@@ -165,7 +165,7 @@ async function run(): Promise<void> {
           })
       const mediaVerb = dryRun ? 'would sync' : 'synced'
       console.log(
-        `cms-sync: ${mediaVerb} ${where} media — ${result.encoded.length} images re-encoded, ${result.uploaded} objects uploaded, ${result.removed.length} removed, ${result.unchanged} unchanged`
+        `cms-sync: ${mediaVerb} ${where} media: ${result.encoded.length} images re-encoded, ${result.uploaded} objects uploaded, ${result.removed.length} removed, ${result.unchanged} unchanged`
       )
       if (result.skipped.length > 0) {
         console.log(`cms-sync: no source found for ${result.skipped.join(', ')}`)

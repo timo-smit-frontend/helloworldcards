@@ -1,5 +1,6 @@
 import { RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { adminTo } from '~/admin/runtime'
 import Image from '~/components/elements/Image'
@@ -87,17 +88,51 @@ function ProductLink({ product }: { product: VintedRelistRow['product'] }) {
   )
 }
 
+/**
+ * How long a first press keeps the button asking for the second: enough to read
+ * "Confirm" and press again, not so long that a button left armed still is when
+ * the eye comes back to the list.
+ */
+const CONFIRM_WINDOW_MS = 4_000
+
+/**
+ * A relist deletes a live post, so one stray click must not start it — but the
+ * dialog that used to ask was slower to get through than the relist deserves. So
+ * the button is pressed twice: the first press turns it into a red "Confirm", the
+ * second, within a few seconds, goes ahead. A double-click does both. Leaving the
+ * button, or waiting, settles it back.
+ */
 function RelistButton({ label, busy, disabled, onClick }: { label: string; busy: boolean; disabled: boolean; onClick: () => void }) {
+  const [armed, setArmed] = useState(false)
+  const inert = disabled || busy
+  const asking = armed && !inert
+
+  useEffect(() => {
+    if (!armed) {
+      return
+    }
+    const settle = setTimeout(() => setArmed(false), CONFIRM_WINDOW_MS)
+    return () => clearTimeout(settle)
+  }, [armed])
+
   return (
     <button
       type="button"
-      className="button-quiet w-fit! gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+      className={`${asking ? 'button-danger' : 'button-quiet'} w-fit! gap-2 disabled:cursor-not-allowed disabled:opacity-60`}
       aria-busy={busy}
-      disabled={disabled || busy}
-      onClick={onClick}
+      disabled={inert}
+      onClick={() => {
+        if (!asking) {
+          setArmed(true)
+          return
+        }
+        setArmed(false)
+        onClick()
+      }}
+      onBlur={() => setArmed(false)}
     >
       <MorphIcon icon={RotateCw} size={16} strokeWidth={2.25} className={busy ? 'animate-spin' : undefined} />
-      {busy ? 'Relisting…' : label}
+      {busy ? 'Relisting…' : asking ? 'Confirm' : label}
     </button>
   )
 }
@@ -176,7 +211,7 @@ export default function VintedRelist({
   relisting: string | null
   error: string | null
   onRefresh: () => void
-  onRelist: (itemId: string, title: string) => void
+  onRelist: (itemId: string) => void
 }) {
   const rows = report?.rows ?? []
   const pending = report?.pending ?? []
@@ -202,8 +237,8 @@ export default function VintedRelist({
       </div>
 
       <p className="content-m text-site-mantle">
-        Relisting deletes the Vinted post and uploads an exact copy — same photos, title, description and price — so it shows up as new
-        again. Views and likes start from zero.
+        Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up
+        as new again. Views and likes start from zero. Press Relist twice: the first press asks, the second goes ahead.
       </p>
 
       {error ? <p className="content-m text-site-loss">{error}</p> : null}
@@ -218,7 +253,7 @@ export default function VintedRelist({
                 item={item}
                 busy={relisting === item.itemId}
                 blocked={blocked}
-                onRetry={() => onRelist(item.itemId, item.title)}
+                onRetry={() => onRelist(item.itemId)}
               />
             ))}
           </ol>
@@ -239,7 +274,7 @@ export default function VintedRelist({
               row={row}
               busy={relisting === row.itemId}
               blocked={blocked}
-              onRelist={() => onRelist(row.itemId, row.title)}
+              onRelist={() => onRelist(row.itemId)}
             />
           ))}
         </ol>

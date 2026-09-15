@@ -327,7 +327,7 @@ export async function waitForBotChallengeClear(page: Page, label: string, timeou
     return true
   }
 
-  console.info(`[cardmarket-browser] Bot check on ${label} — complete it in the Chrome window`)
+  console.info(`[cardmarket-browser] Bot check on ${label}, complete it in the Chrome window`)
   const cleared = await page
     .waitForFunction(
       () => {
@@ -684,7 +684,7 @@ async function fetchWithBotChecks(
       }
 
       if (attempt < CARDMARKET_ATTEMPTS) {
-        console.info(`[cardmarket-browser] Reloading ${url} — ${loaded ? 'still blocked' : 'it did not load'} (attempt ${attempt + 1})`)
+        console.info(`[cardmarket-browser] Reloading ${url}, ${loaded ? 'still blocked' : 'it did not load'} (attempt ${attempt + 1})`)
       }
     }
 

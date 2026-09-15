@@ -10,13 +10,16 @@ import {
   emptyRelistState,
   listingsWithoutAge,
   normalizeRelistState,
+  originalPhotoPaths,
   pageLooksRateLimited,
   parseVintedSnapshot,
   parseVintedUploadedText,
   parseWardrobeItems,
   RATE_LIMIT_COOLDOWN_MS,
+  replacementListing,
   settleMissingByHand,
   settlePendingByHand,
+  vintedItemId,
   vintedItemUrl,
   vintedPriceInput,
   VintedRelistError,
@@ -138,7 +141,7 @@ async function gotoVinted(page: Page, url: string, { healSession = true } = {}):
   if (!healSession) {
     throw new VintedRelistError('Vinted keeps the Chrome window on its session-refresh page. Close the window and try again.', 503)
   }
-  console.info('[vinted-relist] Stuck on Vinted session refresh — clearing Vinted cookies and trying again')
+  console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
   await page.context().clearCookies({ domain: /vinted\.nl$/ })
   await gotoVinted(page, url, { healSession: false })
 }
@@ -159,7 +162,7 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
   const cleared = await waitForBotChallengeClear(page, 'Vinted')
   if (!cleared) {
     keepScanBrowserOpen(LOGIN_GRACE_MS)
-    throw new VintedRelistError('Vinted is showing a bot check — clear it in the Chrome window, then try again.', 503)
+    throw new VintedRelistError('Vinted is showing a bot check. Clear it in the Chrome window, then try again.', 503)
   }
 
   const current = await page
@@ -263,32 +266,52 @@ async function readSnapshot(page: Page, itemId: string): Promise<VintedSnapshot>
   }, itemId)
   const snapshot = parseVintedSnapshot(html)
   if (!snapshot) {
-    throw new VintedRelistError('Could not read the listing off its edit page — Vinted may have changed the page.')
-  }
-  if (snapshot.photos.length === 0) {
-    throw new VintedRelistError('The listing has no photos to copy, so it was left alone.')
+    throw new VintedRelistError('Could not read the listing off its edit page. Vinted may have changed the page.')
   }
   return snapshot
 }
 
 /**
- * Save the listing's photos as JPEGs on disk, in listing order.
+ * The photos for the new listing, as JPEGs on disk in upload order.
  *
- * Vinted serves them as WebP; the upload form takes JPEG for certain, and a file on
- * disk is what a retry needs after the original listing is gone.
+ * A listing that belongs to a product is rebuilt from the product's own originals
+ * — the branded ad photo and the slab's front and back — rather than from the old
+ * listing's photos: Vinted re-encodes every upload, and after a few relists a copy
+ * of the copy looked bad. Only a listing the shop does not know gets its old photos
+ * copied over. Either way the files land in the cache, which is what a retry needs
+ * after the original listing is gone.
  */
-async function downloadPhotos(page: Page, root: string, snapshot: VintedSnapshot): Promise<string[]> {
+async function preparePhotos(page: Page, root: string, snapshot: VintedSnapshot, product: InventoryProduct | null): Promise<string[]> {
+  const sources = product ? originalPhotoPaths(product) : []
+  if (product && sources.length === 0) {
+    throw new VintedRelistError(`${product.title} has no photos on the site to relist with, so the listing was left alone.`)
+  }
+  if (!product && snapshot.photos.length === 0) {
+    throw new VintedRelistError('The listing has no photos to copy, so it was left alone.')
+  }
+
   const dir = path.join(root, PHOTO_DIR, snapshot.itemId)
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(dir, { recursive: true })
 
   const files: string[] = []
-  for (const [index, photo] of snapshot.photos.entries()) {
-    const response = await page.context().request.get(photo.url, { timeout: 30_000 })
-    if (!response.ok()) {
-      throw new VintedRelistError(`Could not download photo ${index + 1} of the listing (${response.status()}).`)
+  const count = product ? sources.length : snapshot.photos.length
+  for (let index = 0; index < count; index += 1) {
+    let bytes: Buffer
+    if (product) {
+      const source = path.join(root, sources[index])
+      if (!fs.existsSync(source)) {
+        throw new VintedRelistError(`The photo ${sources[index]} is missing, so the listing was left alone.`)
+      }
+      bytes = fs.readFileSync(source)
+    } else {
+      const response = await page.context().request.get(snapshot.photos[index].url, { timeout: 30_000 })
+      if (!response.ok()) {
+        throw new VintedRelistError(`Could not download photo ${index + 1} of the listing (${response.status()}).`)
+      }
+      bytes = Buffer.from(await response.body())
     }
-    const bytes = Buffer.from(await response.body())
+    // The upload form takes JPEG for certain, and `rotate()` bakes in the EXIF orientation.
     const file = path.join(dir, `${String(index + 1).padStart(2, '0')}.jpg`)
     fs.writeFileSync(file, await sharp(bytes).rotate().jpeg({ quality: 92 }).toBuffer())
     files.push(file)
@@ -319,7 +342,7 @@ async function deleteListing(page: Page, userId: number, itemId: string): Promis
   try {
     await remove.waitFor({ state: 'visible', timeout: 15_000 })
   } catch {
-    throw new VintedRelistError('No "Verwijderen" button on the listing page — is this listing yours and still live?')
+    throw new VintedRelistError('No "Verwijderen" button on the listing page. Is this listing yours and still live?')
   }
 
   // The page keeps a hidden cookie-consent dialog around too, so the confirmation
@@ -465,6 +488,76 @@ async function formErrors(page: Page): Promise<string[]> {
   )
 }
 
+/** The upload form's own path. Vinted leaves it the moment the listing is up. */
+const UPLOAD_FORM_PATH = '/items/new'
+
+function onUploadForm(url: URL): boolean {
+  return url.pathname.replace(/\/+$/, '') === UPLOAD_FORM_PATH
+}
+
+type PublishedListing = {
+  itemId: string
+  /** The wardrobe read that found the listing, when one was needed to. */
+  wardrobe: VintedWardrobeItem[] | null
+}
+
+/**
+ * The listing Vinted made of the form, once it has made it.
+ *
+ * Vinted leaves the form the moment the listing is up — these days for the seller's
+ * wardrobe, with a promo in front of it; it used to be the listing's own page. So
+ * the form going away is the signal, and it comes within seconds of the click; it
+ * used to be waited out as a failed publish because only the listing page was looked
+ * for. Where Vinted lands decides how the new id is learnt: the listing page says
+ * it, from anywhere else the wardrobe is asked which listing took the old one's
+ * place — once, and once more after a moment, not polled.
+ *
+ * A form still up after the full wait has gone through before now, behind a dialog,
+ * so the wardrobe gets the same question before the form's errors call it failed: a
+ * retry of a listing that did go up would put it up twice.
+ */
+async function publishedListing(page: Page, userId: number, snapshot: VintedSnapshot): Promise<PublishedListing> {
+  const left = await page
+    .waitForURL((url) => !onUploadForm(url), { timeout: PUBLISH_TIMEOUT_MS, waitUntil: 'commit' })
+    .then(() => true)
+    .catch(() => false)
+
+  const inUrl = vintedItemId(page.url())
+  if (inUrl) {
+    return { itemId: inUrl, wardrobe: null }
+  }
+  if (left) {
+    // The wardrobe is asked from inside the page, which needs a document to ask from.
+    await page.waitForLoadState('domcontentloaded').catch(() => undefined)
+  }
+
+  for (const wait of [0, 3_000]) {
+    await sleep(wait)
+    const wardrobe = await readWardrobe(page, userId).catch((error: unknown) => {
+      if (isRateLimited(error)) {
+        throw error
+      }
+      return null
+    })
+    const listing = wardrobe ? replacementListing(wardrobe, snapshot.itemId, snapshot.title) : null
+    if (listing) {
+      return { itemId: String(listing.id), wardrobe }
+    }
+  }
+
+  if (left) {
+    throw new VintedRelistError(
+      'Vinted took the listing, but its wardrobe does not show it yet. Refresh here before retrying, a retry would put it up twice.'
+    )
+  }
+  const errors = await formErrors(page)
+  throw new VintedRelistError(
+    errors.length > 0
+      ? `Vinted did not accept the listing: ${errors.join(' · ')}`
+      : 'Vinted did not publish the listing. It is still open in the Chrome window.'
+  )
+}
+
 /**
  * Fill the upload form from the snapshot and publish it.
  *
@@ -472,22 +565,7 @@ async function formErrors(page: Page): Promise<string[]> {
  * ids it renders, and the pickers are keyed on the same ids the edit page reported,
  * so what is selected is the very thing the old listing had.
  */
-/**
- * The listing that appeared in the wardrobe since `before`, if one did.
- *
- * Vinted sometimes puts a dialog up after publishing instead of moving to the new
- * listing, which looks like a failed publish from outside. Before calling it that,
- * the wardrobe is asked whether the listing is there — a retry on a listing that
- * did go up would put it up twice.
- */
-async function freshListing(page: Page, userId: number, before: Set<string>, title: string): Promise<string | null> {
-  const items = await readWardrobe(page, userId).catch(() => [])
-  return items.find((item) => !before.has(String(item.id)) && item.title === title && !item.is_closed)?.id.toString() ?? null
-}
-
-async function uploadListing(page: Page, userId: number, snapshot: VintedSnapshot, photoFiles: string[]): Promise<string> {
-  const before = new Set((await readWardrobe(page, userId)).map((item) => String(item.id)))
-
+async function uploadListing(page: Page, userId: number, snapshot: VintedSnapshot, photoFiles: string[]): Promise<PublishedListing> {
   await gotoVinted(page, `${VINTED}/items/new`)
   await waitForBotChallengeClear(page, 'Vinted upload form')
   await page.locator('[data-testid="add-photos-input"]').waitFor({ state: 'attached', timeout: 20_000 })
@@ -528,27 +606,7 @@ async function uploadListing(page: Page, userId: number, snapshot: VintedSnapsho
   }
 
   await page.locator('[data-testid="upload-form-save-button"]').click()
-
-  try {
-    await page.waitForURL(/\/items\/\d+/, { timeout: PUBLISH_TIMEOUT_MS })
-  } catch {
-    const published = await freshListing(page, userId, before, snapshot.title)
-    if (published) {
-      return published
-    }
-    const errors = await formErrors(page)
-    throw new VintedRelistError(
-      errors.length > 0
-        ? `Vinted did not accept the listing: ${errors.join(' · ')}`
-        : 'Vinted did not publish the listing. It is still open in the Chrome window.'
-    )
-  }
-
-  const itemId = page.url().match(/\/items\/(\d+)/)?.[1]
-  if (!itemId) {
-    throw new VintedRelistError('The listing was published but its URL could not be read.')
-  }
-  return itemId
+  return await publishedListing(page, userId, snapshot)
 }
 
 /**
@@ -621,7 +679,7 @@ async function guarded<T>(store: RelistStateStore, work: () => Promise<T>): Prom
     store.put(state)
     lastWardrobe = null
     console.warn(
-      `[vinted-relist] ${error instanceof Error ? error.message : 'Rate limited'} — leaving Vinted alone until ${state.cooldownUntil}`
+      `[vinted-relist] ${error instanceof Error ? error.message : 'Rate limited'}, leaving Vinted alone until ${state.cooldownUntil}`
     )
     throw new VintedRelistError(cooldownMessage(RATE_LIMIT_COOLDOWN_MS), 429)
   }
@@ -710,15 +768,16 @@ async function relistWithTab(
   products: InventoryProduct[],
   { price }: VintedRelistOptions
 ): Promise<{ itemId: string; url: string; productId: number | null }> {
-  const { userId } = await ensureSession(page)
+  const { userId, login } = await ensureSession(page)
   const state = store.get()
   let pending = state.pending[itemId]
   const resumed = Boolean(pending)
 
   if (!pending) {
-    const productId = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`))?.id ?? null
+    const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
+    const productId = product?.id ?? null
     const snapshot = await readSnapshot(page, itemId)
-    const photoFiles = await downloadPhotos(page, root, snapshot)
+    const photoFiles = await preparePhotos(page, root, snapshot, product)
 
     // From here the listing can be rebuilt without Vinted, so it is safe to delete —
     // and it is written down first: once the confirm button is clicked the listing
@@ -747,11 +806,11 @@ async function relistWithTab(
     store.put(state)
   }
 
-  let newItemId: string
+  let published: PublishedListing
   try {
     // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
     const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
-    newItemId = await uploadListing(page, userId, snapshot, pending.photoFiles)
+    published = await uploadListing(page, userId, snapshot, pending.photoFiles)
   } catch (error) {
     pending.error = error instanceof Error ? error.message : 'The upload failed.'
     state.pending[itemId] = pending
@@ -759,6 +818,7 @@ async function relistWithTab(
     throw error
   }
 
+  const newItemId = published.itemId
   delete state.pending[itemId]
   delete state.records[itemId]
   state.records[newItemId] = {
@@ -769,6 +829,12 @@ async function relistWithTab(
   }
   store.put(state)
   fs.rmSync(path.join(root, PHOTO_DIR, itemId), { recursive: true, force: true })
+
+  // The read that found the new listing is the wardrobe as it is now, so the report
+  // the screen asks for next is answered from it and costs Vinted nothing.
+  if (published.wardrobe) {
+    lastWardrobe = { at: Date.now(), login, wardrobe: published.wardrobe }
+  }
 
   return { itemId: newItemId, url: vintedItemUrl(newItemId), productId: pending.productId }
 }

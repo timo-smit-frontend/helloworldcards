@@ -71,8 +71,8 @@ const SHOWN_COMPETITORS = 5
 
 /** The scan's stored error strings, said the way a person would. */
 function friendlyError(error: string): string {
-  if (/blocked|challenge/i.test(error)) return 'Cardmarket blocked this scan — try again in a bit.'
-  if (/no cardmarket listings/i.test(error)) return 'Cardmarket showed no offers — the card link may be wrong.'
+  if (/blocked|challenge/i.test(error)) return 'Cardmarket blocked this scan. Try again in a bit.'
+  if (/no cardmarket listings/i.test(error)) return 'Cardmarket showed no offers. The card link may be wrong.'
   return `The scan failed: ${error}`
 }
 

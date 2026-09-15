@@ -163,7 +163,7 @@ export function decidePart(view: PartView): PartAction {
 export function syncFailureMessage(error: { message: string }, stdout: string, stderr: string): string {
   const behind = `${stdout}\n${stderr}`.match(/no such (table|column): (\w+)/)
   if (behind) {
-    return `production database has no ${behind[1]} ${behind[2]} yet — run \`npm run migrate:remote\` to apply the committed migrations, or deploy`
+    return `production database has no ${behind[1]} ${behind[2]} yet. Run \`npm run migrate:remote\` to apply the committed migrations, or deploy`
   }
   return `${error.message}\n${stderr}`.trim()
 }
@@ -427,7 +427,7 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
         if (!heldLogged.has(key)) {
           heldLogged.add(key)
           console.warn(
-            `${LOG} ${CMS_SEED_FILES[part]} was changed by git, not by an admin; leaving both databases as they are — run \`npm run cms:push:remote\` to apply the file to production, and the local database will follow`
+            `${LOG} ${CMS_SEED_FILES[part]} was changed by git, not by an admin; leaving both databases as they are. Run \`npm run cms:push:remote\` to apply the file to production, and the local database will follow`
           )
         }
       }

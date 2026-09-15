@@ -270,7 +270,7 @@ describe('dashboard API', () => {
     const fetched: string[] = []
     const runtime = seededRuntime({
       cardmarketStore: store,
-      cmsSync: fakeSync('vite-node is not installed — run `npm install`.'),
+      cmsSync: fakeSync('vite-node is not installed. Run `npm install`.'),
       fetchCardmarketPage: async (url: string) => {
         fetched.push(url)
         return ''
@@ -286,7 +286,7 @@ describe('dashboard API', () => {
     expect(scan?.status).toBe(503)
     await expect(scan?.json()).resolves.toEqual({
       error:
-        'The local database could not be brought in step with production, so nothing was done: vite-node is not installed — run `npm install`.'
+        'The local database could not be brought in step with production, so nothing was done: vite-node is not installed. Run `npm install`.'
     })
     expect(fetched).toEqual([])
     expect(await store.getReport()).toBeNull()

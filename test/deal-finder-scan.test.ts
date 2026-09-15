@@ -357,7 +357,7 @@ describe('runDealFinderScan', () => {
       cost: { fee: 6, shipping: 4, total: 130 },
       marketFloor: 170,
       edge: 40,
-      displayTitle: '★ Charmander (MEW 168) EN — PSA 9'
+      displayTitle: '★ Charmander (MEW 168) EN, PSA 9'
     })
     expect(report.deals[0]?.cardmarketUrl).toContain('cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168')
   })
@@ -406,7 +406,7 @@ describe('runDealFinderScan', () => {
     expect(report.problems).toEqual([
       expect.objectContaining({
         stage: 'match',
-        reason: 'Cardmarket price is far above the ask — probably a different card',
+        reason: 'Cardmarket price is far above the ask, probably a different card',
         detail: 'Asking €140, Cardmarket floor €1800'
       })
     ])
@@ -551,7 +551,7 @@ describe('runDealFinderScan', () => {
 
     expect(report.deals).toHaveLength(1)
     expect(report.sources[0]?.error).toBeNull()
-    expect(report.sources[0]?.notes).toContain('Marktplaats showed a bot check on page 2 — stopped after page 1.')
+    expect(report.sources[0]?.notes).toContain('Marktplaats showed a bot check on page 2, stopped after page 1.')
   })
 
   it('walks only the source it was asked for', async () => {

@@ -56,7 +56,7 @@ export function identifyCard({
     return {
       ok: false,
       scope: 'out-of-scope',
-      reason: `PSA label says ${foreign[0]!.languageLabel ?? 'another language'} — we only buy English and Japanese`,
+      reason: `PSA label says ${foreign[0]!.languageLabel ?? 'another language'}, we only buy English and Japanese`,
       detail: slabs.map(describePsaLabel).join(' | ')
     }
   }
@@ -112,7 +112,7 @@ export function identifyCard({
     return {
       ok: false,
       scope: 'out-of-scope',
-      reason: `PSA label says ${label.languageLabel ?? 'another language'} — we only buy English and Japanese`,
+      reason: `PSA label says ${label.languageLabel ?? 'another language'}, we only buy English and Japanese`,
       detail: describePsaLabel(label)
     }
   }
@@ -198,5 +198,5 @@ export function displayTitle(identity: CardIdentity): string {
   const set = [identity.setName, identity.cardNumber].filter(Boolean).join(' ')
   const language = identity.language === 'japanese' ? 'JP' : 'EN'
   const star = isPopularCard(identity.name) ? `${POPULAR_STAR} ` : ''
-  return `${star}${identity.name}${set ? ` (${set})` : ''} ${language} — PSA ${identity.grade}`
+  return `${star}${identity.name}${set ? ` (${set})` : ''} ${language}, PSA ${identity.grade}`
 }

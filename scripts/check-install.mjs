@@ -48,7 +48,7 @@ function main() {
   if (behind.length === 0) {
     return
   }
-  console.log(`node_modules is behind package-lock.json — ${behind.join(', ')} — running npm install first`)
+  console.log(`node_modules is behind package-lock.json (${behind.join(', ')}), running npm install first`)
   // Under an npm script the running npm is known; outside one, `npm` on the PATH — through
   // a shell, so that `npm.cmd` on Windows is found.
   const npm = process.env.npm_execpath

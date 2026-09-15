@@ -63,7 +63,7 @@ export const seedFaqs: Array<Omit<CmsFaq, 'id'> & { id: number }> = [
     id: 6,
     question: 'How do I buy a card?',
     answer:
-      'Browse the shop on this site. If a product has a View on Marktplaats button, that is the listing — you buy it there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying those cards.'
+      'Browse the shop on this site. If a product has a View on Marktplaats button, that is the listing and you buy it there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying those cards.'
   },
   {
     id: 7,

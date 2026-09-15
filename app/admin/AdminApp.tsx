@@ -1229,10 +1229,7 @@ function VintedRelistScreen() {
         relisting={relisting}
         error={error}
         onRefresh={refresh}
-        onRelist={(itemId, title) => {
-          if (!window.confirm(`Relist "${title}"?\n\nThe current Vinted post is deleted first and an exact copy is uploaded.`)) {
-            return
-          }
+        onRelist={(itemId) => {
           setRelisting(itemId)
           setError(null)
           void adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })

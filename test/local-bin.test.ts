@@ -14,6 +14,6 @@ describe('running a project tool from a child process', () => {
   })
 
   it('says what to run when the tool is not installed', () => {
-    expect(() => localBin('surely-not-installed-tool')).toThrow('surely-not-installed-tool is not installed — run `npm install`.')
+    expect(() => localBin('surely-not-installed-tool')).toThrow('surely-not-installed-tool is not installed. Run `npm install`.')
   })
 })

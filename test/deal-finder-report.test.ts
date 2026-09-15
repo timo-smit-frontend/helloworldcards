@@ -12,7 +12,7 @@ function dealRow(cost: DealRow['cost'] | undefined, source: DealSource = 'marktp
     cost: cost as DealRow['cost'],
     listingUrl: 'https://www.marktplaats.nl/v/m1',
     imageUrl: null,
-    displayTitle: 'Charizard (4) EN — PSA 9',
+    displayTitle: 'Charizard (4) EN, PSA 9',
     card: {
       name: 'Charizard',
       cardNumber: '4',

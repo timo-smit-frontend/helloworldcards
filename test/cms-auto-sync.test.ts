@@ -197,7 +197,7 @@ describe('checking the tools the sync runs before the dev server starts', () => 
 
   it('refuses to start over a tool that is not installed, and says how to fix it', () => {
     expect(() => assertSyncToolsInstalled(['surely-not-installed-tool'])).toThrow(
-      '[cms-sync] surely-not-installed-tool is not installed — run `npm install`. The local database cannot be kept in step with production without it (HWC_CMS_AUTOSYNC=0 runs the dev server without the sync).'
+      '[cms-sync] surely-not-installed-tool is not installed. Run `npm install`. The local database cannot be kept in step with production without it (HWC_CMS_AUTOSYNC=0 runs the dev server without the sync).'
     )
   })
 })
@@ -210,7 +210,7 @@ describe('naming a sync failure', () => {
   it('points at the migration when production is behind the schema', () => {
     const stdout = '{ "error": { "notes": [ { "text": "no such table: media_folders: SQLITE_ERROR [code: 7500]" } ] } }'
     expect(syncFailureMessage(crash, stdout, 'Error: Command failed ...\n    at genericNodeError')).toBe(
-      'production database has no table media_folders yet — run `npm run migrate:remote` to apply the committed migrations, or deploy'
+      'production database has no table media_folders yet. Run `npm run migrate:remote` to apply the committed migrations, or deploy'
     )
     expect(syncFailureMessage(crash, '', '✘ [ERROR] no such column: folder_id: SQLITE_ERROR')).toContain('no column folder_id yet')
   })

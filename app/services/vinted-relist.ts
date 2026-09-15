@@ -497,21 +497,33 @@ function sameTitle(a: string, b: string): boolean {
 }
 
 /**
+ * The listing that took a deleted one's place: the newest open listing in the
+ * wardrobe with the deleted one's title and a higher id. Vinted's ids only go up, so
+ * a higher id is a listing that went up after the deleted one — whether this tool
+ * uploaded it a moment ago or the seller did it by hand.
+ */
+export function replacementListing(wardrobe: VintedWardrobeItem[], previousItemId: string, title: string): VintedWardrobeItem | null {
+  return (
+    wardrobe
+      .filter((item) => !item.is_closed && item.id > Number(previousItemId) && sameTitle(item.title, title))
+      .sort((a, b) => b.id - a.id)[0] ?? null
+  )
+}
+
+/**
  * Settle the pending relists the seller finished by hand.
  *
  * A relist that failed after its delete leaves the upload form open in the Chrome
  * window, and the seller may well finish it there. The tool then sees a listing with
- * the pending one's title in the wardrobe, newer than the one it deleted — Vinted's
- * ids only go up — and takes that as the relist done: the pending entry becomes a
- * record of the new listing, as if the upload had gone through here. What is settled
- * is handed back so the products can be pointed at their new listings.
+ * the pending one's title in the wardrobe, newer than the one it deleted, and takes
+ * that as the relist done: the pending entry becomes a record of the new listing, as
+ * if the upload had gone through here. What is settled is handed back so the
+ * products can be pointed at their new listings.
  */
 export function settlePendingByHand(state: VintedRelistState, wardrobe: VintedWardrobeItem[], now = new Date()): VintedHandRelist[] {
   const settled: VintedHandRelist[] = []
   for (const [previousItemId, entry] of Object.entries(state.pending)) {
-    const replacement = wardrobe
-      .filter((item) => !item.is_closed && item.id > Number(previousItemId) && sameTitle(item.title, entry.snapshot.title))
-      .sort((a, b) => b.id - a.id)[0]
+    const replacement = replacementListing(wardrobe, previousItemId, entry.snapshot.title)
     if (!replacement) {
       continue
     }
@@ -805,6 +817,25 @@ export function catalogPathTo(catalogs: VintedCatalogNode[], catalogId: number):
 /** `89.99` → `89,99`, the way the price field wants it typed. */
 export function vintedPriceInput(price: number): string {
   return price.toFixed(2).replace('.', ',')
+}
+
+/**
+ * The original photos of a product's listing, as paths under the project root:
+ * the branded ad photo first, then the slab's front and back.
+ *
+ * The listing's own photos are not copied. Vinted re-encodes every upload, so a
+ * copy of a copy of a copy is what the listing would end up with after a few
+ * relists. The ad lives in `public/ads/<cert>.jpeg` and the slab photos are the
+ * product's `images` (`/media/<cert>_front.jpg`), whose files are in `seed/media`.
+ * Empty when the product has no images to name them from.
+ */
+export function originalPhotoPaths(product: Pick<InventoryProduct, 'images'>): string[] {
+  const slab = product.images.map((image) => /^\/media\/([^/]+)$/.exec(image)?.[1] ?? null).filter((name): name is string => name !== null)
+  if (slab.length === 0) {
+    return []
+  }
+  const cert = /^(\d+)_front\./.exec(slab[0])?.[1]
+  return [...(cert ? [`public/ads/${cert}.jpeg`] : []), ...slab.map((name) => `seed/media/${name}`)]
 }
 
 /** What the browser side of a relist has to offer the dashboard API. */

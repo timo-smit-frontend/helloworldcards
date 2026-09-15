@@ -287,6 +287,6 @@ describe('displayTitle', () => {
     const result = identifyCard({ listing: listing(), slabs: [], cert: null, readerNote: null })
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(displayTitle(result.identity)).toBe('★ Charmander (Scarlet & Violet 151 168) EN — PSA 9')
+    expect(displayTitle(result.identity)).toBe('★ Charmander (Scarlet & Violet 151 168) EN, PSA 9')
   })
 })
