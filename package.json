@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/check-install.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "postbuild": "if [ \"${WORKERS_CI:-}\" = 1 ] && [ \"${WORKERS_CI_BRANCH:-}\" = main ]; then npm run migrate:remote; fi",

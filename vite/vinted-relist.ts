@@ -15,6 +15,7 @@ import {
   parseVintedUploadedText,
   parseWardrobeItems,
   RATE_LIMIT_COOLDOWN_MS,
+  settleMissingByHand,
   settlePendingByHand,
   vintedItemUrl,
   vintedPriceInput,
@@ -652,6 +653,8 @@ async function readReport(page: Page, root: string, store: RelistStateStore, pro
   for (const done of byHand) {
     fs.rmSync(path.join(root, PHOTO_DIR, done.previousItemId), { recursive: true, force: true })
   }
+  // And the ones done on Vinted itself, which never went through here at all.
+  byHand.push(...settleMissingByHand(state, wardrobe, products))
 
   const unknownAge = listingsWithoutAge(wardrobe, state)
   if (unknownAge.length > 0) {

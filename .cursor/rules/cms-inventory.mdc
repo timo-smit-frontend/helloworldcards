@@ -11,7 +11,7 @@ Live website + admin CMS read **Cloudflare D1**. `app/cms/seed-products.ts` is t
 
 Check with `lsof -nP -iTCP:5173 -sTCP:LISTEN`.
 
-- **Running:** make the change in the **local admin** (`http://localhost:5173/admin`, or log in with `POST /dashboard/session` using `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` from `.dev.vars` and `PUT /api/admin/products/{id}`), or edit `app/cms/seed-products.ts` directly. Either way the dev server pushes it to production within seconds and leaves the seed file as the diff to commit. Do not run a sync command as well.
+- **Running:** make the change in the **local admin** (`http://localhost:5173/admin`, or log in with `POST /dashboard/session` using `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` from `.dev.vars` and `PUT /api/admin/products/{id}`), or edit `app/cms/seed-products.ts` directly. Either way the dev server pushes it to production within seconds and leaves the seed file as the diff to commit. Do not run a sync command as well. `GET /api/admin/cms-sync` says whether the local database is in step with production (`settledAt`, `error`); the admin shows the same above every screen when the sync fails. If the local database looks stale, that is a bug in the sync to fix — never a reason to hand-run a pull while the server is up.
 - **Not running:** edit `app/cms/seed-products.ts`, then `npx vite-node scripts/cms-sync.mts --remote --products` (needs `npx wrangler login`). The local database catches up the next time the dev server starts. If the production admin may have been used since the last commit, pull first (`npx vite-node scripts/cms-sync.mts --remote --pull --products`) so the push does not overwrite that edit.
 
 ## Adding a new product

@@ -1,3 +1,4 @@
+import type { CmsSyncStatus } from '../app/cms/types'
 import type { CardmarketReport, FetchCardmarketPage } from '../app/services/cardmarket/scan'
 import { runCardmarketScan, withProductFrontImages, withWatchedProductsOnly } from '../app/services/cardmarket/scan'
 import { mergeCaches } from '../app/services/deal-finder/cache'
@@ -57,6 +58,12 @@ export type CardmarketStore = {
   putReport(report: CardmarketReport): Promise<void>
 }
 
+export type CmsSync = {
+  /** Bring the local database in line with production now; fails the way the sync did. */
+  settle(): Promise<void>
+  status(): CmsSyncStatus
+}
+
 export type DealFinderStore = {
   getReport(): Promise<DealFinderReport | null>
   putReport(report: DealFinderReport): Promise<void>
@@ -83,6 +90,12 @@ export type DashboardRuntime = {
   /** Deletes and re-uploads Vinted listings through the local Chrome window. */
   vintedRelist?: VintedRelistService
   vintedRelistError?: string
+  /**
+   * The dev server's sync with production. Anything that acts on the inventory settles
+   * through it first, so a local database that fell behind never drives a scan or a
+   * relist; the admin shows its status.
+   */
+  cmsSync?: CmsSync
   db?: CmsDb
   media?: import('./cms/media').MediaBucket
   mediaCache?: import('./cms/media').MediaCache
@@ -113,6 +126,7 @@ const API_PATHS = new Set([
   '/dashboard/ledger',
   '/dashboard/cardmarket/report',
   '/dashboard/cardmarket/scan',
+  '/dashboard/cms-sync',
   '/dashboard/deal-finder/report',
   '/dashboard/deal-finder/scan',
   '/api/admin/session',
@@ -120,6 +134,7 @@ const API_PATHS = new Set([
   '/api/admin/ledger',
   '/api/admin/cardmarket/report',
   '/api/admin/cardmarket/scan',
+  '/api/admin/cms-sync',
   '/api/admin/deal-finder/report',
   '/api/admin/deal-finder/scan',
   '/dashboard/vinted-relist',
@@ -383,6 +398,48 @@ function resolveDealsStore(env: DashboardEnv, runtime?: DashboardRuntime): DealF
   return fallbackDealsStore
 }
 
+/**
+ * Settle the local database with production before acting on the inventory it holds.
+ * Nothing to do on the live worker, which is production; in the dev server a failure
+ * is a reason not to act rather than to act on stale rows.
+ */
+async function settleInventory(runtime?: DashboardRuntime): Promise<string | null> {
+  if (!runtime?.cmsSync) {
+    return null
+  }
+  try {
+    await runtime.cmsSync.settle()
+    return null
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    return `The local database could not be brought in step with production, so nothing was done: ${reason}`
+  }
+}
+
+async function cmsSyncStatus(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+  return json({ sync: runtime?.cmsSync?.status() ?? null })
+}
+
+/** Settle now, and answer with the outcome either way so the admin can show it. */
+async function cmsSyncSettle(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
+  const unauthorized = await requireAdminSession(request, env)
+  if (unauthorized) {
+    return unauthorized
+  }
+  if (!runtime?.cmsSync) {
+    return json({ error: 'The sync with production only runs in the dev server.' }, 404)
+  }
+  const stale = await settleInventory(runtime)
+  if (stale) {
+    return json({ error: stale, sync: runtime.cmsSync.status() }, 503)
+  }
+  return json({ sync: runtime.cmsSync.status() })
+}
+
 async function cardmarketReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
   const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
@@ -402,6 +459,11 @@ async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: Das
 
   if (!runtime?.fetchCardmarketPage) {
     return json({ error: runtime?.scanBrowserError ?? 'Cardmarket scan is only available locally.' }, 404)
+  }
+
+  const stale = await settleInventory(runtime)
+  if (stale) {
+    return json({ error: stale }, 503)
   }
 
   const store = resolveStore(env, runtime)
@@ -599,6 +661,11 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
   if (options instanceof Response) {
     return options
   }
+  // The reserved check below is only as good as the local rows are current.
+  const stale = await settleInventory(runtime)
+  if (stale) {
+    return json({ error: stale }, 503)
+  }
   const products = await inventoryFor(env, runtime)
   // The relist screen no longer shows a reserved card, but a tab opened before it was
   // reserved still has the button: a sold card must not go back up as a fresh listing.
@@ -662,6 +729,14 @@ export async function handleDashboardRequest(request: Request, env: DashboardEnv
 
   if (key === '/dashboard/cardmarket/scan' && request.method === 'POST') {
     return cardmarketScan(request, env, runtime)
+  }
+
+  if (key === '/dashboard/cms-sync' && request.method === 'GET') {
+    return cmsSyncStatus(request, env, runtime)
+  }
+
+  if (key === '/dashboard/cms-sync' && request.method === 'POST') {
+    return cmsSyncSettle(request, env, runtime)
   }
 
   if (key === '/dashboard/deal-finder/report' && request.method === 'GET') {

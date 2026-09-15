@@ -530,6 +530,86 @@ export function settlePendingByHand(state: VintedRelistState, wardrobe: VintedWa
   return settled
 }
 
+/**
+ * Whether a wardrobe listing's title names this card.
+ *
+ * Listing titles follow `Pikachu 160/159 - PSA 9 - Crown Zenith`: the card's name
+ * first, then its grade between dashes. The name alone is not enough — Mewtwo and
+ * Mewtwo GX both start with "Mewtwo" — so the grade segment has to be there too,
+ * and the name must end where a word ends.
+ */
+export function listingTitleNamesProduct(title: string, product: Pick<InventoryProduct, 'title' | 'grader' | 'grade'>): boolean {
+  const fold = (text: string) => text.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase()
+  const listing = fold(title)
+  const name = fold(product.title)
+  if (!name || !listing.startsWith(name) || /\w/.test(listing.charAt(name.length))) {
+    return false
+  }
+  if (!product.grader || product.grade == null) {
+    return true
+  }
+  return listing.includes(`- ${fold(product.grader)} ${product.grade} -`)
+}
+
+/**
+ * Settle the relists the seller did entirely by hand.
+ *
+ * A card whose listing is gone from the wardrobe, while a newer listing that no
+ * product claims is up under the card's title, was deleted and posted again on
+ * Vinted itself — after a rate-limit block, say. The tool never saw a delete, so
+ * there is no pending entry to settle; the product is pointed at the new listing
+ * all the same, or the shop's "View on Vinted" link stays dead. Only a pairing with
+ * nothing else it could be is taken: one such listing for the card, one such card
+ * for the listing.
+ */
+export function settleMissingByHand(
+  state: VintedRelistState,
+  wardrobe: VintedWardrobeItem[],
+  products: InventoryProduct[],
+  now = new Date()
+): VintedHandRelist[] {
+  const listed = new Set(wardrobe.map((item) => String(item.id)))
+  const claimed = new Set<string>()
+  for (const product of products) {
+    const id = product.vintedUrl ? vintedItemId(product.vintedUrl) : null
+    if (id) claimed.add(id)
+  }
+  for (const record of Object.values(state.records)) {
+    if (listed.has(record.itemId)) claimed.add(record.itemId)
+  }
+  const unclaimed = () => wardrobe.filter((item) => !item.is_closed && !item.is_draft && !claimed.has(String(item.id)))
+
+  const missing = products.filter((product) => {
+    const id = product.vintedUrl ? vintedItemId(product.vintedUrl) : null
+    return id && !product.sold && !product.reserved && !product.concept && !listed.has(id) && !state.pending[id]
+  })
+
+  const settled: VintedHandRelist[] = []
+  for (const product of missing) {
+    const previousItemId = vintedItemId(product.vintedUrl!)!
+    const candidates = unclaimed().filter((item) => item.id > Number(previousItemId) && listingTitleNamesProduct(item.title, product))
+    if (candidates.length !== 1) {
+      continue
+    }
+    const replacement = candidates[0]
+    if (missing.filter((other) => listingTitleNamesProduct(replacement.title, other)).length !== 1) {
+      continue
+    }
+    const itemId = String(replacement.id)
+    const uploadedAt = wardrobeUploadedAt(replacement, now)
+    delete state.records[previousItemId]
+    state.records[itemId] = {
+      itemId,
+      previousItemId,
+      productId: product.id,
+      listedAt: uploadedAt != null ? new Date(uploadedAt).toISOString() : now.toISOString()
+    }
+    claimed.add(itemId)
+    settled.push({ itemId, previousItemId, productId: product.id, url: vintedItemUrl(itemId) })
+  }
+  return settled
+}
+
 function wardrobeStatus(item: VintedWardrobeItem): VintedListingStatus {
   if (item.is_closed) return 'closed'
   if (item.is_draft) return 'draft'

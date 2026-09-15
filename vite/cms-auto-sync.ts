@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { seedMediaFiles } from '../app/cms/seed-media'
+import type { CmsSyncStatus } from '../app/cms/types'
 import type { CmsDb } from '../worker/cms/db'
 import type { MediaBucket } from '../worker/cms/media'
 import {
@@ -42,6 +43,10 @@ const LOG = '[cms-sync]'
 export type CmsAutoSync = {
   /** Called after an admin request changed something, to publish it shortly after. */
   noteWrite(): void
+  /** Settle with production now, and fail the way the sync did if it could not. */
+  settle(): Promise<void>
+  /** How the last attempts went. */
+  status(): CmsSyncStatus
   /** Called when a seed file changed on disk, to apply an edit made there shortly after. */
   noteFileChange(): void
   /** Compare both sides and settle the difference. Runs at startup, on a timer, and when
@@ -66,6 +71,24 @@ export type CmsAutoSyncOptions = {
 
 export function autoSyncEnabled(): boolean {
   return process.env.HWC_CMS_AUTOSYNC !== '0'
+}
+
+/**
+ * The sync talks to production through a child process running the sync script, so it
+ * needs these two on disk. A missing one used to surface as a failed reconcile every
+ * five minutes in the dev server's output, while the local database quietly went stale;
+ * now `npm run dev` says so before it serves anything.
+ */
+export function assertSyncToolsInstalled(tools: string[] = ['vite-node', 'wrangler']): void {
+  for (const tool of tools) {
+    try {
+      localBin(tool)
+    } catch (error) {
+      throw new Error(
+        `${LOG} ${error instanceof Error ? error.message : String(error)} The local database cannot be kept in step with production without it (HWC_CMS_AUTOSYNC=0 runs the dev server without the sync).`
+      )
+    }
+  }
 }
 
 /**
@@ -214,18 +237,36 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   let stopped = false
   /** Holds are logged once per state, not every five minutes. */
   const heldLogged = new Set<string>()
+  let settledAt: string | null = null
+  let lastError: CmsSyncStatus['error'] = null
 
-  function enqueue(what: string, task: () => Promise<void>): void {
-    chain = chain
-      .then(() => (stopped ? undefined : task()))
-      .catch((error: unknown) => {
-        // A task still running through a shutdown fails against state that is being torn
-        // down, which says nothing about the sync.
-        if (stopped) {
-          return
-        }
-        console.error(`${LOG} ${what} failed:`, error instanceof Error ? error.message : error)
-      })
+  /**
+   * Run a task once whatever is queued has finished. The returned promise fails the way
+   * the task did, for a caller that needs to know; the queue itself only logs it.
+   */
+  function enqueue(what: string, task: () => Promise<void>): Promise<void> {
+    const run = chain.then(() => (stopped ? undefined : task()))
+    chain = run.catch((error: unknown) => {
+      // A task still running through a shutdown fails against state that is being torn
+      // down, which says nothing about the sync.
+      if (stopped) {
+        return
+      }
+      console.error(`${LOG} ${what} failed:`, error instanceof Error ? error.message : error)
+    })
+    return run
+  }
+
+  /** A round trip that reached production and finished clears the last failure. */
+  async function tracked<T>(task: () => Promise<T>): Promise<T> {
+    try {
+      const result = await task()
+      lastError = null
+      return result
+    } catch (error) {
+      lastError = { at: new Date().toISOString(), message: error instanceof Error ? error.message : String(error) }
+      throw error
+    }
   }
 
   /**
@@ -307,7 +348,11 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   }
 
   /** Publish what the local admin changed: the parts that differ from the last settle. */
-  async function publish(): Promise<void> {
+  function publish(): Promise<void> {
+    return tracked(publishNow)
+  }
+
+  async function publishNow(): Promise<void> {
     const synced = await recordSyncedFromFiles()
 
     // A database with no record for some part cannot tell an edit from being stale, so
@@ -339,6 +384,11 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   }
 
   async function reconcile(): Promise<void> {
+    await tracked(reconcileNow)
+    settledAt = new Date().toISOString()
+  }
+
+  async function reconcileNow(): Promise<void> {
     const synced = await recordSyncedFromFiles()
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'hwc-cms-'))
     const dump = path.join(directory, 'remote.json')
@@ -484,19 +534,25 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
       if (debounce) {
         clearTimeout(debounce)
       }
-      debounce = setTimeout(() => enqueue('publish', publish), PUBLISH_DELAY_MS)
+      debounce = setTimeout(() => void enqueue('publish', publish), PUBLISH_DELAY_MS)
       debounce.unref()
     },
     noteFileChange() {
       if (fileDebounce) {
         clearTimeout(fileDebounce)
       }
-      fileDebounce = setTimeout(() => enqueue('file change', settleFileChange), FILE_EDIT_DELAY_MS)
+      fileDebounce = setTimeout(() => void enqueue('file change', settleFileChange), FILE_EDIT_DELAY_MS)
       fileDebounce.unref()
     },
+    settle() {
+      return enqueue('reconcile', reconcile)
+    },
+    status() {
+      return { settledAt, error: lastError }
+    },
     start() {
-      enqueue('reconcile', reconcile)
-      poll = setInterval(() => enqueue('reconcile', reconcile), POLL_INTERVAL_MS)
+      void enqueue('reconcile', reconcile)
+      poll = setInterval(() => void enqueue('reconcile', reconcile), POLL_INTERVAL_MS)
       poll.unref()
       watchers = watchSeedFiles(() => sync.noteFileChange())
     },

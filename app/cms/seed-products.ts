@@ -188,7 +188,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440336973',
-    vintedUrl: 'https://www.vinted.nl/items/10003920041',
+    vintedUrl: 'https://www.vinted.nl/items/10008580526',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Mega-Gengar-ex-V1-PFL056',
     cost: 63,
     acquiredAt: '2026-09-06'
@@ -245,7 +245,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2442709776',
-    vintedUrl: 'https://www.vinted.nl/items/10005207599',
+    vintedUrl: 'https://www.vinted.nl/items/10008559185',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/MEP-Black-Star-Promos/Mega-Gardevoir-ex-MEP032',
     cost: 72,
     acquiredAt: '2026-09-11'

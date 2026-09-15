@@ -263,3 +263,13 @@ export type PublicCmsPayload = {
   mediaCopy: Record<string, CmsMediaCopy>
   notFound: boolean
 }
+
+/**
+ * How the dev server's sync with production is doing. `settledAt` is the last time the
+ * local database was brought in line with production since the server started; `error`
+ * is the last failure after that, kept until an attempt succeeds.
+ */
+export type CmsSyncStatus = {
+  settledAt: string | null
+  error: { at: string; message: string } | null
+}

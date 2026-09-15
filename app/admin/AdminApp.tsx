@@ -42,6 +42,7 @@ import {
   type CmsNavItem,
   type CmsPage,
   type CmsSettings,
+  type CmsSyncStatus,
   type R2UsageSnapshot
 } from '~/cms/types'
 import type { InventoryProduct } from '~/database/products'
@@ -811,6 +812,68 @@ function AdminMobileMenu({ onLogout, submitting }: { onLogout: () => void; submi
   )
 }
 
+/** How often the admin asks the dev server whether the local database still follows production. */
+const SYNC_STATUS_POLL_MS = 30_000
+
+/**
+ * Only the dev server has a sync with production, and its failures used to show only in
+ * the terminal while stale local rows fed the Cardmarket scan and the Vinted relist. Now
+ * they sit above every admin screen until an attempt succeeds.
+ */
+function SyncStatusBanner() {
+  const [status, setStatus] = useState<CmsSyncStatus | null>(null)
+  const [retrying, setRetrying] = useState(false)
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+    let cancelled = false
+    const read = () => {
+      void adminJson<{ sync: CmsSyncStatus | null }>('/cms-sync').then((result) => {
+        if (!cancelled && result.ok) {
+          setStatus(result.data?.sync ?? null)
+        }
+      })
+    }
+    read()
+    const timer = setInterval(read, SYNC_STATUS_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  if (!status?.error) {
+    return null
+  }
+
+  const retry = () => {
+    setRetrying(true)
+    void adminJson<{ sync: CmsSyncStatus | null }>('/cms-sync', { method: 'POST' }).then((result) => {
+      setRetrying(false)
+      if (result.data?.sync) {
+        setStatus(result.data.sync)
+      }
+    })
+  }
+
+  return (
+    <div
+      role="alert"
+      className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-site-loss bg-site-gunmetal px-5 py-3 text-sm"
+    >
+      <p className="m-0 min-w-0 flex-1 basis-64">
+        <strong className="text-site-loss">Not in step with production.</strong> {status.error.message}
+        <span className="block text-site-mantle">Scans and relists wait until this is fixed; the sync tries again every five minutes.</span>
+      </p>
+      <button type="button" className="button-danger w-auto cursor-pointer" onClick={retry} disabled={retrying}>
+        {retrying ? 'Syncing…' : 'Try again now'}
+      </button>
+    </div>
+  )
+}
+
 function AdminShell({ children, onLogout, submitting }: { children: ReactNode; onLogout: () => void; submitting: boolean }) {
   const requestLeave = useRequestLeave()
 
@@ -841,6 +904,7 @@ function AdminShell({ children, onLogout, submitting }: { children: ReactNode; o
           </div>
         </header>
         <main id="main" className="flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
+          <SyncStatusBanner />
           {children}
         </main>
       </div>

@@ -195,6 +195,41 @@ describe('the sync as a whole', () => {
     expect((await getProductById(h.db, 1))!.title).toBe('Edited on the train')
   })
 
+  it('says when it last settled, and settles on request before something acts on the inventory', async () => {
+    quiet()
+    const h = await harness()
+    expect(h.sync.status()).toEqual({ settledAt: null, error: null })
+    await h.settled()
+    const first = h.sync.status()
+    expect(first.error).toBeNull()
+    expect(first.settledAt).not.toBeNull()
+
+    // A card reserved in the production admin is in the local database once settled.
+    await renameProduct(h.production, 2, 'Reserved in production')
+    await h.sync.settle()
+    expect((await getProductById(h.db, 2))!.title).toBe('Reserved in production')
+    expect(h.sync.status().settledAt! >= first.settledAt!).toBe(true)
+  })
+
+  it('fails a requested settle the way the round trip did, and shows the failure until one succeeds', async () => {
+    quiet()
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}))
+    const h = await harness()
+    await h.settled()
+
+    h.setOffline(true)
+    await expect(h.sync.settle()).rejects.toThrow('getaddrinfo ENOTFOUND api.cloudflare.com')
+    const failed = h.sync.status()
+    expect(failed.error?.message).toBe('getaddrinfo ENOTFOUND api.cloudflare.com')
+    expect(failed.settledAt).not.toBeNull()
+
+    // The queue keeps going after a failure: the next poll finds production again.
+    h.setOffline(false)
+    await h.reconcile()
+    expect(h.sync.status().error).toBeNull()
+    expect(h.sync.status().settledAt! >= failed.settledAt!).toBe(true)
+  })
+
   it('takes an edit made in the production admin', async () => {
     quiet()
     const h = await harness()

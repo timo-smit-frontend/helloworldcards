@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Plugin } from 'vite'
 import { seedMediaFiles } from '../app/cms/seed-media'
 import { handleAdminRequest } from '../worker/cms/admin-api'
-import { autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
+import { assertSyncToolsInstalled, autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
 import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import type { DashboardRuntime } from '../worker/dashboard-api'
@@ -166,6 +166,7 @@ function isCmsDevPath(pathname: string): boolean {
     pathname.startsWith('/dashboard/logout') ||
     pathname.startsWith('/dashboard/ledger') ||
     pathname.startsWith('/dashboard/cardmarket') ||
+    pathname.startsWith('/dashboard/cms-sync') ||
     pathname.startsWith('/dashboard/deal-finder') ||
     pathname.startsWith('/dashboard/vinted-relist') ||
     pathname === '/api/public' ||
@@ -344,10 +345,12 @@ function cmsApiMiddleware(root: string) {
 
       const request = await toFetchRequest(req)
       const cms = await viteCmsRuntime()
+      const sync = await cmsAutoSync(root)
       const secrets = loadScanSecrets(root)
       const runtime: DashboardRuntime = {
         db: cms.db,
         media: cms.media,
+        ...(sync ? { cmsSync: sync } : {}),
         cardmarketStore: fileCardmarketStore(root),
         dealFinderStore: fileDealFinderStore(root),
         readSlabs: createSlabReader({ root }),
@@ -410,7 +413,7 @@ function cmsApiMiddleware(root: string) {
 
         await sendFetchResponse(response, res)
         if (changesCms(url, req.method ?? 'GET', response.status)) {
-          void cmsAutoSync(root).then((sync) => sync?.noteWrite())
+          sync?.noteWrite()
         }
       } finally {
         if (browser) {
@@ -440,7 +443,10 @@ export function dashboardApiPlugin(): Plugin {
       server.middlewares.use(cmsApiMiddleware(server.config.root))
       // `vite-node` boots a Vite server of its own to transform modules, and the sync
       // runs through `vite-node`: starting the sync there would have it spawn itself.
-      if (!server.config.server.middlewareMode) {
+      if (!server.config.server.middlewareMode && autoSyncEnabled()) {
+        // Better to not start than to serve a local database that quietly stops
+        // following production because a tool the sync runs is not installed.
+        assertSyncToolsInstalled()
         void cmsAutoSync(server.config.root)
       }
     },

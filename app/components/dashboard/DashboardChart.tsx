@@ -69,11 +69,6 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 /** Competitors shown per card — the cheapest few are the ones a price is judged against. */
 const SHOWN_COMPETITORS = 5
 
-function slabLabel(item: CardmarketProductReport): string {
-  if (item.grader == null || item.grade == null) return 'this grade'
-  return `${item.grader === 'psa' ? 'PSA' : 'BGS'} ${item.grade}`
-}
-
 /** The scan's stored error strings, said the way a person would. */
 function friendlyError(error: string): string {
   if (/blocked|challenge/i.test(error)) return 'Cardmarket blocked this scan — try again in a bit.'
@@ -86,10 +81,8 @@ function marketStatus(item: CardmarketProductReport, competing: MarketListing[],
   if (item.error) return friendlyError(item.error)
   if (item.listings.length === 0) return 'No competing slabs currently.'
   if (competing.length === 0 && similar.length === 0) return 'No competing slabs currently.'
-  if (item.suggestion == null && item.floor != null && item.floor === item.listed) {
-    return `Even with the cheapest ${slabLabel(item)}.`
-  }
-  // Other grades speak for themselves: the grade is in every row's comment.
+  // Anything else the offer rows say themselves: the grade is in every row's comment,
+  // and a price sitting even with the cheapest one is plain from the numbers.
   return null
 }
 

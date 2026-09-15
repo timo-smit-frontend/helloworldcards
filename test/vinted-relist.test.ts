@@ -12,6 +12,8 @@ import {
   parseVintedSnapshot,
   parseVintedUploadedText,
   parseWardrobeItems,
+  listingTitleNamesProduct,
+  settleMissingByHand,
   settlePendingByHand,
   vintedFlightData,
   vintedFlightRows,
@@ -423,6 +425,94 @@ describe('buildRelistReport', () => {
     })
     expect(report.pending.map((entry) => entry.itemId)).toEqual(['444'])
     expect(report.missing).toEqual([])
+  })
+})
+
+describe('settleMissingByHand', () => {
+  const now = new Date('2026-09-15T10:00:00Z')
+  const pikachu = product({ id: 14, title: 'Pikachu', grader: 'psa', grade: 9, vintedUrl: 'https://www.vinted.nl/items/10004260813' })
+  const mewtwo = product({ id: 1, title: 'Mewtwo', grader: 'psa', grade: 9, vintedUrl: 'https://www.vinted.nl/items/10003896597' })
+  const mewtwoGx = product({ id: 11, title: 'Mewtwo GX', grader: 'psa', grade: 10, vintedUrl: 'https://www.vinted.nl/items/9982827132' })
+
+  it('knows which card a listing title names', () => {
+    expect(listingTitleNamesProduct('Pikachu 160/159 - PSA 9 - Crown Zenith', pikachu)).toBe(true)
+    expect(listingTitleNamesProduct('Pikachu 160/159 – PSA 9 – Crown Zenith', pikachu)).toBe(true)
+    expect(listingTitleNamesProduct('Pikachu 160/159 - PSA 10 - Crown Zenith', pikachu)).toBe(false)
+    expect(listingTitleNamesProduct('Mewtwo GX 39/73 - PSA 10 - Shining Legends', mewtwo)).toBe(false)
+    expect(listingTitleNamesProduct('Mewtwo GX 39/73 - PSA 10 - Shining Legends', mewtwoGx)).toBe(true)
+    expect(listingTitleNamesProduct('Mewtwo 51/108 - PSA 9 - Evolutions', mewtwo)).toBe(true)
+    expect(listingTitleNamesProduct('Pikachus 160/159 - PSA 9 - Crown Zenith', pikachu)).toBe(false)
+  })
+
+  it('points a card whose listing is gone at the unclaimed newer listing with its title', () => {
+    const state = emptyRelistState()
+    state.records['10004260813'] = { itemId: '10004260813', previousItemId: '9990559139', productId: 14, listedAt: '2026-09-14T16:48:39Z' }
+    const wardrobe = parseWardrobeItems({
+      items: [
+        { id: 10003896597, title: 'Mewtwo 51/108 - PSA 9 - Evolutions', price: '89.99' },
+        {
+          id: 10005185939,
+          title: 'Pikachu 160/159 - PSA 9 - Crown Zenith',
+          price: '100.00',
+          photos: [{ url: 'https://img/p.jpg', high_resolution: { timestamp: Date.UTC(2026, 8, 14, 18, 53) / 1000 } }]
+        }
+      ]
+    })
+    expect(settleMissingByHand(state, wardrobe, [pikachu, mewtwo], now)).toEqual([
+      { itemId: '10005185939', previousItemId: '10004260813', productId: 14, url: 'https://www.vinted.nl/items/10005185939' }
+    ])
+    expect(state.records).toEqual({
+      '10005185939': { itemId: '10005185939', previousItemId: '10004260813', productId: 14, listedAt: '2026-09-14T18:53:00.000Z' }
+    })
+    // The report then shows the listing as the card's, and the card is no longer missing.
+    const report = buildRelistReport({ wardrobe, products: [pikachu, mewtwo], state, login: 'x', now })
+    expect(report.rows.find((row) => row.itemId === '10005185939')?.product?.id).toBe(14)
+    expect(report.missing).toEqual([])
+  })
+
+  it('leaves a card alone while no listing, or more than one, could be its relist', () => {
+    const wardrobe = parseWardrobeItems({
+      items: [
+        // Older than the one that vanished, so not a relist of it.
+        { id: 10004000000, title: 'Pikachu 160/159 - PSA 9 - Crown Zenith', price: '100.00' },
+        // Two that could each be it.
+        { id: 10005100000, title: 'Mewtwo 51/108 - PSA 9 - Evolutions', price: '89.99' },
+        { id: 10005200000, title: 'Mewtwo 51/108 - PSA 9 - Evolutions', price: '89.99' },
+        // Claimed by another product already, and a draft.
+        { id: 10005300000, title: 'Mewtwo GX 39/73 - PSA 10 - Shining Legends', price: '120.00', is_draft: true }
+      ]
+    })
+    const state = emptyRelistState()
+    expect(settleMissingByHand(state, wardrobe, [pikachu, mewtwo, mewtwoGx], now)).toEqual([])
+    expect(state.records).toEqual({})
+  })
+
+  it('does not touch a sold or reserved card, nor a relist that is still pending here', () => {
+    const wardrobe = parseWardrobeItems({ items: [{ id: 10005185939, title: 'Pikachu 160/159 - PSA 9 - Crown Zenith', price: '100.00' }] })
+    const state = emptyRelistState()
+    expect(settleMissingByHand(state, wardrobe, [{ ...pikachu, reserved: true }], now)).toEqual([])
+    expect(settleMissingByHand(state, wardrobe, [{ ...pikachu, sold: true }], now)).toEqual([])
+    state.pending['10004260813'] = {
+      snapshot: {
+        itemId: '10004260813',
+        title: 'Pikachu 160/159 - PSA 9 - Crown Zenith',
+        description: '',
+        catalogId: 1,
+        brandId: null,
+        brandTitle: null,
+        conditionId: null,
+        packageSizeId: null,
+        price: 100,
+        isUnisex: false,
+        colorIds: [],
+        photos: []
+      },
+      productId: 14,
+      photoFiles: [],
+      deletedAt: '2026-09-15T09:00:00Z',
+      error: 'Vinted did not publish the listing.'
+    }
+    expect(settleMissingByHand(state, wardrobe, [pikachu], now)).toEqual([])
   })
 })
 

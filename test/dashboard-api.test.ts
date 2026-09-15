@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CACHE_VERSION } from '../app/services/deal-finder/cache'
-import { handleDashboardRequest, memoryCardmarketStore, memoryDealFinderStore } from '../worker/dashboard-api'
+import type { VintedRelistService } from '../app/services/vinted-relist'
+import { handleDashboardRequest, memoryCardmarketStore, memoryDealFinderStore, type CmsSync } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
 
@@ -18,6 +19,41 @@ function cookieFrom(response: Response): string {
   const header = response.headers.get('Set-Cookie') ?? ''
   const match = header.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))
   return match?.[1] ?? ''
+}
+
+async function signIn(): Promise<string> {
+  const login = await handleDashboardRequest(
+    new Request('https://example.com/dashboard/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: env.DASHBOARD_USERNAME, password: env.DASHBOARD_PASSWORD })
+    }),
+    env
+  )
+  return cookieFrom(login!)
+}
+
+/** A stand-in for the dev server's sync: records each settle, and fails while told to. */
+function fakeSync(failure: string | null = null): CmsSync & { settles: string[]; fail(message: string | null): void } {
+  const settles: string[] = []
+  let error: { at: string; message: string } | null = null
+  return {
+    settles,
+    fail(message) {
+      failure = message
+    },
+    async settle() {
+      settles.push('settle')
+      if (failure) {
+        error = { at: '2026-09-15T09:02:00.000Z', message: failure }
+        throw new Error(failure)
+      }
+      error = null
+    },
+    status() {
+      return { settledAt: settles.length > 0 && !error ? '2026-09-15T09:02:31.163Z' : null, error }
+    }
+  }
 }
 
 describe('dashboard API', () => {
@@ -195,6 +231,144 @@ describe('dashboard API', () => {
     const pokeKid = body.report.products.find((product) => product.title === 'Poke Kid')
     expect(pokeKid?.image).toBe('/media/80573086_front.jpg')
     expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
+  })
+
+  it('brings the local database in step with production before scanning it', async () => {
+    const token = await signIn()
+    const sync = fakeSync()
+    const order: string[] = []
+    const runtime = seededRuntime({
+      cardmarketStore: memoryCardmarketStore(),
+      cmsSync: {
+        ...sync,
+        async settle() {
+          order.push('settle')
+          await sync.settle()
+        }
+      },
+      fetchCardmarketPage: async () => {
+        order.push('fetch')
+        return '<div id="articleRow1" class="article-row"><span>PSA 10</span><span>100,00 €</span></div>'
+      }
+    })
+
+    const scan = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      runtime
+    )
+
+    expect(scan?.status).toBe(200)
+    expect(order[0]).toBe('settle')
+    expect(order.filter((step) => step === 'settle')).toHaveLength(1)
+    expect(order.filter((step) => step === 'fetch').length).toBeGreaterThan(0)
+  })
+
+  it('does not scan while the local database cannot be brought in step with production', async () => {
+    const token = await signIn()
+    const store = memoryCardmarketStore()
+    const fetched: string[] = []
+    const runtime = seededRuntime({
+      cardmarketStore: store,
+      cmsSync: fakeSync('vite-node is not installed — run `npm install`.'),
+      fetchCardmarketPage: async (url: string) => {
+        fetched.push(url)
+        return ''
+      }
+    })
+
+    const scan = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      env,
+      runtime
+    )
+
+    expect(scan?.status).toBe(503)
+    await expect(scan?.json()).resolves.toEqual({
+      error:
+        'The local database could not be brought in step with production, so nothing was done: vite-node is not installed — run `npm install`.'
+    })
+    expect(fetched).toEqual([])
+    expect(await store.getReport()).toBeNull()
+  })
+
+  it('tells the admin how the sync with production is doing, and settles on request', async () => {
+    const token = await signIn()
+    const sync = fakeSync('production database has no column reserved yet')
+    const runtime = seededRuntime({ cmsSync: sync })
+    const headers = { Cookie: `${SESSION_COOKIE}=${token}` }
+
+    const quiet = await handleDashboardRequest(new Request('https://example.com/dashboard/cms-sync', { headers }), env, runtime)
+    expect(quiet?.status).toBe(200)
+    await expect(quiet?.json()).resolves.toEqual({ sync: { settledAt: null, error: null } })
+
+    const failed = await handleDashboardRequest(
+      new Request('https://example.com/api/admin/cms-sync', { method: 'POST', headers }),
+      env,
+      runtime
+    )
+    expect(failed?.status).toBe(503)
+    await expect(failed?.json()).resolves.toEqual({
+      error:
+        'The local database could not be brought in step with production, so nothing was done: production database has no column reserved yet',
+      sync: { settledAt: null, error: { at: '2026-09-15T09:02:00.000Z', message: 'production database has no column reserved yet' } }
+    })
+
+    sync.fail(null)
+    const settled = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cms-sync', { method: 'POST', headers }),
+      env,
+      runtime
+    )
+    expect(settled?.status).toBe(200)
+    await expect(settled?.json()).resolves.toEqual({ sync: { settledAt: '2026-09-15T09:02:31.163Z', error: null } })
+    expect(sync.settles).toHaveLength(2)
+  })
+
+  it('has no sync to report on the live worker', async () => {
+    const token = await signIn()
+    const headers = { Cookie: `${SESSION_COOKIE}=${token}` }
+    const status = await handleDashboardRequest(new Request('https://example.com/dashboard/cms-sync', { headers }), env, seededRuntime())
+    await expect(status?.json()).resolves.toEqual({ sync: null })
+
+    const settle = await handleDashboardRequest(
+      new Request('https://example.com/dashboard/cms-sync', { method: 'POST', headers }),
+      env,
+      seededRuntime()
+    )
+    expect(settle?.status).toBe(404)
+  })
+
+  it('does not relist while the local database cannot be brought in step with production', async () => {
+    const token = await signIn()
+    const calls: string[] = []
+    const vintedRelist: VintedRelistService = {
+      async report() {
+        return { rows: [], pending: [], missing: [], byHand: [], login: 'helloworldcards', fetchedAt: '2026-09-15T09:00:00Z' }
+      },
+      async relist(itemId) {
+        calls.push(itemId)
+        return { itemId: '9999', url: 'https://www.vinted.nl/items/9999', productId: null }
+      }
+    }
+    // The reserved check in the relist reads the local rows, so a stale database would let a sold card back up.
+    const runtime = seededRuntime({ vintedRelist, cmsSync: fakeSync('getaddrinfo ENOTFOUND api.cloudflare.com') })
+
+    const response = await handleDashboardRequest(
+      new Request('https://example.com/api/admin/vinted-relist/10003961594', {
+        method: 'POST',
+        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+      }),
+      env,
+      runtime
+    )
+
+    expect(response?.status).toBe(503)
+    await expect(response?.json()).resolves.toEqual({
+      error:
+        'The local database could not be brought in step with production, so nothing was done: getaddrinfo ENOTFOUND api.cloudflare.com'
+    })
+    expect(calls).toEqual([])
   })
 
   it('does not scan Cardmarket on the live worker without a local page fetcher', async () => {

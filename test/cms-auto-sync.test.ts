@@ -4,7 +4,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { seedProductRecords } from '../app/cms/seed-products'
-import { decidePart, seedFilesDirty, syncFailureMessage, type PartAction, type PartView } from '../vite/cms-auto-sync'
+import {
+  assertSyncToolsInstalled,
+  decidePart,
+  seedFilesDirty,
+  syncFailureMessage,
+  type PartAction,
+  type PartView
+} from '../vite/cms-auto-sync'
 import {
   CMS_SEED_FILES,
   fingerprint,
@@ -180,6 +187,18 @@ describe('telling a hand edit from a checkout', () => {
     // A temporary directory may sit inside some repository; only an actual failure is null.
     const result = await seedFilesDirty(path.join(root, 'missing'))
     expect(result).toBeNull()
+  })
+})
+
+describe('checking the tools the sync runs before the dev server starts', () => {
+  it('passes with the project installed', () => {
+    expect(() => assertSyncToolsInstalled()).not.toThrow()
+  })
+
+  it('refuses to start over a tool that is not installed, and says how to fix it', () => {
+    expect(() => assertSyncToolsInstalled(['surely-not-installed-tool'])).toThrow(
+      '[cms-sync] surely-not-installed-tool is not installed — run `npm install`. The local database cannot be kept in step with production without it (HWC_CMS_AUTOSYNC=0 runs the dev server without the sync).'
+    )
   })
 })
 

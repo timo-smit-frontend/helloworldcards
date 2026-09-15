@@ -98,6 +98,14 @@ so a database with no such record — a fresh checkout, a wiped `.wrangler/state
 from another machine — is never taken to be ahead of production; production is adopted
 instead. `HWC_CMS_AUTOSYNC=0` turns the automatic sync off.
 
+The sync is not allowed to fail quietly. The sync runs `vite-node` and Wrangler in a
+child process, so `npm run dev` first installs anything `package-lock.json` names that
+`node_modules` lacks, and refuses to start if a tool the sync needs is still missing. A
+failed attempt (production unreachable, a migration not yet applied) is shown above every
+admin screen until one succeeds, with a button to try again. The Cardmarket scan and the
+Vinted relist settle the local database with production before they read it, and do not
+run when that fails — so neither ever acts on a card that was sold or reserved elsewhere.
+
 The commands are for when the dev server is not running. Add `--content`, `--products`,
 or `--media` to any of them to sync just that part; `npm run media:sync` and
 `npm run media:sync:remote` are shorthand for the media half.
