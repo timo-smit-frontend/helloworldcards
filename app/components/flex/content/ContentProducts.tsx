@@ -58,7 +58,8 @@ export default function ContentProducts({
       return ids.map((value) => byId.get(String(value))).filter((product): product is Product => product != null)
     }
     if (random != null) {
-      return catalogProducts.slice(0, random)
+      // The random picks are an invitation to buy, so a reserved card never takes one of the slots.
+      return catalogProducts.filter((product) => !product.reserved).slice(0, random)
     }
     return catalogProducts
   }, [random, ids, provided])

@@ -128,18 +128,18 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         title="Open on Cardmarket"
         className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 no-underline smooth hover:opacity-80 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6"
       >
-        <div className="relative size-36 shrink-0 overflow-hidden rounded-md bg-site-mid ring-1 ring-site-mulled-wine">
+        <div className="relative h-36 w-24 shrink-0">
           {item.image ? (
             <Image
               src={item.image}
               alt=""
               title=""
-              width={288}
+              width={192}
               height={288}
               maxwidth={400}
-              sizes="144px"
+              sizes="96px"
               aria-hidden
-              className="absolute inset-0 size-full object-contain p-1.5"
+              className="absolute inset-0 size-full object-contain"
             />
           ) : null}
         </div>
@@ -236,14 +236,41 @@ function SoldRow({ item }: { item: LedgerItem }) {
   const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
   return (
-    <li className="grid gap-1 py-4 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-6">
-      <p className="text-sm tabular-nums text-site-mantle">{formatSoldDate(item.soldAt)}</p>
-      <p className="min-w-0 truncate font-semibold text-site-gray-nurse">{item.title}</p>
-      <p className="text-sm tabular-nums text-site-mantle">
-        {item.listed == null ? 'No listed price' : formatEuros(item.listed)}
-        {' · '}
-        {profit == null ? 'No cost' : formatSignedEuros(profit)}
-      </p>
+    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:gap-x-6">
+      <div className="relative h-24 w-16 shrink-0">
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt=""
+            title=""
+            width={128}
+            height={192}
+            maxwidth={400}
+            sizes="64px"
+            aria-hidden
+            className="absolute inset-0 size-full object-contain"
+          />
+        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-semibold text-site-gray-nurse">{item.title}</span>
+          {item.reserved ? (
+            <span className="shrink-0 rounded-full border border-site-foil/50 bg-site-foil/15 px-2 py-0.5 text-[0.65rem] font-semibold tracking-[0.18em] text-site-foil uppercase">
+              Reserved
+            </span>
+          ) : null}
+        </p>
+        {item.subtitle ? <p className="mt-0.5 truncate text-sm text-site-mantle">{item.subtitle}</p> : null}
+        <p className="mt-1 text-sm tabular-nums text-site-mantle sm:hidden">{formatSoldDate(item.soldAt)}</p>
+      </div>
+      <p className="hidden text-sm tabular-nums text-site-mantle sm:block">{formatSoldDate(item.soldAt)}</p>
+      <div className="col-span-2 flex items-baseline justify-between gap-4 sm:col-span-1 sm:w-28 sm:flex-col sm:items-end sm:gap-0.5">
+        <p className="font-semibold tabular-nums text-site-envy">{item.listed == null ? 'No price' : formatEuros(item.listed)}</p>
+        <p className={`text-sm tabular-nums ${profit == null ? 'text-site-mantle' : moneyTone(profit)}`}>
+          {profit == null ? 'No cost' : formatSignedEuros(profit)}
+        </p>
+      </div>
     </li>
   )
 }

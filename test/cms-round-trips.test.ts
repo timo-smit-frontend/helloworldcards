@@ -79,6 +79,21 @@ async function signIn(db: CmsDb): Promise<string> {
 }
 
 describe('database round trips', () => {
+  it('never offers a reserved or sold card as a similar product', async () => {
+    const { db } = await seeded()
+    const home = await buildPublicPayload(db, '/')
+    const [reserved, sold, ...rest] = home.products
+    await db.prepare('UPDATE products SET reserved = 1 WHERE id = ?').bind(reserved.id).run()
+    await db.prepare('UPDATE products SET sold = 1 WHERE id = ?').bind(sold.id).run()
+
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const page = await buildPublicPayload(db, `/products/${rest[0].slug}`)
+      expect(page.similarProductIds).not.toContain(reserved.id)
+      expect(page.similarProductIds).not.toContain(sold.id)
+      expect(page.similarProductIds).not.toContain(rest[0].id)
+    }
+  })
+
   it('renders a page from a single batch once the database is seeded', async () => {
     const { db, trips } = await seeded()
 

@@ -11,40 +11,52 @@ const items: LedgerItem[] = [
   {
     id: 1,
     title: 'In stock from January',
+    subtitle: '',
+    image: null,
     spending: 50,
     listed: 80,
     potentialGain: 30,
     sold: false,
+    reserved: false,
     soldAt: null,
     acquiredAt: '2026-01-10'
   },
   {
     id: 2,
     title: 'Bought this month',
+    subtitle: '',
+    image: null,
     spending: 20,
     listed: 40,
     potentialGain: 20,
     sold: false,
+    reserved: false,
     soldAt: null,
     acquiredAt: '2026-08-05'
   },
   {
     id: 3,
     title: 'Sold this month',
+    subtitle: '',
+    image: null,
     spending: 30,
     listed: 60,
     potentialGain: 30,
     sold: true,
+    reserved: false,
     soldAt: '2026-08-20',
     acquiredAt: '2026-03-01'
   },
   {
     id: 4,
     title: 'Sold last year',
+    subtitle: '',
+    image: null,
     spending: 10,
     listed: 25,
     potentialGain: 15,
     sold: true,
+    reserved: false,
     soldAt: '2025-12-01',
     acquiredAt: '2025-06-01'
   }
@@ -86,6 +98,39 @@ describe('buildLedger', () => {
 
     expect(withBoth).toBeDefined()
     expect(withBoth?.potentialGain).toBe((withBoth?.listed ?? 0) - (withBoth?.spending ?? 0))
+  })
+})
+
+describe('reserved cards', () => {
+  const reserved: LedgerItem = {
+    id: 5,
+    title: 'Reserved this month',
+    subtitle: '',
+    image: null,
+    spending: 40,
+    listed: 100,
+    potentialGain: 60,
+    sold: false,
+    reserved: true,
+    soldAt: '2026-08-25',
+    acquiredAt: '2026-07-01'
+  }
+
+  it('count as sold in the totals and leave the stock', () => {
+    const totals = summarizeLedger([...items, reserved], 'month', now)
+
+    expect(totals.sold).toBe(160)
+    expect(totals.cardsSold).toBe(2)
+    expect(totals.cardsInStock).toBe(2)
+    expect(totals.potential).toBe(120)
+    expect(totals.realizedProfit).toBe(90)
+  })
+
+  it('show up in the recently sold list, newest first, still flagged as reserved', () => {
+    const sold = soldItemsForPeriod([...items, reserved], 'all', now)
+
+    expect(sold.map((item) => item.id)).toEqual([5, 3, 4])
+    expect(sold[0].reserved).toBe(true)
   })
 })
 

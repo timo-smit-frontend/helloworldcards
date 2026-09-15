@@ -41,6 +41,7 @@ import {
   type CmsMediaFolder,
   type CmsNavItem,
   type CmsPage,
+  type CmsPageStatus,
   type CmsSettings,
   type CmsSyncStatus,
   type R2UsageSnapshot
@@ -660,6 +661,34 @@ function DeleteControl({
   )
 }
 
+type SortValue = string | number | null | undefined
+
+/** Compares two cell values for sorting: numbers numerically, strings case-insensitively, blanks last. */
+function compareSortValues(a: SortValue, b: SortValue) {
+  const aBlank = a == null || a === ''
+  const bBlank = b == null || b === ''
+  if (aBlank || bBlank) return aBlank === bBlank ? 0 : aBlank ? 1 : -1
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b), 'en', { sensitivity: 'base', numeric: true })
+}
+
+/**
+ * Column sorting for an admin table: rows stay in their loaded order until a header is
+ * clicked, then sort by that column; clicking the same header again flips the direction.
+ */
+function useTableSort<T>(items: T[], sortValue: (item: T, key: string) => SortValue) {
+  const [sort, setSort] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+  const rows = useMemo(() => {
+    if (sort == null) return items
+    const direction = sort.direction === 'asc' ? 1 : -1
+    return [...items].sort((a, b) => direction * compareSortValues(sortValue(a, sort.key), sortValue(b, sort.key)))
+  }, [items, sort, sortValue])
+  const sortBy = useCallback((key: string) => {
+    setSort((current) => ({ key, direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc' }))
+  }, [])
+  return { rows, sortBy }
+}
+
 function adminTableColumnPad(extra?: string) {
   return ['max-sm:pr-2 sm:pr-4', extra].filter(Boolean).join(' ')
 }
@@ -680,7 +709,7 @@ function AdminTable({
   tableClassName
 }: {
   caption: string
-  columns: Array<{ label: string; className?: string }>
+  columns: Array<{ label: string; className?: string; onSort?: () => void }>
   children: ReactNode
   loading?: boolean
   tableClassName?: string
@@ -703,7 +732,17 @@ function AdminTable({
                 scope="col"
                 className={`py-3 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase ${column.className ?? adminTableColumnPad()}`}
               >
-                {column.label}
+                {column.onSort ? (
+                  <button
+                    type="button"
+                    onClick={column.onSort}
+                    className="cursor-pointer font-semibold tracking-[0.22em] uppercase smooth hover:text-site-gray-nurse"
+                  >
+                    {column.label}
+                  </button>
+                ) : (
+                  column.label
+                )}
               </th>
             ))}
           </tr>
@@ -753,19 +792,18 @@ function productStatus(product: Pick<InventoryProduct, (typeof PRODUCT_STATUS_FL
 
 type ProductStatus = ReturnType<typeof productStatus>
 
-/** One colour per status, so the lists can be read at a glance: live is green, money not in yet is gold, gone is red. */
-const PRODUCT_STATUS_TONE: Record<ProductStatus, string> = {
+/** One colour per status, so the lists can be read at a glance: live is green, money not in yet is gold, gone is red, not live yet is muted. */
+const STATUS_TONE: Record<ProductStatus | CmsPageStatus, string> = {
   published: 'border-site-envy/50 bg-site-envy/15 text-site-envy',
   reserved: 'border-site-foil/50 bg-site-foil/15 text-site-foil',
   sold: 'border-site-loss/50 bg-site-loss/15 text-site-loss',
-  concept: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle'
+  concept: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle',
+  draft: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle'
 }
 
-function ProductStatusBadge({ status }: { status: ProductStatus }) {
+function StatusBadge({ status }: { status: keyof typeof STATUS_TONE }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${PRODUCT_STATUS_TONE[status]}`}
-    >
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_TONE[status]}`}>
       {status}
     </span>
   )
@@ -1223,6 +1261,7 @@ function VintedRelistScreen() {
 function PagesScreen() {
   const [pages, setPages] = useState<CmsPage[]>([])
   const [loading, setLoading] = useState(true)
+  const { rows, sortBy } = useTableSort(pages, pageSortValue)
   useEffect(() => {
     void adminJson<{ pages: CmsPage[] }>('/pages')
       .then((result) => {
@@ -1246,23 +1285,29 @@ function PagesScreen() {
         caption="Pages"
         loading={loading}
         columns={[
-          { label: 'Title' },
-          { label: 'Path', className: adminTableColumnPad('whitespace-nowrap') },
-          { label: 'Status', className: 'whitespace-nowrap' }
+          { label: 'Title', className: adminTableColumnPad('w-3/5'), onSort: () => sortBy('title') },
+          { label: 'Path', className: adminTableColumnPad('w-1/5 whitespace-nowrap'), onSort: () => sortBy('path') },
+          { label: 'Status', className: 'w-1/5 whitespace-nowrap', onSort: () => sortBy('status') }
         ]}
       >
-        {pages.map((page) => (
+        {rows.map((page) => (
           <AdminClickableRow key={page.id} to={adminTo(`/pages/${page.id}`)}>
             <td className={adminTableCellPad()}>
               <AdminRowLink to={adminTo(`/pages/${page.id}`)}>{page.title}</AdminRowLink>
             </td>
             <td className={adminTableCellPad('font-mono text-sm whitespace-nowrap text-site-mantle')}>{page.path}</td>
-            <td className={adminTableCellPad('text-sm whitespace-nowrap text-site-mantle capitalize')}>{page.status}</td>
+            <td className={adminTableCellPad('whitespace-nowrap')}>
+              <StatusBadge status={page.status} />
+            </td>
           </AdminClickableRow>
         ))}
       </AdminTable>
     </div>
   )
+}
+
+function pageSortValue(page: CmsPage, key: string): SortValue {
+  return String(page[key as keyof CmsPage] ?? '')
 }
 
 const emptyBlock = (type: CmsBlockType): CmsBlock => {
@@ -1681,6 +1726,7 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
 function ProductsScreen() {
   const [products, setProducts] = useState<InventoryProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const { rows, sortBy } = useTableSort(products, productSortValue)
   useEffect(() => {
     void adminJson<{ products: InventoryProduct[] }>('/products')
       .then((result) => {
@@ -1701,12 +1747,12 @@ function ProductsScreen() {
         caption="Products"
         loading={loading}
         columns={[
-          { label: 'Title' },
-          { label: 'Price', className: adminTableColumnPad('whitespace-nowrap') },
-          { label: 'Status', className: 'whitespace-nowrap' }
+          { label: 'Title', className: adminTableColumnPad('w-4/5'), onSort: () => sortBy('title') },
+          { label: 'Price', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('price') },
+          { label: 'Status', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('status') }
         ]}
       >
-        {products.map((product) => (
+        {rows.map((product) => (
           <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
             <td className={adminTableCellPad()}>
               <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
@@ -1716,13 +1762,19 @@ function ProductsScreen() {
             </td>
             <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
             <td className={adminTableCellPad('whitespace-nowrap')}>
-              <ProductStatusBadge status={productStatus(product)} />
+              <StatusBadge status={productStatus(product)} />
             </td>
           </AdminClickableRow>
         ))}
       </AdminTable>
     </div>
   )
+}
+
+function productSortValue(product: InventoryProduct, key: string): SortValue {
+  if (key === 'price') return parseListedPrice(product.price)
+  if (key === 'status') return productStatus(product)
+  return String(product[key as keyof InventoryProduct] ?? '')
 }
 
 function ProductEditor() {
@@ -1955,7 +2007,7 @@ function ProductEditor() {
             <div className="flex flex-col gap-2">
               <label htmlFor="product-status" className="flex items-center justify-between gap-3 text-sm font-medium">
                 Status
-                <ProductStatusBadge status={listingStatus} />
+                <StatusBadge status={listingStatus} />
               </label>
               <ChoiceSelect
                 id="product-status"
@@ -2920,6 +2972,11 @@ type CollectionColumn = {
   render?: (item: Record<string, unknown>) => ReactNode
 }
 
+function collectionSortValue(item: Record<string, unknown>, key: string): SortValue {
+  const value = item[key]
+  return typeof value === 'number' ? value : value == null ? null : String(value)
+}
+
 function CollectionScreen({
   title,
   path,
@@ -2937,6 +2994,7 @@ function CollectionScreen({
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(true)
+  const { rows, sortBy } = useTableSort(items, collectionSortValue)
   useEffect(() => {
     setLoading(true)
     void adminJson<Record<string, Array<Record<string, unknown>>>>(path)
@@ -2959,9 +3017,9 @@ function CollectionScreen({
         caption={title}
         loading={loading}
         tableClassName={tableClassName}
-        columns={columns.map((column) => ({ label: column.label, className: column.className }))}
+        columns={columns.map((column) => ({ label: column.label, className: column.className, onSort: () => sortBy(column.key) }))}
       >
-        {items.map((item) => (
+        {rows.map((item) => (
           <AdminClickableRow key={String(item.id)} to={adminTo(`${path}/${item.id}`)}>
             {columns.map((column, index) => (
               <td key={column.key} className={adminTableCellPad(column.className)}>
@@ -3125,22 +3183,22 @@ const FAQ_FIELDS = [
 ]
 
 const EVENT_COLUMNS = [
-  { key: 'title', label: 'Title' },
-  { key: 'date', label: 'Date', className: adminTableColumnPad('whitespace-nowrap') },
-  { key: 'location', label: 'Location' }
+  { key: 'title', label: 'Title', className: adminTableColumnPad('w-3/5') },
+  { key: 'date', label: 'Date', className: adminTableColumnPad('w-1/5 whitespace-nowrap') },
+  { key: 'location', label: 'Location', className: 'w-1/5 whitespace-nowrap' }
 ]
 
 const FAQ_COLUMNS: CollectionColumn[] = [
   {
     key: 'question',
     label: 'Question',
-    className: adminTableColumnPad('align-top max-sm:w-[40%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden max-sm:!pr-4'),
+    className: adminTableColumnPad('w-[30%] align-top max-sm:w-[40%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden max-sm:!pr-4'),
     cellClassName: 'block max-sm:line-clamp-2 max-sm:overflow-hidden'
   },
   {
     key: 'answer',
     label: 'Answer',
-    className: adminTableColumnPad('align-top max-sm:w-[60%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden'),
+    className: adminTableColumnPad('w-[70%] align-top max-sm:w-[60%] max-sm:max-w-0 max-sm:min-w-0 max-sm:overflow-hidden'),
     cellClassName: 'block max-sm:line-clamp-3 max-sm:overflow-hidden'
   }
 ]
@@ -3160,6 +3218,12 @@ function FaqsScreen() {
       tableClassName="max-sm:table-fixed"
     />
   )
+}
+
+function trashSortValue(item: Record<string, unknown>, key: string): SortValue {
+  if (key === 'price') return parseListedPrice(item.price as string | number | undefined)
+  if (key === 'status' && typeof item.status !== 'string') return productStatus(item as unknown as InventoryProduct)
+  return collectionSortValue(item, key)
 }
 
 function TrashScreen({
@@ -3183,6 +3247,7 @@ function TrashScreen({
 }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(true)
+  const { rows, sortBy } = useTableSort(items, trashSortValue)
   useEffect(() => {
     setLoading(true)
     void adminJson<Record<string, Array<Record<string, unknown>>>>(`${path}/trash`)
@@ -3208,7 +3273,7 @@ function TrashScreen({
         loading={loading}
         tableClassName={tableClassName}
         columns={[
-          ...columns.map((column) => ({ label: column.label, className: column.className })),
+          ...columns.map((column) => ({ label: column.label, className: column.className, onSort: () => sortBy(column.key) })),
           { label: 'Actions', className: 'w-0 text-right' }
         ]}
       >
@@ -3219,7 +3284,7 @@ function TrashScreen({
             </td>
           </tr>
         ) : (
-          items.map((item) => (
+          rows.map((item) => (
             <tr key={String(item.id)} className="border-b border-site-mulled-wine">
               {columns.map((column) => (
                 <td key={column.key} className={adminTableCellPad(column.className)}>
@@ -3276,7 +3341,12 @@ function PagesTrashScreen() {
       columns={[
         { key: 'title', label: 'Title' },
         { key: 'path', label: 'Path', className: adminTableColumnPad('whitespace-nowrap') },
-        { key: 'status', label: 'Status', className: 'whitespace-nowrap' }
+        {
+          key: 'status',
+          label: 'Status',
+          className: 'whitespace-nowrap',
+          render: (item) => <StatusBadge status={item.status as CmsPageStatus} />
+        }
       ]}
     />
   )
@@ -3298,7 +3368,7 @@ function ProductsTrashScreen() {
           key: 'status',
           label: 'Status',
           className: 'whitespace-nowrap',
-          render: (item) => <ProductStatusBadge status={productStatus(item as unknown as InventoryProduct)} />
+          render: (item) => <StatusBadge status={productStatus(item as unknown as InventoryProduct)} />
         }
       ]}
     />

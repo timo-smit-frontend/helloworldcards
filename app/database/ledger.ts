@@ -15,8 +15,13 @@ function inSameMonth(iso: string | null, now: Date): boolean {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
 }
 
+/** A reserved card counts as sold in the stats: the deal is done, only the money is still on its way. */
+export function isSoldOrReserved(item: Pick<LedgerItem, 'sold' | 'reserved'>): boolean {
+  return item.sold || item.reserved
+}
+
 function soldInPeriod(item: LedgerItem, period: LedgerPeriod, now: Date): boolean {
-  if (!item.sold) {
+  if (!isSoldOrReserved(item)) {
     return false
   }
 
@@ -51,7 +56,7 @@ export function soldItemsForPeriod(items: LedgerItem[], period: LedgerPeriod, no
 
 export function summarizeLedger(items: LedgerItem[], period: LedgerPeriod, now = new Date()): LedgerTotals {
   const soldItems = items.filter((item) => soldInPeriod(item, period, now))
-  const stockItems = items.filter((item) => !item.sold)
+  const stockItems = items.filter((item) => !isSoldOrReserved(item))
   const spentItems = items.filter((item) => spentInPeriod(item, period, now))
 
   const soldCost = soldItems.reduce((total, item) => total + (item.spending ?? 0), 0)

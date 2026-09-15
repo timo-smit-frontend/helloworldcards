@@ -15,10 +15,13 @@ export function buildLedger(inventory: InventoryProduct[]): Ledger {
     return {
       id: product.id,
       title: product.title,
+      subtitle: product.subtitle,
+      image: product.images[0] ?? null,
       spending,
       listed,
       potentialGain,
       sold: product.sold === true,
+      reserved: product.reserved === true,
       soldAt: product.soldAt ?? null,
       acquiredAt: product.acquiredAt ?? null
     }
