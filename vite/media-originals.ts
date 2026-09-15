@@ -8,7 +8,7 @@ import type { MediaSourceReader } from './media-sync'
  * environment without a second process having to open the local Wrangler state while the
  * dev server holds it.
  */
-export function mediaOriginalsDir(root: string): string {
+function mediaOriginalsDir(root: string): string {
   return path.join(root, '.cache', 'media-originals')
 }
 

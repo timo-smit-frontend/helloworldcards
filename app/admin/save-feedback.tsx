@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Check, X } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 
-export type SaveFeedback = { status: 'success' | 'error'; message: string }
+type SaveFeedback = { status: 'success' | 'error'; message: string }
 
 export function useSaveFeedback() {
   const [feedback, setFeedback] = useState<SaveFeedback | null>(null)

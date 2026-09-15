@@ -11,7 +11,7 @@
  * order would only be information the code cannot use, and alphabetical is what makes
  * "is this one on the list?" answerable at a glance.
  */
-export const POPULAR_POKEMON = [
+const POPULAR_POKEMON = [
   'Absol',
   'Alakazam',
   'Arcanine',
@@ -81,7 +81,7 @@ export const POPULAR_POKEMON = [
  * of one of these outsells most of the second half of the Pokémon list. `N` is left
  * off on purpose: a one-letter name matches far too much to be worth the false stars.
  */
-export const POPULAR_TRAINERS = ['Cynthia', 'Erika', 'Hilda', 'Iono', 'Lillie', 'Marnie', 'Misty', 'Nessa', 'Serena', 'Skyla'] as const
+const POPULAR_TRAINERS = ['Cynthia', 'Erika', 'Hilda', 'Iono', 'Lillie', 'Marnie', 'Misty', 'Nessa', 'Serena', 'Skyla'] as const
 
 export const POPULAR_CHARACTERS: readonly string[] = [...POPULAR_POKEMON, ...POPULAR_TRAINERS]
 

@@ -8,7 +8,7 @@ import { resolveImageAlt } from '~/services/imageCopy'
 import { CONTENT_IMAGE_SIZES } from '~/services/responsiveImage'
 import { cn } from '~/services/utils'
 
-export type ContentTextSection = {
+type ContentTextSection = {
   title: string
   body: ReactNode | string
 }

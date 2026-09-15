@@ -17,14 +17,14 @@ export const PRODUCT_IMAGE_SIZES = PRIORITY_IMAGE_SIZES
 export const CATALOG_IMAGE_SIZES = '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw'
 export const CONTENT_IMAGE_SIZES = PRIORITY_IMAGE_SIZES
 
-export function srcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
+function srcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
   const widths = variantWidthsFor()
     .filter((width) => width <= maxWidth)
     .sort((a, b) => a - b)
   return widths.length > 0 ? widths : [maxWidth]
 }
 
-export function preloadSrcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
+function preloadSrcSetWidths(maxWidth: number = DEFAULT_SRCSET_MAX_WIDTH): number[] {
   const available = new Set(srcSetWidths(maxWidth))
   const widths = [...PRELOAD_WIDTHS, maxWidth].filter(
     (width, index, all) => width <= maxWidth && available.has(width) && all.indexOf(width) === index

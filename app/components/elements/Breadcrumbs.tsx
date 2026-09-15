@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router'
 import { useCms } from '~/cms/context'
 import { cn } from '~/services/utils'
 
-export type BreadcrumbItem = {
+type BreadcrumbItem = {
   title: string
   url?: string
 }

@@ -1,4 +1,4 @@
-export async function adminFetch(path: string, init?: RequestInit): Promise<Response> {
+async function adminFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(`/api/admin${path}`, {
     credentials: 'same-origin',
     ...init,

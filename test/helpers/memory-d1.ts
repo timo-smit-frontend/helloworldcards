@@ -45,7 +45,7 @@ class MemoryStatement {
   }
 }
 
-export class MemoryD1 {
+class MemoryD1 {
   private readonly sqlite: DatabaseSync
 
   constructor(schemaSql: string) {
@@ -80,7 +80,7 @@ export class MemoryD1 {
   }
 }
 
-export function schemaSql(root = process.cwd()): string {
+function schemaSql(root = process.cwd()): string {
   const dir = path.join(root, 'migrations')
   return fs
     .readdirSync(dir)
@@ -93,7 +93,7 @@ export function schemaSql(root = process.cwd()): string {
 const MIGRATION_LEDGER = '_applied_migrations'
 
 /** Every migration file, in the order Wrangler would apply them. */
-export function migrationFiles(root = process.cwd()): string[] {
+function migrationFiles(root = process.cwd()): string[] {
   const dir = path.join(root, 'migrations')
   return fs
     .readdirSync(dir)
@@ -101,7 +101,7 @@ export function migrationFiles(root = process.cwd()): string[] {
     .sort()
 }
 
-export function splitSqlStatements(sql: string): string[] {
+function splitSqlStatements(sql: string): string[] {
   return sql
     .split(';')
     .map((part) => part.trim())

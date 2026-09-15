@@ -11,7 +11,7 @@ import { localBin } from './local-bin'
 
 const DATABASE = 'helloworldcards'
 
-export function sqlLiteral(value: unknown): string {
+function sqlLiteral(value: unknown): string {
   if (value == null) {
     return 'NULL'
   }

@@ -49,7 +49,7 @@ export type ScanBrowser = {
   close: () => Promise<void>
 }
 
-export type ChromeAction = 'connect' | 'launch'
+type ChromeAction = 'connect' | 'launch'
 
 /**
  * The one Chrome window, held as the promise of it rather than the window itself.
@@ -193,7 +193,7 @@ export function nextChromeAction(status: { cdpReady: boolean; chromeRunning?: bo
   return status.cdpReady ? 'connect' : 'launch'
 }
 
-export function chromeExecutable(): string | undefined {
+function chromeExecutable(): string | undefined {
   return [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
@@ -243,7 +243,7 @@ export function isVintedHost(host: string): boolean {
  * hand back Chrome's JSON viewer with the payload HTML-escaped inside it. A plain
  * request returns the JSON itself, which is what the overview parser wants.
  */
-export async function fetchMarktplaatsSearch(url: string, request: typeof fetch = fetch): Promise<string> {
+async function fetchMarktplaatsSearch(url: string, request: typeof fetch = fetch): Promise<string> {
   const response = await request(url, {
     headers: {
       'user-agent': BROWSER_USER_AGENT,
@@ -266,7 +266,7 @@ export async function fetchMarktplaatsSearch(url: string, request: typeof fetch 
  * shared tab is a page load the Cardmarket work behind it has to queue up for. The
  * browser is still there to fall back on if a plain request comes back short.
  */
-export async function fetchMarktplaatsListing(url: string, request: typeof fetch = fetch): Promise<string> {
+async function fetchMarktplaatsListing(url: string, request: typeof fetch = fetch): Promise<string> {
   const response = await request(url, {
     headers: {
       'user-agent': BROWSER_USER_AGENT,
@@ -281,7 +281,7 @@ export async function fetchMarktplaatsListing(url: string, request: typeof fetch
   return await response.text()
 }
 
-export function isMarktplaatsListing(url: string): boolean {
+function isMarktplaatsListing(url: string): boolean {
   return /(?:^|\.)marktplaats\.nl$/i.test(new URL(url).hostname) && url.includes('/v/')
 }
 
@@ -290,7 +290,7 @@ export function isMarktplaatsListing(url: string): boolean {
  * `sellerId` the search feed already carries, so no listing page has to be opened to
  * find out whether a seller is worth buying from.
  */
-export const marktplaatsSellerReviews: SellerReviews = async (sellerId, request: typeof fetch = fetch) => {
+const marktplaatsSellerReviews: SellerReviews = async (sellerId, request: typeof fetch = fetch) => {
   const response = await request(marktplaatsSellerProfileUrl(sellerId), {
     headers: { 'user-agent': BROWSER_USER_AGENT, accept: 'application/json', 'accept-language': 'nl-NL,nl;q=0.9' }
   })
@@ -409,7 +409,7 @@ function createLock(): TabLock {
   }
 }
 
-export async function createScanBrowser(root = process.cwd()): Promise<ScanBrowser> {
+async function createScanBrowser(root = process.cwd()): Promise<ScanBrowser> {
   const { chromium } = await import('playwright')
   const userDataDir = path.join(root, BROWSER_PROFILE)
   fs.mkdirSync(userDataDir, { recursive: true })

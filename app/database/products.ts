@@ -48,7 +48,7 @@ export type InventoryProduct = Product & {
   firstEdition?: boolean
 }
 
-export type ProductBuyLink = {
+type ProductBuyLink = {
   title: string
   url?: string
   target?: '_blank'
@@ -85,7 +85,7 @@ export type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   firstEdition?: boolean
 }
 
-export function productSlugBase(product: Pick<ProductRecord, 'title' | 'subtitle'>): string {
+function productSlugBase(product: Pick<ProductRecord, 'title' | 'subtitle'>): string {
   return slugify(`${product.title} ${product.subtitle}`)
 }
 

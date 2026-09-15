@@ -1,7 +1,7 @@
 import { SITE_IMAGE } from '../seo/site'
 import type { CmsMediaCopy } from '../cms/types'
 
-export const SITE_IMAGE_TITLE = 'Pokémon tournament with a giant Pikachu balloon'
+const SITE_IMAGE_TITLE = 'Pokémon tournament with a giant Pikachu balloon'
 export const SITE_IMAGE_ALT =
   'A packed Pokémon card tournament in a convention hall, with a giant yellow Pikachu balloon hanging from the ceiling.'
 

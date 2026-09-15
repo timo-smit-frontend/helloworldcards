@@ -11,9 +11,9 @@ import type {
   CmsSettings
 } from '../../app/cms/types'
 import type { InventoryProduct, ProductRecord } from '../../app/database/products'
-import { isShopListed, toInventoryProduct, toPublicProduct, uniqueProductSlug } from '../../app/database/products'
+import { isShopListed, toInventoryProduct, toPublicProduct } from '../../app/database/products'
 
-export type CmsStatementResult<T = Record<string, unknown>> = {
+type CmsStatementResult<T = Record<string, unknown>> = {
   results: T[]
   meta?: { last_row_id: number; changes: number }
 }
@@ -260,11 +260,6 @@ export async function listAdminInventory(db: CmsDb): Promise<InventoryProduct[]>
   return results.map(rowToInventory)
 }
 
-export async function listLedgerInventory(db: CmsDb): Promise<InventoryProduct[]> {
-  const { results } = await db.prepare(SQL.ledger).all<ProductRow>()
-  return results.map(rowToInventory)
-}
-
 export async function listTrashedProducts(db: CmsDb): Promise<InventoryProduct[]> {
   const { results } = await db
     .prepare('SELECT * FROM products WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC')
@@ -277,24 +272,12 @@ export async function listShopProducts(db: CmsDb) {
   return inventory.filter(isShopListed).map((item) => toPublicProduct(item, item.slug))
 }
 
-export async function getProductBySlugRow(db: CmsDb, slug: string): Promise<InventoryProduct | null> {
-  const row = await db.prepare(SQL.productBySlug).bind(slug).first<ProductRow>()
-  return row ? rowToInventory(row) : null
-}
-
 export async function getProductById(db: CmsDb, id: number): Promise<InventoryProduct | null> {
   const row = await db.prepare('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL').bind(id).first<ProductRow>()
   return row ? rowToInventory(row) : null
 }
 
-export async function productSlugTaken(db: CmsDb, slug: string, exceptId?: number): Promise<boolean> {
-  const row = exceptId
-    ? await db.prepare('SELECT id FROM products WHERE slug = ? AND id != ?').bind(slug, exceptId).first()
-    : await db.prepare('SELECT id FROM products WHERE slug = ?').bind(slug).first()
-  return row != null
-}
-
-export function productWriteValues(product: ProductRecord & { slug: string }) {
+function productWriteValues(product: ProductRecord & { slug: string }) {
   return [
     product.title,
     product.subtitle,
@@ -353,11 +336,6 @@ export async function upsertProductWithId(db: CmsDb, id: number, product: Produc
     )
     .bind(id, ...productWriteValues(product))
     .run()
-}
-
-export async function nextProductSlug(db: CmsDb, product: ProductRecord): Promise<string> {
-  const { results } = await db.prepare('SELECT id, title, subtitle FROM products').all<ProductRecord>()
-  return uniqueProductSlug(product, results)
 }
 
 export async function listEvents(db: CmsDb): Promise<CmsEvent[]> {
@@ -434,11 +412,6 @@ export async function listPages(db: CmsDb): Promise<CmsPage[]> {
 export async function listTrashedPages(db: CmsDb): Promise<CmsPage[]> {
   const { results } = await db.prepare('SELECT * FROM pages WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC').all<PageRow>()
   return results.map(rowToPage)
-}
-
-export async function getPageByPath(db: CmsDb, path: string): Promise<CmsPage | null> {
-  const row = await db.prepare(SQL.pageByPath).bind(path).first<PageRow>()
-  return row ? rowToPage(row) : null
 }
 
 export async function getPageById(db: CmsDb, id: number): Promise<CmsPage | null> {
@@ -605,20 +578,8 @@ export async function insertMedia(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>
   return result.meta.last_row_id
 }
 
-/** Keys are unique, so the database can skip a duplicate itself: no lookup first. */
-export async function insertMediaIfAbsent(db: CmsDb, media: Omit<CmsMedia, 'id' | 'url'>): Promise<void> {
-  await insertMediaStatement(db, media, true).run()
-}
-
 function fillEmptyMediaCopyStatement(db: CmsDb, key: string, title: string, alt: string): CmsPreparedStatement {
   return db.prepare("UPDATE media SET title = ?, alt = ? WHERE key = ? AND title = '' AND alt = ''").bind(title, alt, key)
-}
-
-export async function fillEmptyMediaCopy(db: CmsDb, key: string, title: string, alt: string): Promise<void> {
-  if (!title && !alt) {
-    return
-  }
-  await fillEmptyMediaCopyStatement(db, key, title, alt).run()
 }
 
 /**

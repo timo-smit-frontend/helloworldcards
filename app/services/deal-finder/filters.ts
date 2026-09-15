@@ -47,7 +47,7 @@ const ACCESSORY =
 const THROWN_IN = /\b(?:incl\.?|inclusief|inclusive|met|in|plus|with|\+)\s+(?:een |de |het |a |an |the )?$/i
 
 /** True when the title is selling the plastic rather than a card sitting in it. */
-export function isAccessoryListing(title: string): boolean {
+function isAccessoryListing(title: string): boolean {
   const match = title.match(ACCESSORY)
   return match?.index != null && !THROWN_IN.test(title.slice(0, match.index))
 }
@@ -79,7 +79,7 @@ export function ownListingIds(products: Array<{ marktplaatsUrl?: string | null; 
   return { marktplaats, vinted }
 }
 
-export function isOwnListing(listing: SourceListing, ids: OwnListingIds): boolean {
+function isOwnListing(listing: SourceListing, ids: OwnListingIds): boolean {
   if (listing.source === 'marktplaats') {
     const id = listing.listingUrl.match(MARKTPLAATS_ID)?.[1] ?? listing.listingId.replace(/^m/, '')
     return ids.marktplaats.has(id)

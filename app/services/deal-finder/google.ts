@@ -145,7 +145,7 @@ export function cleanCardmarketUrl(url: string): string {
  * `MEW168`, `sv2a206`, `S-P068`. A trailing `-V2` is not that: it is how Cardmarket
  * tells two products of the same name apart.
  */
-export function productCardNumber(productSlug: string): string | null {
+function productCardNumber(productSlug: string): string | null {
   const last = productSlug.split('-').pop() ?? ''
   if (/^V\d+$/i.test(last)) {
     return null
@@ -165,7 +165,7 @@ export function productCardNumber(productSlug: string): string | null {
  * A card number with letters in it — `TG12`, `SWSH039` — is compared on its digits, and
  * anything that cannot be read as a number at all is not evidence of a mismatch.
  */
-export function namesAnotherCard(productSlug: string, cardNumber: string): boolean {
+function namesAnotherCard(productSlug: string, cardNumber: string): boolean {
   const digits = productCardNumber(productSlug)
   const wanted = cardNumber.match(/(\d+)$/)?.[1]
   if (!digits || !wanted) {
@@ -187,7 +187,7 @@ export function namesAnotherCard(productSlug: string, cardNumber: string): boole
  */
 const CONTRADICTED = -100
 
-export function scoreCardmarketLink(setSlug: string, productSlug: string, identity: CardIdentity): number {
+function scoreCardmarketLink(setSlug: string, productSlug: string, identity: CardIdentity): number {
   let score = 0
   const combined = `${setSlug}/${productSlug}`.toLowerCase()
 
@@ -327,7 +327,7 @@ export function cardmarketTitleSlugs(title: string): { setSlug: string; productS
 }
 
 /** A Cardmarket page a Google results page points at, and how good a match it looks. */
-export type CardmarketCandidate = {
+type CardmarketCandidate = {
   /** The product page, or the Google redirect that has to be followed to reach it. */
   url: string
   /** True when `url` is Google's redirect rather than the Cardmarket page itself. */

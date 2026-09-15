@@ -47,7 +47,7 @@ function resolveBlocks(blocks: CmsBlock[], events: CmsEvent[]): CmsBlock[] {
 }
 
 /** Featured and "more from the shop" slots only show cards that can still be bought: never reserved, never sold. */
-export function isFeaturable(product: Pick<InventoryProduct, 'sold' | 'reserved'>): boolean {
+function isFeaturable(product: Pick<InventoryProduct, 'sold' | 'reserved'>): boolean {
   return isShopListed(product) && product.reserved !== true
 }
 

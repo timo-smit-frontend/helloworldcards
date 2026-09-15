@@ -2,7 +2,7 @@ const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
 export const SESSION_COOKIE = 'hwc_dashboard'
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
 
 export function timingSafeEqual(left: string, right: string): boolean {
   const a = encoder.encode(left)

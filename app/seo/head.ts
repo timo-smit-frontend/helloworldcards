@@ -15,7 +15,7 @@ function serializeJsonLd(data: Record<string, unknown>): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')
 }
 
-export function buildSeoHead(seo: SeoPage): string {
+function buildSeoHead(seo: SeoPage): string {
   const tags = [
     `<title>${escapeHtml(seo.title)}</title>`,
     `<meta name="description" content="${escapeHtml(seo.description)}" />`,
@@ -45,7 +45,7 @@ export function buildSeoHead(seo: SeoPage): string {
   return `${SEO_START}\n    ${tags.join('\n    ')}\n    ${SEO_END}`
 }
 
-export function buildLcpHead(seo: SeoPage): string {
+function buildLcpHead(seo: SeoPage): string {
   const tag = seo.lcp && isLocalRasterSrc(seo.lcp.src) ? buildLcpPreloadTag(seo.lcp.src, seo.lcp.maxWidth, seo.lcp.sizes) : ''
 
   return tag ? `${LCP_START}\n    ${tag}\n    ${LCP_END}` : `${LCP_START}\n    ${LCP_END}`

@@ -1,7 +1,5 @@
 import type { LedgerItem, LedgerPeriod, LedgerTotals } from './ledger-types'
 
-export type { Ledger, LedgerItem, LedgerPeriod, LedgerTotals } from './ledger-types'
-
 function inSameMonth(iso: string | null, now: Date): boolean {
   if (!iso) {
     return false
@@ -16,7 +14,7 @@ function inSameMonth(iso: string | null, now: Date): boolean {
 }
 
 /** A reserved card counts as sold in the stats: the deal is done, only the money is still on its way. */
-export function isSoldOrReserved(item: Pick<LedgerItem, 'sold' | 'reserved'>): boolean {
+function isSoldOrReserved(item: Pick<LedgerItem, 'sold' | 'reserved'>): boolean {
   return item.sold || item.reserved
 }
 

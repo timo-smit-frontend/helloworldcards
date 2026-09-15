@@ -60,9 +60,6 @@ export const MIN_EDGE = 15
 export const IMPLAUSIBLE_FLOOR_RATIO = 4
 export const IMPLAUSIBLE_FLOOR_GAP = 200
 
-/** We only chase English and Japanese PSA 9 / PSA 10 singles. */
-export const SUPPORTED_GRADES = [9, 10] as const
-
 /** Pause between Google / Cardmarket page loads so the scan does not look like a bot. */
 export const FETCH_DELAY_MS = 1000
 

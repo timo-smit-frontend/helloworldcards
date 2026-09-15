@@ -26,13 +26,13 @@ export const CMS_BLOCK_LABELS: Record<CmsBlockType, string> = {
   form_contact: 'Contact form'
 }
 
-export type CmsLink = {
+type CmsLink = {
   url?: string
   title?: string
   target?: string
 }
 
-export type CmsTextSection = {
+type CmsTextSection = {
   title: string
   body: string
 }
@@ -185,7 +185,7 @@ export type CmsMediaCopy = {
   alt: string
 }
 
-export type R2UsageMetric = 'storage' | 'classA' | 'classB'
+type R2UsageMetric = 'storage' | 'classA' | 'classB'
 
 export type R2UsageSnapshot = {
   month: string
@@ -203,32 +203,6 @@ export type R2UsageSnapshot = {
     used: number
     limit: number
   }>
-}
-
-export type CmsProductRecord = {
-  id: number
-  title: string
-  subtitle: string
-  description: string
-  images: string[]
-  pokemonId?: number
-  price?: string
-  language?: CardLanguage
-  grader?: CardGrader
-  year?: number
-  marktplaatsUrl?: string
-  vintedUrl?: string
-  slug: string
-  cost?: number
-  sold: boolean
-  reserved: boolean
-  concept: boolean
-  soldAt?: string
-  acquiredAt?: string
-  grade?: number
-  cardmarketUrl?: string
-  reverseHolo: boolean
-  firstEdition: boolean
 }
 
 export type PublicProduct = {

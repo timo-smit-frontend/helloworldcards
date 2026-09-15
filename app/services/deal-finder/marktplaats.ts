@@ -87,7 +87,7 @@ function attributeValue(item: RawListing, key: string): string | null {
 }
 
 /** Marktplaats' own search endpoint, which answers with the same `listings` payload the page embeds. */
-export const MARKTPLAATS_SEARCH_API = 'https://www.marktplaats.nl/lrp/api/search'
+const MARKTPLAATS_SEARCH_API = 'https://www.marktplaats.nl/lrp/api/search'
 
 /** The most listings the search endpoint will serve in one answer; asking for more is a 400. */
 export const MARKTPLAATS_PAGE_SIZE = 100
@@ -352,7 +352,7 @@ function detailDescription(html: string): string | null {
   return meta ? tidy(meta) : null
 }
 
-export const MARKTPLAATS_CHALLENGE =
+const MARKTPLAATS_CHALLENGE =
   /even geduld|just a moment|attention required|beveiliging wordt geverifieerd|cf-browser-verification|cf-error-details|checking your browser/i
 
 export function isMarktplaatsChallenge(html: string): boolean {

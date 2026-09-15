@@ -10,7 +10,7 @@ const VARIANT_TYPE = 'image/webp'
 const VARIANT_QUALITY = 0.82
 const RESIZABLE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-export function variantUploadName(width: number, format: ImageFormat = VARIANT_FORMAT): string {
+function variantUploadName(width: number, format: ImageFormat = VARIANT_FORMAT): string {
   return `w${width}.${format}`
 }
 
@@ -33,7 +33,7 @@ async function encodeWidth(bitmap: ImageBitmap, width: number): Promise<File | n
   return new File([blob], variantUploadName(width), { type: VARIANT_TYPE })
 }
 
-export async function buildUploadVariants(file: File): Promise<File[]> {
+async function buildUploadVariants(file: File): Promise<File[]> {
   if (!RESIZABLE_TYPES.has(file.type) || typeof createImageBitmap !== 'function') {
     return []
   }

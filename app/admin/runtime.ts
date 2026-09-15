@@ -1,4 +1,4 @@
-export const ADMIN_HOST = 'admin.helloworldcards.com'
+const ADMIN_HOST = 'admin.helloworldcards.com'
 
 export function isAdminHost(hostname: string): boolean {
   return hostname === ADMIN_HOST

@@ -50,11 +50,8 @@ import type {
   SourceSummary
 } from './types'
 
-export type { DealFinderCache, DealFinderCacheStore, CacheEntry } from './cache'
+export type { DealFinderCache } from './cache'
 export * from './types'
-export { groupProblems, mergeReports, sortDeals, sortNoComps } from './report'
-export { ownListingIds } from './filters'
-export { displayTitle } from './identify'
 
 /** Reads every PSA label it can find across a listing's photos, locally with OCR. */
 export type SlabReader = (input: { listing: SourceListing; imageUrls: string[] }) => Promise<SlabReading>
@@ -484,8 +481,7 @@ async function loadListingDetail(
 ): Promise<{ listing: SourceListing; sellerReviews: number | null }> {
   try {
     const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
-    const detail =
-      listing.source === 'marktplaats' ? { ...parseMarktplaatsDetail(html), sellerReviews: null } : parseVintedDetail(html)
+    const detail = listing.source === 'marktplaats' ? { ...parseMarktplaatsDetail(html), sellerReviews: null } : parseVintedDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
     return {

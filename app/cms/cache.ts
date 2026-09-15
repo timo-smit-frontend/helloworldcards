@@ -1,7 +1,7 @@
 import { normalizePagePath } from '../../worker/hosts'
 import type { PublicCmsPayload } from './types'
 
-export type CmsCache = Map<string, PublicCmsPayload>
+type CmsCache = Map<string, PublicCmsPayload>
 
 export function readCachedCmsPayload(cache: CmsCache, pathname: string): PublicCmsPayload | null {
   return cache.get(normalizePagePath(pathname)) ?? null

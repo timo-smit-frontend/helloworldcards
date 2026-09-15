@@ -5,10 +5,10 @@ import type { DealSource } from './types'
  * less than €0.40 and never more than €20. A €100 card costs €5 in protection, a €300
  * card €15, and anything from €400 up the same €20.
  */
-export const BUYER_PROTECTION = { rate: 0.05, min: 0.4, max: 20 }
+const BUYER_PROTECTION = { rate: 0.05, min: 0.4, max: 20 }
 
 /** What postage costs when the listing does not quote it, which on Marktplaats is always. */
-export const DEFAULT_SHIPPING = 4
+const DEFAULT_SHIPPING = 4
 
 /** What a listing costs beyond its ask, and what the lot comes to. */
 export type ListingCost = {

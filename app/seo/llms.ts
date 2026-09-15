@@ -1,14 +1,13 @@
-import { CONTACT_EMAIL, MARKTPLAATS_URL } from '../services/contact'
-import { SITE_DESCRIPTION, SITE_NAME, canonicalUrl } from './site'
+import { canonicalUrl } from './site'
 
-export type LlmsPage = {
+type LlmsPage = {
   path: string
   title: string
   seoTitle: string
   seoDescription: string
 }
 
-export type LlmsProduct = {
+type LlmsProduct = {
   title: string
   slug: string
   subtitle: string
@@ -16,18 +15,18 @@ export type LlmsProduct = {
   description: string
 }
 
-export type LlmsEvent = {
+type LlmsEvent = {
   title: string
   date: string
   location: string
 }
 
-export type LlmsFaq = {
+type LlmsFaq = {
   question: string
   answer: string
 }
 
-export type LlmsInput = {
+type LlmsInput = {
   siteName: string
   siteDescription: string
   contactEmail: string
@@ -95,21 +94,4 @@ export function buildLlmsDocument(input: LlmsInput, full = false): string {
       ...(optional ? [optional] : [])
     ].join('\n\n') + '\n'
   )
-}
-
-export function buildLlmsTxt(): string {
-  return buildLlmsDocument({
-    siteName: SITE_NAME,
-    siteDescription: SITE_DESCRIPTION,
-    contactEmail: CONTACT_EMAIL,
-    marktplaatsUrl: MARKTPLAATS_URL,
-    pages: [],
-    products: [],
-    events: [],
-    faqs: []
-  })
-}
-
-export function buildLlmsFullTxt(): string {
-  return buildLlmsTxt()
 }

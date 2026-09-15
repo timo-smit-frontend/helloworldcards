@@ -78,7 +78,7 @@ export function ratioAtPrice(value: number, bounds: PriceRange): number {
   return (value - bounds.min) / (bounds.max - bounds.min)
 }
 
-export const PRICE_RANGE_THUMB_SIZE = 20
+const PRICE_RANGE_THUMB_SIZE = 20
 
 export function thumbCenterOffset(ratio: number, trackWidth: number, thumbSize = PRICE_RANGE_THUMB_SIZE): number {
   const clamped = Math.min(1, Math.max(0, ratio))

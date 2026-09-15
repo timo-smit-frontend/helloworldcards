@@ -87,7 +87,7 @@ export type CardIdentity = {
 }
 
 /** Shared shape for every row the dashboard renders, whatever bucket it lands in. */
-export type ListingRef = {
+type ListingRef = {
   id: string
   source: DealSource
   title: string

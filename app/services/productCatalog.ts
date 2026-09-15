@@ -2,7 +2,7 @@ import { CARD_LANGUAGES, type CardGrader, type CardLanguage } from '~/database/p
 import { parseListedPrice } from './price'
 import { applyPriceRangeSearchParams, type PriceRange } from './productPriceFilter'
 
-export const PRODUCT_SORTS = ['title-asc', 'age-asc', 'age-desc', 'price-asc', 'price-desc'] as const
+const PRODUCT_SORTS = ['title-asc', 'age-asc', 'age-desc', 'price-asc', 'price-desc'] as const
 
 export type ProductSort = (typeof PRODUCT_SORTS)[number]
 
@@ -20,7 +20,7 @@ export type CatalogProduct = {
   year?: number
 }
 
-export type CatalogQuery = {
+type CatalogQuery = {
   language?: CardLanguage | null
   sort?: ProductSort | null
   range?: PriceRange | null

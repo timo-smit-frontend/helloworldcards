@@ -62,7 +62,7 @@ export type FetchCardmarketPage = (url: string, options?: FetchCardmarketPageOpt
 const DEFAULT_OFFERS_LOAD_MORE = 30
 
 /** True when the offers HTML already contains a same-grade PSA/BGS floor. */
-export function htmlHasMarketFloor(html: string, grader: CardGrader, grade: number): boolean {
+function htmlHasMarketFloor(html: string, grader: CardGrader, grade: number): boolean {
   return marketFloorPrice({ grader, grade, listings: parseArticleListings(html) }) != null
 }
 

@@ -42,7 +42,7 @@ export type MediaCache = {
 }
 
 /** What comes back from the bucket: R2's object, or the in-memory stand-in below. */
-export type MediaObject = {
+type MediaObject = {
   arrayBuffer(): Promise<ArrayBuffer>
   /** Streamed straight through to the response where the bucket offers it. */
   body?: ReadableStream | null
@@ -51,7 +51,7 @@ export type MediaObject = {
   size?: number
 }
 
-export type MediaObjectHead = Omit<MediaObject, 'arrayBuffer' | 'body'>
+type MediaObjectHead = Omit<MediaObject, 'arrayBuffer' | 'body'>
 
 export type MediaBucket = {
   put(key: string, value: ArrayBuffer | Uint8Array | string, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>

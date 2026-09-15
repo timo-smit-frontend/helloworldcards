@@ -40,7 +40,7 @@ export function seedFilePath(root: string, part: CmsSeedPart): string {
   return path.join(root, CMS_SEED_FILES[part])
 }
 
-export async function readProducts(db: CmsDb): Promise<ProductRecord[]> {
+async function readProducts(db: CmsDb): Promise<ProductRecord[]> {
   const { results } = await db
     .prepare('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC')
     .all<Parameters<typeof rowToRecord>[0]>()
@@ -212,11 +212,4 @@ export async function restoreSeedFiles(root: string, previous: Partial<CmsSeedFi
       await fs.writeFile(seedFilePath(root, part), source)
     }
   }
-}
-
-/** The parts where a database and the committed files disagree. */
-export async function seedFileDrift(root: string, state: CmsState): Promise<CmsSeedPart[]> {
-  const rendered = await renderCmsState(root, state)
-  const current = await readSeedFiles(root)
-  return CMS_SEED_PARTS.filter((part) => current[part] !== rendered[part])
 }

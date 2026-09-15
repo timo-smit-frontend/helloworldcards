@@ -26,7 +26,7 @@ export type CmsContentSnapshot = {
   events: CmsEvent[]
 }
 
-export type CmsContentSyncCounts = {
+type CmsContentSyncCounts = {
   nav: number
   pages: number
   faqs: number

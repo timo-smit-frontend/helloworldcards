@@ -54,7 +54,7 @@ export function marktplaatsVraagprijsFromShop(shopPrice: string | number | undef
 
 const BID_STEP_EUROS = 5
 
-export interface MarktplaatsBidding {
+interface MarktplaatsBidding {
   /**
    * "Bieden vanaf" on the ad form: one €5 step under the floor, minus one cent like the Vraagprijs
    * (e.g. `84.99` for a €100 shop price).

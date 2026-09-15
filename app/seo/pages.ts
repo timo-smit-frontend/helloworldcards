@@ -3,7 +3,7 @@ import { PRIORITY_IMAGE_SIZES } from '../services/responsiveImage'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
 import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
 
-export type LcpImage = {
+type LcpImage = {
   src: string
   maxWidth: number
   sizes: string
@@ -39,14 +39,14 @@ function titleWithBrand(pageTitle: string): string {
   return `${pageTitle} | ${SITE_NAME}`
 }
 
-export function serializeJsonLdGraph(graph: Array<Record<string, unknown>>): Record<string, unknown> {
+function serializeJsonLdGraph(graph: Array<Record<string, unknown>>): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@graph': graph
   }
 }
 
-export function organizationNode(identity: SeoIdentity = {}): Record<string, unknown> {
+function organizationNode(identity: SeoIdentity = {}): Record<string, unknown> {
   const siteName = identity.siteName ?? SITE_NAME
   const siteDescription = identity.siteDescription ?? SITE_DESCRIPTION
   const siteImage = identity.siteImage ?? SITE_IMAGE
@@ -80,7 +80,7 @@ export function organizationNode(identity: SeoIdentity = {}): Record<string, unk
   }
 }
 
-export function websiteNode(identity: SeoIdentity = {}): Record<string, unknown> {
+function websiteNode(identity: SeoIdentity = {}): Record<string, unknown> {
   return {
     '@type': 'WebSite',
     '@id': WEBSITE_ID,
@@ -91,7 +91,7 @@ export function websiteNode(identity: SeoIdentity = {}): Record<string, unknown>
   }
 }
 
-export function webPageNode({
+function webPageNode({
   path,
   title,
   description,

@@ -3,13 +3,13 @@ import { batchAll, type CmsDb } from './db'
 export const R2_FREE_STORAGE_BYTES = 10 * 1024 * 1024 * 1024
 export const R2_FREE_CLASS_A = 1_000_000
 export const R2_FREE_CLASS_B = 10_000_000
-export const R2_WARN_AT = 0.5
-export const R2_ALERT_AT = 0.8
+const R2_WARN_AT = 0.5
+const R2_ALERT_AT = 0.8
 
-export type R2UsageMetric = 'storage' | 'classA' | 'classB'
-export type R2UsageLevel = 'warn' | 'alert'
+type R2UsageMetric = 'storage' | 'classA' | 'classB'
+type R2UsageLevel = 'warn' | 'alert'
 
-export type R2UsageWarning = {
+type R2UsageWarning = {
   metric: R2UsageMetric
   level: R2UsageLevel
   used: number

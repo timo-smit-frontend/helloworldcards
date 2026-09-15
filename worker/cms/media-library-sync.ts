@@ -14,7 +14,7 @@ import {
  * and the derived URL, neither of which is portable. The folder goes by name for the
  * same reason — its id is whatever the target database handed out.
  */
-export type CmsMediaEntry = Omit<CmsMedia, 'id' | 'url' | 'folderId'> & { folder: string | null }
+type CmsMediaEntry = Omit<CmsMedia, 'id' | 'url' | 'folderId'> & { folder: string | null }
 
 /**
  * The media library in a form that round-trips through `seed/cms-media.json`. The image

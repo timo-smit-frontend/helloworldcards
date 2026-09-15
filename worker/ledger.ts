@@ -2,7 +2,6 @@ import type { Ledger } from '../app/database/ledger-types'
 import type { InventoryProduct } from '../app/database/products'
 import { parseListedPrice } from '../app/services/price'
 
-export type { Ledger, LedgerItem, LedgerPeriod, LedgerTotals } from '../app/database/ledger-types'
 export { soldItemsForPeriod, summarizeLedger } from '../app/database/ledger'
 export { parseListedPrice }
 

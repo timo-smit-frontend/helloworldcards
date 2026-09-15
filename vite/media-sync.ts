@@ -22,9 +22,9 @@ const R2_BUCKET = 'helloworldcards-media'
 const MANIFEST_KEY = '_media-variants-manifest.json'
 const PUBLIC_MEDIA_ORIGIN = 'https://helloworldcards.com'
 
-export type MediaSyncTarget = 'local' | 'remote'
+type MediaSyncTarget = 'local' | 'remote'
 
-export type MediaSyncResult = {
+type MediaSyncResult = {
   target: MediaSyncTarget
   encoded: string[]
   uploaded: number
@@ -76,7 +76,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
  * key in the media library — an image uploaded through the admin has no file in the repo
  * but still needs its full set of sizes.
  */
-export async function collectMediaSources(seedDir: string, mediaRowKeys: string[]): Promise<MediaSyncSource[]> {
+async function collectMediaSources(seedDir: string, mediaRowKeys: string[]): Promise<MediaSyncSource[]> {
   const sources = new Map<string, MediaSyncSource>()
 
   for (const file of seedMediaFiles) {

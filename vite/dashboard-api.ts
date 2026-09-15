@@ -79,7 +79,7 @@ function readDevVars(root: string): Record<string, string> {
  * The label reader runs locally and needs nothing; PSA_API_TOKEN is optional too,
  * and without it the scan trusts the label it read off the photos.
  */
-export function loadScanSecrets(root = process.cwd()): { PSA_API_TOKEN?: string } {
+function loadScanSecrets(root = process.cwd()): { PSA_API_TOKEN?: string } {
   const fromFile = readDevVars(root)
 
   return {
@@ -87,7 +87,7 @@ export function loadScanSecrets(root = process.cwd()): { PSA_API_TOKEN?: string 
   }
 }
 
-export function loadDashboardEnv(root = process.cwd()): {
+function loadDashboardEnv(root = process.cwd()): {
   DASHBOARD_USERNAME?: string
   DASHBOARD_PASSWORD?: string
   DASHBOARD_SESSION_SECRET?: string

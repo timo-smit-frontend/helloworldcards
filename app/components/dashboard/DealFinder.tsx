@@ -40,17 +40,17 @@ function ScanButton({ source, scanning, onScan }: { source: DealSource; scanning
 
 function Thumbnail({ src }: { src: string | null }) {
   return (
-    <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-site-mid ring-1 ring-site-mulled-wine">
+    <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
       {src ? (
         <Image
           src={src}
           alt=""
           title=""
-          width={160}
-          height={160}
-          sizes="80px"
+          width={128}
+          height={192}
+          sizes="64px"
           aria-hidden
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
         />
       ) : null}
     </div>

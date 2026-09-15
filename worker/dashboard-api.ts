@@ -159,7 +159,7 @@ export function memoryCardmarketStore(): CardmarketStore {
   }
 }
 
-export function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): CardmarketStore {
+function kvCardmarketStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): CardmarketStore {
   return {
     async getReport() {
       const raw = await kv.get(CARDMARKET_REPORT_KEY)
@@ -190,7 +190,7 @@ export function memoryDealFinderStore(): DealFinderStore {
   }
 }
 
-export function kvDealFinderStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): DealFinderStore {
+function kvDealFinderStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): DealFinderStore {
   return {
     async getReport() {
       const raw = await kv.get(DEAL_FINDER_REPORT_KEY)
@@ -209,7 +209,7 @@ export function kvDealFinderStore(kv: NonNullable<DashboardEnv['CARDMARKET']>): 
   }
 }
 
-export function normalizeDashboardPath(pathname: string): string {
+function normalizeDashboardPath(pathname: string): string {
   return normalizeApiPath(pathname)
 }
 

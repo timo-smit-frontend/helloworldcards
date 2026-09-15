@@ -7,7 +7,7 @@ import { cn } from '~/services/utils'
 
 const EMPTY_VALUE = '__empty__'
 
-export type ChoiceSelectOption = {
+type ChoiceSelectOption = {
   value: string
   label: string
   image?: string

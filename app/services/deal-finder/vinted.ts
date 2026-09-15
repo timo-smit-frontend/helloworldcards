@@ -1,6 +1,6 @@
 import type { SourceListing } from './types'
 
-export const VINTED_ORIGIN = 'https://www.vinted.nl'
+const VINTED_ORIGIN = 'https://www.vinted.nl'
 
 function decodeEntities(value: string): string {
   return value
@@ -231,10 +231,10 @@ function detailDescription(html: string): string | null {
   return meta ? tidy(meta) : null
 }
 
-export const VINTED_CHALLENGE = /just a moment|attention required|cf-browser-verification|cf-error-details|checking your browser/i
+const VINTED_CHALLENGE = /just a moment|attention required|cf-browser-verification|cf-error-details|checking your browser/i
 
 /** Vinted also bounces requests it does not trust into a `/session-refresh` page that never resolves. */
-export const VINTED_SESSION_REFRESH = /<title>\s*Session refresh\s*<\/title>/i
+const VINTED_SESSION_REFRESH = /<title>\s*Session refresh\s*<\/title>/i
 
 export function isVintedChallenge(html: string): boolean {
   if (html.includes('product-item-id-')) {

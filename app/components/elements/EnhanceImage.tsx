@@ -5,7 +5,7 @@ import { type Dispatch, type SetStateAction } from 'react'
 import SkeletonImage from '~/components/elements/SkeletonImage'
 import { imageAltFor } from '~/services/imageCopy'
 
-export type EnhanceImageController = {
+type EnhanceImageController = {
   toggler: boolean
   slide: number
 }

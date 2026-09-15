@@ -1,9 +1,5 @@
-import { DEAL_SOURCES, MIN_EDGE } from './constants'
+import { DEAL_SOURCES } from './constants'
 import type { DealFinderReport, DealRow, DealSource, NoCompsRow, ProblemRow, SourceSummary } from './types'
-
-export function isDeal(edge: number): boolean {
-  return edge >= MIN_EDGE
-}
 
 /** Biggest edge first — that is the order you want to work down the list in. */
 export function sortDeals(deals: DealRow[]): DealRow[] {

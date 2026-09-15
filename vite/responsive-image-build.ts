@@ -8,14 +8,14 @@ import { parseRasterVariant, rasterVariantSrc, variantWidthsFor, type ImageForma
 const ORIGINAL_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 export const IMAGE_FORMATS: ImageFormat[] = ['avif', 'webp']
 
-export type VariantJob = {
+type VariantJob = {
   originalPath: string
   fileName: string
   width: number
   format: ImageFormat
 }
 
-export function encodeQuality(width: number, format: ImageFormat): number {
+function encodeQuality(width: number, format: ImageFormat): number {
   if (format === 'avif') return width >= 1000 ? 45 : 50
   return width >= 1000 ? 70 : 75
 }
@@ -26,7 +26,7 @@ export async function resizeToFormat(inputPath: string, width: number, format: I
   return format === 'avif' ? image.avif({ quality }).toBuffer() : image.webp({ quality }).toBuffer()
 }
 
-export function isOriginalImageEntry(entry: string): boolean {
+function isOriginalImageEntry(entry: string): boolean {
   return !parseRasterVariant(`/${entry}`) && ORIGINAL_EXTENSIONS.some((extension) => entry.toLowerCase().endsWith(extension))
 }
 
@@ -35,7 +35,7 @@ export async function listOriginalImageEntries(imagesDir: string): Promise<strin
   return entries.filter(isOriginalImageEntry).sort()
 }
 
-export function variantFileName(entry: string, width: number, format: ImageFormat): string {
+function variantFileName(entry: string, width: number, format: ImageFormat): string {
   const stem = path.posix.join('/images', entry.replace(/\.(png|jpe?g|webp)$/i, ''))
   return path.basename(rasterVariantSrc(`${stem}.png`, width, format))
 }
@@ -48,14 +48,14 @@ export function variantSettingsKey(): string {
   })
 }
 
-export async function sourceCacheKey(originalPath: string): Promise<string> {
+async function sourceCacheKey(originalPath: string): Promise<string> {
   const hash = createHash('sha256')
   hash.update(variantSettingsKey())
   hash.update(await fs.readFile(originalPath))
   return hash.digest('hex').slice(0, 16)
 }
 
-export function planVariantJobs(entries: string[], imagesDir: string): VariantJob[] {
+function planVariantJobs(entries: string[], imagesDir: string): VariantJob[] {
   const jobs: VariantJob[] = []
   for (const entry of entries) {
     const originalPath = path.join(imagesDir, entry)

@@ -128,7 +128,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         title="Open on Cardmarket"
         className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 no-underline smooth hover:opacity-80 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6"
       >
-        <div className="relative h-36 w-24 shrink-0">
+        <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-md">
           {item.image ? (
             <Image
               src={item.image}
@@ -139,7 +139,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
               maxwidth={400}
               sizes="96px"
               aria-hidden
-              className="absolute inset-0 size-full object-contain"
+              className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
             />
           ) : null}
         </div>
@@ -237,7 +237,7 @@ function SoldRow({ item }: { item: LedgerItem }) {
 
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:gap-x-6">
-      <div className="relative h-24 w-16 shrink-0">
+      <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
         {item.image ? (
           <Image
             src={item.image}
@@ -248,7 +248,7 @@ function SoldRow({ item }: { item: LedgerItem }) {
             maxwidth={400}
             sizes="64px"
             aria-hidden
-            className="absolute inset-0 size-full object-contain"
+            className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
           />
         ) : null}
       </div>

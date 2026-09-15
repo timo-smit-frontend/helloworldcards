@@ -5,7 +5,7 @@ import { allMediaVariantKeys, parseRasterVariant } from './responsiveImage'
  * the remote bucket this index *is* the inventory: only keys recorded here are ever
  * considered for deletion, which keeps admin uploads the sync never made safe.
  */
-export type MediaIndexEntry = {
+type MediaIndexEntry = {
   hash: string
   variants: string[]
 }
@@ -22,7 +22,7 @@ export type MediaSyncSource = {
   hash: string | null
 }
 
-export type MediaSyncPlan = {
+type MediaSyncPlan = {
   /** Originals whose variants must be re-encoded and uploaded. */
   encode: string[]
   /** Objects to delete: stale variants, retired widths, and originals no longer wanted. */

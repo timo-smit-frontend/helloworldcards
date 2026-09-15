@@ -4,8 +4,6 @@ import { cardmarketOffersUrl, isCardmarketChallenge } from '../cardmarket/scan'
 import { MAX_LOAD_MORE } from './constants'
 import type { CardIdentity } from './types'
 
-export { isCardmarketChallenge } from '../cardmarket/scan'
-
 /** Raised when Cardmarket's bot check stopped us reading a product page. */
 export class CardmarketBlockedError extends Error {
   constructor(message = 'Cardmarket blocked the page (bot check).') {
@@ -28,7 +26,7 @@ export function offersUrlFor(productUrl: string, identity: CardIdentity): string
  * reach while clicking "Show more" is the floor — but slabs sit well down the list,
  * so we keep expanding until it appears or the list truly ends.
  */
-export function hasGradeComp(html: string, grade: number): boolean {
+function hasGradeComp(html: string, grade: number): boolean {
   return marketFloorPrice({ grader: 'psa', grade, listings: parseArticleListings(html) }) != null
 }
 
@@ -37,7 +35,7 @@ export const OFFERS_FETCH_OPTIONS = (grade: number) => ({
   stopWhen: (html: string) => hasGradeComp(html, grade)
 })
 
-export type MarketPrice = { floor: number; comps: MarketListing[] }
+type MarketPrice = { floor: number; comps: MarketListing[] }
 
 export function priceFromOffers(html: string, grade: number): MarketPrice | { error: string } {
   if (isCardmarketChallenge(html)) {

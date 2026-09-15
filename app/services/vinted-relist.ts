@@ -11,7 +11,7 @@ import type { InventoryProduct } from '../database/products'
  * `vite/vinted-relist.ts`.
  */
 
-export const VINTED_ITEMS_ORIGIN = 'https://www.vinted.nl'
+const VINTED_ITEMS_ORIGIN = 'https://www.vinted.nl'
 
 /** `https://www.vinted.nl/items/9878696344-mewtwo-...` → `9878696344`. */
 export function vintedItemId(url: string): string | null {
@@ -80,7 +80,7 @@ export function vintedFlightData(html: string): string {
 }
 
 /** One row of the flight data: a string outlined on its own, or a line of JSON and the like. */
-export type VintedFlightRow = { kind: 'text'; value: string } | { kind: 'line'; value: string }
+type VintedFlightRow = { kind: 'text'; value: string } | { kind: 'line'; value: string }
 
 /**
  * The flight data row by row, keyed on the row's id (in hex).
@@ -378,7 +378,7 @@ export function parseWardrobeItems(body: unknown): VintedWardrobeItem[] {
 }
 
 /** When we last relisted a listing, keyed on the id it has now. */
-export type VintedRelistRecord = {
+type VintedRelistRecord = {
   itemId: string
   previousItemId: string
   productId: number | null
@@ -392,7 +392,7 @@ export type VintedRelistRecord = {
  * The snapshot is saved before the delete, so the listing is never lost: the
  * upload can be retried from here without the original.
  */
-export type VintedPendingRelist = {
+type VintedPendingRelist = {
   snapshot: VintedSnapshot
   productId: number | null
   /** Photos already downloaded, as paths the upload can hand straight to the form. */
@@ -408,7 +408,7 @@ export type VintedPendingRelist = {
  * was read; the days since then are added to it. Keeping the note means the
  * listing page is read once per listing, not once per look at the screen.
  */
-export type VintedAgeNote = {
+type VintedAgeNote = {
   text: string | null
   /** ISO timestamp of the read. */
   readAt: string
@@ -489,7 +489,7 @@ export type VintedRelistReport = {
 }
 
 /** A pending relist that turned out to be done: the seller uploaded the listing again themselves. */
-export type VintedHandRelist = { itemId: string; previousItemId: string; productId: number | null; url: string }
+type VintedHandRelist = { itemId: string; previousItemId: string; productId: number | null; url: string }
 
 function sameTitle(a: string, b: string): boolean {
   const fold = (title: string) => title.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -633,7 +633,7 @@ function wardrobeThumbnail(item: VintedWardrobeItem): string | null {
   return thumb?.url ?? photo.url ?? null
 }
 
-export function wholeDaysSince(iso: string, now: Date): number {
+function wholeDaysSince(iso: string, now: Date): number {
   const then = Date.parse(iso)
   if (!Number.isFinite(then)) {
     return 0

@@ -45,7 +45,7 @@ function formatPrice(value: number | null): string {
 
 function Thumbnail({ src }: { src: string | null }) {
   return (
-    <div className="relative h-24 w-16 shrink-0">
+    <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
       {src ? (
         <Image
           src={src}
@@ -55,7 +55,7 @@ function Thumbnail({ src }: { src: string | null }) {
           height={192}
           sizes="64px"
           aria-hidden
-          className="absolute inset-0 size-full object-contain"
+          className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
         />
       ) : null}
     </div>

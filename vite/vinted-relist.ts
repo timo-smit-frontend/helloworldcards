@@ -52,12 +52,12 @@ const AGE_READ_GAP_MS = 1_000
 /** And no more than this many per look at the screen; the rest wait for the next. */
 const AGE_READS_PER_REPORT = 24
 
-export type RelistStateStore = {
+type RelistStateStore = {
   get(): VintedRelistState
   put(state: VintedRelistState): void
 }
 
-export function fileRelistStateStore(root: string): RelistStateStore {
+function fileRelistStateStore(root: string): RelistStateStore {
   const filePath = path.join(root, STATE_FILE)
   return {
     get() {
@@ -590,13 +590,6 @@ function withTab<T>(openPage: () => Promise<Page>, run: (page: Page) => Promise<
     () => undefined
   )
   return job
-}
-
-/** Test seam: forget the tab between tests. */
-export function resetVintedTab() {
-  vintedTab = null
-  queue = Promise.resolve()
-  lastWardrobe = null
 }
 
 function cooldownMessage(remainingMs: number): string {

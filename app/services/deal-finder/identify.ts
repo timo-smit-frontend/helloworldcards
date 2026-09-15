@@ -12,12 +12,12 @@ import {
 } from './text'
 import type { CardIdentity, CardLanguage, IdentitySignal, PsaGrade, PsaLabel, SourceListing } from './types'
 
-export type IdentityResult =
+type IdentityResult =
   | { ok: true; identity: CardIdentity; label: PsaLabel | null; note: string | null }
   /** `out-of-scope` is a card we deliberately do not buy; `problem` is one we could not read. */
   | { ok: false; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
 
-export function listingText(listing: Pick<SourceListing, 'title' | 'description'>): string {
+function listingText(listing: Pick<SourceListing, 'title' | 'description'>): string {
   return [listing.title, listing.description].filter(Boolean).join('\n')
 }
 

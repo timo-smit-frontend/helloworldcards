@@ -59,7 +59,7 @@ export type CmsAutoSync = {
   stop(): Promise<void>
 }
 
-export type CmsAutoSyncOptions = {
+type CmsAutoSyncOptions = {
   root: string
   db: CmsDb
   media: MediaBucket

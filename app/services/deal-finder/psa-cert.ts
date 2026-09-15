@@ -4,7 +4,7 @@ import type { PsaLabel } from './types'
 
 const CERT_ENDPOINT = 'https://api.psacard.com/publicapi/cert/GetByCertNumber'
 
-export type PsaCertLookup = (certNumber: string) => Promise<PsaLabel | null>
+type PsaCertLookup = (certNumber: string) => Promise<PsaLabel | null>
 
 /** PSA's JSON uses PascalCase, but has shifted casing before — read it either way. */
 function field(record: Record<string, unknown>, ...names: string[]): string | null {

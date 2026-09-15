@@ -47,12 +47,7 @@ export function usableCache(stored: DealFinderCache | null | undefined): DealFin
   return stored && stored.version === CACHE_VERSION ? { version: CACHE_VERSION, entries: { ...stored.entries } } : emptyCache()
 }
 
-export type DealFinderCacheStore = {
-  getCache(): Promise<DealFinderCache | null>
-  putCache(cache: DealFinderCache): Promise<void>
-}
-
-export function emptyCache(): DealFinderCache {
+function emptyCache(): DealFinderCache {
   return { version: CACHE_VERSION, entries: {} }
 }
 
