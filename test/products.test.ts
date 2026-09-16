@@ -120,7 +120,7 @@ describe('product inventory', () => {
     expect(product?.description).toContain('Silver Tempest')
     expect(product?.description).toContain('185/195')
     expect(product?.description).toContain('76719295')
-    expect(product?.price).toBe('€45')
+    expect(product?.price).toBe('€40')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
     expect(product?.images).toEqual(['/media/76719295_front.jpg', '/media/76719295_back.jpg'])
     expect(inventory.find((item) => item.id === 2)?.cost).toBe(30)

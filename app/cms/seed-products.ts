@@ -28,7 +28,7 @@ export const seedProductRecords: ProductRecord[] = [
     description:
       'A Full Art from the 2022 Sword & Shield Silver Tempest set, number 185/195. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 76719295. The PSA population is 1,254.',
     images: ['/media/76719295_front.jpg', '/media/76719295_back.jpg'],
-    price: '€45',
+    price: '€40',
     language: 'english',
     grader: 'psa',
     grade: 9,

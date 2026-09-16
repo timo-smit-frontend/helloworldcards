@@ -298,21 +298,18 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
               <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-foil sm:text-5xl lg:text-6xl">
                 {formatEuros(totals.spent)}
               </p>
-              <p className="mt-2 text-sm text-site-mantle">What you paid</p>
             </td>
             <td className="align-bottom sm:py-6 sm:px-4">
               <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-envy uppercase sm:hidden">Sold</p>
               <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-envy sm:text-5xl lg:text-6xl">
                 {formatEuros(totals.sold)}
               </p>
-              <p className="mt-2 text-sm text-site-mantle">Taken in</p>
             </td>
             <td className="align-bottom sm:py-6 sm:pl-4">
               <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase sm:hidden">Profit</p>
               <p className={`font-semibold tabular-nums text-4xl tracking-[-0.04em] sm:text-5xl lg:text-6xl ${moneyTone(profit)}`}>
                 {formatSignedEuros(profit)}
               </p>
-              <p className="mt-2 text-sm text-site-mantle">Sold minus spent</p>
             </td>
           </tr>
         </tbody>
