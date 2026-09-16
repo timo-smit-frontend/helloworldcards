@@ -104,6 +104,34 @@ describe('identifyCard', () => {
     expect(result.identity.signals).toContain('psa-label')
   })
 
+  it('drops a Japanese PSA 9 once the slab says the card is Japanese', () => {
+    const result = identifyCard({
+      listing: listing({ title: 'Pikachu 197 PSA 9' }),
+      slabs: [label({ cardName: 'PIKACHU', setLine: 'POKEMON SV-P JPN.', cardNumber: '197', grade: 9 })],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      scope: 'out-of-scope',
+      reason: 'Japanese PSA 9, we only buy Japanese cards in PSA 10'
+    })
+  })
+
+  it('still buys an English PSA 9', () => {
+    const result = identifyCard({
+      listing: listing({ title: 'Charizard 4/102 PSA 9' }),
+      slabs: [label({ cardName: 'CHARIZARD', setLine: 'POKEMON BASE', cardNumber: '4', grade: 9 })],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.identity).toMatchObject({ language: 'english', grade: 9 })
+  })
+
   it('believes the seller over a label that never read a language at all', () => {
     // A real reading: the slab's row 1 came back clipped to `POKEMON S`, so nothing on
     // the label said Japanese — but the seller's own title does, and PSA does print

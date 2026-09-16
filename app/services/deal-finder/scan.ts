@@ -36,6 +36,7 @@ import {
   parseMarktplaatsOverview
 } from './marktplaats'
 import { emptyReport, sortDeals, sortNoComps, withTotals } from './report'
+import { unwantedGradeReason } from './text'
 import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
 import type {
   CardIdentity,
@@ -682,6 +683,13 @@ async function identifyCandidate({
   // keeps the figure the scan that did open that page read there.
   const listing =
     candidate.listing.shipping == null && cached?.shipping != null ? { ...candidate.listing, shipping: cached.shipping } : candidate.listing
+
+  // A card identified before the buying rules narrowed is still in the cache as a
+  // priced identity; the rule is asked again here so the cache cannot outlive it.
+  const cachedUnwanted = cached?.identity ? unwantedGradeReason(cached.identity.language, cached.identity.grade) : null
+  if (cachedUnwanted) {
+    return { step: 'unidentified', listing, scope: 'out-of-scope', reason: cachedUnwanted, detail: null }
+  }
 
   if (cached && hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
     return { step: 'priced', listing, entry: cached }

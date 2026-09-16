@@ -7,7 +7,8 @@ import {
   isSpeculativeGrade,
   looksLikeLot,
   looksUngraded,
-  rivalGrader
+  rivalGrader,
+  unwantedGradeReason
 } from './text'
 import type { SourceListing } from './types'
 
@@ -151,8 +152,16 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
     // slabs — so this one goes through to it rather than being written off on a title.
   }
 
-  if (detectLanguage(listing.title) === 'other') {
+  const titleLanguage = detectLanguage(listing.title)
+  if (titleLanguage === 'other') {
     return { keep: false, scope: 'out-of-scope', reason: 'Not an English or Japanese card' }
+  }
+
+  // A Japanese PSA 9 named as such in the title is dropped here, before its photos are
+  // read; one that only turns out Japanese on the slab is dropped by the identity step.
+  const unwanted = unwantedGradeReason(titleLanguage, detectGrade(listingText))
+  if (unwanted) {
+    return { keep: false, scope: 'out-of-scope', reason: unwanted }
   }
 
   if (listing.itemType && MULTI_CARD_ATTRIBUTE.test(listing.itemType)) {

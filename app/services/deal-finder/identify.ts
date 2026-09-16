@@ -8,7 +8,8 @@ import {
   detectSet,
   isFirstEdition,
   isJapaneseSetCode,
-  isReverseHolo
+  isReverseHolo,
+  unwantedGradeReason
 } from './text'
 import type { CardIdentity, CardLanguage, IdentitySignal, PsaGrade, PsaLabel, SourceListing } from './types'
 
@@ -135,6 +136,11 @@ export function identifyCard({
 
   const language: CardLanguage =
     readLanguage ?? (textLanguage === 'japanese' ? 'japanese' : null) ?? (isJapaneseSetCode(set.code) ? 'japanese' : 'english')
+
+  const unwanted = unwantedGradeReason(language, grade)
+  if (unwanted) {
+    return { ok: false, scope: 'out-of-scope', reason: unwanted, detail: label ? describePsaLabel(label) : null }
+  }
 
   // Sellers put the card in the title and everything else in the description, so the
   // number and the name are read from the title first. The description only gets to

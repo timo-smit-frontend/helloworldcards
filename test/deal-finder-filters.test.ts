@@ -80,6 +80,25 @@ describe('screening a listing', () => {
     expect(screen('Pokemon Torkoal AR PSA 10 Gem Mint 069/066')).toEqual({ keep: true })
     expect(screen('Pokemon Comfey PSA 5')).toMatchObject({ keep: false, reason: 'Graded PSA 5, not 9 or 10' })
   })
+
+  describe('Japanese cards are only bought in PSA 10', () => {
+    it('drops a Japanese PSA 9 named in the title', () => {
+      expect(screen('Pikachu 197 Japans PSA 9')).toMatchObject({
+        keep: false,
+        scope: 'out-of-scope',
+        reason: 'Japanese PSA 9, we only buy Japanese cards in PSA 10'
+      })
+    })
+
+    it('keeps a Japanese PSA 10 and an English PSA 9', () => {
+      expect(screen('Pikachu 197 Japanese PSA 10')).toEqual({ keep: true })
+      expect(screen('Charizard 4/102 PSA 9')).toEqual({ keep: true })
+    })
+
+    it('leaves a Japanese title with no grade for the slab to settle', () => {
+      expect(screen('Mega Charizard X ex Japanese PSA')).toEqual({ keep: true })
+    })
+  })
 })
 
 describe('accessories that photograph like a card', () => {

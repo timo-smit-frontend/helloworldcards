@@ -9,14 +9,6 @@ import type { CardmarketProductReport, CardmarketReport } from '~/services/cardm
 import PriceFigure from './PriceFigure'
 import { formatEuros, formatListedEuros, formatSignedEuros, moneyTone } from './money'
 
-function formatPercent(value: number | null): string {
-  if (value == null) return '—'
-  return new Intl.NumberFormat('nl-NL', {
-    style: 'percent',
-    maximumFractionDigits: 0
-  }).format(value)
-}
-
 function formatSoldDate(iso: string | null): string {
   if (!iso) return 'Date unknown'
   const [year, month, day] = iso.split('-').map(Number)
@@ -278,12 +270,13 @@ function SoldRow({ item }: { item: LedgerItem }) {
 export default function DashboardChart({ ledger, period }: { ledger: Ledger; period: LedgerPeriod }) {
   const totals = useMemo(() => summarizeLedger(ledger.items, period), [ledger.items, period])
   const soldItems = useMemo(() => soldItemsForPeriod(ledger.items, period), [ledger.items, period])
+  const profit = totals.sold - totals.spent
 
   return (
     <div className="flex flex-col gap-12 lg:gap-16">
       <table className="w-full border-collapse text-left">
         <caption className="sr-only">
-          {`Spent ${formatEuros(totals.spent)}, sold ${formatEuros(totals.sold)}, potential ${formatEuros(totals.potential)}.`}
+          {`Spent ${formatEuros(totals.spent)}, sold ${formatEuros(totals.sold)}, profit ${formatSignedEuros(profit)}.`}
         </caption>
         <thead className="sr-only sm:not-sr-only">
           <tr className="sm:border-b sm:border-site-mulled-wine">
@@ -294,7 +287,7 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
               Sold
             </th>
             <th scope="col" className="w-1/3 py-3 pl-4 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">
-              Potential
+              Profit
             </th>
           </tr>
         </thead>
@@ -315,11 +308,11 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
               <p className="mt-2 text-sm text-site-mantle">Taken in</p>
             </td>
             <td className="align-bottom sm:py-6 sm:pl-4">
-              <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase sm:hidden">Potential</p>
-              <p className="font-semibold tabular-nums text-4xl tracking-[-0.04em] text-site-gray-nurse sm:text-5xl lg:text-6xl">
-                {formatEuros(totals.potential)}
+              <p className="mb-2 text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase sm:hidden">Profit</p>
+              <p className={`font-semibold tabular-nums text-4xl tracking-[-0.04em] sm:text-5xl lg:text-6xl ${moneyTone(profit)}`}>
+                {formatSignedEuros(profit)}
               </p>
-              <p className="mt-2 text-sm text-site-mantle">Still listed</p>
+              <p className="mt-2 text-sm text-site-mantle">Sold minus spent</p>
             </td>
           </tr>
         </tbody>
@@ -330,12 +323,12 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
         <Stat label="In stock" value={`${totals.cardsInStock}`} />
         <Stat
           label="Realized"
-          value={`${formatSignedEuros(totals.realizedProfit)} / ${formatPercent(totals.realizedMargin)}`}
+          value={formatSignedEuros(totals.realizedProfit)}
           tone={moneyTone(totals.realizedProfit)}
         />
         <Stat
           label="If stock sells"
-          value={`${formatSignedEuros(totals.potentialProfit)} / ${formatPercent(totals.potentialMargin)}`}
+          value={formatSignedEuros(totals.potentialProfit)}
           tone={moneyTone(totals.potentialProfit)}
         />
       </dl>

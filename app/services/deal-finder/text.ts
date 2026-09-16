@@ -232,6 +232,15 @@ export function detectGrade(text: string): PsaGrade | null {
   return match ? (Number(match[1]) as PsaGrade) : null
 }
 
+/**
+ * Japanese PSA 9s do not sell, so the shop only buys Japanese cards in PSA 10; English
+ * is bought in 9 and 10. Returns the reason a card is not wanted, or null when it is.
+ * Both the title screen and the identity step ask this, so the answer lives in one place.
+ */
+export function unwantedGradeReason(language: CardLanguage | 'other' | null, grade: PsaGrade | null): string | null {
+  return language === 'japanese' && grade === 9 ? 'Japanese PSA 9, we only buy Japanese cards in PSA 10' : null
+}
+
 /** The grade a seller claims, whatever it is — used to explain why a listing was dropped. */
 export function detectAnyGrade(text: string): number | null {
   const match = maskSpeculativeGrades(text).match(ANY_GRADE)
