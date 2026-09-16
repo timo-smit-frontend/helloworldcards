@@ -37,6 +37,8 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10016398906',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Silver-Tempest/Lugia-V-V2-SIT185',
     cost: 30,
+    reserved: true,
+    soldAt: '2026-09-16',
     acquiredAt: '2026-08-25'
   },
   {

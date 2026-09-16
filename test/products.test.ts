@@ -126,6 +126,21 @@ describe('product inventory', () => {
     expect(inventory.find((item) => item.id === 2)?.cost).toBe(30)
   })
 
+  it('keeps the reserved Lugia V in the shop, with its ads still on record', async () => {
+    const { inventory, products } = await seededShop()
+    const record = inventory.find((item) => item.id === 2)
+    const product = products.find((item) => item.id === 2)
+
+    // Bought on Vinted, on its way, money not in yet: reserved, not sold.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-16')
+    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
+    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10016398906')
+    expect(product?.reserved).toBe(true)
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+  })
+
   it('lists the Generations Charizard with slab photos', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'charizard-2016-radiant-collection-rc5')

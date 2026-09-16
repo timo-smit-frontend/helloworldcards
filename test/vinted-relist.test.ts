@@ -740,13 +740,16 @@ describe('vinted relist API', () => {
       }
     }
     const runtime = { db, vintedRelist }
-    // Reading the report seeds the database; the seed has Charizard reserved.
+    // Reading the report seeds the database; the seed has reserved cards in it.
     await handleDashboardRequest(
       new Request('https://example.com/dashboard/vinted-relist', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
       env,
       runtime
     )
-    const row = (await db.prepare('SELECT vinted_url FROM products WHERE reserved = 1').first()) as { vinted_url: string }
+    const row = (await db.prepare('SELECT title, vinted_url FROM products WHERE reserved = 1').first()) as {
+      title: string
+      vinted_url: string
+    }
 
     const response = await handleDashboardRequest(
       new Request(`https://example.com/api/admin/vinted-relist/${vintedItemId(row.vinted_url)}`, {
@@ -757,7 +760,7 @@ describe('vinted relist API', () => {
       runtime
     )
     expect(response?.status).toBe(409)
-    await expect(response?.json()).resolves.toEqual({ error: 'Charizard is reserved. A sold card is not relisted.' })
+    await expect(response?.json()).resolves.toEqual({ error: `${row.title} is reserved. A sold card is not relisted.` })
     expect(calls).toEqual([])
   })
 
