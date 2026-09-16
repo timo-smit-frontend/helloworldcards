@@ -124,6 +124,8 @@ describe('product inventory', () => {
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
     expect(product?.images).toEqual(['/media/76719295_front.jpg', '/media/76719295_back.jpg'])
     expect(inventory.find((item) => item.id === 2)?.cost).toBe(30)
+    expect(inventory.find((item) => item.id === 2)?.reserved).toBe(true)
+    expect(inventory.find((item) => item.id === 2)?.soldAt).toBe('2026-09-16')
   })
 
   it('keeps the reserved Lugia V in the shop, with its ads still on record', async () => {

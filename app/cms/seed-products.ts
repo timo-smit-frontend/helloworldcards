@@ -184,7 +184,7 @@ export const seedProductRecords: ProductRecord[] = [
       'A Mega Evolution ex from the 2025 Scarlet & Violet Phantasmal Flames set, number 056/094. Mega ex cards use the full-bleed art frame, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 154388302. The PSA population is 10,103.',
     images: ['/media/154388302_front.jpg', '/media/154388302_back.jpg'],
     pokemonId: 94,
-    price: '€90',
+    price: '€80',
     language: 'english',
     grader: 'psa',
     grade: 10,
@@ -193,6 +193,8 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10016737542',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Mega-Gengar-ex-V1-PFL056',
     cost: 63,
+    reserved: true,
+    soldAt: '2026-09-16',
     acquiredAt: '2026-09-06'
   },
   {
@@ -241,7 +243,7 @@ export const seedProductRecords: ProductRecord[] = [
       'A Black Star Promo from the 2026 Mega Evolution promo series, number 032, released in the ASC Premium Poster Collection. Promos come from the collection itself, not from a main set print run. This copy is graded PSA 10 Gem Mint, cert 167185846. The PSA population is 7,832.',
     images: ['/media/mtv6bukp-167185846-front.jpg', '/media/mtv6bjoe-167185846-back.jpg'],
     pokemonId: 282,
-    price: '€130',
+    price: '€115',
     language: 'english',
     grader: 'psa',
     grade: 10,
@@ -250,6 +252,8 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10019254853',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/MEP-Black-Star-Promos/Mega-Gardevoir-ex-MEP032',
     cost: 72,
+    reserved: true,
+    soldAt: '2026-09-16',
     acquiredAt: '2026-09-11'
   },
   {
