@@ -402,7 +402,11 @@ function cmsApiMiddleware(root: string) {
                   openPage: async () => (await getScanBrowser(root)).openPage(),
                   // A slab photo uploaded through the admin is in the local bucket and,
                   // once a sync has run, in its cache of uploads; the seed files come first.
-                  readMedia: firstMediaSource(seedMediaSource(root), bucketMediaSource(cms.media), cachedMediaSource(root))
+                  readMedia: firstMediaSource(
+                    seedMediaSource(root),
+                    cms.media ? bucketMediaSource(cms.media) : undefined,
+                    cachedMediaSource(root)
+                  )
                 })
               }
             : {}),
