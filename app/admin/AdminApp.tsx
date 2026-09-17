@@ -18,6 +18,7 @@ import {
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
+import StatusBadge from '~/components/dashboard/StatusBadge'
 import DealFinder, { sourceLabel, type ScanningSources } from '~/components/dashboard/DealFinder'
 import VintedRelist from '~/components/dashboard/VintedRelist'
 import BurgerMenu from '~/components/elements/BurgerMenu'
@@ -788,25 +789,6 @@ const PRODUCT_FLAGS = [...PRODUCT_STATUS_FLAGS, 'reverseHolo', 'firstEdition'] a
 
 function productStatus(product: Pick<InventoryProduct, (typeof PRODUCT_STATUS_FLAGS)[number]>) {
   return PRODUCT_STATUS_FLAGS.find((flag) => product[flag]) ?? 'published'
-}
-
-type ProductStatus = ReturnType<typeof productStatus>
-
-/** One colour per status, so the lists can be read at a glance: live is green, money not in yet is gold, gone is red, not live yet is muted. */
-const STATUS_TONE: Record<ProductStatus | CmsPageStatus, string> = {
-  published: 'border-site-envy/50 bg-site-envy/15 text-site-envy',
-  reserved: 'border-site-foil/50 bg-site-foil/15 text-site-foil',
-  sold: 'border-site-loss/50 bg-site-loss/15 text-site-loss',
-  concept: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle',
-  draft: 'border-site-mulled-wine bg-site-mulled-wine/30 text-site-mantle'
-}
-
-function StatusBadge({ status }: { status: keyof typeof STATUS_TONE }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_TONE[status]}`}>
-      {status}
-    </span>
-  )
 }
 
 function AdminStickyBar({ children, end }: { children: ReactNode; end?: boolean }) {

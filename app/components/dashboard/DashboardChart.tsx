@@ -7,6 +7,7 @@ import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
 import type { MarketListing } from '~/services/cardmarket/grades'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
 import PriceFigure from './PriceFigure'
+import StatusBadge from './StatusBadge'
 import { formatEuros, formatListedEuros, formatSignedEuros, moneyTone } from './money'
 
 function formatSoldDate(iso: string | null): string {
@@ -247,11 +248,7 @@ function SoldRow({ item }: { item: LedgerItem }) {
       <div className="min-w-0">
         <p className="flex min-w-0 items-center gap-2">
           <span className="min-w-0 truncate font-semibold text-site-gray-nurse">{item.title}</span>
-          {item.reserved ? (
-            <span className="shrink-0 rounded-full border border-site-foil/50 bg-site-foil/15 px-2 py-0.5 text-[0.65rem] font-semibold tracking-[0.18em] text-site-foil uppercase">
-              Reserved
-            </span>
-          ) : null}
+          {item.reserved ? <StatusBadge status="reserved" /> : item.sold ? <StatusBadge status="sold" /> : null}
         </p>
         {item.subtitle ? <p className="mt-0.5 truncate text-sm text-site-mantle">{item.subtitle}</p> : null}
         <p className="mt-1 text-sm tabular-nums text-site-mantle sm:hidden">{formatSoldDate(item.soldAt)}</p>
