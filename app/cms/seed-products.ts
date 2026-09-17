@@ -276,5 +276,23 @@ export const seedProductRecords: ProductRecord[] = [
     sold: true,
     soldAt: '2026-09-17',
     acquiredAt: '2026-09-13'
+  },
+  {
+    id: 15,
+    title: 'Psyduck',
+    subtitle: '2000 Team Rocket - #65',
+    description:
+      'A 1st Edition from the 2000 Team Rocket set, number 65/82. This is the 1st Edition print, not the unlimited set print. This copy is graded PSA 9 Mint, cert 54094139. The PSA population is 1,418.',
+    images: ['/media/mu5t6bkc-54094139-front.jpg', '/media/mu5t6885-54094139-back.jpeg'],
+    pokemonId: 54,
+    price: '€100',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2000,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Psyduck-TR65',
+    cost: 73,
+    concept: true,
+    acquiredAt: '2026-09-17'
   }
 ]

@@ -2536,19 +2536,25 @@ function MediaScreen() {
     }
   }, [loading, folderId, folders, navigate])
 
-  async function upload(file: File) {
-    const body = new FormData()
-    body.append('file', file)
-    // An upload made from inside a folder goes into that folder.
-    if (folder) body.append('folderId', String(folder.id))
-    await appendUploadVariants(body, file)
-    const result = await adminJson<{ media: CmsMedia; r2?: R2UsageSnapshot }>('/media', { method: 'POST', body })
-    if (result.data?.media) {
-      setMedia((current) => sortMediaLibrary([result.data!.media, ...current]))
-      openItem(result.data.media.id)
+  /**
+   * Upload the chosen images one after another, so the grid fills in the order they were
+   * picked and the last answer holds the current storage figures. The library stays where
+   * it is: nothing opens afterwards.
+   */
+  async function upload(files: File[]) {
+    for (const file of files) {
+      const body = new FormData()
+      body.append('file', file)
+      // An upload made from inside a folder goes into that folder.
+      if (folder) body.append('folderId', String(folder.id))
+      await appendUploadVariants(body, file)
+      const result = await adminJson<{ media: CmsMedia; r2?: R2UsageSnapshot }>('/media', { method: 'POST', body })
+      if (result.data?.media) {
+        setMedia((current) => sortMediaLibrary([result.data!.media, ...current]))
+      }
+      // The upload answer carries the storage figures, so there is no second request.
+      if (result.data?.r2) setR2(result.data.r2)
     }
-    // The upload answer carries the storage figures, so there is no second request.
-    if (result.data?.r2) setR2(result.data.r2)
   }
 
   /**
@@ -2693,18 +2699,19 @@ function MediaScreen() {
             </button>
           )}
           <button type="button" className="button-green cursor-pointer" onClick={() => fileInput.current?.click()}>
-            Upload image
+            Upload images
           </button>
           <input
             ref={fileInput}
             type="file"
             accept="image/*"
+            multiple
             className="sr-only"
-            aria-label="Upload image"
+            aria-label="Upload images"
             onChange={(event) => {
-              const file = event.target.files?.[0]
+              const files = Array.from(event.target.files ?? [])
               event.target.value = ''
-              if (file) void upload(file)
+              if (files.length) void upload(files)
             }}
           />
         </div>
