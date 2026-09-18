@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Page } from 'playwright'
+import type { Locator, Page } from 'playwright'
 import sharp from 'sharp'
 import type { InventoryProduct } from '../app/database/products'
 import {
@@ -461,47 +461,115 @@ async function catalogTree(page: Page): Promise<VintedCatalogNode[]> {
   })
 }
 
-/** Walk the category picker down to the leaf. */
-async function pickCategory(page: Page, catalogId: number): Promise<void> {
+/** A picker level gets this long to show the cell that is clicked next. */
+const CATEGORY_LEVEL_TIMEOUT_MS = 5_000
+/** How many times the picker is walked from the top before that counts as a change to Vinted. */
+const CATEGORY_WALK_ATTEMPTS = 3
+
+/**
+ * Walk the category picker down to the leaf.
+ *
+ * Every cell in the picker carries its catalog id (`#catalog-<id>`), at every level,
+ * so the walk clicks by id and waits for each level to show up rather than guessing
+ * how long the slide-in takes.
+ *
+ * The ground moves under the walk: once the photos are up, Vinted asks its photo
+ * recognition for a category and, when the answer comes, prefills the field with
+ * it — and puts the picker back at its root level, open or not. That answer lands
+ * whenever it lands, at times with the walk on the second level, and the leaf's cell
+ * is then nowhere: the walk used to give up after ten seconds with the field, by
+ * then, reading exactly the category it was looking for. A level that does not
+ * show up is therefore checked against that: a picker back at its root, or shut,
+ * is simply walked again from the top. The walk always ends in its own click on
+ * the leaf, prefilled or not — that click is what tells the form the seller chose,
+ * which stops any later prefill from moving the category again.
+ *
+ * Exported for the test, which walks a stand-in for Vinted's picker.
+ */
+export async function pickCategory(page: Page, catalogId: number): Promise<void> {
   const route = catalogPathTo(await catalogTree(page), catalogId)
   if (!route) {
     throw new VintedRelistError(`Vinted's category tree has no category ${catalogId} any more.`)
   }
-
-  await page.locator('[data-testid="catalog-select-dropdown-input"]').click()
+  const [root] = route
+  const leaf = route[route.length - 1]
   const content = page.locator('[data-testid="catalog-select-dropdown-content"]')
-  await content.waitFor({ state: 'visible', timeout: 10_000 })
 
-  for (const [depth, node] of route.entries()) {
-    const leaf = depth === route.length - 1
-    const byId = content.locator(`#catalog-${node.id}`)
-    if (leaf && (await byId.count()) > 0) {
-      await byId.click()
-    } else {
-      const exact = content.locator('li').filter({ hasText: new RegExp(`^\\s*${escapeRegExp(node.title)}\\s*$`) })
-      const cell = ((await exact.count()) > 0 ? exact : content.locator('li').filter({ hasText: node.title })).first()
-      try {
-        await cell.waitFor({ state: 'visible', timeout: 10_000 })
-      } catch {
-        throw new VintedRelistError(`Vinted's category picker does not show "${node.title}" where it used to.`)
-      }
-      const control = cell.locator('[role="button"], [role="radio"]')
-      await ((await control.count()) > 0 ? control.first() : cell).click()
+  for (let attempt = 1; ; attempt += 1) {
+    await openCategoryPicker(page)
+    const missing = await walkCategoryPicker(content, route)
+    if (!missing) {
+      break
     }
-    if (!leaf) {
-      // The next level slides in; give it a moment before looking for the next title.
-      await sleep(400)
+    // Open at some other level than the root, with the cell missing there: Vinted
+    // changed the picker, and walking again would not help.
+    const open = await content.isVisible()
+    const atRoot = open && (await content.locator(`#catalog-${root.id}`).isVisible())
+    if (open && !atRoot) {
+      throw new VintedRelistError(`Vinted's category picker does not show "${missing.title}" where it used to.`)
     }
+    const moved = open ? 'put back at its root' : 'closed'
+    if (attempt >= CATEGORY_WALK_ATTEMPTS) {
+      throw new VintedRelistError(`Vinted's category picker was ${moved} ${attempt} times while "${missing.title}" was being looked for.`)
+    }
+    console.info(`[vinted-relist] the category picker was ${moved} mid-walk, walking it again`)
   }
 
-  await page
-    .locator('[data-testid="catalog-select-dropdown-content"]')
-    .waitFor({ state: 'hidden', timeout: 10_000 })
-    .catch(() => undefined)
+  await content.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
+  const reads = await categoryFieldReads(page, leaf.title)
+  if (reads !== leaf.title) {
+    throw new VintedRelistError(`Vinted's category field reads "${reads}" after picking "${leaf.title}".`)
+  }
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** Open the picker, unless it is open already. */
+async function openCategoryPicker(page: Page): Promise<void> {
+  const content = page.locator('[data-testid="catalog-select-dropdown-content"]')
+  if (await content.isVisible()) {
+    return
+  }
+  // A click on the field does nothing while Vinted shows a spinner in it, which it
+  // does until its own copy of the tree is in and, in one of its experiments, while
+  // the photo suggestion is still on its way.
+  await page
+    .locator('[data-testid="catalog-select-dropdown--loader"]')
+    .waitFor({ state: 'hidden', timeout: 10_000 })
+    .catch(() => undefined)
+  await page.locator('[data-testid="catalog-select-dropdown-input"]').click()
+  await content.waitFor({ state: 'visible', timeout: 10_000 })
+}
+
+/**
+ * Click the route's cells one level at a time. Null once the leaf was clicked;
+ * otherwise the node whose cell did not turn up — with the picker left as found.
+ */
+async function walkCategoryPicker(content: Locator, route: VintedCatalogNode[]): Promise<VintedCatalogNode | null> {
+  for (const node of route) {
+    const cell = content.locator(`#catalog-${node.id}`)
+    try {
+      await cell.waitFor({ state: 'visible', timeout: CATEGORY_LEVEL_TIMEOUT_MS })
+      await cell.click({ timeout: CATEGORY_LEVEL_TIMEOUT_MS })
+    } catch {
+      return node
+    }
+  }
+  return null
+}
+
+/**
+ * What the category field says, once it says `title` — or whatever it says instead
+ * after a few seconds. The field follows the form's value a render behind the click.
+ */
+async function categoryFieldReads(page: Page, title: string): Promise<string> {
+  const input = page.locator('[data-testid="catalog-select-dropdown-input"]')
+  await page
+    .waitForFunction(
+      (wanted) => (document.querySelector('[data-testid="catalog-select-dropdown-input"]') as HTMLInputElement | null)?.value === wanted,
+      title,
+      { timeout: 5_000 }
+    )
+    .catch(() => undefined)
+  return await input.inputValue().catch(() => '')
 }
 
 async function pickById(page: Page, inputTestId: string, elementId: string, what: string): Promise<void> {
