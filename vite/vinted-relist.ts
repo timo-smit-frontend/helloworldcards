@@ -496,7 +496,7 @@ export async function pickCategory(page: Page, catalogId: number): Promise<void>
   const content = page.locator('[data-testid="catalog-select-dropdown-content"]')
 
   for (let attempt = 1; ; attempt += 1) {
-    await openCategoryPicker(page)
+    await openPicker(page, 'catalog-select-dropdown', 'category')
     const missing = await walkCategoryPicker(content, route)
     if (!missing) {
       break
@@ -516,27 +516,58 @@ export async function pickCategory(page: Page, catalogId: number): Promise<void>
   }
 
   await content.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
-  const reads = await categoryFieldReads(page, leaf.title)
+  const reads = await fieldReads(page, 'catalog-select-dropdown', leaf.title)
   if (reads !== leaf.title) {
     throw new VintedRelistError(`Vinted's category field reads "${reads}" after picking "${leaf.title}".`)
   }
 }
 
-/** Open the picker, unless it is open already. */
-async function openCategoryPicker(page: Page): Promise<void> {
-  const content = page.locator('[data-testid="catalog-select-dropdown-content"]')
-  if (await content.isVisible()) {
-    return
+/** How long a picker gets to stop loading and open. */
+const PICKER_OPEN_TIMEOUT_MS = 20_000
+/** How long the brand picker gets to list the category's own brands before the brand is searched for. */
+const BRAND_LISTED_TIMEOUT_MS = 4_000
+
+/**
+ * Open one of the form's pickers — a dropdown under a read-only field — and hand
+ * back its content, which is only in the DOM while it is open.
+ *
+ * A click on the field does nothing while Vinted shows a spinner in it, and it does
+ * so whenever what the field lists is on its way: the category picker until
+ * Vinted's own copy of the tree is in, the brand picker while the brands of the
+ * category just chosen are fetched — which Vinted starts half a second after the
+ * choice — and the condition picker while the category's attributes are. Each of
+ * those used to swallow the one click the relist gave it, after which the option
+ * was looked for in a picker that never opened. So the click waits for the spinner
+ * to go, and is given again when the picker still did not open: the spinner can
+ * come on between the look and the click.
+ */
+async function openPicker(page: Page, testId: string, what: string): Promise<Locator> {
+  const content = page.locator(`[data-testid="${testId}-content"]`)
+  const loader = page.locator(`[data-testid="${testId}--loader"]`)
+  const input = page.locator(`[data-testid="${testId}-input"]`)
+  const deadline = Date.now() + PICKER_OPEN_TIMEOUT_MS
+  try {
+    await input.waitFor({ state: 'visible', timeout: PICKER_OPEN_TIMEOUT_MS })
+  } catch {
+    throw new VintedRelistError(`Vinted's ${what} field is not on the form.`)
   }
-  // A click on the field does nothing while Vinted shows a spinner in it, which it
-  // does until its own copy of the tree is in and, in one of its experiments, while
-  // the photo suggestion is still on its way.
-  await page
-    .locator('[data-testid="catalog-select-dropdown--loader"]')
-    .waitFor({ state: 'hidden', timeout: 10_000 })
-    .catch(() => undefined)
-  await page.locator('[data-testid="catalog-select-dropdown-input"]').click()
-  await content.waitFor({ state: 'visible', timeout: 10_000 })
+  for (;;) {
+    if (await content.isVisible()) {
+      return content
+    }
+    await loader.waitFor({ state: 'hidden', timeout: Math.max(1, deadline - Date.now()) }).catch(() => undefined)
+    await input.click({ timeout: 10_000 })
+    const opened = await content
+      .waitFor({ state: 'visible', timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (opened) {
+      return content
+    }
+    if (Date.now() >= deadline) {
+      throw new VintedRelistError(`Vinted's ${what} picker does not open. It is still showing its spinner, or has changed.`)
+    }
+  }
 }
 
 /**
@@ -557,41 +588,41 @@ async function walkCategoryPicker(content: Locator, route: VintedCatalogNode[]):
 }
 
 /**
- * What the category field says, once it says `title` — or whatever it says instead
+ * What a picker's field says, once it says `wanted` — or whatever it says instead
  * after a few seconds. The field follows the form's value a render behind the click.
  */
-async function categoryFieldReads(page: Page, title: string): Promise<string> {
-  const input = page.locator('[data-testid="catalog-select-dropdown-input"]')
-  await page
-    .waitForFunction(
-      (wanted) => (document.querySelector('[data-testid="catalog-select-dropdown-input"]') as HTMLInputElement | null)?.value === wanted,
-      title,
-      { timeout: 5_000 }
-    )
-    .catch(() => undefined)
-  return await input.inputValue().catch(() => '')
-}
-
-async function pickById(page: Page, inputTestId: string, elementId: string, what: string): Promise<void> {
-  await page.locator(`[data-testid="${inputTestId}"]`).click()
-  const option = page.locator(`#${elementId}`)
-  try {
-    await option.waitFor({ state: 'visible', timeout: 10_000 })
-  } catch {
-    throw new VintedRelistError(`Vinted's ${what} picker no longer offers ${elementId}.`)
+async function fieldReads(page: Page, testId: string, wanted: string): Promise<string> {
+  const input = page.locator(`[data-testid="${testId}-input"]`)
+  const deadline = Date.now() + 5_000
+  let reads = ''
+  for (;;) {
+    reads = await input.inputValue().catch(() => '')
+    if (reads === wanted || Date.now() >= deadline) {
+      return reads
+    }
+    await sleep(100)
   }
-  await option.click()
 }
 
-async function pickBrand(page: Page, snapshot: VintedSnapshot): Promise<void> {
+/**
+ * Pick the listing's brand. Exported for the test.
+ *
+ * The picker lists the popular brands of the category first, and those follow a
+ * category change a moment behind it — so the brand is given a little while to be
+ * listed before it is searched for, which is a request to Vinted.
+ */
+export async function pickBrand(page: Page, snapshot: VintedSnapshot): Promise<void> {
   if (snapshot.brandId == null) {
     return
   }
-  await page.locator('[data-testid="brand-select-dropdown-input"]').click()
-  const option = page.locator(`#brand-${snapshot.brandId}`)
-  if ((await option.count()) === 0 && snapshot.brandTitle) {
-    // Not among the popular brands for this category: search for it.
-    await page.locator('[data-testid="brand-search--input"]').fill(snapshot.brandTitle)
+  const content = await openPicker(page, 'brand-select-dropdown', 'brand')
+  const option = content.locator(`#brand-${snapshot.brandId}`)
+  const listed = await option
+    .waitFor({ state: 'visible', timeout: BRAND_LISTED_TIMEOUT_MS })
+    .then(() => true)
+    .catch(() => false)
+  if (!listed && snapshot.brandTitle) {
+    await content.locator('[data-testid="brand-search--input"]').fill(snapshot.brandTitle)
   }
   try {
     await option.waitFor({ state: 'visible', timeout: 10_000 })
@@ -599,6 +630,31 @@ async function pickBrand(page: Page, snapshot: VintedSnapshot): Promise<void> {
     throw new VintedRelistError(`Vinted's brand picker no longer offers ${snapshot.brandTitle ?? snapshot.brandId}.`)
   }
   await option.click()
+  await content.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
+  if (snapshot.brandTitle) {
+    const reads = await fieldReads(page, 'brand-select-dropdown', snapshot.brandTitle)
+    if (reads !== snapshot.brandTitle) {
+      throw new VintedRelistError(`Vinted's brand field reads "${reads}" after picking "${snapshot.brandTitle}".`)
+    }
+  }
+}
+
+/**
+ * Pick the listing's condition. Exported for the test.
+ *
+ * The field is one of the category's attributes, so it is not on the form until
+ * Vinted has fetched those for the category just chosen.
+ */
+export async function pickCondition(page: Page, conditionId: number): Promise<void> {
+  const content = await openPicker(page, 'category-condition-single-list', 'condition')
+  const option = content.locator(`#condition-${conditionId}`)
+  try {
+    await option.waitFor({ state: 'visible', timeout: 10_000 })
+  } catch {
+    throw new VintedRelistError(`Vinted's condition picker no longer offers condition ${conditionId}.`)
+  }
+  await option.click()
+  await content.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
 }
 
 /** Visible field errors on the upload form, for when the publish does not go through. */
@@ -704,7 +760,7 @@ async function uploadListing(page: Page, userId: number, snapshot: VintedSnapsho
   await pickCategory(page, snapshot.catalogId)
   await pickBrand(page, snapshot)
   if (snapshot.conditionId != null) {
-    await pickById(page, 'category-condition-single-list-input', `condition-${snapshot.conditionId}`, 'condition')
+    await pickCondition(page, snapshot.conditionId)
   }
 
   const price = page.locator('[data-testid="price-input--input"]')

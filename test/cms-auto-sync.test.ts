@@ -215,8 +215,33 @@ describe('naming a sync failure', () => {
     expect(syncFailureMessage(crash, '', '✘ [ERROR] no such column: folder_id: SQLITE_ERROR')).toContain('no column folder_id yet')
   })
 
+  it('names a Cloudflare that could not be reached instead of dumping the trace', () => {
+    // What the dev server saw when the connection dropped mid-sync: the child's stack
+    // trace, with Wrangler's own JSON error quoted inside it, on stderr and in the message.
+    const stderr = [
+      'node:internal/errors:983',
+      'Error: Command failed: node wrangler.js d1 execute helloworldcards --remote --json --command SELECT id, key FROM media',
+      '    at genericNodeError (node:internal/errors:983:15)',
+      '    at runWrangler (/helloworldcards/vite/cms-sync.ts:38:10)',
+      '  stdout: \'\\n{\\n  "error": {\\n    "text": "fetch failed"\\n  }\\n}\\n\',',
+      'Node.js v22.17.1'
+    ].join('\n')
+    expect(syncFailureMessage({ message: `Command failed: npx vite-node scripts/cms-sync.mts\n${stderr}` }, '', stderr)).toBe(
+      'Cloudflare could not be reached (fetch failed). Check the internet connection'
+    )
+    expect(syncFailureMessage(crash, '', 'Error: getaddrinfo ENOTFOUND api.cloudflare.com')).toBe(
+      'Cloudflare could not be reached (ENOTFOUND). Check the internet connection'
+    )
+  })
+
   it('passes any other failure through with what the child wrote', () => {
     expect(syncFailureMessage({ message: 'Command failed: npx vite-node' }, '', 'TypeError: boom\n')).toBe(
+      'Command failed: npx vite-node\nTypeError: boom'
+    )
+  })
+
+  it('does not repeat stderr that Node already put into the message', () => {
+    expect(syncFailureMessage({ message: 'Command failed: npx vite-node\nTypeError: boom\n' }, '', 'TypeError: boom\n')).toBe(
       'Command failed: npx vite-node\nTypeError: boom'
     )
   })

@@ -155,17 +155,29 @@ export function decidePart(view: PartView): PartAction {
   return fileDirty === true ? 'apply' : 'hold'
 }
 
+/** What Wrangler and Node print when the request never reached Cloudflare. */
+const UNREACHABLE = /fetch failed|socket hang up|\bE(?:AI_AGAIN|CONNREFUSED|CONNRESET|HOSTUNREACH|NETUNREACH|NOTFOUND|TIMEDOUT)\b/
+
 /**
- * What to log when a sync run fails. A production database that is behind the committed
- * migrations is the one failure with a known fix, so it is named in a line rather than
- * dumped as the child process's stack trace, which says the same thing at great length.
+ * What to log when a sync run fails. Two failures have a known meaning, so they are named
+ * in a line rather than dumped as the child process's stack trace, which says the same
+ * thing at great length: a production database that is behind the committed migrations,
+ * and a Cloudflare that could not be reached, which is the internet connection and passes
+ * on its own. Anything else is passed through as the child wrote it, once — Node already
+ * puts stderr into the error message, so appending it again showed every trace twice.
  */
 export function syncFailureMessage(error: { message: string }, stdout: string, stderr: string): string {
-  const behind = `${stdout}\n${stderr}`.match(/no such (table|column): (\w+)/)
+  const output = `${stdout}\n${stderr}`
+  const behind = output.match(/no such (table|column): (\w+)/)
   if (behind) {
     return `production database has no ${behind[1]} ${behind[2]} yet. Run \`npm run migrate:remote\` to apply the committed migrations, or deploy`
   }
-  return `${error.message}\n${stderr}`.trim()
+  const unreachable = `${error.message}\n${output}`.match(UNREACHABLE)
+  if (unreachable) {
+    return `Cloudflare could not be reached (${unreachable[0]}). Check the internet connection`
+  }
+  const written = stderr.trim()
+  return (written && !error.message.includes(written) ? `${error.message}\n${written}` : error.message).trim()
 }
 
 /**
