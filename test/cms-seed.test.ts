@@ -67,7 +67,7 @@ describe('ensureSeeded cmsSeedVersion', () => {
 
     await ensureSeeded(db)
 
-    expect((await getProductById(db, 1))?.price).toBe('€95')
+    expect((await getProductById(db, 1))?.price).toBe('€90')
     expect((await getProductById(db, 5))?.price).toBe('€60')
     expect((await getSettings(db))?.cmsSeedVersion).toBe(CMS_SEED_VERSION)
   })
@@ -81,6 +81,6 @@ describe('syncSeedProducts', () => {
 
     await syncSeedProducts(db)
 
-    expect((await getProductById(db, 1))?.price).toBe('€95')
+    expect((await getProductById(db, 1))?.price).toBe('€90')
   })
 })

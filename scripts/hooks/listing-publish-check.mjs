@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Claude Code hook: nudges the assistant (and Timo) to mark a card as published in
-// app/cms/seed-products.ts as soon as its Marktplaats and Vinted listings exist.
+// app/cms/seed-products.ts as soon as its Marktplaats and Vinted listings exist, and
+// removes the branded ad photo from public/ads once a card is marked sold.
 //
 // Runs on PostToolUse for the Playwright MCP tools and on Stop. Reads the hook JSON
 // from stdin and prints hook JSON on stdout. Never fails the tool call.
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, unlinkSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,18 +20,36 @@ function readStdin() {
   }
 }
 
-// Products still marked concept, with the PSA cert taken from the slab photo names.
-function conceptProducts() {
+// Every product record, with the PSA cert taken from the slab photo names.
+function products() {
   const seed = readFileSync(seedPath, 'utf8')
-  const out = []
-  for (const block of seed.split(/\n  \{\n/).slice(1)) {
-    if (!/^\s*concept:\s*true/m.test(block)) continue
+  return seed.split(/\n  \{\n/).slice(1).map((block) => {
     const title = /title:\s*'([^']*)'/.exec(block)?.[1] ?? '?'
-    const cert = /-(\d{6,})-front\.jpg/.exec(block)?.[1]
-    const adPhoto = cert ? existsSync(resolve(root, 'public/ads', `${cert}.jpeg`)) : false
-    out.push({ title, cert, adPhoto })
+    const cert = /-(\d{6,})-front\.jpe?g/.exec(block)?.[1]
+    const adPath = cert ? resolve(root, 'public/ads', `${cert}.jpeg`) : null
+    return {
+      title,
+      cert,
+      concept: /^\s*concept:\s*true/m.test(block),
+      sold: /^\s*sold:\s*true/m.test(block),
+      adPath,
+      adPhoto: adPath ? existsSync(adPath) : false
+    }
+  })
+}
+
+// A sold card's ads are deleted (see .cursor/rules/cms-inventory.mdc), so its branded
+// ad photo has no use any more and only clutters public/ads.
+function removeSoldAdPhotos(all) {
+  const removed = []
+  for (const p of all) {
+    if (!p.sold || !p.adPhoto) continue
+    try {
+      unlinkSync(p.adPath)
+      removed.push(`${p.title} (cert ${p.cert})`)
+    } catch {}
   }
-  return out
+  return removed
 }
 
 const raw = readStdin()
@@ -39,10 +58,17 @@ try {
   input = JSON.parse(raw)
 } catch {}
 
-const concepts = conceptProducts()
-if (concepts.length === 0) process.exit(0)
-
 const event = input.hook_event_name
+const all = products()
+const removed = removeSoldAdPhotos(all)
+const removedNote = removed.length ? `Removed the ad photo of sold card(s) from public/ads: ${removed.join(', ')}. ` : ''
+
+const concepts = all.filter((p) => p.concept)
+if (concepts.length === 0) {
+  if (removedNote) console.log(JSON.stringify({ systemMessage: removedNote.trim() }))
+  process.exit(0)
+}
+
 const names = concepts.map((p) => `"${p.title}"`).join(', ')
 const instruction =
   `Concept products in app/cms/seed-products.ts: ${names}. ` +
@@ -58,12 +84,15 @@ if (event === 'PostToolUse') {
       (raw.match(/https:\/\/www\.(?:marktplaats\.nl\/seller\/view\/m\d+|vinted\.nl\/items\/\d+)/g) ?? [])
     )
   ]
-  if (urls.length === 0) process.exit(0)
+  if (urls.length === 0) {
+    if (removedNote) console.log(JSON.stringify({ systemMessage: removedNote.trim() }))
+    process.exit(0)
+  }
   console.log(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PostToolUse',
-        additionalContext: `Live listing URL(s) on screen: ${urls.join(', ')}. ${instruction}`
+        additionalContext: `${removedNote}Live listing URL(s) on screen: ${urls.join(', ')}. ${instruction}`
       }
     })
   )
@@ -74,12 +103,15 @@ if (event === 'Stop') {
   // A branded ad photo in public/ads only exists once the listing has been prepared,
   // so concept + ad photo means the record was probably never flipped to published.
   const suspicious = concepts.filter((p) => p.adPhoto)
-  if (suspicious.length === 0) process.exit(0)
+  if (suspicious.length === 0) {
+    if (removedNote) console.log(JSON.stringify({ systemMessage: removedNote.trim() }))
+    process.exit(0)
+  }
   const list = suspicious.map((p) => `${p.title} (cert ${p.cert})`).join(', ')
   console.log(
     JSON.stringify({
       systemMessage:
-        `Still concept in seed-products.ts but already has a branded ad photo: ${list}. ` +
+        `${removedNote}Still concept in seed-products.ts but already has a branded ad photo: ${list}. ` +
         'If it is live on Marktplaats and Vinted, the record needs both listing URLs and no concept flag.'
     })
   )

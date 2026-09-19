@@ -114,7 +114,7 @@ describe('product inventory', () => {
     expect(product?.description).not.toContain('Email us')
     expect(product?.description).not.toContain('Fugitive Ink')
     expect(product?.description).not.toContain('graded higher')
-    expect(product?.price).toBe('€95')
+    expect(product?.price).toBe('€90')
     expect(product?.language).toBe('english')
     expect(product?.grader).toBe('psa')
     expect(product?.year).toBe(2016)
@@ -216,7 +216,7 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'arceus-v-2022-brilliant-stars-165')
 
     expect(product?.title).toBe('Arceus V')
-    expect(product?.price).toBe('€50')
+    expect(product?.price).toBe('€45')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244195')
     expect(inventory.find((item) => item.id === 6)?.cost).toBe(28)
     expect(inventory.find((item) => item.id === 6)?.concept).toBeUndefined()
@@ -227,7 +227,7 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'mega-latias-ex-2025-mega-evolution-181')
 
     expect(product?.title).toBe('Mega Latias ex')
-    expect(product?.price).toBe('€115')
+    expect(product?.price).toBe('€110')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438256231')
     expect(inventory.find((item) => item.id === 7)?.cost).toBe(72)
     expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()
@@ -238,7 +238,7 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'zekrom-2022-brilliant-stars-tg05')
 
     expect(product?.title).toBe('Zekrom')
-    expect(product?.price).toBe('€60')
+    expect(product?.price).toBe('€55')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244101')
     expect(inventory.find((item) => item.id === 8)?.cost).toBe(28)
     expect(inventory.find((item) => item.id === 8)?.concept).toBeUndefined()
@@ -250,7 +250,7 @@ describe('product inventory', () => {
     const record = inventory.find((item) => item.id === 9)
 
     expect(product?.title).toBe('Poke Kid')
-    expect(product?.price).toBe('€90')
+    expect(product?.price).toBe('€85')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
     expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)
