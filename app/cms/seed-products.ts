@@ -291,9 +291,9 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2444257980',
+    vintedUrl: 'https://www.vinted.nl/items/10052919194',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Psyduck-TR65',
     cost: 73,
-    concept: true,
     acquiredAt: '2026-09-17'
   },
   {
