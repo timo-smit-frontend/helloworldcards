@@ -656,7 +656,7 @@ async function signIn(): Promise<string> {
 }
 
 function emptyReport(): VintedRelistReport {
-  return { rows: [], pending: [], missing: [], byHand: [], login: 'helloworldcards', fetchedAt: '2026-09-12T12:00:00Z' }
+  return { rows: [], pending: [], missing: [], byHand: [], relisting: [], login: 'helloworldcards', fetchedAt: '2026-09-12T12:00:00Z' }
 }
 
 describe('vinted relist API', () => {

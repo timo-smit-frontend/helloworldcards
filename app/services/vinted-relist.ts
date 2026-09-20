@@ -483,10 +483,22 @@ export type VintedRelistReport = {
   missing: Array<{ product: NonNullable<VintedRelistRow['product']>; url: string }>
   /** Relists finished by hand since the last look; their products still point at the old listing. */
   byHand: VintedHandRelist[]
+  /** Listings a relist is working on right now, by the id they had when it started. */
+  relisting: string[]
   /** Which Vinted account the wardrobe belongs to. */
   login: string | null
   fetchedAt: string
 }
+
+/**
+ * How many relists run at once, each in a Chrome tab of its own; any more wait
+ * their turn. A relist is mostly waiting — on photos going up, on Vinted's pages
+ * coming down — so three tabs get through a batch about three times as fast, while
+ * what reaches Vinted stays the pace of one person browsing briskly: the tabs
+ * start a few seconds apart, share one session check and one wardrobe read, and
+ * every one of them stops the moment Vinted says it has had enough.
+ */
+export const RELIST_TABS = 3
 
 /** A pending relist that turned out to be done: the seller uploaded the listing again themselves. */
 type VintedHandRelist = { itemId: string; previousItemId: string; productId: number | null; url: string }
@@ -703,6 +715,7 @@ export function buildRelistReport(input: {
   state: VintedRelistState
   login: string | null
   byHand?: VintedHandRelist[]
+  relisting?: string[]
   now?: Date
 }): VintedRelistReport {
   const now = input.now ?? new Date()
@@ -790,7 +803,15 @@ export function buildRelistReport(input: {
       return [{ product: productRef(product)!, url: product.vintedUrl! }]
     })
 
-  return { rows, pending, missing, byHand: input.byHand ?? [], login: input.login, fetchedAt: now.toISOString() }
+  return {
+    rows,
+    pending,
+    missing,
+    byHand: input.byHand ?? [],
+    relisting: input.relisting ?? [],
+    login: input.login,
+    fetchedAt: now.toISOString()
+  }
 }
 
 /** One node of `/api/v2/item_upload/catalogs`. */

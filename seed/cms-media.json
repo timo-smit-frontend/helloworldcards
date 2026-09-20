@@ -542,6 +542,30 @@
       "createdAt": "2026-09-17T17:33:30.594Z"
     },
     {
+      "key": "mua8qbtc-54112778-back.jpg",
+      "filename": "54112778_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 323380,
+      "title": "Scizor V, back",
+      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
+      "folder": "Slabs",
+      "createdAt": "2026-09-20T20:00:07.294Z"
+    },
+    {
+      "key": "mua8qbxh-54112778-front.jpg",
+      "filename": "54112778_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 394041,
+      "title": "Scizor V, front",
+      "alt": "PSA 10 Darkness Ablaze Scizor V, 118/189, in a grading slab.",
+      "folder": "Slabs",
+      "createdAt": "2026-09-20T20:00:07.427Z"
+    },
+    {
       "key": "Product.png",
       "filename": "Product.png",
       "contentType": "image/png",

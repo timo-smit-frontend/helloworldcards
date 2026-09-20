@@ -1160,15 +1160,23 @@ function DealFinderScreen() {
 
 /**
  * A relist can take a couple of minutes — photos up, form filled, publish — and the
- * request stays open for all of it, so the screen waits on one listing at a time.
+ * request stays open for all of it. Several run at once, each in a Chrome tab of
+ * its own, so a batch is pressed off one button after another and the screen keeps
+ * every row where it is, saying what its relist is up to, until the last of the
+ * batch is done: only then is the list read again, so it does not re-sort under
+ * the buttons while there is still pressing to do.
  */
 function VintedRelistScreen() {
   const [report, setReport] = useState<VintedRelistReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [relisting, setRelisting] = useState<string | null>(null)
+  const [relisting, setRelisting] = useState<string[]>([])
+  const [done, setDone] = useState<string[]>([])
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   // One read at a time: each one drives the Chrome tab, and StrictMode mounts twice.
   const reading = useRef(false)
+  // How the batch under way has gone, for what to do once its last relist answers.
+  const batch = useRef({ inFlight: 0, relisted: false, needsRead: false })
 
   const refresh = useCallback(() => {
     if (reading.current) {
@@ -1184,6 +1192,8 @@ function VintedRelistScreen() {
           return
         }
         setReport(result.data.report)
+        // The relisted rows are gone from the list now, replaced by their copies.
+        setDone([])
       })
       .catch(() => setError('The dev server stopped answering while reading Vinted. Try again.'))
       .finally(() => {
@@ -1209,28 +1219,59 @@ function VintedRelistScreen() {
         report={report}
         loading={loading}
         relisting={relisting}
+        done={done}
+        errors={errors}
         error={error}
-        onRefresh={refresh}
+        onRefresh={() => {
+          setErrors({})
+          refresh()
+        }}
         onRelist={(itemId) => {
-          setRelisting(itemId)
-          setError(null)
+          if (relisting.includes(itemId)) {
+            return
+          }
+          setRelisting((current) => [...current, itemId])
+          setErrors((current) => {
+            const { [itemId]: gone, ...rest } = current
+            return gone === undefined ? current : rest
+          })
+          batch.current.inFlight += 1
           void adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
             .then((result) => {
               const body = result.data
               if (!result.ok || !body?.report) {
-                setError(body?.error ?? 'The relist failed. Check the Chrome window.')
+                setErrors((current) => ({ ...current, [itemId]: body?.error ?? 'The relist failed. Check the Chrome window.' }))
                 // The delete may have gone through: read back what Vinted has now —
                 // unless Vinted wants a login first, or has rate-limited us, in which
                 // case a read would only ask (or make it worse) again.
                 if (result.status !== 401 && result.status !== 503 && result.status !== 429) {
-                  refresh()
+                  batch.current.needsRead = true
                 }
                 return
               }
-              setReport(body.report)
+              batch.current.relisted = true
+              setDone((current) => [...current, itemId])
             })
-            .catch(() => setError('The dev server stopped answering mid-relist. Refresh to see where it got to.'))
-            .finally(() => setRelisting(null))
+            .catch(() => {
+              setErrors((current) => ({
+                ...current,
+                [itemId]: 'The dev server stopped answering mid-relist. Refresh to see where it got to.'
+              }))
+              batch.current.needsRead = true
+            })
+            .finally(() => {
+              setRelisting((current) => current.filter((id) => id !== itemId))
+              batch.current.inFlight -= 1
+              if (batch.current.inFlight > 0) {
+                return
+              }
+              const { relisted, needsRead } = batch.current
+              batch.current = { inFlight: 0, relisted: false, needsRead: false }
+              // Read once for the whole batch; a read after a relist costs Vinted nothing.
+              if (relisted || needsRead) {
+                refresh()
+              }
+            })
         }}
       />
     </div>

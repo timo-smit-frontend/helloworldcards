@@ -16,6 +16,7 @@ import {
   parseVintedUploadedText,
   parseWardrobeItems,
   RATE_LIMIT_COOLDOWN_MS,
+  RELIST_TABS,
   replacementListing,
   settleMissingByHand,
   settlePendingByHand,
@@ -35,6 +36,7 @@ import {
 import { keepScanBrowserOpen, waitForBotChallengeClear } from './cardmarket-browser'
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import type { MediaSourceReader } from './media-sync'
+import { createTabPool, type TabPool } from './tab-pool'
 
 const STATE_FILE = path.join('.cache', 'vinted-relist.json')
 const PHOTO_DIR = path.join('.cache', 'vinted-relist')
@@ -54,25 +56,69 @@ const PHOTO_UPLOAD_TIMEOUT_MS = 90_000
 const PUBLISH_TIMEOUT_MS = 90_000
 /**
  * How long the Chrome window stays open after a piece of Vinted work, so the next
- * one finds the tab already on Vinted. Every fresh window starts by loading Vinted's
- * homepage, and that page alone asks Vinted's API a dozen things.
+ * one finds its tabs already on Vinted. Every fresh tab starts with a page load,
+ * and a Vinted page alone asks Vinted's API a dozen things.
  */
 const TAB_GRACE_MS = 3 * 60_000
 /** A wardrobe read within this long of the last one is answered from memory. */
 const REPORT_TTL_MS = 60_000
+/**
+ * A session check within this long of the last one is answered from memory. The
+ * tabs of one batch start within seconds of each other, and there is one Vinted
+ * session in the window whichever tab asks; a batch that starts later asks again.
+ */
+const SESSION_TTL_MS = 60_000
+/**
+ * How long a "not logged in" answer holds for every tab. The relists queued behind
+ * the one that found Vinted logged out would otherwise each load a page and ask the
+ * same question, and the one whose tab is showing the login page is the only one
+ * that needs to. Short, so that a login in the window is not waited out.
+ */
+const SESSION_PROBLEM_TTL_MS = 15_000
+/**
+ * Relists start this far apart. Starting one is the busiest moment of it — a listing
+ * page and everything that page loads — so three starting together would hit Vinted
+ * as one burst, where a person opens one page and then another. It also keeps two
+ * fresh tabs from renewing the same session at once: Vinted bounces a tab's first
+ * visit through its session-refresh page, and tabs that went through it together
+ * used to wedge there, every one of them.
+ */
+const RELIST_START_GAP_MS = 4_000
 /** Listing pages are read one at a time, this far apart — as a person would browse. */
 const AGE_READ_GAP_MS = 1_000
 /** And no more than this many per look at the screen; the rest wait for the next. */
 const AGE_READS_PER_REPORT = 24
 
+/**
+ * The state file, read and written whole.
+ *
+ * Relists run side by side, and each writes the file a few times over its minutes
+ * of work. A relist that read the state at its start and wrote it back at its end
+ * would write over what the others wrote meanwhile — a pending entry lost that way
+ * is a listing deleted with no record of what it was. So every write goes through
+ * `update`, which reads, changes and writes in one go, with no waiting in between.
+ */
 type RelistStateStore = {
   get(): VintedRelistState
-  put(state: VintedRelistState): void
+  update(change: (state: VintedRelistState) => void): VintedRelistState
+}
+
+/** The store over a `get`/`put` pair; a test can hand in a pair of its own. */
+export function relistStateStore(file: { get(): VintedRelistState; put(state: VintedRelistState): void }): RelistStateStore {
+  return {
+    get: () => file.get(),
+    update(change) {
+      const state = file.get()
+      change(state)
+      file.put(state)
+      return state
+    }
+  }
 }
 
 function fileRelistStateStore(root: string): RelistStateStore {
   const filePath = path.join(root, STATE_FILE)
-  return {
+  return relistStateStore({
     get() {
       if (!fs.existsSync(filePath)) {
         return emptyRelistState()
@@ -87,11 +133,73 @@ function fileRelistStateStore(root: string): RelistStateStore {
       fs.mkdirSync(path.dirname(filePath), { recursive: true })
       fs.writeFileSync(filePath, JSON.stringify(state, null, 2))
     }
-  }
+  })
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type VintedSession = { userId: number; login: string }
+
+/**
+ * What the tabs of the one Chrome window share.
+ *
+ * The window is the seller's Vinted session, and every tab in it is that same
+ * session — so what one tab learnt, the next need not ask again: who is logged in,
+ * what the wardrobe holds, that Vinted wants a login first. The relist tabs and the
+ * tab that reads the wardrobe are pools of their own, so a look at the screen never
+ * waits behind a relist. A relist tab lands straight on the page its work needs, so
+ * a fresh one costs Vinted nothing a kept one would have saved — which is why the
+ * relist tabs come and go with their relists, and only the wardrobe tab stays.
+ */
+type VintedChrome = {
+  /** The relist tabs. Each closes once its relist is done — unless a relist is waiting, which takes it over. */
+  relists: TabPool<Page>
+  /** The one tab that reads the wardrobe. It stays: it costs a homepage load to open, and every read is the same. */
+  reports: TabPool<Page>
+  /** The listings relists are working on right now, by the id they started with. */
+  inFlight: Set<string>
+  /** The last session check, answered again to anyone who asks within `SESSION_TTL_MS`. */
+  session: { at: number; check: Promise<VintedSession> } | null
+  /** A "not logged in" found a moment ago, taken as read by every tab until `until`. */
+  sessionProblem: { until: number; error: VintedRelistError } | null
+  /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
+  lastWardrobe: { at: number; login: string; wardrobe: VintedWardrobeItem[] } | null
+  /** How far apart relists start, and when the next may. */
+  startGapMs: number
+  nextStartAt: number
+}
+
+/** One window per project, as the scan browser is; a test with a root of its own gets a window of its own. */
+const chromeByRoot = new Map<string, VintedChrome>()
+
+function chromeFor(root: string, tabs: number, startGapMs: number): VintedChrome {
+  let chrome = chromeByRoot.get(root)
+  if (!chrome) {
+    chrome = {
+      relists: createTabPool({ limit: tabs, afterJob: 'close' }),
+      reports: createTabPool({ limit: 1, afterJob: 'keep' }),
+      inFlight: new Set(),
+      session: null,
+      sessionProblem: null,
+      lastWardrobe: null,
+      startGapMs,
+      nextStartAt: 0
+    }
+    chromeByRoot.set(root, chrome)
+  }
+  return chrome
+}
+
+/** Wait for this relist's turn to start, a gap after the last one's. */
+async function spaceOut(chrome: VintedChrome): Promise<void> {
+  const at = Math.max(Date.now(), chrome.nextStartAt)
+  chrome.nextStartAt = at + chrome.startGapMs
+  const wait = at - Date.now()
+  if (wait > 0) {
+    await sleep(wait)
+  }
 }
 
 /**
@@ -109,7 +217,12 @@ class VintedRateLimited extends Error {
 const RATE_LIMITED_TEXT = /answered 429\b|rate limit/i
 
 function isRateLimited(error: unknown): boolean {
-  return error instanceof VintedRateLimited || (error instanceof Error && RATE_LIMITED_TEXT.test(error.message))
+  if (error instanceof VintedRateLimited) {
+    return true
+  }
+  // A relist that stopped for a cool-down another tab started says so in its own
+  // words, and those must not start the cool-down over.
+  return error instanceof Error && !(error instanceof VintedRelistError) && RATE_LIMITED_TEXT.test(error.message)
 }
 
 /** Throw if the tab is showing Vinted's rate-limit page. */
@@ -135,7 +248,7 @@ const SESSION_REFRESH_WAIT_MS = 8_000
  * is made again from clean — which does log the seller out, but the session was not
  * working anyway.
  */
-async function gotoVinted(page: Page, url: string, { healSession = true } = {}): Promise<void> {
+async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healSession = true } = {}): Promise<void> {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
   await failIfRateLimited(page, url)
   if (!SESSION_REFRESH.test(page.url())) {
@@ -153,7 +266,14 @@ async function gotoVinted(page: Page, url: string, { healSession = true } = {}):
   }
   console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
   await page.context().clearCookies({ domain: /vinted\.nl$/ })
-  await gotoVinted(page, url, { healSession: false })
+  // Whoever the window was logged in as, it no longer is.
+  chrome.session = null
+  await gotoVinted(chrome, page, url, { healSession: false })
+}
+
+/** The "not logged in" a tab found a moment ago, while every tab still takes it as read. */
+function knownSessionProblem(chrome: VintedChrome): VintedRelistError | null {
+  return chrome.sessionProblem && Date.now() < chrome.sessionProblem.until ? chrome.sessionProblem.error : null
 }
 
 /**
@@ -161,11 +281,20 @@ async function gotoVinted(page: Page, url: string, { healSession = true } = {}):
  *
  * Every read after this is a `fetch` from inside the page, which rides on the
  * session's cookies — so nothing works until the page is actually on vinted.nl and
- * logged in. A logged-out window is left open so it can be logged in to.
+ * logged in. A fresh tab lands on `landing`: the page its work is going to load
+ * anyway, when there is one, rather than the homepage and then that page. A
+ * logged-out window is left open so it can be logged in to.
+ *
+ * The session is the window's, not the tab's, so the check itself is made once and
+ * its answer shared: tabs that start together wait for the one check under way.
  */
-async function ensureSession(page: Page): Promise<{ userId: number; login: string }> {
+async function ensureSession(page: Page, chrome: VintedChrome, landing = `${VINTED}/`): Promise<VintedSession> {
+  const known = knownSessionProblem(chrome)
+  if (known) {
+    throw known
+  }
   if (!/^https:\/\/www\.vinted\.nl\//.test(page.url()) || SESSION_REFRESH.test(page.url())) {
-    await gotoVinted(page, `${VINTED}/`)
+    await gotoVinted(chrome, page, landing)
   }
   // The tab may have been left on the rate-limit page by the last piece of work.
   await failIfRateLimited(page, page.url())
@@ -175,6 +304,22 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
     throw new VintedRelistError('Vinted is showing a bot check. Clear it in the Chrome window, then try again.', 503)
   }
 
+  const fresh = chrome.session && Date.now() - chrome.session.at < SESSION_TTL_MS ? chrome.session : null
+  if (fresh) {
+    return await fresh.check
+  }
+  // Another tab may have found Vinted logged out while this one's page was loading.
+  const foundMeanwhile = knownSessionProblem(chrome)
+  if (foundMeanwhile) {
+    throw foundMeanwhile
+  }
+  const check = checkSession(page, chrome)
+  chrome.session = { at: Date.now(), check }
+  return await check
+}
+
+/** Ask Vinted who the window is logged in as, from this tab. */
+async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSession> {
   const current = await page
     .evaluate(async (timeout) => {
       const response = await fetch('/api/v2/users/current', {
@@ -191,6 +336,7 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
       return body.user?.id && body.user.login ? { userId: body.user.id, login: body.user.login } : null
     }, IN_PAGE_FETCH_TIMEOUT_MS)
     .catch((error: unknown) => {
+      chrome.session = null
       if (isRateLimited(error)) {
         throw error
       }
@@ -198,19 +344,27 @@ async function ensureSession(page: Page): Promise<{ userId: number; login: strin
     })
 
   if (!current) {
+    chrome.session = null
+    const error = new VintedRelistError('Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.', 401)
+    chrome.sessionProblem = { until: Date.now() + SESSION_PROBLEM_TTL_MS, error }
     keepScanBrowserOpen(LOGIN_GRACE_MS)
     // Only if the tab is not already showing it: a refresh while logged out must not
     // start the sign-in over.
     if (!/\/member\/(?:signup|register|login)\//.test(page.url())) {
-      await gotoVinted(page, `${VINTED}/member/login/email?ref_url=%2F`).catch(() => undefined)
+      await gotoVinted(chrome, page, `${VINTED}/member/login/email?ref_url=%2F`).catch(() => undefined)
     }
     await page.bringToFront().catch(() => undefined)
-    throw new VintedRelistError('Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.', 401)
+    throw error
   }
   return current
 }
 
-async function readWardrobe(page: Page, userId: number): Promise<VintedWardrobeItem[]> {
+/**
+ * The wardrobe as Vinted has it now. Every read is kept as the last one, since a
+ * read made to check on a delete or find a new listing is as good an answer to the
+ * screen's next question as one made for it.
+ */
+async function readWardrobe(page: Page, chrome: VintedChrome, { userId, login }: VintedSession): Promise<VintedWardrobeItem[]> {
   const pages = await page.evaluate(
     async ({ id, timeout }) => {
       const out: unknown[] = []
@@ -233,7 +387,9 @@ async function readWardrobe(page: Page, userId: number): Promise<VintedWardrobeI
     },
     { id: userId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
   )
-  return pages.flatMap(parseWardrobeItems)
+  const wardrobe = pages.flatMap(parseWardrobeItems)
+  chrome.lastWardrobe = { at: Date.now(), login, wardrobe }
+  return wardrobe
 }
 
 /**
@@ -374,8 +530,8 @@ async function preparePhotos(
 }
 
 /** Is the listing still in the wardrobe, and open? */
-async function stillListed(page: Page, userId: number, itemId: string): Promise<boolean> {
-  const items = await readWardrobe(page, userId)
+async function stillListed(page: Page, chrome: VintedChrome, session: VintedSession, itemId: string): Promise<boolean> {
+  const items = await readWardrobe(page, chrome, session)
   return items.some((item) => String(item.id) === itemId && !item.is_closed)
 }
 
@@ -387,8 +543,11 @@ async function stillListed(page: Page, userId: number, itemId: string): Promise<
  * a delete button the dialog's buttons are reported back so the wording can be
  * added — without anything having been deleted.
  */
-async function deleteListing(page: Page, userId: number, itemId: string): Promise<void> {
-  await gotoVinted(page, vintedItemUrl(itemId))
+async function deleteListing(page: Page, chrome: VintedChrome, session: VintedSession, itemId: string): Promise<void> {
+  // A fresh tab landed on the listing's page to begin with; that load is not repeated.
+  if (vintedItemId(page.url()) !== itemId) {
+    await gotoVinted(chrome, page, vintedItemUrl(itemId))
+  }
   await waitForBotChallengeClear(page, 'Vinted listing')
 
   // The seller's buttons only appear once the page has hydrated, a moment after load.
@@ -443,7 +602,7 @@ async function deleteListing(page: Page, userId: number, itemId: string): Promis
   await dialog.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => undefined)
   for (const wait of [2_000, 6_000]) {
     await sleep(wait)
-    if (!(await stillListed(page, userId, itemId))) {
+    if (!(await stillListed(page, chrome, session, itemId))) {
       return
     }
   }
@@ -673,14 +832,8 @@ function onUploadForm(url: URL): boolean {
   return url.pathname.replace(/\/+$/, '') === UPLOAD_FORM_PATH
 }
 
-type PublishedListing = {
-  itemId: string
-  /** The wardrobe read that found the listing, when one was needed to. */
-  wardrobe: VintedWardrobeItem[] | null
-}
-
 /**
- * The listing Vinted made of the form, once it has made it.
+ * The id of the listing Vinted made of the form, once it has made it.
  *
  * Vinted leaves the form the moment the listing is up — these days for the seller's
  * wardrobe, with a promo in front of it; it used to be the listing's own page. So
@@ -694,7 +847,7 @@ type PublishedListing = {
  * so the wardrobe gets the same question before the form's errors call it failed: a
  * retry of a listing that did go up would put it up twice.
  */
-async function publishedListing(page: Page, userId: number, snapshot: VintedSnapshot): Promise<PublishedListing> {
+async function publishedListing(page: Page, chrome: VintedChrome, session: VintedSession, snapshot: VintedSnapshot): Promise<string> {
   const left = await page
     .waitForURL((url) => !onUploadForm(url), { timeout: PUBLISH_TIMEOUT_MS, waitUntil: 'commit' })
     .then(() => true)
@@ -702,7 +855,7 @@ async function publishedListing(page: Page, userId: number, snapshot: VintedSnap
 
   const inUrl = vintedItemId(page.url())
   if (inUrl) {
-    return { itemId: inUrl, wardrobe: null }
+    return inUrl
   }
   if (left) {
     // The wardrobe is asked from inside the page, which needs a document to ask from.
@@ -711,7 +864,7 @@ async function publishedListing(page: Page, userId: number, snapshot: VintedSnap
 
   for (const wait of [0, 3_000]) {
     await sleep(wait)
-    const wardrobe = await readWardrobe(page, userId).catch((error: unknown) => {
+    const wardrobe = await readWardrobe(page, chrome, session).catch((error: unknown) => {
       if (isRateLimited(error)) {
         throw error
       }
@@ -719,7 +872,7 @@ async function publishedListing(page: Page, userId: number, snapshot: VintedSnap
     })
     const listing = wardrobe ? replacementListing(wardrobe, snapshot.itemId, snapshot.title) : null
     if (listing) {
-      return { itemId: String(listing.id), wardrobe }
+      return String(listing.id)
     }
   }
 
@@ -743,8 +896,14 @@ async function publishedListing(page: Page, userId: number, snapshot: VintedSnap
  * ids it renders, and the pickers are keyed on the same ids the edit page reported,
  * so what is selected is the very thing the old listing had.
  */
-async function uploadListing(page: Page, userId: number, snapshot: VintedSnapshot, photoFiles: string[]): Promise<PublishedListing> {
-  await gotoVinted(page, `${VINTED}/items/new`)
+async function uploadListing(
+  page: Page,
+  chrome: VintedChrome,
+  session: VintedSession,
+  snapshot: VintedSnapshot,
+  photoFiles: string[]
+): Promise<string> {
+  await gotoVinted(chrome, page, `${VINTED}/items/new`)
   await waitForBotChallengeClear(page, 'Vinted upload form')
   await page.locator('[data-testid="add-photos-input"]').waitFor({ state: 'attached', timeout: 20_000 })
 
@@ -784,48 +943,7 @@ async function uploadListing(page: Page, userId: number, snapshot: VintedSnapsho
   }
 
   await page.locator('[data-testid="upload-form-save-button"]').click()
-  return await publishedListing(page, userId, snapshot)
-}
-
-/**
- * The one Vinted tab, and the queue of work for it.
- *
- * Every request used to open a tab of its own, and the screen fires two on load —
- * so Vinted saw several tabs renewing the same session at once, and wedged all of
- * them on its session-refresh page. One tab, reused while it is open, with the work
- * lined up behind each other, is what Vinted expects of a person.
- */
-let vintedTab: Page | null = null
-let queue: Promise<unknown> = Promise.resolve()
-/** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
-let lastWardrobe: { at: number; login: string; wardrobe: VintedWardrobeItem[] } | null = null
-
-async function acquireTab(openPage: () => Promise<Page>): Promise<Page> {
-  if (vintedTab && !vintedTab.isClosed()) {
-    return vintedTab
-  }
-  let page: Page
-  try {
-    page = await openPage()
-  } catch (error) {
-    throw new VintedRelistError(error instanceof Error ? error.message : 'Could not start Chrome for Vinted.', 503)
-  }
-  // A half-filled upload form asks whether to leave when the next step navigates
-  // away from it; that is always a yes here. Nothing else on Vinted uses native dialogs.
-  page.on('dialog', (dialog) => {
-    void (dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()).catch(() => undefined)
-  })
-  vintedTab = page
-  return page
-}
-
-function withTab<T>(openPage: () => Promise<Page>, run: (page: Page) => Promise<T>): Promise<T> {
-  const job = queue.then(async () => run(await acquireTab(openPage)))
-  queue = job.then(
-    () => undefined,
-    () => undefined
-  )
-  return job
+  return await publishedListing(page, chrome, session, snapshot)
 }
 
 function cooldownMessage(remainingMs: number): string {
@@ -839,7 +957,7 @@ function cooldownMessage(remainingMs: number): string {
  * make a block worse. Work that goes well leaves the window open for a while, so the
  * next piece finds Vinted already loaded.
  */
-async function guarded<T>(store: RelistStateStore, work: () => Promise<T>): Promise<T> {
+async function guarded<T>(chrome: VintedChrome, store: RelistStateStore, work: () => Promise<T>): Promise<T> {
   const remaining = cooldownRemainingMs(store.get())
   if (remaining > 0) {
     throw new VintedRelistError(cooldownMessage(remaining), 429)
@@ -852,10 +970,10 @@ async function guarded<T>(store: RelistStateStore, work: () => Promise<T>): Prom
     if (!isRateLimited(error)) {
       throw error
     }
-    const state = store.get()
-    state.cooldownUntil = new Date(Date.now() + RATE_LIMIT_COOLDOWN_MS).toISOString()
-    store.put(state)
-    lastWardrobe = null
+    const state = store.update((state) => {
+      state.cooldownUntil = new Date(Date.now() + RATE_LIMIT_COOLDOWN_MS).toISOString()
+    })
+    chrome.lastWardrobe = null
     console.warn(
       `[vinted-relist] ${error instanceof Error ? error.message : 'Rate limited'}, leaving Vinted alone until ${state.cooldownUntil}`
     )
@@ -866,83 +984,129 @@ async function guarded<T>(store: RelistStateStore, work: () => Promise<T>): Prom
 /**
  * The wardrobe, and Vinted's word on how old each listing is.
  *
- * The wardrobe itself is one call. The ages are the expensive part — a whole listing
+ * The wardrobe itself is one call — and none at all within a minute of the last
+ * read, whichever tab made it. The ages are the expensive part — a whole listing
  * page each — so they are read once per listing and kept in the state file; from
- * then on the screen costs Vinted nothing but the wardrobe call.
+ * then on the screen costs Vinted nothing but the wardrobe call. The tab is only
+ * asked for once something has to be asked of Vinted.
  *
  * The wardrobe also shows which pending relists the seller finished by hand; those
  * are settled here, and their saved photos are no longer needed.
  */
-async function readReport(page: Page, root: string, store: RelistStateStore, products: InventoryProduct[]): Promise<VintedRelistReport> {
-  const memo = lastWardrobe && Date.now() - lastWardrobe.at < REPORT_TTL_MS ? lastWardrobe : null
-  const { login, wardrobe } = memo ?? (await readFreshWardrobe(page))
-  const state = store.get()
+async function readReport(
+  chrome: VintedChrome,
+  tab: () => Promise<Page>,
+  root: string,
+  store: RelistStateStore,
+  products: InventoryProduct[]
+): Promise<VintedRelistReport> {
+  const memo = chrome.lastWardrobe && Date.now() - chrome.lastWardrobe.at < REPORT_TTL_MS ? chrome.lastWardrobe : null
+  const { login, wardrobe } = memo ?? (await readFreshWardrobe(await tab(), chrome))
 
-  const byHand = settlePendingByHand(state, wardrobe)
+  const byHand: ReturnType<typeof settlePendingByHand> = []
+  const settled = store.update((state) => {
+    byHand.push(...settlePendingByHand(state, wardrobe))
+    // And the ones done on Vinted itself, which never went through here at all.
+    byHand.push(...settleMissingByHand(state, wardrobe, products))
+  })
   for (const done of byHand) {
     fs.rmSync(path.join(root, PHOTO_DIR, done.previousItemId), { recursive: true, force: true })
   }
-  // And the ones done on Vinted itself, which never went through here at all.
-  byHand.push(...settleMissingByHand(state, wardrobe, products))
 
-  const unknownAge = listingsWithoutAge(wardrobe, state)
+  const unknownAge = listingsWithoutAge(wardrobe, settled)
+  const ages: Record<string, { text: string | null; readAt: string }> = {}
   if (unknownAge.length > 0) {
+    const page = await tab()
     if (memo) {
       // The reads are `fetch`es from inside the tab, which has to be on Vinted for
       // them — a wardrobe answered from memory did not put it there.
-      await ensureSession(page)
+      await ensureSession(page, chrome)
     }
     const readAt = new Date().toISOString()
     for (const [itemId, text] of Object.entries(await readUploadedText(page, unknownAge))) {
-      state.ages[itemId] = { text, readAt }
+      ages[itemId] = { text, readAt }
     }
   }
   const listed = new Set(wardrobe.map((item) => String(item.id)))
-  for (const itemId of Object.keys(state.ages)) {
-    if (!listed.has(itemId)) {
-      delete state.ages[itemId]
+  const state = store.update((state) => {
+    Object.assign(state.ages, ages)
+    for (const itemId of Object.keys(state.ages)) {
+      if (!listed.has(itemId)) {
+        delete state.ages[itemId]
+      }
     }
-  }
-  store.put(state)
+  })
 
-  return buildRelistReport({ wardrobe, products, state, login, byHand })
+  return buildRelistReport({ wardrobe, products, state, login, byHand, relisting: [...chrome.inFlight] })
 }
 
-async function readFreshWardrobe(page: Page): Promise<{ login: string; wardrobe: VintedWardrobeItem[] }> {
-  const { userId, login } = await ensureSession(page)
-  const wardrobe = await readWardrobe(page, userId)
-  lastWardrobe = { at: Date.now(), login, wardrobe }
-  return { login, wardrobe }
+async function readFreshWardrobe(page: Page, chrome: VintedChrome): Promise<{ login: string; wardrobe: VintedWardrobeItem[] }> {
+  const session = await ensureSession(page, chrome)
+  const wardrobe = await readWardrobe(page, chrome, session)
+  return { login: session.login, wardrobe }
 }
 
 export function createVintedRelistService({
   root,
   openPage,
   store = fileRelistStateStore(root),
-  readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root))
+  readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root)),
+  tabs = RELIST_TABS,
+  startGapMs = RELIST_START_GAP_MS
 }: {
   root: string
-  /** Opens a tab in the shared Chrome window; called only when there is none yet. */
+  /** Opens a tab in the shared Chrome window; called only when no idle tab is left. */
   openPage: () => Promise<Page>
   store?: RelistStateStore
   /** Where a product's slab photos are read from, by media key; the seed files and the sync's cache of uploads by default. */
   readMedia?: MediaSourceReader
+  /** How many relists run at once, and how far apart they start; the constants above unless a test says otherwise. */
+  tabs?: number
+  startGapMs?: number
 }): VintedRelistService {
+  const chrome = chromeFor(root, tabs, startGapMs)
+
+  const openTab = async () => {
+    let page: Page
+    try {
+      page = await openPage()
+    } catch (error) {
+      throw new VintedRelistError(error instanceof Error ? error.message : 'Could not start Chrome for Vinted.', 503)
+    }
+    // A half-filled upload form asks whether to leave when the next step navigates
+    // away from it; that is always a yes here. Nothing else on Vinted uses native dialogs.
+    page.on('dialog', (dialog) => {
+      void (dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()).catch(() => undefined)
+    })
+    return page
+  }
+
   return {
     report(products) {
-      return guarded(store, () => withTab(openPage, (page) => readReport(page, root, store, products)))
+      return chrome.reports.run(openTab, (tab) => guarded(chrome, store, () => readReport(chrome, tab, root, store, products)))
     },
 
-    relist(itemId, products, options = {}) {
-      // The wardrobe is about to change; nobody gets the old one after this.
-      lastWardrobe = null
-      return guarded(store, () => withTab(openPage, (page) => relistWithTab(page, root, store, readMedia, itemId, products, options)))
+    async relist(itemId, products, options = {}) {
+      // The button is on the screen until the relist answers, and the screen may be
+      // open twice: the second press must not delete the copy the first is putting up.
+      if (chrome.inFlight.has(itemId)) {
+        throw new VintedRelistError('This listing is already being relisted.', 409)
+      }
+      chrome.inFlight.add(itemId)
+      try {
+        return await chrome.relists.run(openTab, (tab) =>
+          guarded(chrome, store, () => relistWithTab(tab, chrome, root, store, readMedia, itemId, products, options))
+        )
+      } finally {
+        chrome.inFlight.delete(itemId)
+      }
     }
   }
 }
 
 async function relistWithTab(
-  page: Page,
+  tab: () => Promise<Page>,
+  chrome: VintedChrome,
   root: string,
   store: RelistStateStore,
   readMedia: MediaSourceReader,
@@ -951,12 +1115,34 @@ async function relistWithTab(
   { price }: VintedRelistOptions
 ): Promise<{ itemId: string; url: string; productId: number | null }> {
   // Each step is named in the terminal, so a relist that stops shows where it stopped.
-  const step = (what: string) => console.info(`[vinted-relist] ${itemId}: ${what}`)
-  step('checking the Vinted session')
-  const { userId, login } = await ensureSession(page)
-  const state = store.get()
-  let pending = state.pending[itemId]
+  const log = (what: string) => console.info(`[vinted-relist] ${itemId}: ${what}`)
+  // And each step that is about to ask Vinted for something first looks whether
+  // another tab has run into Vinted's rate limit meanwhile: this relist then stops
+  // here, where its state is written down, rather than asking again.
+  const step = (what: string) => {
+    const remaining = cooldownRemainingMs(store.get())
+    if (remaining > 0) {
+      throw new VintedRelistError(cooldownMessage(remaining), 429)
+    }
+    log(what)
+  }
+
+  let pending = store.get().pending[itemId]
   const resumed = Boolean(pending)
+
+  // A relist that will fail without asking Vinted anything needs no tab and no turn.
+  const known = knownSessionProblem(chrome)
+  if (known) {
+    throw known
+  }
+  // The tab first, then the wait for this relist's turn: the gap is between what
+  // reaches Vinted, and a tab can take a while to open — a whole Chrome, at times.
+  const page = await tab()
+  await spaceOut(chrome)
+  step('checking the Vinted session')
+  // A fresh tab lands on the listing's own page, which the delete would load anyway;
+  // a retry of an upload has no such page any more, and lands on the homepage.
+  const session = await ensureSession(page, chrome, pending?.deletedAt ? undefined : vintedItemUrl(itemId))
 
   if (!pending) {
     const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
@@ -970,61 +1156,57 @@ async function relistWithTab(
     // and it is written down first: once the confirm button is clicked the listing
     // may be gone even when Vinted's answer afterwards is lost, and a relist the
     // state file does not know about could not be retried.
-    pending = { snapshot, productId, photoFiles, deletedAt: '', error: '' }
-    state.pending[itemId] = pending
-    store.put(state)
+    const prepared = { snapshot, productId, photoFiles, deletedAt: '', error: '' }
+    store.update((state) => {
+      state.pending[itemId] = prepared
+    })
+    pending = prepared
   }
 
   if (!pending.deletedAt) {
     try {
       // A retry after a delete that went wrong asks the wardrobe once whether the
       // listing is still up, rather than trying to delete it twice.
-      if (!resumed || (await stillListed(page, userId, itemId))) {
+      if (!resumed || (await stillListed(page, chrome, session, itemId))) {
         step('deleting the listing')
-        await deleteListing(page, userId, itemId)
+        await deleteListing(page, chrome, session, itemId)
       }
-      pending.deletedAt = new Date().toISOString()
-      pending.error = ''
     } catch (error) {
-      pending.error = error instanceof Error ? error.message : 'The delete failed.'
-      state.pending[itemId] = pending
-      store.put(state)
+      const failed = { ...pending, error: error instanceof Error ? error.message : 'The delete failed.' }
+      store.update((state) => {
+        state.pending[itemId] = failed
+      })
       throw error
     }
-    store.put(state)
+    const deleted = { ...pending, deletedAt: new Date().toISOString(), error: '' }
+    store.update((state) => {
+      state.pending[itemId] = deleted
+    })
+    pending = deleted
   }
 
-  let published: PublishedListing
+  let newItemId: string
   try {
     // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
     const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
     step('uploading the new listing')
-    published = await uploadListing(page, userId, snapshot, pending.photoFiles)
+    newItemId = await uploadListing(page, chrome, session, snapshot, pending.photoFiles)
   } catch (error) {
-    pending.error = error instanceof Error ? error.message : 'The upload failed.'
-    state.pending[itemId] = pending
-    store.put(state)
+    const failed = { ...pending, error: error instanceof Error ? error.message : 'The upload failed.' }
+    store.update((state) => {
+      state.pending[itemId] = failed
+    })
     throw error
   }
 
-  const newItemId = published.itemId
-  step(`published as ${newItemId}`)
-  delete state.pending[itemId]
-  delete state.records[itemId]
-  state.records[newItemId] = {
-    itemId: newItemId,
-    previousItemId: itemId,
-    productId: pending.productId,
-    listedAt: new Date().toISOString()
-  }
-  store.put(state)
+  log(`published as ${newItemId}`)
+  const record = { itemId: newItemId, previousItemId: itemId, productId: pending.productId, listedAt: new Date().toISOString() }
+  store.update((state) => {
+    delete state.pending[itemId]
+    delete state.records[itemId]
+    state.records[newItemId] = record
+  })
   fs.rmSync(path.join(root, PHOTO_DIR, itemId), { recursive: true, force: true })
-
-  // The read that found the new listing is the wardrobe as it is now, so the report
-  // the screen asks for next is answered from it and costs Vinted nothing.
-  if (published.wardrobe) {
-    lastWardrobe = { at: Date.now(), login, wardrobe: published.wardrobe }
-  }
 
   return { itemId: newItemId, url: vintedItemUrl(newItemId), productId: pending.productId }
 }

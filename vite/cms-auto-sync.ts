@@ -251,6 +251,13 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   const heldLogged = new Set<string>()
   let settledAt: string | null = null
   let lastError: CmsSyncStatus['error'] = null
+  /**
+   * The settle that was asked for and has not started yet. Relists run several at a
+   * time and each asks to settle first; the ones that ask while a settle is still
+   * queued share it, since it will read production after they asked. One that is
+   * already running may have read production before, so it is not shared.
+   */
+  let queuedSettle: Promise<void> | null = null
 
   /**
    * Run a task once whatever is queued has finished. The returned promise fails the way
@@ -557,7 +564,13 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
       fileDebounce.unref()
     },
     settle() {
-      return enqueue('reconcile', reconcile)
+      if (!queuedSettle) {
+        queuedSettle = enqueue('reconcile', () => {
+          queuedSettle = null
+          return reconcile()
+        })
+      }
+      return queuedSettle
     },
     status() {
       return { settledAt, error: lastError }

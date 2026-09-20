@@ -42,6 +42,7 @@ async function harness() {
   await ensureSeeded(production)
 
   const pushes: string[][] = []
+  let pulls = 0
   let failPush: Error | null = null
   let offline = false
   let dirty: Partial<Record<CmsSeedPart, boolean>> | null = { content: false, products: false, media: false }
@@ -55,6 +56,7 @@ async function harness() {
         throw new Error('getaddrinfo ENOTFOUND api.cloudflare.com')
       }
       if (args.includes('--pull')) {
+        pulls += 1
         await fs.writeFile(args[args.indexOf('--dump') + 1], JSON.stringify(await readCmsState(production)))
         return
       }
@@ -93,6 +95,7 @@ async function harness() {
     production,
     sync,
     pushes,
+    pulls: () => pulls,
     settled,
     reconcile,
     remoteFiles,
@@ -209,6 +212,25 @@ describe('the sync as a whole', () => {
     await h.sync.settle()
     expect((await getProductById(h.db, 2))!.title).toBe('Reserved in production')
     expect(h.sync.status().settledAt! >= first.settledAt!).toBe(true)
+  })
+
+  it('lets everyone who asks to settle during one round trip share the next one', async () => {
+    quiet()
+    const h = await harness()
+    await h.settled()
+    const before = h.pulls()
+
+    // Three relists ask while a settle is under way: it may have read production
+    // before they asked, so they wait for it and share one more — which reads
+    // production after all of them asked.
+    const first = h.sync.settle()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await Promise.all([first, h.sync.settle(), h.sync.settle(), h.sync.settle()])
+    expect(h.pulls() - before).toBe(2)
+
+    // Asked again later, on a quiet queue: a round trip of its own.
+    await h.sync.settle()
+    expect(h.pulls() - before).toBe(3)
   })
 
   it('fails a requested settle the way the round trip did, and shows the failure until one succeeds', async () => {

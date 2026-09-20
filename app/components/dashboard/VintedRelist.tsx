@@ -1,10 +1,10 @@
-import { RotateCw } from 'lucide'
+import { Check, RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { adminTo } from '~/admin/runtime'
 import Image from '~/components/elements/Image'
-import type { VintedListingStatus, VintedRelistReport, VintedRelistRow } from '~/services/vinted-relist'
+import { RELIST_TABS, type VintedListingStatus, type VintedRelistReport, type VintedRelistRow } from '~/services/vinted-relist'
 
 const STATUS_LABEL: Record<VintedListingStatus, string> = {
   live: 'Live',
@@ -96,15 +96,37 @@ function ProductLink({ product }: { product: VintedRelistRow['product'] }) {
 const CONFIRM_WINDOW_MS = 4_000
 
 /**
+ * What a listing's relist is up to, as far as this screen knows: waiting for one
+ * of the tabs, in a tab, or done and waiting for the list to be read again.
+ */
+export type RelistActivity = 'queued' | 'relisting' | 'done'
+
+const ACTIVITY_LABEL: Record<RelistActivity, string> = {
+  queued: 'Queued…',
+  relisting: 'Relisting…',
+  done: 'Relisted'
+}
+
+/**
  * A relist deletes a live post, so one stray click must not start it — but the
  * dialog that used to ask was slower to get through than the relist deserves. So
  * the button is pressed twice: the first press turns it into a red "Confirm", the
  * second, within a few seconds, goes ahead. A double-click does both. Leaving the
  * button, or waiting, settles it back.
  */
-function RelistButton({ label, busy, disabled, onClick }: { label: string; busy: boolean; disabled: boolean; onClick: () => void }) {
+function RelistButton({
+  label,
+  activity,
+  disabled,
+  onClick
+}: {
+  label: string
+  activity: RelistActivity | null
+  disabled: boolean
+  onClick: () => void
+}) {
   const [armed, setArmed] = useState(false)
-  const inert = disabled || busy
+  const inert = disabled || activity != null
   const asking = armed && !inert
 
   useEffect(() => {
@@ -119,7 +141,7 @@ function RelistButton({ label, busy, disabled, onClick }: { label: string; busy:
     <button
       type="button"
       className={`${asking ? 'button-danger' : 'button-quiet'} w-fit! gap-2 disabled:cursor-not-allowed disabled:opacity-60`}
-      aria-busy={busy}
+      aria-busy={activity === 'relisting' || activity === 'queued'}
       disabled={inert}
       onClick={() => {
         if (!asking) {
@@ -131,8 +153,13 @@ function RelistButton({ label, busy, disabled, onClick }: { label: string; busy:
       }}
       onBlur={() => setArmed(false)}
     >
-      <MorphIcon icon={RotateCw} size={16} strokeWidth={2.25} className={busy ? 'animate-spin' : undefined} />
-      {busy ? 'Relisting…' : asking ? 'Confirm' : label}
+      <MorphIcon
+        icon={activity === 'done' ? Check : RotateCw}
+        size={16}
+        strokeWidth={2.25}
+        className={activity === 'relisting' ? 'animate-spin' : undefined}
+      />
+      {activity ? ACTIVITY_LABEL[activity] : asking ? 'Confirm' : label}
     </button>
   )
 }
@@ -140,7 +167,19 @@ function RelistButton({ label, busy, disabled, onClick }: { label: string; busy:
 /** A week is roughly when a listing has slid off the first pages of the catalogue. */
 const STALE_AFTER_DAYS = 7
 
-function ListingRow({ row, busy, blocked, onRelist }: { row: VintedRelistRow; busy: boolean; blocked: boolean; onRelist: () => void }) {
+function ListingRow({
+  row,
+  activity,
+  error,
+  blocked,
+  onRelist
+}: {
+  row: VintedRelistRow
+  activity: RelistActivity | null
+  error: string | undefined
+  blocked: boolean
+  onRelist: () => void
+}) {
   const stale = row.ageDays != null && row.ageDays >= STALE_AFTER_DAYS
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6">
@@ -156,6 +195,7 @@ function ListingRow({ row, busy, blocked, onRelist }: { row: VintedRelistRow; bu
         </a>
         <ProductLink product={row.product} />
         {row.status !== 'live' ? <p className="mt-1 text-sm text-site-foil">{STATUS_LABEL[row.status]}</p> : null}
+        {error ? <p className="mt-1 text-sm text-site-loss">{error}</p> : null}
       </div>
       <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
         <Stat label="Age" value={formatAge(row)} tone={stale ? 'text-site-foil' : undefined} />
@@ -164,7 +204,12 @@ function ListingRow({ row, busy, blocked, onRelist }: { row: VintedRelistRow; bu
         <Stat label="Price" value={formatPrice(row.price)} />
       </div>
       <div className="col-span-2 flex justify-end sm:col-span-1">
-        <RelistButton label="Relist" busy={busy} disabled={blocked || row.status !== 'live'} onClick={onRelist} />
+        <RelistButton
+          label={error ? 'Retry' : 'Relist'}
+          activity={activity}
+          disabled={blocked || row.status !== 'live'}
+          onClick={onRelist}
+        />
       </div>
     </li>
   )
@@ -172,12 +217,14 @@ function ListingRow({ row, busy, blocked, onRelist }: { row: VintedRelistRow; bu
 
 function PendingRow({
   item,
-  busy,
+  activity,
+  error,
   blocked,
   onRetry
 }: {
   item: VintedRelistReport['pending'][number]
-  busy: boolean
+  activity: RelistActivity | null
+  error: string | undefined
   blocked: boolean
   onRetry: () => void
 }) {
@@ -186,29 +233,39 @@ function PendingRow({
       <div className="min-w-0">
         <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
         <ProductLink product={item.product} />
-        <p className="mt-1 text-sm text-site-loss">
-          {item.error || (item.deletedAt ? 'The upload did not finish.' : 'The delete did not finish.')}
-        </p>
+        {activity ? null : (
+          <p className="mt-1 text-sm text-site-loss">
+            {error || item.error || (item.deletedAt ? 'The upload did not finish.' : 'The delete did not finish.')}
+          </p>
+        )}
       </div>
       <div className="flex justify-end">
-        <RelistButton label={item.deletedAt ? 'Retry upload' : 'Retry relist'} busy={busy} disabled={blocked} onClick={onRetry} />
+        <RelistButton label={item.deletedAt ? 'Retry upload' : 'Retry relist'} activity={activity} disabled={blocked} onClick={onRetry} />
       </div>
     </li>
   )
 }
 
+const COUNT_IN_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six']
+
 export default function VintedRelist({
   report,
   loading,
   relisting,
+  done,
+  errors,
   error,
   onRefresh,
   onRelist
 }: {
   report: VintedRelistReport | null
   loading: boolean
-  /** The listing being relisted right now; one at a time, since one tab does the work. */
-  relisting: string | null
+  /** The listings this screen is relisting, in the order their buttons were pressed. */
+  relisting: string[]
+  /** Relisted since the list was last read; it is read again once the last of a batch is done. */
+  done: string[]
+  /** What went wrong with a listing's last relist, by listing. */
+  errors: Record<string, string>
   error: string | null
   onRefresh: () => void
   onRelist: (itemId: string) => void
@@ -216,7 +273,21 @@ export default function VintedRelist({
   const rows = report?.rows ?? []
   const pending = report?.pending ?? []
   const missing = report?.missing ?? []
-  const blocked = loading || relisting != null
+  const batch = relisting.length > 0
+
+  // The first few pressed are in the tabs, the rest wait for one. A listing the
+  // dev server says it is relisting for someone else — another tab of the admin, or
+  // this one before a reload — is busy too, until the list is read again.
+  const activityOf = (itemId: string): RelistActivity | null => {
+    const at = relisting.indexOf(itemId)
+    if (at !== -1) {
+      return at < RELIST_TABS ? 'relisting' : 'queued'
+    }
+    if (done.includes(itemId)) {
+      return 'done'
+    }
+    return report?.relisting.includes(itemId) ? 'relisting' : null
+  }
 
   return (
     <section className="flex flex-col gap-8">
@@ -228,7 +299,7 @@ export default function VintedRelist({
             className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={loading ? 'Reading Vinted' : 'Refresh from Vinted'}
             onClick={onRefresh}
-            disabled={blocked}
+            disabled={loading || batch}
           >
             <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={loading ? 'animate-spin' : undefined} />
           </button>
@@ -237,8 +308,9 @@ export default function VintedRelist({
       </div>
 
       <p className="content-m text-site-mantle">
-        Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up
-        as new again. Views and likes start from zero. Press Relist twice: the first press asks, the second goes ahead.
+        Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up as
+        new again. Views and likes start from zero. Up to {COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a
+        Chrome tab of its own; the rest wait their turn.
       </p>
 
       {error ? <p className="content-m text-site-loss">{error}</p> : null}
@@ -251,8 +323,9 @@ export default function VintedRelist({
               <PendingRow
                 key={item.itemId}
                 item={item}
-                busy={relisting === item.itemId}
-                blocked={blocked}
+                activity={activityOf(item.itemId)}
+                error={errors[item.itemId]}
+                blocked={loading}
                 onRetry={() => onRelist(item.itemId)}
               />
             ))}
@@ -272,8 +345,9 @@ export default function VintedRelist({
             <ListingRow
               key={row.itemId}
               row={row}
-              busy={relisting === row.itemId}
-              blocked={blocked}
+              activity={activityOf(row.itemId)}
+              error={errors[row.itemId]}
+              blocked={loading}
               onRelist={() => onRelist(row.itemId)}
             />
           ))}

@@ -31,7 +31,8 @@ describe('product inventory', () => {
       [13, 'Mega Gardevoir ex', '2026 Black Star Promo - #032', 'mega-gardevoir-ex-2026-black-star-promo-032'],
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
       [16, 'Beautifly', '2026 Ascended Heroes - #219', 'beautifly-2026-ascended-heroes-219'],
-      [17, 'Giratina V', '2022 Lost Origin - #185', 'giratina-v-2022-lost-origin-185']
+      [17, 'Giratina V', '2022 Lost Origin - #185', 'giratina-v-2022-lost-origin-185'],
+      [18, 'Scizor V', '2020 Darkness Ablaze - #118', 'scizor-v-2020-darkness-ablaze-118']
     ])
   })
 

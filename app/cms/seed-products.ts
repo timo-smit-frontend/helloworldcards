@@ -15,7 +15,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2016,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436737465',
-    vintedUrl: 'https://www.vinted.nl/items/10075291433',
+    vintedUrl: 'https://www.vinted.nl/items/10076596008',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51',
     reverseHolo: true,
     cost: 55,
@@ -76,7 +76,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700',
-    vintedUrl: 'https://www.vinted.nl/items/10075339874',
+    vintedUrl: 'https://www.vinted.nl/items/10076611455',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56',
     firstEdition: true,
     cost: 25,
@@ -96,7 +96,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9.5,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
-    vintedUrl: 'https://www.vinted.nl/items/10075309055',
+    vintedUrl: 'https://www.vinted.nl/items/10076599233',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/White-Flare-JP/Zorua-V2-sv11W140',
     cost: 40,
     acquiredAt: '2026-08-30'
@@ -115,7 +115,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244195',
-    vintedUrl: 'https://www.vinted.nl/items/10075364582',
+    vintedUrl: 'https://www.vinted.nl/items/10076614933',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Arceus-V-V2-BRS165',
     cost: 28,
     acquiredAt: '2026-08-30'
@@ -134,7 +134,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438256231',
-    vintedUrl: 'https://www.vinted.nl/items/10075322080',
+    vintedUrl: 'https://www.vinted.nl/items/10076607794',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181',
     cost: 72,
     acquiredAt: '2026-08-30'
@@ -153,7 +153,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244101',
-    vintedUrl: 'https://www.vinted.nl/items/10075348286',
+    vintedUrl: 'https://www.vinted.nl/items/10076612847',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Zekrom-BRSTG05',
     cost: 28,
     acquiredAt: '2026-08-30'
@@ -171,7 +171,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2020,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438647317',
-    vintedUrl: 'https://www.vinted.nl/items/10075299771',
+    vintedUrl: 'https://www.vinted.nl/items/10076598488',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shiny-Star-V/Poke-Kid-s4a197',
     cost: 61,
     acquiredAt: '2026-08-31'
@@ -211,7 +211,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2017,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440339127',
-    vintedUrl: 'https://www.vinted.nl/items/10075331196',
+    vintedUrl: 'https://www.vinted.nl/items/10076610629',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shining-Legends/Mewtwo-GX-V1-SLG39',
     cost: 43,
     acquiredAt: '2026-09-06'
@@ -230,7 +230,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440340001',
-    vintedUrl: 'https://www.vinted.nl/items/10075356395',
+    vintedUrl: 'https://www.vinted.nl/items/10076614167',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
     cost: 25,
     acquiredAt: '2026-09-06'
@@ -291,7 +291,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2444257980',
-    vintedUrl: 'https://www.vinted.nl/items/10075372845',
+    vintedUrl: 'https://www.vinted.nl/items/10076616196',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Psyduck-TR65',
     cost: 73,
     acquiredAt: '2026-09-17'
@@ -331,5 +331,23 @@ export const seedProductRecords: ProductRecord[] = [
     cost: 67,
     concept: true,
     acquiredAt: '2026-09-18'
+  },
+  {
+    id: 18,
+    title: 'Scizor V',
+    subtitle: '2020 Darkness Ablaze - #118',
+    description:
+      'A holo V from the 2020 Sword & Shield Darkness Ablaze set, number 118/189. This is the regular set print, not the Full Art. This copy is graded PSA 10 Gem Mint, cert 54223778. The PSA population is 496, with none higher.',
+    images: ['/media/mua8qbxh-54112778-front.jpg', '/media/mua8qbtc-54112778-back.jpg'],
+    pokemonId: 212,
+    price: '€80',
+    language: 'english',
+    grader: 'psa',
+    grade: 10,
+    year: 2020,
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Darkness-Ablaze/Scizor-V-V1-DAA118',
+    cost: 41,
+    concept: true,
+    acquiredAt: '2026-09-20'
   }
 ]

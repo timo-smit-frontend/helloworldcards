@@ -344,7 +344,15 @@ describe('dashboard API', () => {
     const calls: string[] = []
     const vintedRelist: VintedRelistService = {
       async report() {
-        return { rows: [], pending: [], missing: [], byHand: [], login: 'helloworldcards', fetchedAt: '2026-09-15T09:00:00Z' }
+        return {
+          rows: [],
+          pending: [],
+          missing: [],
+          byHand: [],
+          relisting: [],
+          login: 'helloworldcards',
+          fetchedAt: '2026-09-15T09:00:00Z'
+        }
       },
       async relist(itemId) {
         calls.push(itemId)
