@@ -32,6 +32,8 @@ Do **all** of these before saying done:
 
 Status flags, one at a time: `concept` (not listed yet), none (live), `reserved` (sold, on its way, money not in — stays in the shop without a price, saying **This card is reserved**; ads stay up marked reserved; out of relist and price suggestions), `sold` (money in — off the shop, ads deleted). “Gereserveerd”, “sold but still shipping”, “waiting for the payout” all mean `reserved`, never `sold`.
 
+**Sold cards keep one photo, on their own.** Once a sale has settled, the dev server (`vite/sold-photos.ts`, part of the auto-sync) cuts the card down to a 400 px WebP of the slab front — `images: ['/media/<stem>-front-sold.webp']`, media folder **Sold** — and removes the back photo, both full-size originals (bucket, and `seed/media` for a committed one, regenerating `app/cms/seed-media.ts`) and the branded ad in `public/ads`, then publishes that. Every other field stays: the record is the tax report's source. So when marking a card sold, set the flags and leave `images` alone; do not remove or shrink photos by hand, and do not put the full photos back. When no dev server was running, the next `npm run dev` does it. The admin lists sold cards on the Products screen's **Sold** tab.
+
 ### B. User changed something in the admin CMS
 
 Admin saves already update **live D1 / website**, and a running dev server writes them into the seed file on its own. If no dev server was running, pull (`npx vite-node scripts/cms-sync.mts --remote --pull --products`) before touching the seed file.
@@ -52,5 +54,6 @@ Admin saves already update **live D1 / website**, and a running dev server write
 
 - Stop after editing `seed-products.ts` alone when no dev server is running.
 - Set `sold: true` for a card whose money has not arrived; that card is `reserved: true` until it has.
+- Edit a sold card's `images`, delete its photos from the media library, or re-add its full photos: the dev server keeps exactly the one small front photo, and puts that back.
 - Run seed→D1 sync when seed is behind CMS without pulling first (that overwrites live CMS edits).
 - Assume deploy alone refreshed product rows (only empty DB seed + one-shot `cmsSeedVersion` migrations do that).

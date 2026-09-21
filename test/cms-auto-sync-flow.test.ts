@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createCmsAutoSync, type CmsAutoSync } from '../vite/cms-auto-sync'
 import {
@@ -16,9 +17,11 @@ import {
   writeSeedFiles,
   type CmsSeedPart
 } from '../vite/cms-state'
-import { getProductById, listFaqs, listInventory, updateProduct, upsertFaqWithId } from '../worker/cms/db'
+import { getProductById, listFaqs, listInventory, listMedia, listMediaFolders, updateProduct, upsertFaqWithId } from '../worker/cms/db'
+import { parseMediaSnapshot, pushMediaLibrary } from '../worker/cms/media-library-sync'
 import { memoryR2 } from '../worker/cms/media'
 import { ensureSeeded } from '../worker/cms/seed'
+import { PIKACHU_FULL, withFullPhotos } from './helpers/full-photos'
 import { createMemoryD1 } from './helpers/memory-d1'
 
 /**
@@ -26,7 +29,7 @@ import { createMemoryD1 } from './helpers/memory-d1'
  * "production" one behind a stand-in for the child process. A pull dumps production's
  * state; a push applies the seed files on disk to it, the way the real script does.
  */
-async function harness() {
+async function harness(options: { readOriginal?: (key: string) => Promise<Buffer | null> } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hwc-flow-'))
   await fs.mkdir(path.join(root, 'seed'), { recursive: true })
   await fs.mkdir(path.join(root, 'app/cms'), { recursive: true })
@@ -47,10 +50,14 @@ async function harness() {
   let offline = false
   let dirty: Partial<Record<CmsSeedPart, boolean>> | null = { content: false, products: false, media: false }
 
+  const media = memoryR2()
   const sync: CmsAutoSync = createCmsAutoSync({
     root,
     db,
-    media: memoryR2(),
+    media,
+    // The seed inventory has a sold card whose photos have not been cut down yet. Without
+    // an original to read, the sync leaves it alone — and never asks production for one.
+    readOriginal: options.readOriginal ?? (async () => null),
     async runSync(_root, args) {
       if (offline) {
         throw new Error('getaddrinfo ENOTFOUND api.cloudflare.com')
@@ -92,6 +99,7 @@ async function harness() {
   return {
     root,
     db,
+    media,
     production,
     sync,
     pushes,
@@ -395,5 +403,86 @@ describe('the sync as a whole', () => {
     await vi.advanceTimersByTimeAsync(1500)
     await h.sync.idle()
     expect(h.pushes).toEqual([])
+  })
+
+  describe('the photos of a sold card', () => {
+    const FRONT = 'mu00djsz-122301454-front.jpg'
+    const BACK = 'mu00dp1r-122301454-back.jpg'
+    const KEPT = 'mu00djsz-122301454-front-sold.webp'
+
+    /**
+     * Both databases hold the whole committed media library, the way the real ones do,
+     * and agree that the sold Pikachu still carries both full-size slab photos.
+     */
+    async function withLibrary(h: Awaited<ReturnType<typeof harness>>) {
+      const library = parseMediaSnapshot(await fs.readFile(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8'))
+      for (const db of [h.db, h.production]) {
+        await pushMediaLibrary(db, library)
+        await withFullPhotos(db, PIKACHU_FULL)
+      }
+    }
+
+    it('are cut down to one small photo once the sale has settled, and that is published', async () => {
+      quiet()
+      const original = await sharp({ create: { width: 800, height: 1200, channels: 3, background: '#a63' } })
+        .jpeg()
+        .toBuffer()
+      const h = await harness({ readOriginal: async (key) => (key === FRONT ? original : null) })
+      await withLibrary(h)
+      await writeSeedFiles(h.root, await renderCmsState(h.root, await readCmsState(h.db)))
+
+      await h.reconcile()
+
+      expect(h.pushes).toEqual([['--remote', '--products', '--media']])
+      for (const db of [h.db, h.production]) {
+        expect((await getProductById(db, 14))!.images).toEqual([`/media/${KEPT}`])
+        const library = await listMedia(db)
+        const kept = library.find((item) => item.key === KEPT)!
+        expect(kept).toMatchObject({ title: 'Pikachu, front', width: 400, height: 600 })
+        expect((await listMediaFolders(db)).find((folder) => folder.id === kept.folderId)?.name).toBe('Sold')
+        expect(library.some((item) => item.key === FRONT || item.key === BACK)).toBe(false)
+      }
+      expect(await h.media.head!(KEPT)).not.toBeNull()
+      expect(await h.diskFiles()).toEqual(await h.localFiles())
+      expect(await readSyncedFingerprints(h.db)).toEqual(await h.localFiles())
+
+      // Settled: the next look round has nothing left to do.
+      await h.reconcile()
+      expect(h.pushes).toHaveLength(1)
+    })
+
+    it('are left alone, without a word to production, when no original can be read', async () => {
+      quiet()
+      const h = await harness()
+      await withLibrary(h)
+      await h.settled()
+
+      expect((await getProductById(h.db, 14))!.images).toEqual([`/media/${FRONT}`, `/media/${BACK}`])
+      expect((await listMedia(h.db)).some((item) => item.key === FRONT)).toBe(true)
+    })
+
+    it('follow a sale recorded in the production admin', async () => {
+      quiet()
+      const original = await sharp({ create: { width: 800, height: 1200, channels: 3, background: '#36a' } })
+        .png()
+        .toBuffer()
+      const h = await harness({ readOriginal: async (key) => (key === '148651617_front.jpg' ? original : null) })
+      await withLibrary(h)
+      await h.settled()
+
+      const mewtwo = (await getProductById(h.production, 1))!
+      await updateProduct(h.production, 1, { ...mewtwo, sold: true, soldAt: '2026-09-21', marktplaatsUrl: undefined, vintedUrl: undefined })
+      await h.reconcile()
+
+      expect(h.pushes).toEqual([['--remote', '--products', '--media']])
+      for (const db of [h.db, h.production]) {
+        const product = (await getProductById(db, 1))!
+        expect(product.images).toEqual(['/media/148651617_front-sold.webp'])
+        expect(product).toMatchObject({ sold: true, soldAt: '2026-09-21', cost: 55, price: '€90' })
+        expect((await listMedia(db)).some((item) => item.key === '148651617_front.jpg' || item.key === '148651617_back.jpg')).toBe(false)
+      }
+      expect(await h.diskFiles()).toEqual(await h.localFiles())
+      expect(await h.localFiles()).toEqual(await h.remoteFiles())
+    })
   })
 })

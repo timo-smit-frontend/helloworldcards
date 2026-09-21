@@ -37,6 +37,8 @@ See [CMS sync](#cms-sync) for the commands that move content and images between 
 
 The dashboard is unlinked from the public site, blocked in `robots.txt`, and served with `noindex`. After login it shows spent, sold, and remaining potential, plus margin stats and a recently-sold list. Mark a card sold with `sold: true` and `soldAt: 'YYYY-MM-DD'` in `app/cms/seed-products.ts` — it leaves the shop and stays on the books. A card that has sold but is still on its way, with the money not paid out yet, is `reserved: true` instead (with `soldAt` and the sale `price`): it stays in the shop without a price or buy link, saying **This card is reserved**, and leaves the Vinted relist tab and the price suggestions. Switch it to `sold: true` once the money is in.
 
+A sold card keeps its whole record — cost, sale price, dates, grade, Cardmarket link — for the books, but only one photo: once the sale has settled, the dev server cuts the card down to a 400 px WebP of the slab front (`…-front-sold.webp`, filed in the **Sold** folder of the media library), which is all the dashboard's sold list ever shows. The back photo and both full-size originals leave the bucket with every resize, a committed original leaves `seed/media` (and `app/cms/seed-media.ts` is written again), and the branded ad photo leaves `public/ads`. In the admin, the Products screen keeps sold cards on their own **Sold** tab, sorted by sale date, so the **In stock** tab stays as long as what is for sale.
+
 Set these as **Worker secrets** (Cloudflare dashboard or `wrangler secret put`), never in source or `wrangler.jsonc`:
 
 | Secret                     | Purpose                  |
@@ -92,6 +94,10 @@ and each part of the CMS — content, products, media — is settled on its own:
   `npm run cms:push:remote` to apply such a file; the local database follows.
 - Both admins edited the same part since the last sync: the local version wins and the
   overwritten production edit is named in the dev log.
+- A card marked **sold** — in either admin, or in the seed file — is cut down to its one
+  small photo once the sale has settled, and that change is published like any other
+  edit. A card whose front photo cannot be read anywhere is left as it is, with a line
+  in the dev log; the next `npm run dev` picks up a sale recorded while no dev server ran.
 
 Each local database keeps its own record of what it last settled on (in `cms_sync_state`),
 so a database with no such record — a fresh checkout, a wiped `.wrangler/state`, a copy

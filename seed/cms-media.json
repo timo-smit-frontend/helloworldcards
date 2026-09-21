@@ -1,5 +1,5 @@
 {
-  "folders": ["Components", "Slabs"],
+  "folders": ["Components", "Slabs", "Sold"],
   "media": [
     {
       "key": "136389084_back.jpg",
@@ -446,28 +446,16 @@
       "createdAt": "2026-09-10T06:56:21.048Z"
     },
     {
-      "key": "mu00djsz-122301454-front.jpg",
-      "filename": "122301454_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1011129,
+      "key": "mu00djsz-122301454-front-sold.webp",
+      "filename": "122301454_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 664,
+      "bytes": 51376,
       "title": "Pikachu, front",
       "alt": "PSA 9 Crown Zenith Pikachu full art secret rare, 160/159, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-13T16:08:32.457Z"
-    },
-    {
-      "key": "mu00dp1r-122301454-back.jpg",
-      "filename": "122301454_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 920013,
-      "title": "Pikachu, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-13T16:08:39.264Z"
     },
     {
       "key": "mu76kcvc-150733735-back.jpg",

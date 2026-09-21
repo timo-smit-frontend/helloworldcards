@@ -10,7 +10,7 @@ import PriceFigure from './PriceFigure'
 import StatusBadge from './StatusBadge'
 import { formatEuros, formatListedEuros, formatSignedEuros, moneyTone } from './money'
 
-function formatSoldDate(iso: string | null): string {
+export function formatSoldDate(iso: string | null): string {
   if (!iso) return 'Date unknown'
   const [year, month, day] = iso.split('-').map(Number)
   if (!year || !month || !day) return 'Date unknown'

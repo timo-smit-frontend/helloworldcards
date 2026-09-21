@@ -4,6 +4,7 @@ import prettier from 'prettier'
 import { describe, expect, it } from 'vitest'
 import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import { seedProductRecords } from '../app/cms/seed-products'
+import { SOLD_MEDIA_FOLDER, soldPhotoPlan } from '../app/services/sold-photos'
 import { contentSnapshotsMatch, formatContentSnapshot, parseContentSnapshot, pullContent, pushContent } from '../worker/cms/content-sync'
 import { formatMediaSnapshot, parseMediaSnapshot, pullMediaLibrary, pushMediaLibrary } from '../worker/cms/media-library-sync'
 import {
@@ -280,12 +281,26 @@ describe('media library sync', () => {
     expect([...referenced].filter((key) => !keys.has(key))).toEqual([])
   })
 
-  /** Every slab photo lives in the Slabs folder of the media library; a new product's images go there too. */
-  it('files every product image under the Slabs folder', () => {
+  /**
+   * Every slab photo lives in the Slabs folder of the media library; a new product's
+   * images go there too. A sold card keeps one small photo, filed under Sold instead.
+   */
+  it("files every product image under the Slabs folder, and a sold card's one photo under Sold", () => {
     const library = parseMediaSnapshot(fs.readFileSync(path.join(process.cwd(), 'seed/cms-media.json'), 'utf8'))
     const folderOf = new Map(library.media.map((entry) => [entry.key, entry.folder]))
-    const productImages = seedProductRecords.flatMap((product) => (product.images ?? []).map((image) => image.replace(/^\/media\//, '')))
-    expect(productImages.filter((key) => folderOf.get(key) !== 'Slabs')).toEqual([])
+    const misfiled = seedProductRecords.flatMap((product) =>
+      (product.images ?? [])
+        .map((image) => image.replace(/^\/media\//, ''))
+        .filter((key) => folderOf.get(key) !== (product.sold ? SOLD_MEDIA_FOLDER : 'Slabs'))
+    )
+    expect(misfiled).toEqual([])
+  })
+
+  /** Once sold, a card keeps exactly one photo: the small front copy the dashboard shows. */
+  it('leaves a sold card with its one small photo', () => {
+    const sold = seedProductRecords.filter((product) => product.sold)
+    expect(sold.length).toBeGreaterThan(0)
+    expect(sold.filter((product) => soldPhotoPlan(product) !== null).map((product) => product.title)).toEqual([])
   })
 })
 

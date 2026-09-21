@@ -20,12 +20,14 @@ function readStdin() {
   }
 }
 
-// Every product record, with the PSA cert taken from the slab photo names.
+// Every product record, with the PSA cert taken from the slab photo names: an admin
+// upload (`mu00djsz-122301454-front.jpg`), a committed seed photo (`148651617_front.jpg`),
+// or the small copy a sold card keeps (`…-front-sold.webp`).
 function products() {
   const seed = readFileSync(seedPath, 'utf8')
   return seed.split(/\n  \{\n/).slice(1).map((block) => {
     const title = /title:\s*'([^']*)'/.exec(block)?.[1] ?? '?'
-    const cert = /-(\d{6,})-front\.jpe?g/.exec(block)?.[1]
+    const cert = /(\d{6,})[-_]front(?:-sold)?\.(?:jpe?g|webp)/.exec(block)?.[1]
     const adPath = cert ? resolve(root, 'public/ads', `${cert}.jpeg`) : null
     return {
       title,
@@ -39,7 +41,9 @@ function products() {
 }
 
 // A sold card's ads are deleted (see .cursor/rules/cms-inventory.mdc), so its branded
-// ad photo has no use any more and only clutters public/ads.
+// ad photo has no use any more and only clutters public/ads. The dev server's sync does
+// the same when it cuts a sold card down to its one small photo (vite/sold-photos.ts);
+// this covers a card marked sold while no dev server was running.
 function removeSoldAdPhotos(all) {
   const removed = []
   for (const p of all) {

@@ -17,7 +17,7 @@ import {
 } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
-import DashboardChart, { PeriodToggle, PriceSuggestions } from '~/components/dashboard/DashboardChart'
+import DashboardChart, { PeriodToggle, PriceSuggestions, formatSoldDate } from '~/components/dashboard/DashboardChart'
 import StatusBadge from '~/components/dashboard/StatusBadge'
 import DealFinder, { sourceLabel, type ScanningSources } from '~/components/dashboard/DealFinder'
 import VintedRelist from '~/components/dashboard/VintedRelist'
@@ -219,6 +219,34 @@ function AdminScreenHeader({
         </Link>
       </div>
     </div>
+  )
+}
+
+/**
+ * One screen split into views, each with its own URL so a row opened from the Sold tab
+ * comes back to the Sold tab. Styled as the dashboard's period toggle.
+ */
+function AdminTabs({ tabs }: { tabs: Array<{ to: string; label: string; count: number | null; current: boolean }> }) {
+  return (
+    <nav aria-label="View" className="inline-flex w-fit rounded-full bg-site-mid p-1 ring-1 ring-site-mulled-wine">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.to}
+          to={tab.to}
+          aria-current={tab.current ? 'page' : undefined}
+          className={`inline-flex items-baseline rounded-full px-4 py-1.5 text-sm font-semibold no-underline smooth ${
+            tab.current ? 'bg-site-gunmetal text-site-gray-nurse' : 'text-site-mantle hover:text-site-gray-nurse'
+          }`}
+        >
+          {tab.label}
+          {tab.count != null ? (
+            <span aria-label={`${tab.count} in total`} className="ml-2 text-xs font-medium tabular-nums text-site-mantle">
+              {tab.count}
+            </span>
+          ) : null}
+        </Link>
+      ))}
+    </nav>
   )
 }
 
@@ -1743,10 +1771,20 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
   )
 }
 
-function ProductsScreen() {
+/**
+ * The stock and the sales, one tab each, so the list worked in every day stays as long
+ * as what is for sale. A sold card is off the shop and its ads are gone, but its record
+ * stays whole — cost, sale price, dates — for the books.
+ */
+function ProductsScreen({ sold = false }: { sold?: boolean }) {
   const [products, setProducts] = useState<InventoryProduct[]>([])
   const [loading, setLoading] = useState(true)
-  const { rows, sortBy } = useTableSort(products, productSortValue)
+  const shown = useMemo(() => {
+    const matching = products.filter((product) => (product.sold === true) === sold)
+    // Sales read newest first; stock keeps the order it came in, latest acquisition first.
+    return sold ? [...matching].sort((a, b) => compareSortValues(b.soldAt, a.soldAt)) : matching
+  }, [products, sold])
+  const { rows, sortBy } = useTableSort(shown, productSortValue)
   useEffect(() => {
     void adminJson<{ products: InventoryProduct[] }>('/products')
       .then((result) => {
@@ -1754,38 +1792,65 @@ function ProductsScreen() {
       })
       .finally(() => setLoading(false))
   }, [])
+  const soldCount = products.filter((product) => product.sold).length
   return (
     <div className="admin-page flex flex-col gap-6">
-      <AdminScreenHeader
-        title="Products"
-        count={loading ? null : products.length}
-        to={adminTo('/products/new')}
-        label="New product"
-        trashTo={adminTo('/products/trash')}
+      <AdminScreenHeader title="Products" to={adminTo('/products/new')} label="New product" trashTo={adminTo('/products/trash')} />
+      <AdminTabs
+        tabs={[
+          { to: adminTo('/products'), label: 'In stock', count: loading ? null : products.length - soldCount, current: !sold },
+          { to: adminTo('/products/sold'), label: 'Sold', count: loading ? null : soldCount, current: sold }
+        ]}
       />
       <AdminTable
-        caption="Products"
+        caption={sold ? 'Sold products' : 'Products in stock'}
         loading={loading}
         columns={[
           { label: 'Title', className: adminTableColumnPad('w-4/5'), onSort: () => sortBy('title') },
-          { label: 'Price', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('price') },
-          { label: 'Status', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('status') }
+          ...(sold
+            ? [
+                { label: 'Sold at', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('soldAt') },
+                { label: 'Price', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('price') }
+              ]
+            : [
+                { label: 'Price', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('price') },
+                { label: 'Status', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('status') }
+              ])
         ]}
       >
-        {rows.map((product) => (
-          <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
-            <td className={adminTableCellPad()}>
-              <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
-                {product.title}
-              </AdminRowLink>
-              {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
+        {rows.length === 0 ? (
+          <tr>
+            <td className="py-6 text-sm text-site-mantle" colSpan={3}>
+              {sold ? 'No cards sold yet.' : 'Nothing in stock.'}
             </td>
-            <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
-            <td className={adminTableCellPad('whitespace-nowrap')}>
-              <StatusBadge status={productStatus(product)} />
-            </td>
-          </AdminClickableRow>
-        ))}
+          </tr>
+        ) : (
+          rows.map((product) => (
+            <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
+              <td className={adminTableCellPad()}>
+                <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
+                  {product.title}
+                </AdminRowLink>
+                {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
+              </td>
+              {sold ? (
+                <>
+                  <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>
+                    {product.soldAt ? formatSoldDate(product.soldAt) : '—'}
+                  </td>
+                  <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
+                </>
+              ) : (
+                <>
+                  <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
+                  <td className={adminTableCellPad('whitespace-nowrap')}>
+                    <StatusBadge status={productStatus(product)} />
+                  </td>
+                </>
+              )}
+            </AdminClickableRow>
+          ))
+        )}
       </AdminTable>
     </div>
   )
@@ -2045,6 +2110,12 @@ function ProductEditor() {
                   }))
                 }
               />
+              {listingStatus === 'sold' ? (
+                <p className="text-sm text-site-mantle">
+                  A sold card keeps one small front photo for the dashboard; the full-size photos are removed. Everything else stays on
+                  record.
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-5">
               <AdminField label="Cost">
@@ -3698,6 +3769,8 @@ export default function AdminApp() {
       <Route path="media/folders/:folderId/" element={<MediaScreen />} />
       <Route path="products" element={<ProductsScreen />} />
       <Route path="products/" element={<ProductsScreen />} />
+      <Route path="products/sold" element={<ProductsScreen sold />} />
+      <Route path="products/sold/" element={<ProductsScreen sold />} />
       <Route path="products/trash" element={<ProductsTrashScreen />} />
       <Route path="products/trash/" element={<ProductsTrashScreen />} />
       <Route path="products/:id" element={<ProductEditor />} />

@@ -12,6 +12,7 @@ import type {
 } from '../../app/cms/types'
 import type { InventoryProduct, ProductRecord } from '../../app/database/products'
 import { isShopListed, toInventoryProduct, toPublicProduct } from '../../app/database/products'
+import { soldPhotoName } from '../../app/services/sold-photos'
 
 type CmsStatementResult<T = Record<string, unknown>> = {
   results: T[]
@@ -712,6 +713,107 @@ export async function upsertMediaByKey(
 /** Make sure a folder of this name exists; one that is already there is left alone. */
 export async function upsertMediaFolderByName(db: CmsDb, name: string): Promise<void> {
   await db.prepare('INSERT INTO media_folders (name) VALUES (?) ON CONFLICT(name) DO NOTHING').bind(name).run()
+}
+
+/** The id of the folder with this name, making the folder when there is none yet. */
+export async function ensureMediaFolder(db: CmsDb, name: string): Promise<number> {
+  await upsertMediaFolderByName(db, name)
+  const row = await db.prepare('SELECT id FROM media_folders WHERE name = ?').bind(name).first<{ id: number }>()
+  if (!row) {
+    throw new Error(`The media folder "${name}" could not be made.`)
+  }
+  return row.id
+}
+
+/** The small photo a sold card keeps, as its library row will describe it. */
+export type SoldPhotoRow = {
+  key: string
+  filename: string
+  contentType: string
+  bytes: number
+  width: number
+  height: number
+  folderId: number | null
+}
+
+/**
+ * Point a sold card at the one small photo it keeps. When the front photo is being
+ * replaced, its library row takes the new key — keeping its title and alt — or a row is
+ * made when the front had none; the rows of the photos being dropped go; and the
+ * product's image list is cut to that one URL. One batch, so the product never points at
+ * a row that is not there.
+ */
+export async function keepSoldPhoto(
+  db: CmsDb,
+  input: {
+    productId: number
+    /** The key the card keeps. */
+    keep: string
+    /** The front original whose row becomes the kept photo, or null when that row is already in place. */
+    replace: { front: string; photo: SoldPhotoRow } | null
+    /** Keys of the other photos, whose rows go. */
+    drop: string[]
+  }
+): Promise<void> {
+  const { productId, keep, replace, drop } = input
+  const statements: CmsPreparedStatement[] = []
+  if (replace) {
+    const { front, photo } = replace
+    const { results } = await db
+      .prepare('SELECT id, key, filename FROM media WHERE key IN (?, ?)')
+      .bind(front, photo.key)
+      .all<{ id: number; key: string; filename: string }>()
+    const kept = results.find((row) => row.key === photo.key)
+    const replaced = results.find((row) => row.key === front)
+    if (kept) {
+      // A run that was cut short after this row was written: bring it up to date and
+      // let the old row go rather than trip over the key it already holds.
+      statements.push(
+        db
+          .prepare('UPDATE media SET filename = ?, content_type = ?, bytes = ?, width = ?, height = ?, folder_id = ? WHERE id = ?')
+          .bind(photo.filename, photo.contentType, photo.bytes, photo.width, photo.height, photo.folderId, kept.id)
+      )
+      if (replaced) {
+        statements.push(db.prepare('DELETE FROM media WHERE id = ?').bind(replaced.id))
+      }
+    } else if (replaced) {
+      // The row keeps its own filename, marked the way the key is.
+      statements.push(
+        db
+          .prepare('UPDATE media SET key = ?, filename = ?, content_type = ?, bytes = ?, width = ?, height = ?, folder_id = ? WHERE id = ?')
+          .bind(
+            photo.key,
+            soldPhotoName(replaced.filename),
+            photo.contentType,
+            photo.bytes,
+            photo.width,
+            photo.height,
+            photo.folderId,
+            replaced.id
+          )
+      )
+    } else {
+      statements.push(
+        insertMediaStatement(db, {
+          key: photo.key,
+          filename: photo.filename,
+          contentType: photo.contentType,
+          width: photo.width,
+          height: photo.height,
+          bytes: photo.bytes,
+          title: '',
+          alt: '',
+          createdAt: new Date().toISOString(),
+          folderId: photo.folderId
+        })
+      )
+    }
+  }
+  if (drop.length > 0) {
+    statements.push(db.prepare(`DELETE FROM media WHERE key IN (${drop.map(() => '?').join(', ')})`).bind(...drop))
+  }
+  statements.push(db.prepare('UPDATE products SET images = ? WHERE id = ?').bind(JSON.stringify([`/media/${keep}`]), productId))
+  await batchAll(db, statements)
 }
 
 /**

@@ -93,11 +93,14 @@ export default defineConfig({
       // admin mid-edit. The files only feed an empty database, so a running server has
       // no reason to notice them.
       //
+      // `app/cms/seed-media.ts` is a config dependency the same way, and the sync
+      // rewrites it when a sold card's committed photos leave `seed/media`.
+      //
       // `.cache` holds the scan Chrome profile and the saved scan reports. Chrome keeps
       // its session files locked while it runs, and on Windows watching a locked file
       // fails with EBUSY — which the watcher raises as a fatal error, taking the whole
       // dev server down a few seconds into every Cardmarket scan.
-      ignored: [...Object.values(CMS_SEED_FILES).map((file) => `**/${file}`), '**/.cache/**', '**/.wrangler/**']
+      ignored: [...Object.values(CMS_SEED_FILES).map((file) => `**/${file}`), '**/app/cms/seed-media.ts', '**/.cache/**', '**/.wrangler/**']
     }
   },
   plugins: [

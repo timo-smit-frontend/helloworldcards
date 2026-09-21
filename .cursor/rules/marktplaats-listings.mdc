@@ -134,14 +134,15 @@ Do not `dialog.accept()`. Open `marktplaatsUrl` on seller view (fallback: **Mijn
 
 ### Sold for €X — shop first
 
-In `app/database/products.ts` on that card:
+In `app/cms/seed-products.ts` on that card (or the local admin: status **Sold**):
 
 - `sold: true`
 - `soldAt: 'YYYY-MM-DD'` (today, or the day it sold if the card was reserved first)
 - `price: '€X'` — **actual sale amount** (dashboard revenue reads `price`)
 - remove `marktplaatsUrl`, `vintedUrl`, `concept`, and `reserved`
+- leave `images` alone: once the sale has settled, the dev server keeps one small front photo (`…-front-sold.webp`, media folder **Sold**) and removes the back photo, the full-size originals and the branded ad in `public/ads` on its own (see **cms-inventory**). Its rewrite of the seed files is part of the diff to commit.
 
-That hides it from the shop (`isShopListed`) and keeps it on the dashboard. Then delete the Marktplaats ad as **Verkocht via Marktplaats**. Update `test/products.test.ts` (and any catalog assertions) so the card is no longer expected in the shop.
+That hides it from the shop (`isShopListed`) and keeps it on the dashboard, on the admin's **Sold** tab. Then delete the Marktplaats ad as **Verkocht via Marktplaats**. Update `test/products.test.ts` (and any catalog assertions) so the card is no longer expected in the shop.
 
 If Playwright is not logged in, still update the shop first, then ask the user to log in so the ad can be deleted.
 

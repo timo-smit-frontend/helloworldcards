@@ -27,7 +27,8 @@ import {
 } from './cms-state'
 import { localBin } from './local-bin'
 import { cacheMediaOriginal, cachedMediaSource, firstMediaSource } from './media-originals'
-import { publicMediaSource, syncLocalMedia } from './media-sync'
+import { publicMediaSource, syncLocalMedia, type MediaSourceReader } from './media-sync'
+import { archiveSoldPhotos } from './sold-photos'
 
 /** Long enough that a burst of edits publishes once, short enough to feel immediate. */
 const PUBLISH_DELAY_MS = 1500
@@ -67,6 +68,11 @@ type CmsAutoSyncOptions = {
   runSync?: (root: string, args: string[]) => Promise<void>
   /** Which seed files differ from git HEAD; a test can decide instead of git. */
   fileStatus?: (root: string) => Promise<Partial<Record<CmsSeedPart, boolean>> | null>
+  /**
+   * Where an original that neither the seed files nor the local bucket hold is read from:
+   * the sync's cache of uploads, then production. A test keeps this off the network.
+   */
+  readOriginal?: MediaSourceReader
 }
 
 export function autoSyncEnabled(): boolean {
@@ -238,7 +244,14 @@ export function seedFilesDirty(root: string): Promise<Partial<Record<CmsSeedPart
 const partFlag = (part: CmsSeedPart): string => `--${part}`
 
 export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
-  const { root, db, media, runSync = runCmsSync, fileStatus = seedFilesDirty } = options
+  const {
+    root,
+    db,
+    media,
+    runSync = runCmsSync,
+    fileStatus = seedFilesDirty,
+    readOriginal = firstMediaSource(cachedMediaSource(root), publicMediaSource())
+  } = options
   const seedKeys = new Set(seedMediaFiles.map((file) => file.key))
 
   let chain: Promise<unknown> = Promise.resolve()
@@ -249,6 +262,8 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   let stopped = false
   /** Holds are logged once per state, not every five minutes. */
   const heldLogged = new Set<string>()
+  /** So is a sold card whose photo cannot be read anywhere. */
+  const unreadableLogged = new Set<string>()
   let settledAt: string | null = null
   let lastError: CmsSyncStatus['error'] = null
   /**
@@ -312,7 +327,7 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
       root,
       bucket: media,
       mediaRowKeys: state.media.media.map((entry) => entry.key),
-      fallback: firstMediaSource(cachedMediaSource(root), publicMediaSource()),
+      fallback: readOriginal,
       log: () => {}
     })
     if (result.skipped.length > 0) {
@@ -381,6 +396,12 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
       return
     }
 
+    await pushLocalChanges(synced)
+    await archiveSold()
+  }
+
+  /** Send the parts of the local database that differ from what was last settled. */
+  async function pushLocalChanges(synced: CmsFingerprints): Promise<void> {
     const state = await readCmsState(db)
     await cacheUploadedOriginals(state)
     const rendered = await renderCmsState(root, state)
@@ -405,6 +426,30 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
   async function reconcile(): Promise<void> {
     await tracked(reconcileNow)
     settledAt = new Date().toISOString()
+  }
+
+  /**
+   * A card that sold keeps one small photo and loses the rest. This runs once the two
+   * sides agree, after every settle and publish, so a sale recorded anywhere — either
+   * admin, the seed file — is followed up in the same round, and what it changed goes to
+   * production like any other local edit. A card whose photo cannot be read anywhere is
+   * left as it is and said so once.
+   */
+  async function archiveSold(): Promise<void> {
+    const synced = await readSyncedFingerprints(db)
+    if (CMS_SEED_PARTS.some((part) => synced[part] === undefined)) {
+      return
+    }
+    const result = await archiveSoldPhotos({ root, db, media, readOriginal, log: (line) => console.log(`${LOG} ${line}`) })
+    for (const { id, title, key } of result.skipped) {
+      if (!unreadableLogged.has(`${id}:${key}`)) {
+        unreadableLogged.add(`${id}:${key}`)
+        console.warn(`${LOG} ${title} is sold, but its photo ${key} cannot be read anywhere, so its photos are left as they are`)
+      }
+    }
+    if (result.archived.length > 0) {
+      await pushLocalChanges(synced)
+    }
   }
 
   async function reconcileNow(): Promise<void> {
@@ -502,6 +547,7 @@ export function createCmsAutoSync(options: CmsAutoSyncOptions): CmsAutoSync {
     } finally {
       await fs.rm(directory, { recursive: true, force: true })
     }
+    await archiveSold()
   }
 
   /**
