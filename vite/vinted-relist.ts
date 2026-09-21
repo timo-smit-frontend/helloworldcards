@@ -60,6 +60,17 @@ const PUBLISH_TIMEOUT_MS = 90_000
  * and a Vinted page alone asks Vinted's API a dozen things.
  */
 const TAB_GRACE_MS = 3 * 60_000
+/**
+ * How long a relist tab is kept once its relist is done, for a relist that is on its
+ * way. The next one is seldom in the queue at that moment even when its button was
+ * pressed long before: a relist reaches the tabs only after the dev server has
+ * settled the local database with production — a remote round trip of a good few
+ * seconds, at times behind the push the relist just done set off — and the browser
+ * holds back the requests beyond its six per host until an answer comes back. A tab
+ * it finds waiting is on Vinted already and starts at once; a fresh one first goes
+ * through Chrome and Vinted's session refresh. A tab nobody has come for by then closes.
+ */
+const RELIST_TAB_LINGER_MS = 60_000
 /** A wardrobe read within this long of the last one is answered from memory. */
 const REPORT_TTL_MS = 60_000
 /**
@@ -151,10 +162,14 @@ type VintedSession = { userId: number; login: string }
  * tab that reads the wardrobe are pools of their own, so a look at the screen never
  * waits behind a relist. A relist tab lands straight on the page its work needs, so
  * a fresh one costs Vinted nothing a kept one would have saved — which is why the
- * relist tabs come and go with their relists, and only the wardrobe tab stays.
+ * relist tabs go with their relists (a minute after, for a relist on its way), and
+ * only the wardrobe tab stays.
  */
 type VintedChrome = {
-  /** The relist tabs. Each closes once its relist is done — unless a relist is waiting, which takes it over. */
+  /**
+   * The relist tabs. Each closes a minute after its relist is done — unless a relist
+   * is waiting, or arrives within that minute, which takes it over.
+   */
   relists: TabPool<Page>
   /** The one tab that reads the wardrobe. It stays: it costs a homepage load to open, and every read is the same. */
   reports: TabPool<Page>
@@ -174,11 +189,11 @@ type VintedChrome = {
 /** One window per project, as the scan browser is; a test with a root of its own gets a window of its own. */
 const chromeByRoot = new Map<string, VintedChrome>()
 
-function chromeFor(root: string, tabs: number, startGapMs: number): VintedChrome {
+function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: number): VintedChrome {
   let chrome = chromeByRoot.get(root)
   if (!chrome) {
     chrome = {
-      relists: createTabPool({ limit: tabs, afterJob: 'close' }),
+      relists: createTabPool({ limit: tabs, afterJob: 'close', lingerMs: tabLingerMs }),
       reports: createTabPool({ limit: 1, afterJob: 'keep' }),
       inFlight: new Set(),
       session: null,
@@ -1052,7 +1067,8 @@ export function createVintedRelistService({
   store = fileRelistStateStore(root),
   readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root)),
   tabs = RELIST_TABS,
-  startGapMs = RELIST_START_GAP_MS
+  startGapMs = RELIST_START_GAP_MS,
+  tabLingerMs = RELIST_TAB_LINGER_MS
 }: {
   root: string
   /** Opens a tab in the shared Chrome window; called only when no idle tab is left. */
@@ -1060,11 +1076,15 @@ export function createVintedRelistService({
   store?: RelistStateStore
   /** Where a product's slab photos are read from, by media key; the seed files and the sync's cache of uploads by default. */
   readMedia?: MediaSourceReader
-  /** How many relists run at once, and how far apart they start; the constants above unless a test says otherwise. */
+  /**
+   * How many relists run at once, how far apart they start, and how long a done
+   * relist's tab waits for the next; the constants above unless a test says otherwise.
+   */
   tabs?: number
   startGapMs?: number
+  tabLingerMs?: number
 }): VintedRelistService {
-  const chrome = chromeFor(root, tabs, startGapMs)
+  const chrome = chromeFor(root, tabs, startGapMs, tabLingerMs)
 
   const openTab = async () => {
     let page: Page

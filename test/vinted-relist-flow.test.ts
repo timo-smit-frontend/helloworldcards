@@ -277,7 +277,7 @@ const CARDS = [
 ]
 
 /** A project root with an ad photo per card, and the stand-in Vinted served into a window of its own. */
-async function setUp(options: { tabs: number; startGapMs?: number; loggedIn?: boolean } = { tabs: 2 }) {
+async function setUp(options: { tabs: number; startGapMs?: number; tabLingerMs?: number; loggedIn?: boolean } = { tabs: 2 }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hwc-relist-flow-'))
   roots.push(root)
   const photo = await sharp({ create: { width: 8, height: 12, channels: 3, background: '#3355aa' } })
@@ -317,7 +317,9 @@ async function setUp(options: { tabs: number; startGapMs?: number; loggedIn?: bo
     store,
     readMedia: async () => photo,
     tabs: options.tabs,
-    startGapMs: options.startGapMs ?? 0
+    startGapMs: options.startGapMs ?? 0,
+    // Tabs close the moment their relist is done, so each test finds the window as it left it.
+    tabLingerMs: options.tabLingerMs ?? 0
   })
   const products = CARDS.map((card) => card.product)
   /** The URLs of the tabs open in the window right now. */
@@ -409,6 +411,31 @@ describe('the relist, in tabs', () => {
     // Answered from the read that found the copy: no wardrobe call, no tab.
     expect(count(h.site, `GET /api/v2/wardrobe/${USER.id}/items`)).toBe(wardrobeReads)
     expect(h.opened()).toBe(opened)
+  }, 60_000)
+
+  it("keeps a done relist's tab for a relist that arrives within the linger, and closes it after", async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 2, tabLingerMs: 2_000 })
+
+    // Nothing was queued behind the first — the next relist reaches the tabs only
+    // once the dev server has settled the database, or once its button is pressed —
+    // so the tab stays where its relist left it.
+    await h.service.relist('1001', h.products)
+    expect(h.opened()).toBe(1)
+    expect(h.tabs()).toHaveLength(1)
+
+    // The next relist takes that tab over, and from it lands straight on its listing page.
+    await h.service.relist('1002', h.products)
+    expect(h.opened()).toBe(1)
+    expect(count(h.site, 'GET /items/1002')).toBe(1)
+    expect(
+      Object.values(h.state().records)
+        .map((record) => record.previousItemId)
+        .sort()
+    ).toEqual(['1001', '1002'])
+
+    // Nobody came for it within the linger: it closes.
+    await expect.poll(() => h.tabs(), { timeout: 10_000 }).toEqual([])
   }, 60_000)
 
   it('stops the whole batch on the first "not logged in", without asking Vinted tab by tab', async ({ skip }) => {
