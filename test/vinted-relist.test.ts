@@ -358,6 +358,37 @@ describe('buildRelistReport', () => {
     expect(report.missing).toEqual([])
   })
 
+  it('leaves a sold card out, whether the shop still names its listing or only our record does', () => {
+    const now = new Date('2026-09-22T12:00:00Z')
+    const state = emptyRelistState()
+    // Sold on Vinted: Vinted closed the listing itself, and settling the sale took the
+    // URL off the card's record, so only our own relist record still ties the two.
+    state.records['555'] = { itemId: '555', previousItemId: '55', productId: 5, listedAt: '2026-09-16T08:00:00Z' }
+    const report = buildRelistReport({
+      wardrobe: parseWardrobeItems({
+        items: [
+          { id: 111, title: 'Old card', price: '89.99' },
+          { id: 555, title: 'Sold on Vinted', price: '80.00', is_closed: true },
+          // Sold on Marktplaats a moment ago; its Vinted listing is still up.
+          { id: 777, title: 'Sold elsewhere', price: '115.00' },
+          // Closed, and nothing we sell: an old sale with no record left of it.
+          { id: 888, title: 'Long gone', price: '10.00', is_closed: true }
+        ]
+      }),
+      products: [
+        product({ id: 1, title: 'Mewtwo', vintedUrl: 'https://www.vinted.nl/items/111-mewtwo' }),
+        product({ id: 5, title: 'Mega Gengar ex', sold: true }),
+        product({ id: 6, title: 'Mega Gardevoir ex', vintedUrl: 'https://www.vinted.nl/items/777', sold: true })
+      ],
+      state,
+      login: 'helloworldcards',
+      now
+    })
+
+    expect(report.rows.map((row) => row.itemId)).toEqual(['111'])
+    expect(report.missing).toEqual([])
+  })
+
   it('only wants a listing page read when nothing on hand tells the age', () => {
     const now = new Date('2026-09-12T12:00:00Z')
     const state = emptyRelistState()
@@ -726,7 +757,7 @@ describe('vinted relist API', () => {
     expect(after.vinted_url).toBe('https://www.vinted.nl/items/9999')
   })
 
-  it('refuses to relist a reserved card, whatever tab the button was pressed in', async () => {
+  it('refuses to relist a card that has gone, whatever tab the button was pressed in', async () => {
     const token = await signIn()
     const db = createMemoryD1()
     const calls: string[] = []
@@ -746,21 +777,31 @@ describe('vinted relist API', () => {
       env,
       runtime
     )
-    const row = (await db.prepare('SELECT title, vinted_url FROM products WHERE reserved = 1').first()) as {
-      title: string
-      vinted_url: string
+    const press = async (where: string) => {
+      const row = (await db.prepare(`SELECT title, vinted_url FROM products WHERE ${where}`).first()) as {
+        title: string
+        vinted_url: string
+      }
+      const response = await handleDashboardRequest(
+        new Request(`https://example.com/api/admin/vinted-relist/${vintedItemId(row.vinted_url)}`, {
+          method: 'POST',
+          headers: { Cookie: `${SESSION_COOKIE}=${token}` }
+        }),
+        env,
+        runtime
+      )
+      expect(response?.status).toBe(409)
+      return response?.json()
     }
 
-    const response = await handleDashboardRequest(
-      new Request(`https://example.com/api/admin/vinted-relist/${vintedItemId(row.vinted_url)}`, {
-        method: 'POST',
-        headers: { Cookie: `${SESSION_COOKIE}=${token}` }
-      }),
-      env,
-      runtime
-    )
-    expect(response?.status).toBe(409)
-    await expect(response?.json()).resolves.toEqual({ error: `${row.title} is reserved. A sold card is not relisted.` })
+    const reserved = (await db.prepare('SELECT title FROM products WHERE reserved = 1').first()) as { title: string }
+    await expect(press('reserved = 1')).resolves.toEqual({ error: `${reserved.title} is reserved. A sold card is not relisted.` })
+    const sold = (await db.prepare(`SELECT title FROM products WHERE sold = 1 AND vinted_url LIKE '%/items/%'`).first()) as {
+      title: string
+    }
+    await expect(press(`sold = 1 AND vinted_url LIKE '%/items/%'`)).resolves.toEqual({
+      error: `${sold.title} is sold. A sold card is not relisted.`
+    })
     expect(calls).toEqual([])
   })
 

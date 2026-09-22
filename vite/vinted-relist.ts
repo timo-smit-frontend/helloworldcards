@@ -8,6 +8,7 @@ import {
   catalogPathTo,
   cooldownRemainingMs,
   emptyRelistState,
+  listingProductLookup,
   listingsWithoutAge,
   normalizeRelistState,
   originalPhotos,
@@ -1149,6 +1150,17 @@ async function relistWithTab(
 
   let pending = store.get().pending[itemId]
   const resumed = Boolean(pending)
+
+  // A card that has gone does not go back up, whatever a tab opened before the sale
+  // still shows — and a sold card's record no longer names its listing, so the check
+  // goes through our own relist records too. A relist already under way keeps its
+  // retry: its listing is down and the snapshot is all that is left of it.
+  if (!pending) {
+    const product = listingProductLookup(products, store.get())(itemId)
+    if (product?.sold || product?.reserved) {
+      throw new VintedRelistError(`${product.title} is ${product.sold ? 'sold' : 'reserved'}. A sold card is not relisted.`, 409)
+    }
+  }
 
   // A relist that will fail without asking Vinted anything needs no tab and no turn.
   const known = knownSessionProblem(chrome)

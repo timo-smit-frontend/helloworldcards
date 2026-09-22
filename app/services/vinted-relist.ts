@@ -703,6 +703,31 @@ function daysFromNote(note: VintedAgeNote | undefined, now: Date): number | null
 }
 
 /**
+ * Which card a listing is.
+ *
+ * The product that names the listing, or — while a relist's product update has not
+ * gone through, and after a sold card's URL has been taken off its record — the
+ * product our own relist record ties it to.
+ */
+export function listingProductLookup(
+  products: InventoryProduct[],
+  state: VintedRelistState
+): (itemId: string) => InventoryProduct | undefined {
+  const byItemId = new Map<string, InventoryProduct>()
+  for (const product of products) {
+    const id = product.vintedUrl ? vintedItemId(product.vintedUrl) : null
+    if (id) {
+      byItemId.set(id, product)
+    }
+  }
+  const byProductId = new Map(products.map((product) => [product.id, product]))
+  return (itemId) => {
+    const record = state.records[itemId]
+    return byItemId.get(itemId) ?? (record?.productId != null ? byProductId.get(record.productId) : undefined)
+  }
+}
+
+/**
  * Join the wardrobe to the shop.
  *
  * The wardrobe is the truth about what is on Vinted; the shop tells us which card each
@@ -720,27 +745,23 @@ export function buildRelistReport(input: {
   now?: Date
 }): VintedRelistReport {
   const now = input.now ?? new Date()
-  const byItemId = new Map<string, InventoryProduct>()
-  for (const product of input.products) {
-    const id = product.vintedUrl ? vintedItemId(product.vintedUrl) : null
-    if (id) {
-      byItemId.set(id, product)
-    }
-  }
-  // A listing we relisted knows its product even while the product still names the
-  // old listing — as it does until the relist's product update has gone through.
-  const byProductId = new Map(input.products.map((product) => [product.id, product]))
-  const productOf = (itemId: string): InventoryProduct | undefined => {
-    const record = input.state.records[itemId]
-    return byItemId.get(itemId) ?? (record?.productId != null ? byProductId.get(record.productId) : undefined)
-  }
+  const productOf = listingProductLookup(input.products, input.state)
 
   const productRef = (product: InventoryProduct | undefined) =>
     product ? { id: product.id, title: product.title, slug: product.slug } : null
 
-  // A reserved card is sold, whatever its listing says: there is nothing to bump, so it
-  // leaves the screen rather than sitting there with a button that must not be pressed.
-  const forSale = input.wardrobe.filter((item) => productOf(String(item.id))?.reserved !== true)
+  // A card that has gone has nothing to bump — sold, or reserved, which is sold with the
+  // money still on its way — so its listing leaves the screen rather than sitting there
+  // with a button that must not be pressed. Vinted closes the listing itself when the
+  // sale was there, and a closed listing whose card we can no longer name is one of
+  // those: over, and not to be put back up.
+  const forSale = input.wardrobe.filter((item) => {
+    const product = productOf(String(item.id))
+    if (product) {
+      return !product.sold && !product.reserved
+    }
+    return !item.is_closed
+  })
 
   const rows: VintedRelistRow[] = forSale.map((item) => {
     const itemId = String(item.id)

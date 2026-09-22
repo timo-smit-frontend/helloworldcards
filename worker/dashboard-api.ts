@@ -661,18 +661,18 @@ async function vintedRelist(request: Request, env: DashboardEnv, itemId: string,
   if (options instanceof Response) {
     return options
   }
-  // The reserved check below is only as good as the local rows are current.
+  // The sold check below is only as good as the local rows are current.
   console.info(`[vinted-relist] ${itemId}: bringing the local database in step with production first`)
   const stale = await settleInventory(runtime)
   if (stale) {
     return json({ error: stale }, 503)
   }
   const products = await inventoryFor(env, runtime)
-  // The relist screen no longer shows a reserved card, but a tab opened before it was
-  // reserved still has the button: a sold card must not go back up as a fresh listing.
-  const reserved = products.find((product) => product.reserved && vintedItemId(product.vintedUrl ?? '') === itemId)
-  if (reserved) {
-    return json({ error: `${reserved.title} is reserved. A sold card is not relisted.` }, 409)
+  // The relist screen no longer shows a card that has gone, but a tab opened before the
+  // sale still has the button: a sold card must not go back up as a fresh listing.
+  const gone = products.find((product) => (product.sold || product.reserved) && vintedItemId(product.vintedUrl ?? '') === itemId)
+  if (gone) {
+    return json({ error: `${gone.title} is ${gone.sold ? 'sold' : 'reserved'}. A sold card is not relisted.` }, 409)
   }
   try {
     const relisted = await runtime.vintedRelist.relist(itemId, products, options)
