@@ -309,8 +309,10 @@ export default function VintedRelist({
 
       <p className="content-m text-site-mantle">
         Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up as
-        new again. Views and likes start from zero. Up to {COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a
-        Chrome tab of its own; the rest wait their turn.
+        new again. Views and likes start from zero.{' '}
+        {RELIST_TABS === 1
+          ? 'Listings are relisted one at a time, in a Chrome tab; the rest wait their turn.'
+          : `Up to ${COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a Chrome tab of its own; the rest wait their turn.`}
       </p>
 
       {error ? <p className="content-m text-site-loss">{error}</p> : null}

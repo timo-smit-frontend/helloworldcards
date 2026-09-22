@@ -492,13 +492,14 @@ export type VintedRelistReport = {
 
 /**
  * How many relists run at once, each in a Chrome tab of its own; any more wait
- * their turn. A relist is mostly waiting — on photos going up, on Vinted's pages
- * coming down — so three tabs get through a batch about three times as fast, while
- * what reaches Vinted stays the pace of one person browsing briskly: the tabs
- * start a few seconds apart, share one session check and one wardrobe read, and
- * every one of them stops the moment Vinted says it has had enough.
+ * their turn. One is plenty fast for now, and it keeps what reaches Vinted to the
+ * pace of one person browsing. The tab pool takes more — the tabs then start a few
+ * seconds apart, share one session check and one wardrobe read, and every one of
+ * them stops the moment Vinted says it has had enough — but Vinted rate-limits by
+ * computer and a block takes the shop's own access down with it, so raise this
+ * only when a batch is really too slow.
  */
-export const RELIST_TABS = 3
+export const RELIST_TABS = 1
 
 /** A pending relist that turned out to be done: the seller uploaded the listing again themselves. */
 type VintedHandRelist = { itemId: string; previousItemId: string; productId: number | null; url: string }
