@@ -97,7 +97,7 @@ Keywords: Pokémon Zorua, Zorua AR, Zorua 140/086, Zorua BGS 9.5, BGS Gem Mint, 
 Follow the same triggers as Marktplaats (see `marktplaats-listings.mdc`), applied to both listings together:
 
 - **Reserved (sold, money not in yet):** update the shop first (`reserved: true`, `soldAt`, the sale `price`; both URLs stay), set the Marktplaats ad to **Gereserveerd**, and then the Vinted listing: sold **on Vinted** → nothing, Vinted marks it sold itself and pays out once the buyer confirms; sold **elsewhere** → mark the listing reserved on Vinted. Neither listing is deleted until the money is in. See **Reserved** in `marktplaats-listings.mdc`.
-- **Sold for €X:** update the shop first (per that rule), then delete the Marktplaats ad as sold, then delete the Vinted listing too — unless Vinted already closed it because the sale was there.
+- **Sold for €X:** update the shop first (per that rule), then delete the Marktplaats ad — as **Verkocht via Marktplaats** only if the sale was there, **Niet verkocht via Marktplaats** when it sold on Vinted — then delete the Vinted listing too, unless Vinted already closed it because the sale was there.
 - **Delete without a sale:** set `concept: true`, remove both `marktplaatsUrl` and `vintedUrl`, do not set `sold`.
 
 Vinted's delete/sold confirmation is an in-page choice, not a native `alert`/`confirm` — do not call `dialog.accept()`; click through whatever Vinted shows.

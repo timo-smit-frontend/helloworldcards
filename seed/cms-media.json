@@ -98,27 +98,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "154388302_back.jpg",
-      "filename": "154388302_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 950653,
-      "title": "Mega Gengar ex, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-06T00:00:00.000Z"
-    },
-    {
-      "key": "154388302_front.jpg",
-      "filename": "154388302_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1190130,
+      "key": "154388302_front-sold.webp",
+      "filename": "154388302_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 669,
+      "bytes": 52348,
       "title": "Mega Gengar ex, front",
       "alt": "PSA 10 Phantasmal Flames Mega Gengar ex, 056/094, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-06T00:00:00.000Z"
     },
     {
@@ -422,27 +410,15 @@
       "createdAt": "2026-09-06T14:39:19.204Z"
     },
     {
-      "key": "mtv6bjoe-167185846-back.jpg",
-      "filename": "167185846_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 2736596,
-      "title": "Mega Gardevoir ex, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-10T06:56:07.206Z"
-    },
-    {
-      "key": "mtv6bukp-167185846-front.jpg",
-      "filename": "167185846_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 2742376,
+      "key": "mtv6bukp-167185846-front-sold.webp",
+      "filename": "167185846_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 673,
+      "bytes": 66164,
       "title": "Mega Gardevoir ex, front",
       "alt": "PSA 10 Black Star Promo Mega Gardevoir ex, 032, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-10T06:56:21.048Z"
     },
     {
