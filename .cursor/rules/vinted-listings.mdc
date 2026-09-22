@@ -32,9 +32,14 @@ Reuse the title and photos already drafted for the Marktplaats ad (see `marktpla
 
 ## Description (English)
 
-Same structure, sections, bold and blank lines as the Marktplaats description (`marktplaats-listings.mdc` → Description), translated one-to-one. Draft the Dutch Marktplaats description first, then translate it — do not add or drop anything. Same pop rule: only mention pop when it is low; skip subgrades / graded date / pop when we do not have them. Never a cert number.
+Same structure, sections, bold and blank lines as the Marktplaats description (`marktplaats-listings.mdc` → Description), translated one-to-one. Draft the Dutch Marktplaats description first, then translate it — do not add or drop anything beyond the two Vinted-only cuts below. Same pop rule: only mention pop when it is low; skip subgrades / graded date / pop when we do not have them. Never a cert number.
 
 Vinted's description field is a plain textarea, so bold is not rendered — type the text without the `**` markers, keep the blank lines between sections and the `•` bullets.
+
+Two things the Marktplaats ad has that a Vinted description does **not**:
+
+- **No keyword line.** Marktplaats keeps its `Zoekwoorden:` line; Vinted gets none. The search terms have to come out of the text itself instead, so every description carries the Pokémon's name, its card number, the grade (`PSA 9`, `BGS 9.5 Gem Mint`) and the set in the intro and the Details bullets, and the closing line reads `We have several Pokemon cards and graded PSA and BGS cards for sale.` — plain, unaccented `Pokemon` next to `PSA`, so a search for *pokemon* or *psa* finds the listing without a keyword dump.
+- **No own-risk sentence.** The 📦 line is just `📦 Shipping or pickup possible.` — the Marktplaats wording about shipping being at the buyer's own risk is left off Vinted entirely.
 
 ### Frozen reference — Charizard (default / no pop)
 
@@ -53,18 +58,16 @@ Details:
 • Variant: Holo
 • Grade: PSA 9 MINT
 
-📦 Shipping or pickup possible. Shipping is at the buyer's own risk: we are not liable for damage or loss in transit.
+📦 Shipping or pickup possible.
 💬 Questions or interested? Feel free to send a message via Vinted.
 
 ⭐ Also check out our other listings!
-We have several Pokémon cards and graded cards for sale. Feel free to browse our other listings and combine multiple cards in one order.
-
-Keywords: Pokémon Charizard, Charizard PSA 9, Charizard Holo, Charizard RC5, RC5/RC32, Pokemon PSA, XY Generations, Generations 2016, Radiant Collection, graded Pokemon card, Pokemon cards, Pokémon collection
+We have several Pokemon cards and graded PSA and BGS cards for sale. Feel free to browse our other listings and combine multiple cards in one order.
 ```
 
 ### Frozen reference — Zorua (low pop + BGS subgrades)
 
-Title: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`
+Title: `Zorua AR 140/086 - BGS 9.5 - White Flare Japanese`
 
 ```
 Beautiful Zorua Art Rare from the Japanese Pokémon White Flare set from 2025. This Zorua AR has gorgeous full-art artwork and, with a BGS 9.5 Gem Mint grade, is a great addition to any Pokémon collection. The card also scores two perfect 10 subgrades for corners and edges. Low pop of 20.
@@ -83,13 +86,11 @@ Details:
 • Graded on: 3 September 2025
 • Pop: 20
 
-📦 Shipping or pickup possible. Shipping is at the buyer's own risk: we are not liable for damage or loss in transit.
+📦 Shipping or pickup possible.
 💬 Questions or interested? Feel free to send a message via Vinted.
 
 ⭐ Also check out our other listings!
-We have several Pokémon cards and graded cards for sale. Feel free to browse our other listings and combine multiple cards in one order.
-
-Keywords: Pokémon Zorua, Zorua AR, Zorua 140/086, Zorua BGS 9.5, BGS Gem Mint, White Flare, White Flare Japanese, Pokemon 2025, Art Rare Pokemon, Japanese Pokemon card, graded Pokemon card, Pokemon cards, Pokémon collection
+We have several Pokemon cards and graded PSA and BGS cards for sale. Feel free to browse our other listings and combine multiple cards in one order.
 ```
 
 ## Sold / delete

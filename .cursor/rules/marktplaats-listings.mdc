@@ -154,9 +154,11 @@ If Playwright is not logged in, still update the shop first, then ask the user t
 
 ## Title
 
-`{Name} {number} {variant} - {Grader} {grade} - {Set}`
+`{Name} {variant} {number} - {Grader} {grade} - {Set}`
 
-Examples: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`, `Arceus V Full Art 165/172 - PSA 9 - Brilliant Stars`.
+Examples: `Zorua AR 140/086 - BGS 9.5 - White Flare Japanese`, `Arceus V Full Art 165/172 - PSA 9 - Brilliant Stars`, `Beautifly IR 219/217 - PSA 10 - Ascended Heroes`.
+
+The card type goes **straight after the Pokémon's name and before the number** — `Beautifly IR 219/217`, never `Beautifly 219/217 IR`. It reads cleaner that way: the name and what kind of card it is belong together, and the number trails them. Leave the variant out altogether when the card is an ordinary print with nothing to flag (`Charizard RC5/RC32 - PSA 9 - Generations Radiant Collection`).
 
 ## Description (Lexical editor)
 
@@ -206,7 +208,7 @@ Zoekwoorden: Pokémon Charizard, Charizard PSA 9, Charizard Holo, Charizard RC5,
 
 ### Frozen reference — Zorua (low pop + BGS subgrades)
 
-Title: `Zorua 140/086 AR - BGS 9.5 - White Flare Japanese`
+Title: `Zorua AR 140/086 - BGS 9.5 - White Flare Japanese`
 
 ```
 Mooie **Zorua Art Rare uit de Japanse Pokémon White Flare set van 2025**. Deze Zorua AR heeft een prachtig full-art artwork en is met een **BGS 9.5 Gem Mint** beoordeling een mooie toevoeging aan iedere Pokémon-verzameling. De kaart scoort bovendien **twee perfecte 10 subgrades** voor corners en edges. Lage **pop** van **20**.
