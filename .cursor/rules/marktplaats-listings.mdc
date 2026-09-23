@@ -86,7 +86,7 @@ Every live ad has bidding on (rolled out 14 September 2026). The numbers come fr
 - Bid **≥ floor** → accept.
 - Bid **< floor** (usually exactly the Bieden vanaf amount) → **tegenbod at the floor**, once, with a message like: `Bedankt voor je bod! €85 is net te weinig, maar voor €90 is hij voor jou — dat is echt het minste wat ik kan doen.` The floor is one step above their bid, so there is no round number left to "meet in the middle" on.
 - Never go under the floor, never split the difference, never a second tegenbod. If they walk, they walk (see the no-price-drops rule).
-- A price change moves the floor and the Bieden vanaf with it — update both on the edit form.
+- A price change moves the floor and the Bieden vanaf with it — update both on the edit form. Set the **Vraagprijs first**, let it lose focus, and only then fill **Bieden vanaf**: when the Vraagprijs blurs, Marktplaats resets Bieden vanaf to 60% of it (99,99 → 59,99), silently overwriting a value typed before. Check the seller view shows the right `Vanaf € …` after saving.
 
 ## Place an ad
 
