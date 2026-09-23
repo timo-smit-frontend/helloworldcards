@@ -18,7 +18,6 @@ describe('product inventory', () => {
     expect(products.map((product) => [product.id, product.title, product.subtitle, product.slug])).toEqual([
       [1, 'Mewtwo', '2016 Evolutions - #51', 'mewtwo-2016-evolutions-51'],
       [2, 'Lugia V', '2022 Silver Tempest - #185', 'lugia-v-2022-silver-tempest-185'],
-      [3, 'Charizard', '2016 Radiant Collection - #RC5', 'charizard-2016-radiant-collection-rc5'],
       [4, 'Ekans', '2000 Team Rocket - #56', 'ekans-2000-team-rocket-56'],
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
@@ -30,7 +29,10 @@ describe('product inventory', () => {
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
       [16, 'Beautifly', '2026 Ascended Heroes - #219', 'beautifly-2026-ascended-heroes-219'],
       [17, 'Giratina V', '2022 Lost Origin - #185', 'giratina-v-2022-lost-origin-185'],
-      [18, 'Scizor V', '2020 Darkness Ablaze - #118', 'scizor-v-2020-darkness-ablaze-118']
+      [19, 'Vaporeon', '2022 Brilliant Stars - #TG02', 'vaporeon-2022-brilliant-stars-tg02'],
+      [20, 'Pachirisu', '2023 Scarlet & Violet - #208', 'pachirisu-2023-scarlet-violet-208'],
+      [21, 'Marill', '2026 Ascended Heroes - #232', 'marill-2026-ascended-heroes-232'],
+      [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093']
     ])
   })
 
@@ -156,34 +158,20 @@ describe('product inventory', () => {
     expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
-  it('lists the Generations Charizard with slab photos', async () => {
-    const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'charizard-2016-radiant-collection-rc5')
-
-    expect(product?.title).toBe('Charizard')
-    expect(product?.pokemonId).toBe(6)
-    // The price a reserved card shows is what it sold for, not what it was listed at.
-    expect(product?.price).toBe('€115')
-    expect(product?.images).toEqual(['/media/61958598_front.jpg', '/media/61958598_back.jpg'])
-    expect(inventory.find((item) => item.id === 3)?.cost).toBe(75)
-  })
-
-  it('keeps the reserved Charizard in the shop as sold, with its ads still on record', async () => {
+  it('keeps the sold Generations Charizard out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
     const record = inventory.find((item) => item.id === 3)
-    const product = products.find((item) => item.id === 3)
 
-    // Sold on Vinted, on its way, money not in yet: reserved, not sold — but the sale
-    // itself is on record already, date and amount.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    // Sold on Vinted for €115 on 14 September 2026, money in: sold, not reserved, ads gone.
+    expect(record?.title).toBe('Charizard')
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.soldAt).toBe('2026-09-14')
     expect(record?.price).toBe('€115')
-    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436738233')
-    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10003961594')
-    // The shop still shows the card, flagged so the page can say it is reserved instead of a price.
-    expect(product?.reserved).toBe(true)
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.cost).toBe(75)
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 3)).toBeUndefined()
   })
 
   it('lists the 1st Edition Rocket Ekans with slab photos', async () => {
