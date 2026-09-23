@@ -113,7 +113,7 @@ describe('product inventory', () => {
     expect(product?.description).not.toContain('Email us')
     expect(product?.description).not.toContain('Fugitive Ink')
     expect(product?.description).not.toContain('graded higher')
-    expect(product?.price).toBe('€90')
+    expect(product?.price).toBe('€75')
     expect(product?.language).toBe('english')
     expect(product?.grader).toBe('psa')
     expect(product?.year).toBe(2016)
@@ -226,7 +226,7 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'mega-latias-ex-2025-mega-evolution-181')
 
     expect(product?.title).toBe('Mega Latias ex')
-    expect(product?.price).toBe('€110')
+    expect(product?.price).toBe('€105')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438256231')
     expect(inventory.find((item) => item.id === 7)?.cost).toBe(72)
     expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()
@@ -243,14 +243,19 @@ describe('product inventory', () => {
     expect(inventory.find((item) => item.id === 8)?.concept).toBeUndefined()
   })
 
-  it('lists the Shiny Star V Japanese Poke Kid FA with slab photos', async () => {
+  it('keeps the reserved Shiny Star V Japanese Poke Kid FA in the shop', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'poke-kid-2020-shiny-star-v-japanese-197')
     const record = inventory.find((item) => item.id === 9)
 
     expect(product?.title).toBe('Poke Kid')
-    expect(product?.price).toBe('€85')
+    expect(product?.price).toBe('€80')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
+    // Sold on Vinted on 23 September 2026, payout pending: reserved, not sold.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-23')
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
     expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)
     expect(record?.cost).toBe(61)

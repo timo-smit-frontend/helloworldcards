@@ -174,8 +174,11 @@ describe('dashboard API', () => {
       gone: [],
       error: null
     })
-    // Charizard (3) is reserved in the seed; Poke Kid (9) is still for sale.
-    await store.putReport({ scannedAt: '2026-09-13T12:00:00.000Z', products: [entry(3, 'Charizard'), entry(9, 'Poke Kid')] })
+    // Charizard (3) and Poke Kid (9) are reserved in the seed; Zekrom (8) is still for sale.
+    await store.putReport({
+      scannedAt: '2026-09-13T12:00:00.000Z',
+      products: [entry(3, 'Charizard'), entry(8, 'Zekrom'), entry(9, 'Poke Kid')]
+    })
 
     const response = await handleDashboardRequest(
       new Request('https://example.com/dashboard/cardmarket/report', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
@@ -185,7 +188,7 @@ describe('dashboard API', () => {
 
     expect(response?.status).toBe(200)
     const body = (await response!.json()) as { report: { products: Array<{ id: number; title: string }> } }
-    expect(body.report.products.map((product) => product.title)).toEqual(['Poke Kid'])
+    expect(body.report.products.map((product) => product.title)).toEqual(['Zekrom'])
   })
 
   it('scans watchable cards and stores suggestions', async () => {
@@ -207,7 +210,7 @@ describe('dashboard API', () => {
         return `
             <div id="articleRow1" class="article-row">
               <a href="/en/Pokemon/Users/CatDoesThings">CatDoesThings</a>
-              <span>PSA 10</span>
+              <span>PSA 9</span>
               <span>100,00 €</span>
             </div>
           `
@@ -228,9 +231,9 @@ describe('dashboard API', () => {
     const body = (await scan!.json()) as {
       report: { products: Array<{ title: string; image: string | null; suggestion: { direction: string; target: number } | null }> }
     }
-    const pokeKid = body.report.products.find((product) => product.title === 'Poke Kid')
-    expect(pokeKid?.image).toBe('/media/80573086_front.jpg')
-    expect(pokeKid?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
+    const zekrom = body.report.products.find((product) => product.title === 'Zekrom')
+    expect(zekrom?.image).toBe('/media/142991337_front.jpg')
+    expect(zekrom?.suggestion).toEqual(expect.objectContaining({ direction: 'up', target: 100 }))
   })
 
   it('brings the local database in step with production before scanning it', async () => {
