@@ -84,7 +84,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    const liveIds = [1, 2, 4, 5, 6, 7, 8, 9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -237,7 +237,7 @@ describe('product inventory', () => {
     const record = inventory.find((item) => item.id === 9)
 
     expect(product?.title).toBe('Poke Kid')
-    expect(product?.price).toBe('€80')
+    expect(product?.price).toBe('€70')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
     // Sold on Vinted on 23 September 2026, payout pending: reserved, not sold.
     expect(record?.reserved).toBe(true)
@@ -247,6 +247,22 @@ describe('product inventory', () => {
     expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)
     expect(record?.cost).toBe(61)
+  })
+
+  it('keeps the reserved Dragonite V in the shop', async () => {
+    const { inventory, products } = await seededShop()
+    const product = products.find((item) => item.slug === 'dragonite-v-2022-pokemon-go-049')
+    const record = inventory.find((item) => item.id === 12)
+
+    expect(product?.price).toBe('€50')
+    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2440340001')
+    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10114603205')
+    // Sold on Vinted for the asking price on 24 September 2026, payout pending: reserved, not sold.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-24')
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.concept).toBeUndefined()
   })
 
   it('uses a Marktplaats buy link when the listing URL is set', async () => {

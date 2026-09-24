@@ -231,6 +231,8 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10114603205',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Pokemon-GO/Dragonite-V-V1-PGO049',
     cost: 25,
+    reserved: true,
+    soldAt: '2026-09-24',
     acquiredAt: '2026-09-06'
   },
   {
