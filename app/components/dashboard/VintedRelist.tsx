@@ -1,4 +1,4 @@
-import { Check, RotateCw } from 'lucide'
+import { Check, CircleStop, RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -256,11 +256,12 @@ export default function VintedRelist({
   errors,
   error,
   onRefresh,
-  onRelist
+  onRelist,
+  onStop
 }: {
   report: VintedRelistReport | null
   loading: boolean
-  /** The listings this screen is relisting, in the order their buttons were pressed. */
+  /** The listings being relisted or waiting for it, in the order they were asked for. */
   relisting: string[]
   /** Relisted since the list was last read; it is read again once the last of a batch is done. */
   done: string[]
@@ -268,16 +269,20 @@ export default function VintedRelist({
   errors: Record<string, string>
   error: string | null
   onRefresh: () => void
-  onRelist: (itemId: string) => void
+  /** Queue these listings for a relist, in this order, behind any already queued. */
+  onRelist: (itemIds: string[]) => void
+  /** Let the relists still waiting go. */
+  onStop: () => void
 }) {
   const rows = report?.rows ?? []
   const pending = report?.pending ?? []
   const missing = report?.missing ?? []
   const batch = relisting.length > 0
+  const waiting = relisting.length > RELIST_TABS
 
-  // The first few pressed are in the tabs, the rest wait for one. A listing the
-  // dev server says it is relisting for someone else — another tab of the admin, or
-  // this one before a reload — is busy too, until the list is read again.
+  // The first few are in the tabs, the rest wait for one. A listing the dev server
+  // says it is relisting for someone else — another tab of the admin, or this one
+  // before a reload — is busy too, until the list is read again.
   const activityOf = (itemId: string): RelistActivity | null => {
     const at = relisting.indexOf(itemId)
     if (at !== -1) {
@@ -288,6 +293,9 @@ export default function VintedRelist({
     }
     return report?.relisting.includes(itemId) ? 'relisting' : null
   }
+
+  // Every live listing that is not busy already, down the list: the oldest first.
+  const relistAll = rows.filter((row) => row.status === 'live' && activityOf(row.itemId) == null).map((row) => row.itemId)
 
   return (
     <section className="flex flex-col gap-8">
@@ -304,7 +312,19 @@ export default function VintedRelist({
             <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={loading ? 'animate-spin' : undefined} />
           </button>
         </div>
-        {report?.login ? <p className="text-sm text-site-mantle">Logged in as {report.login}</p> : null}
+        {rows.length === 0 ? null : waiting ? (
+          <button type="button" className="button-quiet w-fit! gap-2" onClick={onStop}>
+            <MorphIcon icon={CircleStop} size={16} strokeWidth={2.25} />
+            Stop
+          </button>
+        ) : (
+          <RelistButton
+            label="Relist all"
+            activity={null}
+            disabled={loading || relistAll.length === 0}
+            onClick={() => onRelist(relistAll)}
+          />
+        )}
       </div>
 
       <p className="content-m text-site-mantle">
@@ -328,7 +348,7 @@ export default function VintedRelist({
                 activity={activityOf(item.itemId)}
                 error={errors[item.itemId]}
                 blocked={loading}
-                onRetry={() => onRelist(item.itemId)}
+                onRetry={() => onRelist([item.itemId])}
               />
             ))}
           </ol>
@@ -350,7 +370,7 @@ export default function VintedRelist({
               activity={activityOf(row.itemId)}
               error={errors[row.itemId]}
               blocked={loading}
-              onRelist={() => onRelist(row.itemId)}
+              onRelist={() => onRelist([row.itemId])}
             />
           ))}
         </ol>

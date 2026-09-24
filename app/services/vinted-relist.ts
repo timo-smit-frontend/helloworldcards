@@ -485,8 +485,6 @@ export type VintedRelistReport = {
   byHand: VintedHandRelist[]
   /** Listings a relist is working on right now, by the id they had when it started. */
   relisting: string[]
-  /** Which Vinted account the wardrobe belongs to. */
-  login: string | null
   fetchedAt: string
 }
 
@@ -739,7 +737,6 @@ export function buildRelistReport(input: {
   wardrobe: VintedWardrobeItem[]
   products: InventoryProduct[]
   state: VintedRelistState
-  login: string | null
   byHand?: VintedHandRelist[]
   relisting?: string[]
   now?: Date
@@ -831,7 +828,6 @@ export function buildRelistReport(input: {
     missing,
     byHand: input.byHand ?? [],
     relisting: input.relisting ?? [],
-    login: input.login,
     fetchedAt: now.toISOString()
   }
 }

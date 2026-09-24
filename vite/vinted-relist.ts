@@ -64,12 +64,12 @@ const TAB_GRACE_MS = 3 * 60_000
 /**
  * How long a relist tab is kept once its relist is done, for a relist that is on its
  * way. The next one is seldom in the queue at that moment even when its button was
- * pressed long before: a relist reaches the tabs only after the dev server has
- * settled the local database with production — a remote round trip of a good few
- * seconds, at times behind the push the relist just done set off — and the browser
- * holds back the requests beyond its six per host until an answer comes back. A tab
- * it finds waiting is on Vinted already and starts at once; a fresh one first goes
- * through Chrome and Vinted's session refresh. A tab nobody has come for by then closes.
+ * pressed long before: the admin sends it only once the one before it has answered
+ * (`app/admin/relist-queue.ts`), and it reaches the tabs only after the dev server
+ * has settled the local database with production — a remote round trip of a good few
+ * seconds, at times behind the push the relist just done set off. A tab it finds
+ * waiting is on Vinted already and starts at once; a fresh one first goes through
+ * Chrome and Vinted's session refresh. A tab nobody has come for by then closes.
  */
 const RELIST_TAB_LINGER_MS = 60_000
 /** A wardrobe read within this long of the last one is answered from memory. */
@@ -181,7 +181,7 @@ type VintedChrome = {
   /** A "not logged in" found a moment ago, taken as read by every tab until `until`. */
   sessionProblem: { until: number; error: VintedRelistError } | null
   /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
-  lastWardrobe: { at: number; login: string; wardrobe: VintedWardrobeItem[] } | null
+  lastWardrobe: { at: number; wardrobe: VintedWardrobeItem[] } | null
   /** How far apart relists start, and when the next may. */
   startGapMs: number
   nextStartAt: number
@@ -380,7 +380,7 @@ async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSes
  * read made to check on a delete or find a new listing is as good an answer to the
  * screen's next question as one made for it.
  */
-async function readWardrobe(page: Page, chrome: VintedChrome, { userId, login }: VintedSession): Promise<VintedWardrobeItem[]> {
+async function readWardrobe(page: Page, chrome: VintedChrome, { userId }: VintedSession): Promise<VintedWardrobeItem[]> {
   const pages = await page.evaluate(
     async ({ id, timeout }) => {
       const out: unknown[] = []
@@ -404,7 +404,7 @@ async function readWardrobe(page: Page, chrome: VintedChrome, { userId, login }:
     { id: userId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
   )
   const wardrobe = pages.flatMap(parseWardrobeItems)
-  chrome.lastWardrobe = { at: Date.now(), login, wardrobe }
+  chrome.lastWardrobe = { at: Date.now(), wardrobe }
   return wardrobe
 }
 
@@ -1017,7 +1017,7 @@ async function readReport(
   products: InventoryProduct[]
 ): Promise<VintedRelistReport> {
   const memo = chrome.lastWardrobe && Date.now() - chrome.lastWardrobe.at < REPORT_TTL_MS ? chrome.lastWardrobe : null
-  const { login, wardrobe } = memo ?? (await readFreshWardrobe(await tab(), chrome))
+  const wardrobe = memo?.wardrobe ?? (await readFreshWardrobe(await tab(), chrome))
 
   const byHand: ReturnType<typeof settlePendingByHand> = []
   const settled = store.update((state) => {
@@ -1053,13 +1053,11 @@ async function readReport(
     }
   })
 
-  return buildRelistReport({ wardrobe, products, state, login, byHand, relisting: [...chrome.inFlight] })
+  return buildRelistReport({ wardrobe, products, state, byHand, relisting: [...chrome.inFlight] })
 }
 
-async function readFreshWardrobe(page: Page, chrome: VintedChrome): Promise<{ login: string; wardrobe: VintedWardrobeItem[] }> {
-  const session = await ensureSession(page, chrome)
-  const wardrobe = await readWardrobe(page, chrome, session)
-  return { login: session.login, wardrobe }
+async function readFreshWardrobe(page: Page, chrome: VintedChrome): Promise<VintedWardrobeItem[]> {
+  return await readWardrobe(page, chrome, await ensureSession(page, chrome))
 }
 
 export function createVintedRelistService({

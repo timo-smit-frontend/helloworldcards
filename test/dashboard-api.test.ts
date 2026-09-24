@@ -353,7 +353,6 @@ describe('dashboard API', () => {
           missing: [],
           byHand: [],
           relisting: [],
-          login: 'helloworldcards',
           fetchedAt: '2026-09-15T09:00:00Z'
         }
       },

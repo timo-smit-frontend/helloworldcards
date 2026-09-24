@@ -287,7 +287,6 @@ describe('buildRelistReport', () => {
         product({ id: 4, title: 'Concept', vintedUrl: 'https://www.vinted.nl/items/555', concept: true })
       ],
       state,
-      login: 'helloworldcards',
       now
     })
 
@@ -311,7 +310,6 @@ describe('buildRelistReport', () => {
     expect(report.rows[3].product).toBeNull()
     // A product whose listing is gone is flagged; a concept product is not expected on Vinted.
     expect(report.missing).toEqual([{ product: { id: 3, title: 'Gone', slug: 'p-3' }, url: 'https://www.vinted.nl/items/999' }])
-    expect(report.login).toBe('helloworldcards')
   })
 
   it('runs listings from the same day from the earliest to the latest bump', () => {
@@ -332,7 +330,6 @@ describe('buildRelistReport', () => {
       }),
       products: [],
       state,
-      login: 'helloworldcards',
       now
     })
     expect(report.rows.map((row) => row.title)).toEqual(['D older', 'C early', 'B midday', 'A late'])
@@ -350,7 +347,6 @@ describe('buildRelistReport', () => {
         product({ id: 3, title: 'Charizard', vintedUrl: 'https://www.vinted.nl/items/999', reserved: true })
       ],
       state: emptyRelistState(),
-      login: 'helloworldcards',
       now
     })
 
@@ -381,7 +377,6 @@ describe('buildRelistReport', () => {
         product({ id: 6, title: 'Mega Gardevoir ex', vintedUrl: 'https://www.vinted.nl/items/777', sold: true })
       ],
       state,
-      login: 'helloworldcards',
       now
     })
 
@@ -415,8 +410,7 @@ describe('buildRelistReport', () => {
     const report = buildRelistReport({
       wardrobe: parseWardrobeItems({ items: [{ id: 555, title: 'Fresh copy', price: '10.00' }] }),
       products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
-      state,
-      login: null
+      state
     })
     expect(report.rows[0].product).toEqual({ id: 3, title: 'Gone', slug: 'p-3' })
     expect(report.missing).toEqual([])
@@ -451,8 +445,7 @@ describe('buildRelistReport', () => {
     const report = buildRelistReport({
       wardrobe: [],
       products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
-      state,
-      login: null
+      state
     })
     expect(report.pending).toEqual([
       {
@@ -518,8 +511,7 @@ describe('buildRelistReport', () => {
     const report = buildRelistReport({
       wardrobe: stillUp,
       products: [product({ id: 3, title: 'Gone', vintedUrl: 'https://www.vinted.nl/items/444' })],
-      state,
-      login: 'x'
+      state
     })
     expect(report.pending.map((entry) => entry.itemId)).toEqual(['444'])
     expect(report.missing).toEqual([])
@@ -592,7 +584,7 @@ describe('settleMissingByHand', () => {
       '10005185939': { itemId: '10005185939', previousItemId: '10004260813', productId: 14, listedAt: '2026-09-14T18:53:00.000Z' }
     })
     // The report then shows the listing as the card's, and the card is no longer missing.
-    const report = buildRelistReport({ wardrobe, products: [pikachu, mewtwo], state, login: 'x', now })
+    const report = buildRelistReport({ wardrobe, products: [pikachu, mewtwo], state, now })
     expect(report.rows.find((row) => row.itemId === '10005185939')?.product?.id).toBe(14)
     expect(report.missing).toEqual([])
   })
@@ -687,7 +679,7 @@ async function signIn(): Promise<string> {
 }
 
 function emptyReport(): VintedRelistReport {
-  return { rows: [], pending: [], missing: [], byHand: [], relisting: [], login: 'helloworldcards', fetchedAt: '2026-09-12T12:00:00Z' }
+  return { rows: [], pending: [], missing: [], byHand: [], relisting: [], fetchedAt: '2026-09-12T12:00:00Z' }
 }
 
 describe('vinted relist API', () => {
@@ -751,7 +743,7 @@ describe('vinted relist API', () => {
     const body = (await response!.json()) as { relisted: { itemId: string; url: string; productId: number }; report: VintedRelistReport }
     expect(calls).toEqual([itemId])
     expect(body.relisted).toEqual({ itemId: '9999', url: 'https://www.vinted.nl/items/9999', productId: row.id })
-    expect(body.report.login).toBe('helloworldcards')
+    expect(body.report).toEqual(emptyReport())
 
     const after = (await db.prepare('SELECT vinted_url FROM products WHERE id = ?').bind(row.id).first()) as { vinted_url: string }
     expect(after.vinted_url).toBe('https://www.vinted.nl/items/9999')

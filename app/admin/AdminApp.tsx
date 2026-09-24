@@ -1,4 +1,15 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type DragEvent,
+  type ReactNode
+} from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   ArrowDown,
@@ -31,7 +42,7 @@ import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
 import type { DealFinderReport } from '~/services/deal-finder/types'
-import type { VintedRelistReport } from '~/services/vinted-relist'
+import { RELIST_TABS, type VintedRelistReport } from '~/services/vinted-relist'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -52,6 +63,7 @@ import { formatShopPrice, parseListedPrice } from '~/services/price'
 import { SITE_NAME, toAbsoluteUrl } from '~/seo/site'
 import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleton, remainingLoadingHold } from './AdminLoading'
 import { adminJson } from './api'
+import { createRelistQueue, type RelistAnswer, type RelistQueue } from './relist-queue'
 import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { DRAG_GHOST_SIZE, createDragGhost, discardDragGhost, landDragGhost, type DragGhost } from './media-drag'
@@ -1186,25 +1198,29 @@ function DealFinderScreen() {
   )
 }
 
+async function sendRelist(itemId: string): Promise<RelistAnswer> {
+  const result = await adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
+  if (result.ok && result.data?.report) {
+    return { ok: true }
+  }
+  return { ok: false, status: result.status, error: result.data?.error ?? 'The relist failed. Check the Chrome window.' }
+}
+
 /**
  * A relist can take a couple of minutes — photos up, form filled, publish — and the
- * request stays open for all of it. Several run at once, each in a Chrome tab of
- * its own, so a batch is pressed off one button after another and the screen keeps
- * every row where it is, saying what its relist is up to, until the last of the
- * batch is done: only then is the list read again, so it does not re-sort under
- * the buttons while there is still pressing to do.
+ * request stays open for all of it. The relists asked for wait in the admin's queue
+ * (`createRelistQueue`) and go to the dev server one slot at a time, and the screen
+ * keeps every row where it is, saying what its relist is up to, until the last of the
+ * batch is done: only then is the list read again, so it does not re-sort under the
+ * buttons while there is still pressing to do.
  */
-function VintedRelistScreen() {
+function VintedRelistScreen({ queue }: { queue: RelistQueue }) {
   const [report, setReport] = useState<VintedRelistReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [relisting, setRelisting] = useState<string[]>([])
-  const [done, setDone] = useState<string[]>([])
-  const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  const relists = useSyncExternalStore(queue.subscribe, queue.state)
   // One read at a time: each one drives the Chrome tab, and StrictMode mounts twice.
   const reading = useRef(false)
-  // How the batch under way has gone, for what to do once its last relist answers.
-  const batch = useRef({ inFlight: 0, relisted: false, needsRead: false })
 
   const refresh = useCallback(() => {
     if (reading.current) {
@@ -1221,14 +1237,14 @@ function VintedRelistScreen() {
         }
         setReport(result.data.report)
         // The relisted rows are gone from the list now, replaced by their copies.
-        setDone([])
+        queue.listRead(result.data.report.rows.map((row) => row.itemId))
       })
       .catch(() => setError('The dev server stopped answering while reading Vinted. Try again.'))
       .finally(() => {
         reading.current = false
         setLoading(false)
       })
-  }, [])
+  }, [queue])
 
   useEffect(() => {
     if (!import.meta.env.DEV) {
@@ -1236,6 +1252,9 @@ function VintedRelistScreen() {
     }
     refresh()
   }, [refresh])
+
+  // Read the list again once a batch is done, one started before the screen was last left included.
+  useEffect(() => queue.onBatchEnd(refresh), [queue, refresh])
 
   if (!import.meta.env.DEV) {
     return <Navigate to={adminTo('/')} replace />
@@ -1246,61 +1265,16 @@ function VintedRelistScreen() {
       <VintedRelist
         report={report}
         loading={loading}
-        relisting={relisting}
-        done={done}
-        errors={errors}
+        relisting={relists.queue}
+        done={relists.done}
+        errors={relists.errors}
         error={error}
         onRefresh={() => {
-          setErrors({})
+          queue.clearErrors()
           refresh()
         }}
-        onRelist={(itemId) => {
-          if (relisting.includes(itemId)) {
-            return
-          }
-          setRelisting((current) => [...current, itemId])
-          setErrors((current) => {
-            const { [itemId]: gone, ...rest } = current
-            return gone === undefined ? current : rest
-          })
-          batch.current.inFlight += 1
-          void adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
-            .then((result) => {
-              const body = result.data
-              if (!result.ok || !body?.report) {
-                setErrors((current) => ({ ...current, [itemId]: body?.error ?? 'The relist failed. Check the Chrome window.' }))
-                // The delete may have gone through: read back what Vinted has now —
-                // unless Vinted wants a login first, or has rate-limited us, in which
-                // case a read would only ask (or make it worse) again.
-                if (result.status !== 401 && result.status !== 503 && result.status !== 429) {
-                  batch.current.needsRead = true
-                }
-                return
-              }
-              batch.current.relisted = true
-              setDone((current) => [...current, itemId])
-            })
-            .catch(() => {
-              setErrors((current) => ({
-                ...current,
-                [itemId]: 'The dev server stopped answering mid-relist. Refresh to see where it got to.'
-              }))
-              batch.current.needsRead = true
-            })
-            .finally(() => {
-              setRelisting((current) => current.filter((id) => id !== itemId))
-              batch.current.inFlight -= 1
-              if (batch.current.inFlight > 0) {
-                return
-              }
-              const { relisted, needsRead } = batch.current
-              batch.current = { inFlight: 0, relisted: false, needsRead: false }
-              // Read once for the whole batch; a read after a relist costs Vinted nothing.
-              if (relisted || needsRead) {
-                refresh()
-              }
-            })
-        }}
+        onRelist={queue.add}
+        onStop={queue.stop}
       />
     </div>
   )
@@ -3684,6 +3658,9 @@ export default function AdminApp() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Kept for as long as the admin is open rather than the relist screen, so a batch
+  // goes on while the rest of the admin is used.
+  const [relistQueue] = useState(() => createRelistQueue({ slots: RELIST_TABS, send: sendRelist }))
 
   function applySession(result: { ok: boolean; status: number }) {
     if (result.status === 401 || result.status === 503) {
@@ -3791,8 +3768,8 @@ export default function AdminApp() {
       <Route path="price-suggestions/" element={<PriceSuggestionsScreen />} />
       <Route path="deal-finder" element={<DealFinderScreen />} />
       <Route path="deal-finder/" element={<DealFinderScreen />} />
-      <Route path="vinted-relist" element={<VintedRelistScreen />} />
-      <Route path="vinted-relist/" element={<VintedRelistScreen />} />
+      <Route path="vinted-relist" element={<VintedRelistScreen queue={relistQueue} />} />
+      <Route path="vinted-relist/" element={<VintedRelistScreen queue={relistQueue} />} />
       <Route path="settings" element={<SettingsScreen />} />
       <Route path="settings/" element={<SettingsScreen />} />
       <Route path="*" element={<Navigate to={adminTo('/')} replace />} />
