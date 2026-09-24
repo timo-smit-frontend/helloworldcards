@@ -455,13 +455,15 @@ export function dashboardApiPlugin(): Plugin {
     name: 'cms-api',
     configureServer(server) {
       server.middlewares.use(cmsApiMiddleware(server.config.root))
-      // `vite-node` boots a Vite server of its own to transform modules, and the sync
-      // runs through `vite-node`: starting the sync there would have it spawn itself.
-      if (!server.config.server.middlewareMode && autoSyncEnabled()) {
+      // `vite-node` boots a Vite server of its own to transform modules — every
+      // `npm run cms:*` command runs through it — but never has it listen. Starting the
+      // sync there reconciled with production behind each command's back and opened the
+      // local Wrangler state a second time, so the sync waits for a server that serves.
+      if (server.httpServer && !server.config.server.middlewareMode && autoSyncEnabled()) {
         // Better to not start than to serve a local database that quietly stops
         // following production because a tool the sync runs is not installed.
         assertSyncToolsInstalled()
-        void cmsAutoSync(server.config.root)
+        server.httpServer.once('listening', () => void cmsAutoSync(server.config.root))
       }
     },
     configurePreviewServer(server) {

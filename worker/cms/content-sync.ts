@@ -1,17 +1,20 @@
 import type { CmsEvent, CmsFaq, CmsNavItem, CmsPage, CmsSettings } from '../../app/cms/types'
 import {
+  batchReads,
   getSettings,
-  listEvents,
-  listFaqs,
-  listNav,
-  listPages,
   putSettings,
   replaceNav,
+  rowToPage,
+  rowToSettings,
+  SQL,
   trashRowsMissingFrom,
   upsertEventWithId,
   upsertFaqWithId,
   upsertPageByPath,
-  type CmsDb
+  type BatchedRead,
+  type CmsDb,
+  type PageRow,
+  type SettingsRow
 } from './db'
 
 /**
@@ -33,31 +36,47 @@ type CmsContentSyncCounts = {
   events: number
 }
 
-export async function pullContent(db: CmsDb): Promise<CmsContentSnapshot> {
-  const settings = await getSettings(db)
-  if (!settings) {
-    throw new Error('This database has no CMS settings row yet.')
-  }
-  // The seed version tracks the target database's own migration state, so it must never
-  // travel between environments in the snapshot.
-  const portable = { ...settings }
-  delete portable.cmsSeedVersion
-
+/** The reads a content snapshot is made of, so a pull can send them with its other reads. */
+export function contentRead(db: CmsDb): BatchedRead<CmsContentSnapshot> {
   return {
-    settings: portable,
-    nav: (await listNav(db)).map((item) => ({ location: item.location, label: item.label, href: item.href, sort: item.sort })),
-    pages: (await listPages(db)).map((page) => ({
-      path: page.path,
-      status: page.status,
-      title: page.title,
-      seoTitle: page.seoTitle,
-      seoDescription: page.seoDescription,
-      seoImage: page.seoImage,
-      blocks: page.blocks
-    })),
-    faqs: await listFaqs(db),
-    events: await listEvents(db)
+    statements: [db.prepare(SQL.settings), db.prepare(SQL.nav), db.prepare(SQL.pages), db.prepare(SQL.faqs), db.prepare(SQL.events)],
+    parse([settingsRows, navRows, pageRows, faqRows, eventRows]) {
+      const settings = rowToSettings(settingsRows.results[0] as SettingsRow | undefined)
+      if (!settings) {
+        throw new Error('This database has no CMS settings row yet.')
+      }
+      // The seed version tracks the target database's own migration state, so it must never
+      // travel between environments in the snapshot.
+      const portable = { ...settings }
+      delete portable.cmsSeedVersion
+
+      return {
+        settings: portable,
+        nav: (navRows.results as CmsNavItem[]).map((item) => ({
+          location: item.location,
+          label: item.label,
+          href: item.href,
+          sort: item.sort
+        })),
+        pages: (pageRows.results as PageRow[]).map(rowToPage).map((page) => ({
+          path: page.path,
+          status: page.status,
+          title: page.title,
+          seoTitle: page.seoTitle,
+          seoDescription: page.seoDescription,
+          seoImage: page.seoImage,
+          blocks: page.blocks
+        })),
+        faqs: faqRows.results as CmsFaq[],
+        events: eventRows.results as CmsEvent[]
+      }
+    }
   }
+}
+
+export async function pullContent(db: CmsDb): Promise<CmsContentSnapshot> {
+  const [content] = await batchReads(db, [contentRead(db)])
+  return content
 }
 
 export async function pushContent(db: CmsDb, snapshot: CmsContentSnapshot): Promise<CmsContentSyncCounts> {

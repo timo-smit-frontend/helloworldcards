@@ -80,7 +80,7 @@ async function readPublicRows(db: CmsDb, path: string, slug: string | undefined)
   const [settings, nav, inventory, events, faqs, media, target] = await batchAll(db, [
     db.prepare(SQL.settings),
     db.prepare(SQL.nav),
-    db.prepare(SQL.inventory),
+    db.prepare(SQL.shopInventory),
     db.prepare(SQL.events),
     db.prepare(SQL.faqs),
     db.prepare(SQL.mediaCopy),

@@ -1,11 +1,14 @@
-import type { CmsMedia } from '../../app/cms/types'
+import type { CmsMedia, CmsMediaFolder } from '../../app/cms/types'
 import {
+  batchReads,
   deleteMediaExcept,
   deleteMediaFoldersExcept,
-  listMedia,
-  listMediaFolders,
+  MEDIA_FOLDERS_SQL,
+  MEDIA_SQL,
+  rowsToMediaLibrary,
   upsertMediaByKey,
   upsertMediaFolderByName,
+  type BatchedRead,
   type CmsDb
 } from './db'
 
@@ -43,12 +46,25 @@ function toEntry(media: CmsMedia, folderNames: Map<number, string>): CmsMediaEnt
   }
 }
 
+/** The reads a library snapshot is made of, so a pull can send them with its other reads. */
+export function mediaLibraryRead(db: CmsDb): BatchedRead<CmsMediaSnapshot> {
+  return {
+    statements: [db.prepare(MEDIA_FOLDERS_SQL), db.prepare(MEDIA_SQL)],
+    parse([folderRows, mediaRows]) {
+      const folders = folderRows.results as CmsMediaFolder[]
+      const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]))
+      // Ordered by key so the committed file diffs as a change to one image, not a reshuffle.
+      const media = rowsToMediaLibrary(mediaRows.results)
+        .map((item) => toEntry(item, folderNames))
+        .sort((left, right) => left.key.localeCompare(right.key))
+      return { folders: folders.map((folder) => folder.name).sort((left, right) => left.localeCompare(right)), media }
+    }
+  }
+}
+
 export async function pullMediaLibrary(db: CmsDb): Promise<CmsMediaSnapshot> {
-  const folders = await listMediaFolders(db)
-  const folderNames = new Map(folders.map((folder) => [folder.id, folder.name]))
-  // Ordered by key so the committed file diffs as a change to one image, not a reshuffle.
-  const media = (await listMedia(db)).map((item) => toEntry(item, folderNames)).sort((left, right) => left.key.localeCompare(right.key))
-  return { folders: folders.map((folder) => folder.name).sort((left, right) => left.localeCompare(right)), media }
+  const [library] = await batchReads(db, [mediaLibraryRead(db)])
+  return library
 }
 
 export async function pushMediaLibrary(db: CmsDb, snapshot: CmsMediaSnapshot): Promise<number> {

@@ -35,7 +35,13 @@ export async function handlePublicApi(request: Request, env: DashboardEnv, runti
  */
 async function readSiteIndex(db: CmsDb) {
   const read = () =>
-    batchAll(db, [db.prepare(SQL.settings), db.prepare(SQL.pages), db.prepare(SQL.inventory), db.prepare(SQL.events), db.prepare(SQL.faqs)])
+    batchAll(db, [
+      db.prepare(SQL.settings),
+      db.prepare(SQL.pages),
+      db.prepare(SQL.shopInventory),
+      db.prepare(SQL.events),
+      db.prepare(SQL.faqs)
+    ])
 
   let rows = await read()
   let settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)

@@ -14,7 +14,7 @@ import type { InventoryProduct, ProductRecord } from '../../app/database/product
 import { isShopListed, toInventoryProduct, toPublicProduct } from '../../app/database/products'
 import { soldPhotoName } from '../../app/services/sold-photos'
 
-type CmsStatementResult<T = Record<string, unknown>> = {
+export type CmsStatementResult<T = Record<string, unknown>> = {
   results: T[]
   meta?: { last_row_id: number; changes: number }
 }
@@ -30,8 +30,7 @@ export type CmsDb = {
   prepare(query: string): CmsPreparedStatement
   /**
    * D1 runs a batch in one round trip and one transaction. It is optional so that a
-   * database that only knows `prepare` — the Wrangler-backed one the sync uses — still
-   * works, statement by statement.
+   * database that only knows `prepare` still works, statement by statement.
    */
   batch?<T = Record<string, unknown>>(statements: CmsPreparedStatement[]): Promise<CmsStatementResult<T>[]>
 }
@@ -55,6 +54,31 @@ export async function batchAll<T = Record<string, unknown>>(
     results.push(await statement.all<T>())
   }
   return results
+}
+
+/** A read made of several statements, kept apart from its parsing so it can share a batch. */
+export type BatchedRead<T> = {
+  statements: CmsPreparedStatement[]
+  parse(results: CmsStatementResult[]): T
+}
+
+type ReadValues<R extends readonly BatchedRead<unknown>[]> = { -readonly [K in keyof R]: R[K] extends BatchedRead<infer T> ? T : never }
+
+/**
+ * Run several reads as one batch — one round trip, where a pull used to spend one per
+ * table — and hand each its own results back.
+ */
+export async function batchReads<const R extends readonly BatchedRead<unknown>[]>(db: CmsDb, reads: R): Promise<ReadValues<R>> {
+  const results = await batchAll(
+    db,
+    reads.flatMap((read) => read.statements)
+  )
+  let offset = 0
+  return reads.map((read) => {
+    const own = results.slice(offset, offset + read.statements.length)
+    offset += read.statements.length
+    return read.parse(own)
+  }) as ReadValues<R>
 }
 
 type TrashTable = 'products' | 'events' | 'faqs' | 'pages'
@@ -177,6 +201,9 @@ export const SQL = {
   settings: 'SELECT json FROM settings WHERE id = 1',
   nav: 'SELECT id, location, label, href, sort FROM nav_items ORDER BY location ASC, sort ASC, id ASC',
   inventory: 'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC',
+  // What the public site can list: every card but the sold ones, which are kept forever
+  // for the books and would otherwise be read and thrown away on every page view.
+  shopInventory: 'SELECT * FROM products WHERE deleted_at IS NULL AND sold != 1 ORDER BY id ASC',
   // Sold cards stay on the books even once trashed.
   ledger: 'SELECT * FROM products WHERE deleted_at IS NULL OR sold = 1 ORDER BY id ASC',
   productBySlug: 'SELECT * FROM products WHERE slug = ? AND deleted_at IS NULL',
@@ -269,8 +296,11 @@ export async function listTrashedProducts(db: CmsDb): Promise<InventoryProduct[]
 }
 
 export async function listShopProducts(db: CmsDb) {
-  const inventory = await listInventory(db)
-  return inventory.filter(isShopListed).map((item) => toPublicProduct(item, item.slug))
+  const { results } = await db.prepare(SQL.shopInventory).all<ProductRow>()
+  return results
+    .map(rowToInventory)
+    .filter(isShopListed)
+    .map((item) => toPublicProduct(item, item.slug))
 }
 
 export async function getProductById(db: CmsDb, id: number): Promise<InventoryProduct | null> {
@@ -477,13 +507,20 @@ function toCmsMedia(row: MediaRow): CmsMedia {
   return { ...row, title: row.title ?? '', alt: row.alt ?? '', folderId: row.folderId ?? null, url: `/media/${row.key}` }
 }
 
+export const MEDIA_SQL = `SELECT ${MEDIA_COLUMNS} FROM media ORDER BY id DESC`
+
+/** The library as it is listed, from the rows `MEDIA_SQL` reads. */
+export function rowsToMediaLibrary(rows: unknown[]): CmsMedia[] {
+  return sortMediaLibrary((rows as MediaRow[]).map(toCmsMedia))
+}
+
 export async function listMedia(db: CmsDb): Promise<CmsMedia[]> {
-  const { results } = await db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media ORDER BY id DESC`).all<MediaRow>()
-  return sortMediaLibrary(results.map(toCmsMedia))
+  const { results } = await db.prepare(MEDIA_SQL).all<MediaRow>()
+  return rowsToMediaLibrary(results)
 }
 
 // Folders are listed the way a file browser lists them: by name, regardless of case.
-const MEDIA_FOLDERS_SQL = 'SELECT id, name FROM media_folders ORDER BY name COLLATE NOCASE ASC, id ASC'
+export const MEDIA_FOLDERS_SQL = 'SELECT id, name FROM media_folders ORDER BY name COLLATE NOCASE ASC, id ASC'
 
 export async function listMediaFolders(db: CmsDb): Promise<CmsMediaFolder[]> {
   const { results } = await db.prepare(MEDIA_FOLDERS_SQL).all<CmsMediaFolder>()
@@ -499,14 +536,14 @@ export async function mediaLibrarySnapshot(
   month: string
 ): Promise<{ media: CmsMedia[]; folders: CmsMediaFolder[]; storageBytes: number; classA: number; classB: number }> {
   const [rows, folders, storage, usage] = await batchAll(db, [
-    db.prepare(`SELECT ${MEDIA_COLUMNS} FROM media ORDER BY id DESC`),
+    db.prepare(MEDIA_SQL),
     db.prepare(MEDIA_FOLDERS_SQL),
     db.prepare('SELECT COALESCE(SUM(bytes), 0) as total FROM media'),
     db.prepare('SELECT class_a as classA, class_b as classB FROM r2_usage WHERE month = ?').bind(month)
   ])
   const counters = usage.results[0] as { classA: number; classB: number } | undefined
   return {
-    media: sortMediaLibrary((rows.results as MediaRow[]).map(toCmsMedia)),
+    media: rowsToMediaLibrary(rows.results),
     folders: folders.results as CmsMediaFolder[],
     storageBytes: Number((storage.results[0] as { total: number } | undefined)?.total ?? 0),
     classA: Number(counters?.classA ?? 0),

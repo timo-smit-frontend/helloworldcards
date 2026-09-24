@@ -82,16 +82,31 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * Run `fn` over the items a few at a time. After a failure no new item is started, and
+ * the pool waits for the ones already running before it fails the way the first did, so
+ * nothing is still writing once the caller has been told it went wrong.
+ */
 export async function mapPool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {
   let index = 0
+  let failed = false
   async function worker() {
-    while (index < items.length) {
+    while (!failed && index < items.length) {
       const current = index
       index += 1
-      await fn(items[current])
+      try {
+        await fn(items[current])
+      } catch (error) {
+        failed = true
+        throw error
+      }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
+  const outcomes = await Promise.allSettled(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
+  const rejected = outcomes.find((outcome) => outcome.status === 'rejected')
+  if (rejected) {
+    throw rejected.reason
+  }
 }
 
 export function defaultVariantConcurrency(): number {

@@ -5,15 +5,15 @@ import vm from 'node:vm'
 import prettier from 'prettier'
 import { formatSeedProductsSource } from '../app/cms/format-seed-products'
 import type { ProductRecord } from '../app/database/products'
-import { formatContentSnapshot, parseContentSnapshot, pullContent, pushContent, type CmsContentSnapshot } from '../worker/cms/content-sync'
+import { contentRead, formatContentSnapshot, parseContentSnapshot, pushContent, type CmsContentSnapshot } from '../worker/cms/content-sync'
 import {
   formatMediaSnapshot,
+  mediaLibraryRead,
   parseMediaSnapshot,
-  pullMediaLibrary,
   pushMediaLibrary,
   type CmsMediaSnapshot
 } from '../worker/cms/media-library-sync'
-import { rowToRecord, trashRowsMissingFrom, type CmsDb } from '../worker/cms/db'
+import { batchReads, rowToRecord, SQL, trashRowsMissingFrom, type BatchedRead, type CmsDb, type ProductRow } from '../worker/cms/db'
 import { pushSeedProducts } from './cms-sync'
 
 /** Everything one CMS database holds that is meant to travel between environments. */
@@ -40,19 +40,20 @@ export function seedFilePath(root: string, part: CmsSeedPart): string {
   return path.join(root, CMS_SEED_FILES[part])
 }
 
-async function readProducts(db: CmsDb): Promise<ProductRecord[]> {
-  const { results } = await db
-    .prepare('SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id ASC')
-    .all<Parameters<typeof rowToRecord>[0]>()
-  return results.map(rowToRecord)
+function productsRead(db: CmsDb): BatchedRead<ProductRecord[]> {
+  return {
+    statements: [db.prepare(SQL.inventory)],
+    parse: ([rows]) => (rows.results as ProductRow[]).map(rowToRecord)
+  }
 }
 
+/**
+ * The whole state in one batch. Against production every round trip is a Wrangler
+ * process, and a pull used to start one per table — eight in a row on every settle.
+ */
 export async function readCmsState(db: CmsDb): Promise<CmsState> {
-  return {
-    content: await pullContent(db),
-    products: await readProducts(db),
-    media: await pullMediaLibrary(db)
-  }
+  const [content, products, media] = await batchReads(db, [contentRead(db), productsRead(db), mediaLibraryRead(db)])
+  return { content, products, media }
 }
 
 /** Apply a state to a database, deletions included — the whole of it, or only some parts. */

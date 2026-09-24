@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
+import { createHash, randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { seedMediaFiles } from '../app/cms/seed-media'
 import {
   emptyMediaObjectIndex,
@@ -16,7 +17,7 @@ import { allMediaVariantKeys } from '../app/services/responsiveImage'
 import type { MediaBucket } from '../worker/cms/media'
 import { localBin } from './local-bin'
 import { encodeMediaVariants } from './media-variants'
-import { variantSettingsKey } from './responsive-image-build'
+import { mapPool, variantSettingsKey } from './responsive-image-build'
 
 const R2_BUCKET = 'helloworldcards-media'
 const MANIFEST_KEY = '_media-variants-manifest.json'
@@ -151,9 +152,18 @@ function localStore(bucket: MediaBucket & { list?: (options?: unknown) => Promis
   }
 }
 
-function wrangler(args: string[], options: { stdio?: 'inherit' | 'ignore' | 'pipe' } = {}): string {
+/** How many objects move at once. Each is its own Wrangler process against production. */
+const TRANSFER_CONCURRENCY = 4
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Wrangler without blocking, so several objects can be in flight at once. Its output is
+ * kept: a failure carries it in the error, and the sync logs its own line per image.
+ */
+async function wrangler(args: string[]): Promise<void> {
   const wrangler = localBin('wrangler')
-  return execFileSync(wrangler.command, [...wrangler.args, ...args], { encoding: 'utf8', stdio: options.stdio ?? 'pipe' }) ?? ''
+  await execFileAsync(wrangler.command, [...wrangler.args, ...args], { maxBuffer: 16 * 1024 * 1024 })
 }
 
 function remoteStore(cacheDir: string): MediaStore {
@@ -171,18 +181,21 @@ function remoteStore(cacheDir: string): MediaStore {
       return Buffer.from(await response.arrayBuffer())
     },
     async put(key, bytes, contentType) {
-      const filePath = path.join(cacheDir, path.basename(key))
+      // Wrangler uploads from a file. Each put gets its own, since several run at once.
+      const filePath = path.join(cacheDir, `${randomUUID()}-${path.basename(key)}`)
       await fs.writeFile(filePath, bytes)
-      wrangler(['r2', 'object', 'put', `${R2_BUCKET}/${key}`, '--file', filePath, '--content-type', contentType, '--remote'], {
-        stdio: 'inherit'
-      })
+      try {
+        await wrangler(['r2', 'object', 'put', `${R2_BUCKET}/${key}`, '--file', filePath, '--content-type', contentType, '--remote'])
+      } finally {
+        await fs.rm(filePath, { force: true })
+      }
     },
     async delete(key) {
-      wrangler(['r2', 'object', 'delete', `${R2_BUCKET}/${key}`, '--remote'], { stdio: 'inherit' })
+      await wrangler(['r2', 'object', 'delete', `${R2_BUCKET}/${key}`, '--remote'])
     },
     async readIndex(settings) {
       try {
-        wrangler(['r2', 'object', 'get', `${R2_BUCKET}/${MANIFEST_KEY}`, '--remote', '--file', manifestPath], { stdio: 'ignore' })
+        await wrangler(['r2', 'object', 'get', `${R2_BUCKET}/${MANIFEST_KEY}`, '--remote', '--file', manifestPath])
       } catch {
         // No manifest yet: treat the bucket as unmanaged and upload everything.
       }
@@ -190,12 +203,17 @@ function remoteStore(cacheDir: string): MediaStore {
     },
     async writeIndex(index) {
       await fs.writeFile(manifestPath, JSON.stringify(index))
-      wrangler(
-        ['r2', 'object', 'put', `${R2_BUCKET}/${MANIFEST_KEY}`, '--file', manifestPath, '--content-type', 'application/json', '--remote'],
-        {
-          stdio: 'inherit'
-        }
-      )
+      await wrangler([
+        'r2',
+        'object',
+        'put',
+        `${R2_BUCKET}/${MANIFEST_KEY}`,
+        '--file',
+        manifestPath,
+        '--content-type',
+        'application/json',
+        '--remote'
+      ])
     }
   }
 }
@@ -307,30 +325,31 @@ export async function syncMediaBucket(options: {
       const originalPath = path.join(temporary, path.basename(key))
       await fs.writeFile(originalPath, bytes)
 
+      const variants = await encodeMediaVariants(originalPath, key)
+      const uploads = [...variants]
       // A source that only lives in a bucket still needs its original in place: because
       // this bucket has lost it, or because the bytes came from the other environment
       // and this bucket never had it at all.
       if (source.origin === 'fallback' || (bucketKeys && !bucketKeys.includes(key))) {
-        await store.put(key, bytes, contentTypeFor(key))
-        result.uploaded += 1
+        uploads.unshift([key, bytes])
       }
-
-      const variants = await encodeMediaVariants(originalPath, key)
-      for (const [variantKey, buffer] of variants) {
-        await store.put(variantKey, buffer, contentTypeFor(variantKey))
+      // Against production every object is a Wrangler process and a round trip, so they
+      // go a few at a time rather than one after another.
+      await mapPool(uploads, TRANSFER_CONCURRENCY, async ([objectKey, buffer]) => {
+        await store.put(objectKey, buffer, contentTypeFor(objectKey))
         result.uploaded += 1
-      }
+      })
 
       next = withSyncedObject(next, key, await hashBytes(bytes), [...variants.keys()])
       result.encoded.push(key)
       log(`media-sync: ${key} -> ${variants.size} variants`)
     }
 
-    for (const key of plan.remove) {
+    await mapPool(plan.remove, TRANSFER_CONCURRENCY, async (key) => {
       await store.delete(key)
-      result.removed.push(key)
       log(`media-sync: removed ${key}`)
-    }
+    })
+    result.removed.push(...plan.remove)
 
     if (prune) {
       next = withoutSyncedObjects(
