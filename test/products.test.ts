@@ -220,15 +220,21 @@ describe('product inventory', () => {
     expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()
   })
 
-  it('lists the Brilliant Stars Trainer Gallery Zekrom with slab photos', async () => {
+  it('keeps the reserved Brilliant Stars Trainer Gallery Zekrom in the shop', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'zekrom-2022-brilliant-stars-tg05')
+    const record = inventory.find((item) => item.id === 8)
 
     expect(product?.title).toBe('Zekrom')
-    expect(product?.price).toBe('€55')
+    expect(product?.price).toBe('€48')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244101')
-    expect(inventory.find((item) => item.id === 8)?.cost).toBe(28)
-    expect(inventory.find((item) => item.id === 8)?.concept).toBeUndefined()
+    // Sold on Vinted for €48 on 25 September 2026, payout pending: reserved, not sold.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-25')
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.cost).toBe(28)
+    expect(record?.concept).toBeUndefined()
   })
 
   it('keeps the reserved Shiny Star V Japanese Poke Kid FA in the shop', async () => {
