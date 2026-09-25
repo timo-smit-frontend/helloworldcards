@@ -74,7 +74,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700',
-    vintedUrl: 'https://www.vinted.nl/items/10129136427',
+    vintedUrl: 'https://www.vinted.nl/items/10129826538',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56',
     firstEdition: true,
     cost: 25,
@@ -94,7 +94,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9.5,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
-    vintedUrl: 'https://www.vinted.nl/items/10129126038',
+    vintedUrl: 'https://www.vinted.nl/items/10129815478',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/White-Flare-JP/Zorua-V2-sv11W140',
     cost: 40,
     acquiredAt: '2026-08-30'
@@ -113,7 +113,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438244195',
-    vintedUrl: 'https://www.vinted.nl/items/10129122705',
+    vintedUrl: 'https://www.vinted.nl/items/10129811816',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Arceus-V-V2-BRS165',
     cost: 28,
     acquiredAt: '2026-08-30'
@@ -132,7 +132,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438256231',
-    vintedUrl: 'https://www.vinted.nl/items/10129133061',
+    vintedUrl: 'https://www.vinted.nl/items/10129822935',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181',
     cost: 72,
     acquiredAt: '2026-08-30'
@@ -291,7 +291,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2444257980',
-    vintedUrl: 'https://www.vinted.nl/items/10129115320',
+    vintedUrl: 'https://www.vinted.nl/items/10129804278',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Psyduck-TR65',
     cost: 73,
     acquiredAt: '2026-09-17'
@@ -310,7 +310,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2445385694',
-    vintedUrl: 'https://www.vinted.nl/items/10129118939',
+    vintedUrl: 'https://www.vinted.nl/items/10129808040',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Ascended-Heroes/Beautifly-V2-ASC219',
     cost: 67,
     acquiredAt: '2026-09-18'
@@ -329,7 +329,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2445386071',
-    vintedUrl: 'https://www.vinted.nl/items/10129129557',
+    vintedUrl: 'https://www.vinted.nl/items/10129819117',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Lost-Origin/Giratina-V-V2-LOR185',
     cost: 67,
     acquiredAt: '2026-09-18'
