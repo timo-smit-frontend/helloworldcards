@@ -1,3 +1,5 @@
+import type { CardGrader } from '../database/products'
+import { productHeadline, productSetLine } from './product'
 import { SITE_OWNER, canonicalUrl } from './site'
 
 type LlmsPage = {
@@ -13,6 +15,9 @@ type LlmsProduct = {
   subtitle: string
   price?: string | number
   description: string
+  grader?: CardGrader
+  grade?: number
+  reserved?: boolean
 }
 
 type LlmsEvent = {
@@ -72,10 +77,12 @@ export function buildLlmsDocument(input: LlmsInput, full = false): string {
   const pageLines = pages.map((page) => `- [${pageName(page, input.siteName)}](${canonicalUrl(page.path)}): ${page.seoDescription}`)
   const productLines = input.products.map((product) => {
     const url = canonicalUrl(`/products/${product.slug}`)
-    const bits = [product.subtitle, product.price != null ? String(product.price) : null].filter(Boolean)
+    // A reserved card has sold; its price is the sale price and stays off the site.
+    const status = product.reserved ? 'Reserved' : product.price != null ? String(product.price) : null
+    const bits = [productSetLine(product.subtitle), status].filter(Boolean)
     const summary = bits.join('. ')
     const detail = full && product.description ? `${summary}. ${product.description}` : summary
-    return `- [${product.title}](${url}): ${detail}`
+    return `- [${productHeadline(product)}](${url}): ${detail}`
   })
   const agendaUrl = canonicalUrl('/agenda')
   const eventLines = input.events.length

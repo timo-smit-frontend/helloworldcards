@@ -216,11 +216,19 @@ export type PublicProduct = {
   language?: CardLanguage
   grader?: CardGrader
   year?: number
+  grade?: number
   marktplaatsUrl?: string
   vintedUrl?: string
   reserved?: boolean
   slug: string
 }
+
+/**
+ * A card that has sold, as its old address still shows it: what it was, never what it
+ * sold for. The page answers 410 Gone, so search engines drop it while a visitor with an
+ * old link lands on the cards that are still for sale.
+ */
+export type PublicSoldProduct = Pick<PublicProduct, 'id' | 'title' | 'subtitle' | 'slug' | 'images' | 'pokemonId' | 'grader' | 'grade'>
 
 export type PublicCmsPayload = {
   settings: CmsSettings
@@ -230,6 +238,7 @@ export type PublicCmsPayload = {
   }
   page: CmsPage | null
   product: PublicProduct | null
+  soldProduct: PublicSoldProduct | null
   similarProductIds: number[]
   products: PublicProduct[]
   events: CmsEvent[]

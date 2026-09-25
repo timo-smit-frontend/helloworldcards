@@ -6,6 +6,7 @@ import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
 import { productBuyLink } from '~/database/products'
+import { soldProductCopy } from '~/seo/product'
 import { MARKTPLAATS_URL } from '~/services/contact'
 
 export default function Product() {
@@ -13,6 +14,7 @@ export default function Product() {
   const cms = useCms()
   const loading = useCmsLoading()
   const product = cms?.product && cms.product.slug === slug ? cms.product : undefined
+  const sold = cms?.soldProduct && cms.soldProduct.slug === slug ? cms.soldProduct : undefined
   const similarIds = cms?.similarProductIds ?? []
   const shop = cms?.products ?? []
   const marktplaats = cms?.settings.marktplaatsUrl ?? MARKTPLAATS_URL
@@ -23,6 +25,22 @@ export default function Product() {
     return (
       <Layout className="justify-center">
         <ContentText heading="h1" title="Loading…" description="Fetching this card." />
+      </Layout>
+    )
+  }
+
+  // An old link to a card that has sold: say so, and offer the cards that are still for sale.
+  if (sold) {
+    return (
+      <Layout>
+        <ContentText
+          heading="h1"
+          {...soldProductCopy(sold)}
+          image={sold.images[0]}
+          alt={sold.title}
+          link={{ url: '/products/', title: 'See all cards for sale' }}
+        />
+        <ContentProducts title="Still for sale" id={similarIds} products={shop} />
       </Layout>
     )
   }

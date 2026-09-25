@@ -1,8 +1,9 @@
-import type { PublicCmsPayload, CmsBlock, CmsFaq, CmsPage, CmsPerson, PublicProduct } from '../cms/types'
+import type { PublicCmsPayload, CmsBlock, CmsFaq, CmsPage, CmsPerson, PublicProduct, PublicSoldProduct } from '../cms/types'
 import { upcomingEvents } from '../database/events'
 import { imageAltFor } from '../services/imageCopy'
 import { PRIORITY_IMAGE_SIZES, PRODUCT_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
 import { HOME_URL, breadcrumbList, buildSeoPage, getSeoForPath, type SeoIdentity, type SeoPage } from './pages'
+import { productJsonLd, productName, productSeoDescription, soldProductSeoDescription } from './product'
 import { SITE_NAME, SITE_OWNER, SITE_URL, canonicalUrl } from './site'
 
 function titleWithBrand(pageTitle: string): string {
@@ -66,7 +67,7 @@ function productBreadcrumbs(product: PublicProduct, path: string): Record<string
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: HOME_URL },
       { '@type': 'ListItem', position: 2, name: 'Products', item: canonicalUrl('/products') },
-      { '@type': 'ListItem', position: 3, name: product.title, item: url }
+      { '@type': 'ListItem', position: 3, name: productName(product), item: url }
     ]
   }
 }
@@ -81,7 +82,7 @@ function productListNode(path: string, products: PublicProduct[]): Record<string
       '@type': 'ListItem',
       position: index + 1,
       url: canonicalUrl(`/products/${product.slug}`),
-      name: product.title
+      name: productName(product)
     }))
   }
 }
@@ -179,6 +180,20 @@ function extraGraphForPage(
   return { extraGraph, webPageType, dateModified }
 }
 
+/** A sold card's old address: kept out of the index, but its links to the cards still for sale are followed. */
+function soldProductSeo(product: PublicSoldProduct, payload: PublicCmsPayload, identity: SeoIdentity): SeoPage {
+  const image = product.images[0] ?? payload.settings.siteImage
+  return buildSeoPage({
+    path: `/products/${product.slug}`,
+    title: titleWithBrand(`${productName(product)} (sold)`),
+    description: soldProductSeoDescription(product),
+    image,
+    imageAlt: altFor(image, payload, product.title),
+    robots: 'noindex, follow',
+    identity
+  })
+}
+
 export function getSeoForPayload(pathname: string, payload: PublicCmsPayload | null | undefined): SeoPage {
   if (!payload) {
     return getSeoForPath(pathname)
@@ -190,19 +205,16 @@ export function getSeoForPayload(pathname: string, payload: PublicCmsPayload | n
   if (payload.product) {
     const product = payload.product
     const path = `/products/${product.slug}`
-    const blurb = product.description || product.subtitle
-    const description = product.price
-      ? `${product.title}: ${blurb}. ${product.price} at ${SITE_NAME}.`
-      : `${product.title}: ${blurb}. Available at ${SITE_NAME}.`
     const image = product.images[0] ?? settings.siteImage
+    const offer = productJsonLd(product)
     return buildSeoPage({
       path,
-      title: titleWithBrand(product.title),
-      description,
+      title: titleWithBrand(productName(product)),
+      description: productSeoDescription(product),
       image,
       imageAlt: altFor(image, payload, product.title),
       type: 'product',
-      extraGraph: [productBreadcrumbs(product, path)],
+      extraGraph: [...(offer ? [offer] : []), productBreadcrumbs(product, path)],
       webPageType: 'ItemPage',
       identity,
       lcp:
@@ -210,6 +222,10 @@ export function getSeoForPayload(pathname: string, payload: PublicCmsPayload | n
           ? { src: product.images[0], maxWidth: 1000, sizes: PRODUCT_IMAGE_SIZES }
           : undefined
     })
+  }
+
+  if (payload.soldProduct) {
+    return soldProductSeo(payload.soldProduct, payload, identity)
   }
 
   if (payload.notFound || !payload.page) {

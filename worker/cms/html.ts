@@ -1,5 +1,6 @@
 import { applySeoHead } from '../../app/seo/head'
 import { adminSeo, getSeoForPayload } from '../../app/seo/cms'
+import { applyPageSnapshot, buildPageSnapshot } from '../../app/seo/snapshot'
 import type { PublicCmsPayload } from '../../app/cms/types'
 
 const CMS_SCRIPT_START = '<!--app-cms-start-->'
@@ -8,6 +9,9 @@ const CMS_SCRIPT_END = '<!--app-cms-end-->'
 export function injectCmsPayload(html: string, payload: PublicCmsPayload | null, options: { admin?: boolean; path: string }): string {
   const seo = options.admin ? adminSeo() : getSeoForPayload(options.path, payload)
   let next = applySeoHead(html, seo)
+  if (!options.admin) {
+    next = applyPageSnapshot(next, buildPageSnapshot(payload))
+  }
   const json = payload ? JSON.stringify(payload).replace(/</g, '\\u003c') : 'null'
   const script = `${CMS_SCRIPT_START}<script>window.__CMS__=${json}</script>${CMS_SCRIPT_END}`
 

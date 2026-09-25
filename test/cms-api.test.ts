@@ -831,6 +831,7 @@ describe('CMS API', () => {
     expect(xml).toContain('https://helloworldcards.com/contact/')
     expect(xml).toContain('https://helloworldcards.com/privacy/')
     expect(xml).toContain('/products/mewtwo-2016-evolutions-51/')
+    expect(xml).toContain('<image:loc>https://helloworldcards.com/media/148651617_front.jpg</image:loc>')
     expect(xml).not.toContain('/dashboard')
     expect(xml).not.toContain('/admin')
   })
@@ -878,12 +879,17 @@ describe('CMS API', () => {
     expect(text).toContain('# Hello World Cards')
     expect(text).toContain('## Pages')
     expect(text).toContain('[Home](https://helloworldcards.com/)')
-    expect(text).toContain('[Shop](https://helloworldcards.com/products/)')
+    expect(text).toContain('[Graded Pokémon cards for sale](https://helloworldcards.com/products/)')
     expect(text).toContain('[Upcoming events](https://helloworldcards.com/agenda/)')
     expect(text).toContain('[About](https://helloworldcards.com/about/)')
     expect(text).toContain('[Contact](https://helloworldcards.com/contact/)')
     expect(text).toContain('## Products')
-    expect(text).toContain('[Mewtwo](https://helloworldcards.com/products/mewtwo-2016-evolutions-51/)')
+    expect(text).toContain('[Mewtwo PSA 9](https://helloworldcards.com/products/mewtwo-2016-evolutions-51/): 2016 Evolutions #51. €75')
+    // Reserved has sold: the sale price never reaches the site.
+    expect(text).toContain(
+      '[Lugia V PSA 9](https://helloworldcards.com/products/lugia-v-2022-silver-tempest-185/): 2022 Silver Tempest #185. Reserved'
+    )
+    expect(text).not.toContain('€40')
     expect(text).toContain('## Events')
     expect(text).toContain('## Optional')
     expect(text).toContain('[Privacy statement](https://helloworldcards.com/privacy/)')

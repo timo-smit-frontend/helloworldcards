@@ -17,6 +17,8 @@ export type Product = {
   language?: CardLanguage
   grader?: CardGrader
   year?: number
+  /** Numeric slab grade (9, 9.5, 10). Printed on the slab and in the description, so public. */
+  grade?: number
   marktplaatsUrl?: string
   vintedUrl?: string
   /**
@@ -38,8 +40,6 @@ export type InventoryProduct = Product & {
   soldAt?: string
   /** ISO date `YYYY-MM-DD` when the card was bought. */
   acquiredAt?: string
-  /** Numeric slab grade (9, 9.5, 10). Dashboard Cardmarket comps only. */
-  grade?: number
   /** Cardmarket singles URL. Dashboard comps only; stripped from the public shop bundle. */
   cardmarketUrl?: string
   /** Cardmarket Reverse Holo filter. Dashboard comps only. */
@@ -108,6 +108,7 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
     ...(product.language ? { language: product.language } : {}),
     ...(product.grader ? { grader: product.grader } : {}),
     ...(product.year != null ? { year: product.year } : {}),
+    ...(product.grade != null ? { grade: product.grade } : {}),
     ...(product.marktplaatsUrl ? { marktplaatsUrl: product.marktplaatsUrl } : {}),
     ...(product.vintedUrl ? { vintedUrl: product.vintedUrl } : {}),
     ...(product.reserved ? { reserved: true } : {})
@@ -122,7 +123,6 @@ export function toInventoryProduct(product: ProductRecord, slug: string): Invent
     ...(product.soldAt ? { soldAt: product.soldAt } : {}),
     ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {}),
     ...(product.concept ? { concept: true } : {}),
-    ...(product.grade != null ? { grade: product.grade } : {}),
     ...(product.cardmarketUrl ? { cardmarketUrl: product.cardmarketUrl } : {}),
     ...(product.reverseHolo ? { reverseHolo: true } : {}),
     ...(product.firstEdition ? { firstEdition: true } : {})

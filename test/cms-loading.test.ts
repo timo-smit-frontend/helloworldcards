@@ -27,6 +27,7 @@ function payload(overrides: Partial<PublicCmsPayload> = {}): PublicCmsPayload {
       blocks: []
     },
     product: null,
+    soldProduct: null,
     similarProductIds: [],
     products: [],
     events: [],

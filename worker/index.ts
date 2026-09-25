@@ -4,7 +4,7 @@ import { applyAdminRobots, injectCmsPayload } from './cms/html'
 import { json } from './cms/http'
 import { handleMediaPublic } from './cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from './cms/public-api'
-import { buildPublicPayload } from './cms/public'
+import { buildPublicPayload, publicPageStatus } from './cms/public'
 import { isDashboardApiPath, isDashboardPath, type DashboardRuntime } from './dashboard-api'
 import { APEX_HOST, isAdminHost, isLocalHost, publicDashboardRedirect } from './hosts'
 import { isHtmlResponse, shouldServeSpaFallback } from './spa'
@@ -241,7 +241,7 @@ export default {
       if (publicDb) {
         const payload = await buildPublicPayload(publicDb, pathname)
         const html = injectCmsPayload(shell, payload, { path: pathname })
-        return withSecurityHeaders(htmlResponse(html, payload.notFound ? 404 : 200, request.method))
+        return withSecurityHeaders(htmlResponse(html, publicPageStatus(payload), request.method))
       }
 
       return withSecurityHeaders(htmlResponse(shell, 200, request.method))

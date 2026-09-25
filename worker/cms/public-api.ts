@@ -2,7 +2,7 @@ import { upcomingEvents } from '../../app/database/events'
 import { isShopListed, toPublicProduct } from '../../app/database/products'
 import type { CmsEvent, CmsFaq } from '../../app/cms/types'
 import { buildLlmsDocument } from '../../app/seo/llms'
-import { SITE_NAME, canonicalUrl } from '../../app/seo/site'
+import { SITE_NAME, canonicalUrl, toAbsoluteUrl } from '../../app/seo/site'
 import type { DashboardEnv, DashboardRuntime } from '../dashboard-api'
 import { batchAll, rowToInventory, rowToPage, rowToSettings, SQL, type CmsDb, type PageRow, type ProductRow, type SettingsRow } from './db'
 import { json, normalizeApiPath } from './http'
@@ -63,6 +63,10 @@ async function readSiteIndex(db: CmsDb) {
   }
 }
 
+function escapeXml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+}
+
 export async function handleSitemap(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response | null> {
   const path = normalizeApiPath(new URL(request.url).pathname)
   if (path !== '/sitemap.xml' || request.method !== 'GET') {
@@ -75,11 +79,23 @@ export async function handleSitemap(request: Request, env: DashboardEnv, runtime
   }
 
   const { pages, products } = await readSiteIndex(db)
-  const urls = [...pages.map((page) => canonicalUrl(page.path)), ...products.map((product) => canonicalUrl(`/products/${product.slug}`))]
+  // Product photos ride along for Google Images, where a slab photo is often how a card is found.
+  const entries = [
+    ...pages.map((page) => ({ loc: canonicalUrl(page.path), images: [] as string[] })),
+    ...products.map((product) => ({ loc: canonicalUrl(`/products/${product.slug}`), images: product.images.map(toAbsoluteUrl) }))
+  ]
+  const urls = entries.map(({ loc, images }) =>
+    [
+      '  <url>',
+      `    <loc>${escapeXml(loc)}</loc>`,
+      ...images.map((image) => `    <image:image>\n      <image:loc>${escapeXml(image)}</image:loc>\n    </image:image>`),
+      '  </url>'
+    ].join('\n')
+  )
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((loc) => `  <url>\n    <loc>${loc}</loc>\n  </url>`).join('\n')}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${urls.join('\n')}
 </urlset>
 `
 

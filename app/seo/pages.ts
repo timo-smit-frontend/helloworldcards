@@ -1,7 +1,17 @@
 import { SITE_IMAGE_ALT } from '../services/imageCopy'
 import { PRIORITY_IMAGE_SIZES } from '../services/responsiveImage'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
-import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_OWNER, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
+import {
+  SITE_DESCRIPTION,
+  SITE_IMAGE,
+  SITE_LOGO,
+  SITE_NAME,
+  SITE_OWNER,
+  SITE_URL,
+  canonicalUrl,
+  normalizePath,
+  toAbsoluteUrl
+} from './site'
 
 type LcpImage = {
   src: string
@@ -54,13 +64,15 @@ function organizationNode(identity: SeoIdentity = {}): Record<string, unknown> {
   const instagramUrl = identity.instagramUrl ?? INSTAGRAM_URL
   const marktplaatsUrl = identity.marktplaatsUrl ?? MARKTPLAATS_URL
 
+  // An online shop with no walk-in storefront: schema.org's `Store` is a physical shop.
   return {
-    '@type': 'Store',
+    '@type': 'OnlineStore',
     '@id': ORGANIZATION_ID,
     name: siteName,
     description: siteDescription,
     url: SITE_URL,
     email: contactEmail,
+    logo: toAbsoluteUrl(SITE_LOGO),
     image: toAbsoluteUrl(siteImage),
     sameAs: [instagramUrl, marktplaatsUrl],
     founder: { '@type': 'Person', name: SITE_OWNER, jobTitle: 'Owner' },

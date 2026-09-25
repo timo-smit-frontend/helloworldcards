@@ -7,7 +7,7 @@ const SEO_END = '<!--app-seo-end-->'
 const LCP_START = '<!--app-lcp-start-->'
 const LCP_END = '<!--app-lcp-end-->'
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 

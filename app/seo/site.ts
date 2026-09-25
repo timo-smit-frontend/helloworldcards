@@ -6,6 +6,7 @@ export const SITE_DESCRIPTION =
 /** Hello World Cards is a one-person business: the owner is its only founder in structured data. */
 export const SITE_OWNER = 'Timo'
 export const SITE_IMAGE = '/media/hero.jpg'
+export const SITE_LOGO = '/media/logo.png'
 
 export function normalizePath(pathname: string): string {
   const path = pathname.split('?')[0]?.split('#')[0] ?? '/'

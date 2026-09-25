@@ -306,8 +306,9 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     path: '/products',
     status: 'published',
     title: 'Shop',
-    seoTitle: `Shop | ${SITE_NAME}`,
-    seoDescription: 'Browse graded Pokémon cards, also listed on Marktplaats and Vinted. The same stock in all three places.',
+    seoTitle: `Graded Pokémon cards for sale | ${SITE_NAME}`,
+    seoDescription:
+      'PSA and BGS graded Pokémon cards for sale, in English and Japanese. Every card is also listed on Marktplaats and Vinted: the same stock in all three places.',
     seoImage: SITE_IMAGE,
     blocks: productsBlocks
   },

@@ -5,7 +5,8 @@ import {
   type CmsEvent,
   type CmsPage,
   type CmsSettings,
-  type PublicCmsPayload
+  type PublicCmsPayload,
+  type PublicSoldProduct
 } from '../../app/cms/types'
 import type { CmsFaq, CmsNavItem } from '../../app/cms/types'
 import { normalizePagePath } from '../hosts'
@@ -59,6 +60,20 @@ function similarIds(inventory: InventoryProduct[], excludeId: number, count = FE
 
 const PRODUCT_PATH = /^\/products\/([^/]+)$/
 
+/** What a sold card's old address shows. The price on a sold record is what it sold for, so it stays on the books only. */
+function toSoldProduct(item: InventoryProduct): PublicSoldProduct {
+  return {
+    id: item.id,
+    title: item.title,
+    subtitle: item.subtitle,
+    slug: item.slug,
+    images: item.images,
+    ...(item.pokemonId != null ? { pokemonId: item.pokemonId } : {}),
+    ...(item.grader ? { grader: item.grader } : {}),
+    ...(item.grade != null ? { grade: item.grade } : {})
+  }
+}
+
 type PublicRows = {
   settings: CmsSettings | null
   nav: CmsNavItem[]
@@ -101,6 +116,15 @@ async function readPublicRows(db: CmsDb, path: string, slug: string | undefined)
   }
 }
 
+/**
+ * A sold card's address answers 410 Gone: search engines drop it sooner than a 404, and
+ * the page itself still shows a visitor with an old link the cards that are for sale.
+ */
+export function publicPageStatus(payload: Pick<PublicCmsPayload, 'notFound' | 'soldProduct'>): number {
+  if (payload.soldProduct) return 410
+  return payload.notFound ? 404 : 200
+}
+
 export async function buildPublicPayload(db: CmsDb, pathname: string): Promise<PublicCmsPayload> {
   const path = normalizePagePath(pathname)
   const slug = path.match(PRODUCT_PATH)?.[1]
@@ -128,14 +152,18 @@ export async function buildPublicPayload(db: CmsDb, pathname: string): Promise<P
     mediaCopy,
     similarProductIds: [] as number[],
     product: null as PublicCmsPayload['product'],
+    soldProduct: null as PublicSoldProduct | null,
     page: null as CmsPage | null,
     notFound: false
   }
 
   if (slug) {
     const item = rows.product
-    if (!item || !isShopListed(item)) {
+    if (!item) {
       return { ...payload, notFound: true }
+    }
+    if (!isShopListed(item)) {
+      return { ...payload, soldProduct: toSoldProduct(item), similarProductIds: similarIds(inventory, item.id) }
     }
     return {
       ...payload,

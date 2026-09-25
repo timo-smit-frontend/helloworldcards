@@ -32,7 +32,8 @@ describe('product inventory', () => {
       [19, 'Vaporeon', '2022 Brilliant Stars - #TG02', 'vaporeon-2022-brilliant-stars-tg02'],
       [20, 'Pachirisu', '2023 Scarlet & Violet - #208', 'pachirisu-2023-scarlet-violet-208'],
       [21, 'Marill', '2026 Ascended Heroes - #232', 'marill-2026-ascended-heroes-232'],
-      [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093']
+      [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093'],
+      [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55']
     ])
   })
 
@@ -58,7 +59,6 @@ describe('product inventory', () => {
           !('soldAt' in product) &&
           !('acquiredAt' in product) &&
           !('concept' in product) &&
-          !('grade' in product) &&
           !('cardmarketUrl' in product) &&
           !('reverseHolo' in product) &&
           !('firstEdition' in product)
