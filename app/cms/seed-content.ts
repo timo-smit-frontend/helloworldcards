@@ -33,55 +33,54 @@ export const seedFaqs: Array<Omit<CmsFaq, 'id'> & { id: number }> = [
     id: 1,
     question: 'What is Hello World Cards?',
     answer:
-      'A small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats, the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. There is no walk-in storefront.'
+      "A small Pokémon card shop. I'm Timo, and I list every card here, on Marktplaats and on Vinted: the same stock in all three places. There is no walk-in storefront."
   },
   {
     id: 2,
     question: 'Who runs Hello World Cards?',
     answer:
-      'Sam and Timo, a couple of programmers who collect Pokémon. Sam is a backend developer who collects Wooper and Quagsire and paints the binders. Timo is a frontend developer who chases Gengar and Ralts. The name Hello World is the programmer joke.'
+      "I do. I'm Timo, a frontend developer who collects Pokémon and chases Gengar and Ralts. My partner Sam shares the hobby, collects Wooper and Quagsire, and comes along to events."
   },
   {
     id: 3,
     question: 'Why is it called Hello World Cards?',
     answer:
-      'Because we both write software. Sam does backend, Timo does frontend. Hello World is the first thing you print when you learn to code, so it felt like the right name for a shop that is still a hobby at heart.'
+      'Because I write software for a living. Hello World is the first thing you print when you learn to code, so it felt like the right name for a shop that is still a hobby at heart.'
   },
   {
     id: 4,
     question: 'Do you have a physical shop?',
     answer:
-      'No walk-in storefront. We sell cards online and on Marktplaats, and in person when we have a stall at Pokémon events in the Netherlands and Belgium.'
+      'No walk-in storefront. I sell cards here, on Marktplaats and on Vinted, and in person when I have a stall at a Pokémon event in the Netherlands or Belgium.'
   },
   {
     id: 5,
     question: 'What do you sell?',
     answer:
-      'Pokémon cards, including graded cards. They are listed here and on Marktplaats. Sam also makes custom handpainted binders. We display those on the site so you can see them, and we sell them in person at events.'
+      'Graded Pokémon cards. Every card is listed here, on Marktplaats and on Vinted, and I bring them along when I have a stall at an event.'
   },
   {
     id: 6,
     question: 'How do I buy a card?',
     answer:
-      'Browse the shop on this site. If a product has a View on Marktplaats button, that is the listing and you buy it there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying those cards.'
+      'Browse the shop on this site. If a card has a View on Marktplaats button, that is the listing and you buy it there. Every card is on Vinted too, if you would rather buy there. If the button says it is not yet available to buy, the card is on the site but not for sale yet. Email and the contact form are for questions, not for buying.'
   },
   {
     id: 7,
-    question: 'Can I buy a binder on the website?',
+    question: 'What does it mean when a card says Sold?',
     answer:
-      'You can look at them here, but we do not sell binders through the site. Sam paints them as one-off pieces. Come to an event if you want to buy one.'
+      'The card has found a buyer and is on its way to its new owner, so it can no longer be bought. It stays on the site for a little while before it leaves the shop.'
   },
   {
     id: 8,
     question: 'How can I get in touch?',
     answer:
-      'Use the form on this page, email us, Instagram @helloworldcards, or our Marktplaats page. Email is the one that always works, for cards, events, binders at a stall, or anything else.'
+      'Use the form on this page, email me, or find me on Instagram @helloworldcards or my Marktplaats page. Email is the one that always works, for a card, an event, or anything else.'
   },
   {
     id: 9,
     question: 'Where can I meet you in person?',
-    answer:
-      "When we have a stall at a Pokémon event. Those dates go on the agenda. We do not have a next event planned yet. We bring cards from the shop and Sam's handpainted binders."
+    answer: 'At a Pokémon event, when I have a stall. Those dates go on the agenda. I bring cards from the shop, and Sam comes along too.'
   }
 ]
 
@@ -89,40 +88,43 @@ function block<T extends CmsBlock>(block: T): T {
   return block
 }
 
+const CONTACT_CTA = 'Questions about a card, an event, or anything else? Send me a message.'
+
 const homeBlocks: CmsBlock[] = [
   block({
     id: 'home-banner',
     type: 'banner_figcaption',
     title: 'Hello World Cards',
-    srTitle: 'Hello World Cards: Pokémon cards, custom binders, and events',
-    description: 'Welcome. We sell Pokémon cards and custom handpainted binders. Have a look around, and let us know if you need anything.',
+    srTitle: 'Hello World Cards: graded Pokémon cards and events',
+    description:
+      'Welcome. I sell graded Pokémon cards, here and on Marktplaats and Vinted. Have a look around, and let me know if you need anything.',
     image: '/media/hero.jpg',
-    link: { url: '/products/', title: 'Have a look around' },
-    figcaption: 'This is our little corner of the world'
+    link: { url: '/products/', title: 'See the cards' },
+    figcaption: 'This is my little corner of the world'
   }),
   block({
     id: 'home-hello',
     type: 'content_text',
     title: '<Hello world />',
-    srTitle: 'Sam and Timo, the programmers behind Hello World Cards',
+    srTitle: 'Timo, the programmer behind Hello World Cards',
     description:
-      "We're Sam and Timo, a couple of programmers who never quite grew out of Pokémon. Sam works on the backend, Timo on the frontend, which is why the shop is called Hello World.",
+      "I'm Timo, a frontend developer who never quite grew out of Pokémon. Hello World is the first thing you print when you learn to code, so that's what the shop is called. My partner Sam, the Wooper fan, shares the hobby and comes along to events.",
     image: '/media/wooper.png',
-    link: { url: '/about/', title: 'Learn more about us' }
+    link: { url: '/about/', title: 'More about the shop' }
   }),
   block({
     id: 'home-products',
     type: 'content_products',
-    title: 'Our newest products',
-    description: 'A few cards from the shop. What you see here is the same stock we list on Marktplaats.',
+    title: 'Cards from the shop',
+    description: 'A few of the cards in stock right now. Every one is also listed on Marktplaats and Vinted.',
     random: true
   }),
   block({
     id: 'home-stall',
     type: 'content_text',
-    title: 'Cards in the shop, binders at the stall',
+    title: 'Cards online, a stall at events',
     description:
-      'We list Pokémon cards here and on Marktplaats. Sam paints custom binders that we show on the site as well. You can look at them here, but we only sell them in person at events.',
+      'Every card is listed here, on Marktplaats and on Vinted. When I have a stall at a Pokémon event, the cards come along, and so does Sam. Come say hi.',
     image: '/media/wooper.png',
     link: { url: '/agenda/', title: 'See upcoming events' }
   }),
@@ -130,7 +132,7 @@ const homeBlocks: CmsBlock[] = [
     id: 'home-cta',
     type: 'content_cta',
     title: 'Want to get in touch?',
-    description: 'Questions about a card, an event, a binder at a stall, or anything else? Send us an email. We read everything.',
+    description: 'Questions about a card, an event, or anything else? Send me an email. I read everything.',
     image: '/media/hero.jpg',
     link: {
       url: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Question from Hello World Cards')}`,
@@ -143,9 +145,9 @@ const aboutBlocks: CmsBlock[] = [
   block({
     id: 'about-banner',
     type: 'banner_figcaption',
-    title: "Hello, we're Hello World Cards",
+    title: 'Hello from Hello World Cards',
     description:
-      "We're a couple who turned a Pokémon hobby into this little shop. You'll find cards online, the events we're heading to, and a stall when we're out.",
+      "I'm Timo, and this little shop is what my Pokémon hobby turned into. You'll find cards online, the events I'm heading to, and a stall when Sam and I are out.",
     image: SITE_IMAGE,
     figcaption: 'This is us in our natural habitat.'
   }),
@@ -154,29 +156,29 @@ const aboutBlocks: CmsBlock[] = [
     type: 'content_about',
     title: 'A hobby that turned into a little shop',
     description:
-      "Hello World Cards is us: Sam and Timo. We never quite grew out of Pokémon, and we both write software, which is why the shop is called Hello World. We list cards here and on Marktplaats, and we write up the events we're heading to.",
+      "I never quite grew out of Pokémon, and I write software for a living, which is why the shop is called Hello World Cards. I list every card here, on Marktplaats and on Vinted, and put the events I'm heading to on the agenda. My partner Sam shares the hobby and comes along to those events.",
     peopleCaption: 'Two nerds who never quite outgrew Pokémon.',
     people: [
-      {
-        name: 'Sam',
-        pokemonIds: [194, 195, 143, 151, 54, 79],
-        description:
-          'Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Snorlax too: same sleepy energy as Sam. Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam also paints the binders we bring to events.'
-      },
       {
         name: 'Timo',
         pokemonIds: [94, 280, 186, 330, 285, 150],
         description:
-          'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs are a forever chase. Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should. A Gengar or Ralts full art almost never gets walked past at a table. Timo also builds this shop, from the listings to the site itself.'
+          'Frontend developer who has been after Gengar and Ralts for years. Ghosts, psychics, and a few odd frogs are a forever chase. Mewtwo still stops a scroll, Shroomish is an easy yes, and Flygon and Politoed are the ones that make an event stall last a little longer than it should. A Gengar or Ralts full art almost never gets walked past at a table. Timo runs the shop, from the listings to the site itself.'
+      },
+      {
+        name: 'Sam',
+        pokemonIds: [194, 195, 143, 151, 54, 79],
+        description:
+          "Backend developer, and a die-hard Wooper and Quagsire collector. The muddy, dopey Water-types are a forever chase. Psyduck and Slowpoke live in the same pile, Snorlax too: same sleepy energy as Sam. Mew shows up whenever the art is too pretty to skip, and cute or pretty full arts almost never get walked past at a table. Sam is Timo's partner, and comes along to events mostly to find the next Wooper."
       }
     ]
   }),
   block({
     id: 'about-stall',
     type: 'content_text',
-    title: 'What we bring to a stall',
+    title: 'What I bring to a stall',
     description:
-      "We bring cards from the shop, and Sam's custom handpainted binders. The binders are on the site so you can see them. We only sell them in person at the next event.",
+      "Cards from the shop, the same ones you'll find here, on Marktplaats and on Vinted, so you can browse before you come. Sam comes along too, so there's always someone to talk Pokémon with.",
     image: '/media/wooper.png',
     link: { url: '/agenda/', title: 'See upcoming events' }
   }),
@@ -189,7 +191,7 @@ const aboutBlocks: CmsBlock[] = [
     id: 'about-cta',
     type: 'content_cta',
     title: 'Want to get in touch?',
-    description: 'Questions about a card, an event, a binder at a stall, or anything else? Send us a message.',
+    description: CONTACT_CTA,
     image: SITE_IMAGE,
     link: { url: '/contact/', title: 'Get in touch' }
   })
@@ -201,22 +203,22 @@ const agendaBlocks: CmsBlock[] = [
     type: 'content_agenda',
     title: 'Upcoming Pokémon events',
     description:
-      "When we have a stall at a Pokémon event, the date and place will be here. Come say hi, browse the cards, and have a look at Sam's handpainted binders."
+      'When I have a stall at a Pokémon event, the date and place will be here. Come say hi, browse the cards, and talk Pokémon with Sam and me.'
   }),
   block({
     id: 'agenda-stall',
     type: 'content_text',
     title: "What you'll find at the stall",
     description:
-      "We bring cards from the shop and Sam's custom handpainted binders. You can look at the binders on this site, but we only sell them in person. Cards are listed here and on Marktplaats if you want to browse before you come. If you have a question before an event, email is always fine.",
+      'Cards from the shop. They are listed here, on Marktplaats and on Vinted, so you can browse before you come. If you have a question before an event, email is always fine.',
     image: '/media/wooper.png',
-    link: { url: '/products/', title: 'See our products' }
+    link: { url: '/products/', title: 'See the cards' }
   }),
   block({
     id: 'agenda-cta',
     type: 'content_cta',
     title: 'Want to get in touch?',
-    description: 'Questions about a card, an event, a binder at a stall, or anything else? Send us a message.',
+    description: CONTACT_CTA,
     image: SITE_IMAGE,
     link: { url: '/contact/', title: 'Get in touch' }
   })
@@ -226,16 +228,15 @@ const productsBlocks: CmsBlock[] = [
   block({
     id: 'products-grid',
     type: 'content_products',
-    title: 'All the products we currently have in stock',
+    title: 'All the cards in the shop',
     description:
-      'Pokémon cards we have right now. They are listed here and on Marktplaats, so you can browse on the site and buy through the listing when one is up.'
+      'Graded Pokémon cards I have right now. Each one is also listed on Marktplaats and Vinted, so browse here and buy through the listing when one is up.'
   }),
   block({
     id: 'products-cta',
     type: 'content_cta',
-    title: 'Looking for a binder?',
-    description:
-      "Sam's handpainted binders are on the site so you can see them, but they are not for sale here. They are one-off pieces we sell in person at events.",
+    title: 'Want to see a card in person?',
+    description: 'Come by the stall at a Pokémon event. I bring cards from the shop, and Sam comes along too.',
     image: SITE_IMAGE,
     link: { url: '/agenda/', title: 'See upcoming events' }
   })
@@ -245,9 +246,9 @@ const contactBlocks: CmsBlock[] = [
   block({
     id: 'contact-form',
     type: 'form_contact',
-    title: 'Get in touch with us',
+    title: 'Get in touch',
     description:
-      'Questions about a card, an event, a binder at a stall, or anything else? Send us a message. Email is always fine, even if a card is also on Marktplaats.'
+      'Questions about a card, an event, or anything else? Send me a message. Email is always fine, even if a card is also on Marktplaats or Vinted.'
   }),
   block({
     id: 'contact-faq',
@@ -261,27 +262,27 @@ const privacyBlocks: CmsBlock[] = [
     id: 'privacy-text',
     type: 'content_text',
     heading: 'h1',
-    title: 'Our privacy statement',
+    title: 'Privacy statement',
     description:
-      'Hello World Cards is a small Pokémon shop run by Sam and Timo. We are not a company. This page says what happens when you visit the site or send us a message, including the contact form.',
+      'Hello World Cards is a small Pokémon card shop run by Timo. This page says what happens when you visit the site or send me a message, including through the contact form.',
     image: '/media/wooper.png',
-    updated: '17 August 2026',
+    updated: '25 September 2026',
     sections: [
       {
-        title: 'Who we are',
-        body: `Hello World Cards is Sam and Timo. We list Pokémon cards here and on Marktplaats, and we write about events we go to. You can reach us at [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).`
+        title: 'Who I am',
+        body: `I'm Timo, and I run Hello World Cards. I list Pokémon cards here, on Marktplaats and on Vinted, and put the events I go to on the agenda. You can reach me at [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).`
       },
       {
-        title: 'Messages you send us',
-        body: 'If you use the contact form or email us, we receive your name, email address, and message so we can reply. We do not sell that information or use it for ads. If you want a message deleted, email us and we will remove it.'
+        title: 'Messages you send me',
+        body: 'If you use the contact form or email me, I receive your name, email address, and message so I can reply. I do not sell that information or use it for ads. If you want a message deleted, email me and I will remove it.'
       },
       {
         title: 'Google Tag Manager',
-        body: "We use Google Tag Manager to add measurement tools to the site. It may set cookies and load other Google tags. See [Google's privacy policy](https://policies.google.com/privacy)."
+        body: "I use Google Tag Manager to add measurement tools to the site. It may set cookies and load other Google tags. See [Google's privacy policy](https://policies.google.com/privacy)."
       },
       {
         title: 'Microsoft Clarity',
-        body: "We use Microsoft Clarity to see how people move around the shop. Clarity uses cookies. See [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) and [Clarity's terms](https://clarity.microsoft.com/terms)."
+        body: "I use Microsoft Clarity to see how people move around the shop. Clarity uses cookies. See [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) and [Clarity's terms](https://clarity.microsoft.com/terms)."
       },
       {
         title: 'Cookies',
@@ -296,7 +297,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     path: '/',
     status: 'published',
     title: 'Home',
-    seoTitle: `${SITE_NAME} | Pokémon cards and events`,
+    seoTitle: `${SITE_NAME} | Graded Pokémon cards and events`,
     seoDescription: SITE_DESCRIPTION,
     seoImage: SITE_IMAGE,
     blocks: homeBlocks
@@ -306,7 +307,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'Shop',
     seoTitle: `Shop | ${SITE_NAME}`,
-    seoDescription: 'Browse Pokémon cards listed here and on Marktplaats. The same stock in both places.',
+    seoDescription: 'Browse graded Pokémon cards, also listed on Marktplaats and Vinted. The same stock in all three places.',
     seoImage: SITE_IMAGE,
     blocks: productsBlocks
   },
@@ -315,7 +316,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'Agenda',
     seoTitle: `Upcoming events | ${SITE_NAME}`,
-    seoDescription: 'When we have a stall at a Pokémon event in the Netherlands or Belgium, the date and place will be here.',
+    seoDescription: 'When I have a stall at a Pokémon event in the Netherlands or Belgium, the date and place will be here.',
     seoImage: SITE_IMAGE,
     blocks: agendaBlocks
   },
@@ -324,8 +325,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'About',
     seoTitle: `About | ${SITE_NAME}`,
-    seoDescription:
-      "We're Sam and Timo, a couple of programmers who turned a Pokémon hobby into Hello World Cards. Cards for sale online, binders shown here and sold at events.",
+    seoDescription: 'Meet Timo, the frontend developer who runs Hello World Cards, and Sam, the Wooper fan who comes along to events.',
     seoImage: SITE_IMAGE,
     blocks: aboutBlocks
   },
@@ -334,7 +334,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'Contact',
     seoTitle: `Contact | ${SITE_NAME}`,
-    seoDescription: 'Questions about a card, an event, a binder at a stall, or anything else? Send us a message.',
+    seoDescription: CONTACT_CTA,
     seoImage: SITE_IMAGE,
     blocks: contactBlocks
   },
@@ -343,8 +343,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'Privacy',
     seoTitle: `Privacy statement | ${SITE_NAME}`,
-    seoDescription:
-      'How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Sam and Timo a message.',
+    seoDescription: 'How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Timo a message.',
     seoImage: SITE_IMAGE,
     blocks: privacyBlocks
   }

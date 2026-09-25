@@ -2,7 +2,9 @@ export const SITE_URL = 'https://helloworldcards.com'
 export const SITE_NAME = 'Hello World Cards'
 export const SITE_LOCALE = 'en_GB'
 export const SITE_DESCRIPTION =
-  'Pokémon cards from Sam and Timo, listed here and on Marktplaats. Sam paints custom binders that we show on the site and sell at events.'
+  "Graded Pokémon cards from Timo's little shop, listed here and on Marktplaats and Vinted, and brought along to Pokémon events in the Netherlands and Belgium."
+/** Hello World Cards is a one-person business: the owner is its only founder in structured data. */
+export const SITE_OWNER = 'Timo'
 export const SITE_IMAGE = '/media/hero.jpg'
 
 export function normalizePath(pathname: string): string {

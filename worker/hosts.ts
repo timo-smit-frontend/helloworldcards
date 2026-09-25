@@ -26,8 +26,23 @@ export function isPrivateNetworkHost(hostname: string): boolean {
   return false
 }
 
+/**
+ * The dev server as the phone reaches it: this computer's address on its Tailscale
+ * network (`vite/phone-access.ts`). The live site never sees one — Cloudflare only
+ * hands the worker requests for the shop's own domains.
+ */
+export function isTailnetHost(hostname: string): boolean {
+  return hostname.endsWith('.ts.net')
+}
+
 export function isLocalHost(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || isPrivateNetworkHost(hostname)
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    isPrivateNetworkHost(hostname) ||
+    isTailnetHost(hostname)
+  )
 }
 
 export function isAdminHost(hostname: string): boolean {

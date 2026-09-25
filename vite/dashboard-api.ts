@@ -7,7 +7,9 @@ import { handleAdminRequest } from '../worker/cms/admin-api'
 import { assertSyncToolsInstalled, autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
 import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
-import type { DashboardRuntime } from '../worker/dashboard-api'
+import { requireAdminSession, type DashboardRuntime } from '../worker/dashboard-api'
+import { createSessionToken, SESSION_COOKIE } from '../worker/session'
+import type { RelistAnswer } from '../app/admin/relist-queue'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
 import {
   closeScanBrowser,
@@ -20,6 +22,8 @@ import {
 } from './cardmarket-browser'
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import { bucketMediaSource } from './media-sync'
+import { keepMacAwake, phoneAccessEnabled, tailnetSessionCookie } from './phone-access'
+import { createRelistBatch, handleRelistBatchRequest, type RelistBatch } from './relist-batch'
 import { createVintedRelistService } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
@@ -336,6 +340,152 @@ function closeScanBrowserWhenIdle() {
   idleClose.unref()
 }
 
+/**
+ * Answer one request to the CMS, the dashboard or a scan, and hand the response to
+ * `deliver` before the scan window is tidied up. False when nothing here answers it.
+ */
+async function respond(
+  root: string,
+  request: Request,
+  env: ReturnType<typeof loadDashboardEnv>,
+  deliver: (response: Response) => Promise<void>
+): Promise<boolean> {
+  const url = new URL(request.url).pathname
+  const cms = await viteCmsRuntime()
+  const sync = await cmsAutoSync(root)
+  const secrets = loadScanSecrets(root)
+  const runtime: DashboardRuntime = {
+    db: cms.db,
+    media: cms.media,
+    ...(sync ? { cmsSync: sync } : {}),
+    cardmarketStore: fileCardmarketStore(root),
+    dealFinderStore: fileDealFinderStore(root),
+    readSlabs: createSlabReader({ root }),
+    pacer: scanPacer,
+    ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
+  }
+
+  let browser: CardmarketFetcher | null = null
+  let scanBrowserError: string | undefined
+  // The deal finder scan is one route per marketplace as well as a combined one,
+  // and every one of them drives a tab of the Chrome window.
+  const needsBrowser =
+    (url === '/dashboard/cardmarket/scan' ||
+      url === '/api/admin/cardmarket/scan' ||
+      url.startsWith('/dashboard/deal-finder/scan') ||
+      url.startsWith('/api/admin/deal-finder/scan')) &&
+    request.method === 'POST'
+  if (needsBrowser) {
+    try {
+      browser = await (await getScanBrowser(root)).openTab()
+      scansInFlight += 1
+    } catch (error) {
+      browser = null
+      scanBrowserError = error instanceof Error ? error.message : 'Could not start Chrome for scanning.'
+      console.error('[dashboard-api]', scanBrowserError)
+    }
+  }
+
+  // A relist drives Vinted's own pages in a tab of the window that it opens for
+  // itself, once, and keeps between requests — so the window is only counted here.
+  const needsRelist = url.startsWith('/dashboard/vinted-relist') || url.startsWith('/api/admin/vinted-relist')
+  if (needsRelist) {
+    scansInFlight += 1
+  }
+
+  try {
+    const withBrowser = {
+      ...runtime,
+      ...(browser ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews } : {}),
+      ...(needsRelist
+        ? {
+            vintedRelist: createVintedRelistService({
+              root,
+              openPage: async () => (await getScanBrowser(root)).openPage(),
+              // A slab photo uploaded through the admin is in the local bucket and,
+              // once a sync has run, in its cache of uploads; the seed files come first.
+              readMedia: firstMediaSource(
+                seedMediaSource(root),
+                cms.media ? bucketMediaSource(cms.media) : undefined,
+                cachedMediaSource(root)
+              )
+            })
+          }
+        : {}),
+      ...(scanBrowserError ? { scanBrowserError } : {})
+    }
+
+    const response =
+      (await handleAdminRequest(request, env, withBrowser)) ??
+      (await handlePublicApi(request, env, withBrowser)) ??
+      (await handleMediaPublic(request, env, withBrowser)) ??
+      (await handleSitemap(request, env, withBrowser)) ??
+      (await handleLlms(request, env, withBrowser))
+
+    if (!response) {
+      return false
+    }
+
+    await deliver(response)
+    if (changesCms(url, request.method, response.status)) {
+      sync?.noteWrite()
+    }
+    return true
+  } finally {
+    if (browser) {
+      await browser.close()
+    }
+    if (browser || needsRelist) {
+      scansInFlight -= 1
+      // Closing the window also closes the relist tab — unless the window is being
+      // held open for someone to log in to Vinted, in which case both stay.
+      if (scansInFlight === 0) {
+        await closeScanBrowser()
+        await closeSlabReader()
+        closeScanBrowserWhenIdle()
+      }
+    }
+  }
+}
+
+/**
+ * One listing of a batch, relisted the way the relist button's request is — with the
+ * sold check, the database brought in step first, and the new listing written back —
+ * but asked for by the dev server itself, under the dashboard login it holds.
+ */
+async function relistForBatch(root: string, itemId: string): Promise<RelistAnswer> {
+  const env = loadDashboardEnv(root)
+  if (!env.DASHBOARD_USERNAME || !env.DASHBOARD_SESSION_SECRET) {
+    return { ok: false, status: 503, error: 'Sign in is not available, so the dev server cannot relist.' }
+  }
+  const token = await createSessionToken(env.DASHBOARD_SESSION_SECRET, env.DASHBOARD_USERNAME)
+  const request = new Request(`http://127.0.0.1/api/admin/vinted-relist/${itemId}`, {
+    method: 'POST',
+    headers: { cookie: `${SESSION_COOKIE}=${token}` }
+  })
+  try {
+    let answer: RelistAnswer = { ok: false, status: 404, error: 'The dev server has no relist route.' }
+    await respond(root, request, env, async (response) => {
+      const data = (await response.json().catch(() => null)) as { report?: unknown; error?: string } | null
+      answer =
+        response.ok && data?.report
+          ? { ok: true }
+          : { ok: false, status: response.status, error: data?.error ?? 'The relist failed. Check the Chrome window.' }
+    })
+    return answer
+  } catch (error) {
+    return { ok: false, status: null, error: error instanceof Error ? error.message : 'The relist failed.' }
+  }
+}
+
+/** One batch for the whole dev server, whichever admin — phone or laptop — asked for it. */
+let relistBatch: RelistBatch | null = null
+
+function relistBatchFor(root: string): RelistBatch {
+  relistBatch ??= createRelistBatch({ send: (itemId) => relistForBatch(root, itemId), keepAwake: keepMacAwake })
+  return relistBatch
+}
+
 function cmsApiMiddleware(root: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
     try {
@@ -345,104 +495,24 @@ function cmsApiMiddleware(root: string) {
         return
       }
 
+      const env = loadDashboardEnv(root)
+      // The phone, through Tailscale, goes straight in.
+      const tailnetCookie = phoneAccessEnabled() ? await tailnetSessionCookie(req.headers, env) : null
+      if (tailnetCookie) {
+        req.headers.cookie = tailnetCookie
+      }
       const request = await toFetchRequest(req)
-      const cms = await viteCmsRuntime()
-      const sync = await cmsAutoSync(root)
-      const secrets = loadScanSecrets(root)
-      const runtime: DashboardRuntime = {
-        db: cms.db,
-        media: cms.media,
-        ...(sync ? { cmsSync: sync } : {}),
-        cardmarketStore: fileCardmarketStore(root),
-        dealFinderStore: fileDealFinderStore(root),
-        readSlabs: createSlabReader({ root }),
-        pacer: scanPacer,
-        ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
+
+      // Before `respond`, which would take asking after the batch for a relist.
+      const batch = await handleRelistBatchRequest(request, relistBatchFor(root), (signedIn) => requireAdminSession(signedIn, env))
+      if (batch) {
+        await sendFetchResponse(batch, res)
+        return
       }
 
-      let browser: CardmarketFetcher | null = null
-      let scanBrowserError: string | undefined
-      // The deal finder scan is one route per marketplace as well as a combined one,
-      // and every one of them drives a tab of the Chrome window.
-      const needsBrowser =
-        (url === '/dashboard/cardmarket/scan' ||
-          url === '/api/admin/cardmarket/scan' ||
-          url.startsWith('/dashboard/deal-finder/scan') ||
-          url.startsWith('/api/admin/deal-finder/scan')) &&
-        req.method === 'POST'
-      if (needsBrowser) {
-        try {
-          browser = await (await getScanBrowser(root)).openTab()
-          scansInFlight += 1
-        } catch (error) {
-          browser = null
-          scanBrowserError = error instanceof Error ? error.message : 'Could not start Chrome for scanning.'
-          console.error('[dashboard-api]', scanBrowserError)
-        }
-      }
-
-      // A relist drives Vinted's own pages in a tab of the window that it opens for
-      // itself, once, and keeps between requests — so the window is only counted here.
-      const needsRelist = url.startsWith('/dashboard/vinted-relist') || url.startsWith('/api/admin/vinted-relist')
-      if (needsRelist) {
-        scansInFlight += 1
-      }
-
-      try {
-        const env = loadDashboardEnv(root)
-        const withBrowser = {
-          ...runtime,
-          ...(browser
-            ? { fetchCardmarketPage: browser.fetchPage, resolveUrl: browser.resolveUrl, sellerReviews: browser.sellerReviews }
-            : {}),
-          ...(needsRelist
-            ? {
-                vintedRelist: createVintedRelistService({
-                  root,
-                  openPage: async () => (await getScanBrowser(root)).openPage(),
-                  // A slab photo uploaded through the admin is in the local bucket and,
-                  // once a sync has run, in its cache of uploads; the seed files come first.
-                  readMedia: firstMediaSource(
-                    seedMediaSource(root),
-                    cms.media ? bucketMediaSource(cms.media) : undefined,
-                    cachedMediaSource(root)
-                  )
-                })
-              }
-            : {}),
-          ...(scanBrowserError ? { scanBrowserError } : {})
-        }
-
-        const response =
-          (await handleAdminRequest(request, env, withBrowser)) ??
-          (await handlePublicApi(request, env, withBrowser)) ??
-          (await handleMediaPublic(request, env, withBrowser)) ??
-          (await handleSitemap(request, env, withBrowser)) ??
-          (await handleLlms(request, env, withBrowser))
-
-        if (!response) {
-          next()
-          return
-        }
-
-        await sendFetchResponse(response, res)
-        if (changesCms(url, req.method ?? 'GET', response.status)) {
-          sync?.noteWrite()
-        }
-      } finally {
-        if (browser) {
-          await browser.close()
-        }
-        if (browser || needsRelist) {
-          scansInFlight -= 1
-          // Closing the window also closes the relist tab — unless the window is being
-          // held open for someone to log in to Vinted, in which case both stay.
-          if (scansInFlight === 0) {
-            await closeScanBrowser()
-            await closeSlabReader()
-            closeScanBrowserWhenIdle()
-          }
-        }
+      const answered = await respond(root, request, env, (response) => sendFetchResponse(response, res))
+      if (!answered) {
+        next()
       }
     } catch (error) {
       next(error)

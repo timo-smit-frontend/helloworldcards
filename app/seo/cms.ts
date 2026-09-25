@@ -3,7 +3,7 @@ import { upcomingEvents } from '../database/events'
 import { imageAltFor } from '../services/imageCopy'
 import { PRIORITY_IMAGE_SIZES, PRODUCT_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
 import { HOME_URL, breadcrumbList, buildSeoPage, getSeoForPath, type SeoIdentity, type SeoPage } from './pages'
-import { SITE_NAME, SITE_URL, canonicalUrl } from './site'
+import { SITE_NAME, SITE_OWNER, SITE_URL, canonicalUrl } from './site'
 
 function titleWithBrand(pageTitle: string): string {
   return pageTitle.includes(SITE_NAME) ? pageTitle : `${pageTitle} | ${SITE_NAME}`
@@ -120,14 +120,14 @@ function faqPageNode(path: string, items: CmsFaq[]): Record<string, unknown> {
 function aboutPersonNodes(path: string, people: CmsPerson[]): Array<Record<string, unknown>> {
   const url = canonicalUrl(path)
 
+  // The shop is a one-person business: anyone else on the About page is there as a person, not as staff.
   return people.map((person) => ({
     '@type': 'Person',
     '@id': `${url}#${person.name.toLowerCase()}`,
     name: person.name,
-    jobTitle: 'Co-founder',
+    ...(person.name === SITE_OWNER ? { jobTitle: 'Owner', worksFor: { '@id': `${SITE_URL}/#organization` } } : {}),
     description: person.description,
-    url,
-    worksFor: { '@id': `${SITE_URL}/#organization` }
+    url
   }))
 }
 

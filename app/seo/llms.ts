@@ -1,4 +1,4 @@
-import { canonicalUrl } from './site'
+import { SITE_OWNER, canonicalUrl } from './site'
 
 type LlmsPage = {
   path: string
@@ -62,7 +62,7 @@ function introMarkdown(input: LlmsInput): string {
     `# ${input.siteName}`,
     `> ${input.siteDescription}`,
     '',
-    `${input.siteName} is a small Pokémon shop run by Sam and Timo. We list cards here and on Marktplaats (${input.marktplaatsUrl}), the same stock in both places. Sam paints custom binders that we show on the site and sell in person at events. Email ${input.contactEmail} about a card, an event, or anything else.`
+    `${input.siteName} is a small Pokémon card shop run by ${SITE_OWNER}. Every card is a graded slab, listed here, on Marktplaats (${input.marktplaatsUrl}) and on Vinted: the same stock in all three places. ${SITE_OWNER}'s partner Sam shares the hobby and comes along to events. Email ${input.contactEmail} about a card, an event, or anything else.`
   ].join('\n')
 }
 

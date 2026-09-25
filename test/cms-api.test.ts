@@ -887,7 +887,7 @@ describe('CMS API', () => {
     expect(text).toContain('## Events')
     expect(text).toContain('## Optional')
     expect(text).toContain('[Privacy statement](https://helloworldcards.com/privacy/)')
-    expect(text).toContain('Sam paints custom binders')
+    expect(text).toContain('small Pokémon card shop run by Timo')
     expect(text).not.toContain('## FAQ')
     expect(text).not.toContain('/dashboard')
   })

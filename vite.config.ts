@@ -6,6 +6,7 @@ import { applySeoHead } from './app/seo/head'
 import { getSeoForPath } from './app/seo/pages'
 import { CMS_SEED_FILES } from './vite/cms-state'
 import { dashboardApiPlugin, stripProductCostsPlugin } from './vite/dashboard-api'
+import { phoneAccessPlugin } from './vite/phone-access'
 import { responsiveImagesPlugin } from './vite/responsive-images'
 
 const FONT_START = '<!--app-font-start-->'
@@ -84,8 +85,16 @@ function seoPlugin(): Plugin {
 export default defineConfig({
   base: '/',
   server: {
-    host: true,
-    allowedHosts: true,
+    // This computer only. Listening on every network handed `.dev.vars`, the local
+    // database and the scan reports to anyone on the same Wi-Fi; the phone reaches the
+    // admin through Tailscale instead (`vite/phone-access.ts`), which passes its requests
+    // on from here. `.ts.net` is the address Tailscale gives it.
+    host: '127.0.0.1',
+    allowedHosts: ['.ts.net'],
+    fs: {
+      // Vite's own list, plus the files that hold secrets and data rather than code.
+      deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '.dev.vars', '.dev.vars.*', '**/.wrangler/**', '**/.cache/**']
+    },
     watch: {
       // The CMS auto-sync rewrites these after every admin edit. `seed-products.ts` is
       // reached from this config through the worker's seeding code, which makes it a
@@ -109,6 +118,7 @@ export default defineConfig({
     responsiveImagesPlugin(),
     stripProductCostsPlugin(),
     dashboardApiPlugin(),
+    phoneAccessPlugin(),
     seoPlugin(),
     fontPreloadPlugin()
   ],

@@ -57,6 +57,42 @@ Use a long random value for `DASHBOARD_SESSION_SECRET` (for example `openssl ran
 
 Update purchase costs on each product in `app/database/products.ts`. Those numbers are stripped from the public shop bundle; the dashboard reads them on the Worker after login.
 
+## Admin on your phone
+
+The Vinted relist, the price suggestions and the deal finder drive the Chrome window on
+this computer, so they only exist in the dev server's admin. A phone reaches that admin
+through [Tailscale](https://tailscale.com) (free for personal use): a private network
+between your own devices that works over Wi-Fi and 4G alike, with nothing opened to the
+internet.
+
+Set it up once: install Tailscale on this computer and on the phone, and sign both in to
+the same account. From then on `npm run dev` gives the dev server an HTTPS address on
+that network by itself and prints the phone link
+(`https://<this-computer>.<tailnet>.ts.net/admin/vinted-relist`). The first time,
+Tailscale asks for HTTPS to be switched on for the network; the dev log prints the page
+that does it.
+
+That link opens the admin without a sign-in. Only devices signed in to your Tailscale
+account can reach it at all, and Tailscale tells the dev server which account a request
+came from, in a header nothing outside can fake. The admin on `localhost` and on the live
+site still asks for the dashboard login.
+
+While that link is up the computer does not go to sleep, locked or not, on the charger
+or on battery (the display still turns off): a sleeping computer drops off the network,
+and the phone link with it. Lock the screen rather than closing the lid, which still
+puts it to sleep, and leave it on the charger when you will be away for long.
+`HWC_PHONE_ACCESS=0` turns all of this off.
+
+A relist batch is kept by the dev server, not by the page that asked for it: press
+"Relist all" on the phone, lock it, and the computer works through every listing on its
+own, awake until the last one is done. The relist screen shows where the batch is when
+it is opened again, on any device.
+
+The dev server itself only listens on this computer (`127.0.0.1`). It used to listen on
+every network, which handed `.dev.vars`, the local database and the scan reports to
+anyone on the same Wi-Fi; those are now refused outright, and the phone goes through
+Tailscale instead.
+
 ## CMS sync
 
 The CMS runs on the same code locally and in production, but on two separate D1 databases

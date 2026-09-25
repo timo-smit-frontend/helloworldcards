@@ -65,8 +65,8 @@ function Thumbnail({ src }: { src: string | null }) {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="flex min-w-14 flex-col items-end gap-1 text-right">
-      <p className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">{label}</p>
+    <div className="flex min-w-0 flex-col items-center gap-1 text-center sm:min-w-14 sm:items-end sm:text-right">
+      <p className="text-[0.625rem] font-semibold tracking-[0.18em] text-site-mantle uppercase sm:text-xs sm:tracking-[0.22em]">{label}</p>
       <p className={`font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`}>{value}</p>
     </div>
   )
@@ -118,11 +118,13 @@ function RelistButton({
   label,
   activity,
   disabled,
+  className = 'w-fit!',
   onClick
 }: {
   label: string
   activity: RelistActivity | null
   disabled: boolean
+  className?: string
   onClick: () => void
 }) {
   const [armed, setArmed] = useState(false)
@@ -140,7 +142,7 @@ function RelistButton({
   return (
     <button
       type="button"
-      className={`${asking ? 'button-danger' : 'button-quiet'} w-fit! gap-2 disabled:cursor-not-allowed disabled:opacity-60`}
+      className={`${asking ? 'button-danger' : 'button-quiet'} ${className} gap-2 disabled:cursor-not-allowed disabled:opacity-60`}
       aria-busy={activity === 'relisting' || activity === 'queued'}
       disabled={inert}
       onClick={() => {
@@ -182,32 +184,35 @@ function ListingRow({
 }) {
   const stale = row.ageDays != null && row.ageDays >= STALE_AFTER_DAYS
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6">
-      <Thumbnail src={row.imageUrl} />
-      <div className="min-w-0">
-        <a
-          href={row.url}
-          target="_blank"
-          rel="noreferrer"
-          className="block truncate font-semibold text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth hover:decoration-site-gray-nurse"
-        >
-          {row.title}
-        </a>
-        <ProductLink product={row.product} />
-        {row.status !== 'live' ? <p className="mt-1 text-sm text-site-foil">{STATUS_LABEL[row.status]}</p> : null}
-        {error ? <p className="mt-1 text-sm text-site-loss">{error}</p> : null}
+    <li className="flex flex-col gap-3 py-5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6 sm:py-4">
+      <div className="flex items-start gap-4 sm:contents">
+        <Thumbnail src={row.imageUrl} />
+        <div className="min-w-0 flex-1 sm:flex-none">
+          <a
+            href={row.url}
+            target="_blank"
+            rel="noreferrer"
+            className="block font-semibold leading-snug text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth hover:decoration-site-gray-nurse max-sm:line-clamp-2 sm:truncate"
+          >
+            {row.title}
+          </a>
+          <ProductLink product={row.product} />
+          {row.status !== 'live' ? <p className="mt-1 text-sm text-site-foil">{STATUS_LABEL[row.status]}</p> : null}
+          {error ? <p className="mt-1 text-sm text-site-loss">{error}</p> : null}
+        </div>
       </div>
-      <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+      <div className="grid grid-cols-4 gap-2 rounded-panel bg-site-gunmetal px-2 py-3 sm:flex sm:justify-end sm:gap-8 sm:rounded-none sm:bg-transparent sm:p-0">
         <Stat label="Age" value={formatAge(row)} tone={stale ? 'text-site-foil' : undefined} />
         <Stat label="Views" value={row.views == null ? '—' : String(row.views)} />
         <Stat label="Likes" value={row.favourites == null ? '—' : String(row.favourites)} />
         <Stat label="Price" value={formatPrice(row.price)} />
       </div>
-      <div className="col-span-2 flex justify-end sm:col-span-1">
+      <div className="flex sm:justify-end">
         <RelistButton
           label={error ? 'Retry' : 'Relist'}
           activity={activity}
           disabled={blocked || row.status !== 'live'}
+          className="max-sm:min-h-11 sm:w-fit!"
           onClick={onRelist}
         />
       </div>
@@ -240,7 +245,13 @@ function PendingRow({
         )}
       </div>
       <div className="flex justify-end">
-        <RelistButton label={item.deletedAt ? 'Retry upload' : 'Retry relist'} activity={activity} disabled={blocked} onClick={onRetry} />
+        <RelistButton
+          label={item.deletedAt ? 'Retry upload' : 'Retry relist'}
+          activity={activity}
+          disabled={blocked}
+          className="max-sm:min-h-11 sm:w-fit!"
+          onClick={onRetry}
+        />
       </div>
     </li>
   )
@@ -298,7 +309,7 @@ export default function VintedRelist({
   const relistAll = rows.filter((row) => row.status === 'live' && activityOf(row.itemId) == null).map((row) => row.itemId)
 
   return (
-    <section className="flex flex-col gap-8">
+    <section className="flex flex-col gap-6 sm:gap-8">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="flex items-center gap-3">
           <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Vinted relist</h2>
@@ -327,7 +338,7 @@ export default function VintedRelist({
         )}
       </div>
 
-      <p className="content-m text-site-mantle">
+      <p className="content-m text-site-mantle max-sm:text-sm">
         Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up as
         new again. Views and likes start from zero.{' '}
         {RELIST_TABS === 1

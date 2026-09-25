@@ -31,7 +31,10 @@ describe('admin host', () => {
     expect(isAdminApiAllowed(ADMIN_HOST)).toBe(true)
     expect(isAdminApiAllowed('localhost')).toBe(true)
     expect(isAdminApiAllowed('192.168.2.12')).toBe(true)
+    // The phone, through Tailscale.
+    expect(isAdminApiAllowed('macbook.tail1234.ts.net')).toBe(true)
     expect(isAdminApiAllowed(APEX_HOST)).toBe(false)
+    expect(isAdminApiAllowed('ts.net.example.com')).toBe(false)
   })
 
   it('sends public /dashboard and /admin visitors to the admin host', () => {

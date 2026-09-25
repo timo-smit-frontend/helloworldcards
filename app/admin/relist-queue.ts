@@ -1,22 +1,16 @@
 /**
- * The Vinted relists the admin has been asked for, and the order they go in.
+ * The Vinted relists asked for, and the order they go in.
  *
- * A relist is one request that stays open for the minutes it takes, and the dev
- * server runs `RELIST_TABS` of them at a time. Every press used to go out at once and
- * wait its turn there, which a whole wardrobe cannot: the browser keeps no more than
- * six requests open to the dev server, so a "Relist all" would have held all six for
- * the hour it takes, with the rest of the admin waiting behind them, and joined the
- * dev server's queue in whatever order the requests happened to get through. So the
- * admin keeps the queue: a relist goes out once a slot is free, in the order it was
- * asked for.
+ * A relist takes minutes, and `RELIST_TABS` of them run at a time; the rest wait their
+ * turn here and go once a slot is free, in the order they were asked for.
  *
- * The admin holds one queue for as long as it is open, so a batch goes on while the
- * rest of the admin is used, and the relist screen shows where it got to when it is
- * opened again. A reload lets the waiting relists go; the ones with the dev server
- * finish there.
+ * The dev server keeps the one queue (`vite/relist-batch.ts`), so a batch goes on to
+ * its last listing with no admin open — the admin used to keep it, and a locked phone
+ * stopped sending the next listing. The admin reads it back through
+ * `createRemoteRelistQueue`, which has this same shape.
  */
 
-/** How a relist request answered. `status` is null when the dev server did not answer at all. */
+/** How a relist answered. `status` is null when there was no answer at all. */
 export type RelistAnswer = { ok: true } | { ok: false; status: number | null; error: string }
 
 export type RelistQueueState = {

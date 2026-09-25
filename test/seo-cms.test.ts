@@ -26,7 +26,7 @@ describe('CMS SEO', () => {
 
     expect(store).toMatchObject({
       name: SITE_NAME,
-      founder: [{ name: 'Sam' }, { name: 'Timo' }]
+      founder: { name: 'Timo', jobTitle: 'Owner' }
     })
     expect(types(seo)).toEqual(['Store', 'WebSite', 'WebPage'])
   })
@@ -35,12 +35,12 @@ describe('CMS SEO', () => {
     const seo = await seoFor('/')
     const store = graph(seo).find((node) => node['@type'] === 'Store')
 
-    expect(seo.title).toBe(`${SITE_NAME} | Pokémon cards and events`)
+    expect(seo.title).toBe(`${SITE_NAME} | Graded Pokémon cards and events`)
     expect(seo.robots).toBe('index, follow')
     expect(seo.canonical).toBe('https://helloworldcards.com/')
     expect(store).toMatchObject({
       name: SITE_NAME,
-      founder: [{ name: 'Sam' }, { name: 'Timo' }]
+      founder: { name: 'Timo', jobTitle: 'Owner' }
     })
     expect(types(seo)).toEqual(['Store', 'WebSite', 'WebPage'])
   })
@@ -57,8 +57,12 @@ describe('CMS SEO', () => {
     const seo = await seoFor('/about')
 
     expect(types(seo)).toContain('AboutPage')
-    expect(graph(seo).some((node) => node['@type'] === 'Person' && node.name === 'Sam')).toBe(true)
-    expect(graph(seo).some((node) => node['@type'] === 'Person' && node.name === 'Timo')).toBe(true)
+    const person = (name: string) => graph(seo).find((node) => node['@type'] === 'Person' && node.name === name)
+    // A one-person business: Timo owns the shop, Sam is on the page as Timo's partner, not as staff.
+    expect(person('Timo')).toMatchObject({ jobTitle: 'Owner', worksFor: { '@id': 'https://helloworldcards.com/#organization' } })
+    expect(person('Sam')).toBeDefined()
+    expect(person('Sam')).not.toHaveProperty('jobTitle')
+    expect(person('Sam')).not.toHaveProperty('worksFor')
     expect(graph(seo).some((node) => node['@type'] === 'FAQPage')).toBe(true)
   })
 
@@ -75,7 +79,7 @@ describe('CMS SEO', () => {
     const seo = await seoFor('/privacy')
     const page = graph(seo).find((node) => node['@type'] === 'PrivacyPolicy')
 
-    expect(page).toMatchObject({ dateModified: '2026-08-17' })
+    expect(page).toMatchObject({ dateModified: '2026-09-25' })
   })
 
   it('noindexes unknown paths without a canonical URL', async () => {

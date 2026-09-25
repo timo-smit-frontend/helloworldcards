@@ -111,7 +111,7 @@ export function FormContactLinks({ variant = 'stacked' }: { variant?: 'stacked' 
           </ul>
         </div>
         <div className="min-w-60">
-          <h2 className="text-lg font-bold leading-7">Follow us</h2>
+          <h2 className="text-lg font-bold leading-7">Follow the shop</h2>
           <ul className={listClass}>
             <li>
               <ContactInstagramLink url={instagram} />
@@ -348,10 +348,10 @@ function ContactForm() {
       </button>
 
       <div aria-live="polite">
-        {status === 'success' && <p className="content-s text-site-summer-green">Thanks! We will get back to you soon.</p>}
+        {status === 'success' && <p className="content-s text-site-summer-green">Thanks! I will get back to you soon.</p>}
         {status === 'error' && (
           <p className="content-s text-site-mantle">
-            Something went wrong. You can also email us at{' '}
+            Something went wrong. You can also email me at{' '}
             <a href={`mailto:${contactEmail}`} className="underline hover:text-site-envy">
               {contactEmail}
             </a>

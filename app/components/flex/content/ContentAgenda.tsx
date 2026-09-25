@@ -90,7 +90,7 @@ export default function ContentAgenda({
                 <div className="flex flex-col justify-center gap-3 px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
                   <EventHeading className="title-xs">No next event planned yet</EventHeading>
                   <p className="content-m max-w-xl text-site-mantle">
-                    We have not booked a stall. When we do, the date and place will show up here.
+                    I have not booked a stall yet. When I do, the date and place will show up here.
                   </p>
                 </div>
                 <div aria-hidden className="relative flex items-center justify-center px-6 pb-8 md:px-8 md:py-8">

@@ -42,7 +42,7 @@ import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
 import type { DealFinderReport } from '~/services/deal-finder/types'
-import { RELIST_TABS, type VintedRelistReport } from '~/services/vinted-relist'
+import type { VintedRelistReport } from '~/services/vinted-relist'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -63,7 +63,8 @@ import { formatShopPrice, parseListedPrice } from '~/services/price'
 import { SITE_NAME, toAbsoluteUrl } from '~/seo/site'
 import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleton, remainingLoadingHold } from './AdminLoading'
 import { adminJson } from './api'
-import { createRelistQueue, type RelistAnswer, type RelistQueue } from './relist-queue'
+import { createRemoteRelistQueue } from './relist-batch'
+import type { RelistQueue } from './relist-queue'
 import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { DRAG_GHOST_SIZE, createDragGhost, discardDragGhost, landDragGhost, type DragGhost } from './media-drag'
@@ -1198,21 +1199,13 @@ function DealFinderScreen() {
   )
 }
 
-async function sendRelist(itemId: string): Promise<RelistAnswer> {
-  const result = await adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
-  if (result.ok && result.data?.report) {
-    return { ok: true }
-  }
-  return { ok: false, status: result.status, error: result.data?.error ?? 'The relist failed. Check the Chrome window.' }
-}
-
 /**
- * A relist can take a couple of minutes — photos up, form filled, publish — and the
- * request stays open for all of it. The relists asked for wait in the admin's queue
- * (`createRelistQueue`) and go to the dev server one slot at a time, and the screen
- * keeps every row where it is, saying what its relist is up to, until the last of the
- * batch is done: only then is the list read again, so it does not re-sort under the
- * buttons while there is still pressing to do.
+ * A relist can take a couple of minutes — photos up, form filled, publish. The dev
+ * server keeps the batch and works through it on its own (`createRemoteRelistQueue`),
+ * so it goes on with the phone locked, and the screen keeps every row where it is,
+ * saying what its relist is up to, until the last of the batch is done: only then is
+ * the list read again, so it does not re-sort under the buttons while there is still
+ * pressing to do.
  */
 function VintedRelistScreen({ queue }: { queue: RelistQueue }) {
   const [report, setReport] = useState<VintedRelistReport | null>(null)
@@ -3658,9 +3651,7 @@ export default function AdminApp() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  // Kept for as long as the admin is open rather than the relist screen, so a batch
-  // goes on while the rest of the admin is used.
-  const [relistQueue] = useState(() => createRelistQueue({ slots: RELIST_TABS, send: sendRelist }))
+  const [relistQueue] = useState(() => createRemoteRelistQueue({ call: adminJson }))
 
   function applySession(result: { ok: boolean; status: number }) {
     if (result.status === 401 || result.status === 503) {

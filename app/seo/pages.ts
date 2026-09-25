@@ -1,7 +1,7 @@
 import { SITE_IMAGE_ALT } from '../services/imageCopy'
 import { PRIORITY_IMAGE_SIZES } from '../services/responsiveImage'
 import { CONTACT_EMAIL, INSTAGRAM_URL, MARKTPLAATS_URL } from '../services/contact'
-import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
+import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_OWNER, SITE_URL, canonicalUrl, normalizePath, toAbsoluteUrl } from './site'
 
 type LcpImage = {
   src: string
@@ -63,15 +63,12 @@ function organizationNode(identity: SeoIdentity = {}): Record<string, unknown> {
     email: contactEmail,
     image: toAbsoluteUrl(siteImage),
     sameAs: [instagramUrl, marktplaatsUrl],
-    founder: [
-      { '@type': 'Person', name: 'Sam', jobTitle: 'Co-founder' },
-      { '@type': 'Person', name: 'Timo', jobTitle: 'Co-founder' }
-    ],
+    founder: { '@type': 'Person', name: SITE_OWNER, jobTitle: 'Owner' },
     areaServed: [
       { '@type': 'Country', name: 'Netherlands' },
       { '@type': 'Country', name: 'Belgium' }
     ],
-    knowsAbout: ['Pokémon', 'Pokémon Trading Card Game', 'Pokémon art'],
+    knowsAbout: ['Pokémon', 'Pokémon Trading Card Game', 'Graded Pokémon cards'],
     contactPoint: {
       '@type': 'ContactPoint',
       email: contactEmail,
@@ -211,7 +208,7 @@ export function getSeoForPath(pathname: string): SeoPage {
   if (path === '/') {
     return buildSeoPage({
       path,
-      title: `${SITE_NAME} | Pokémon cards and events`,
+      title: `${SITE_NAME} | Graded Pokémon cards and events`,
       description: SITE_DESCRIPTION,
       lcp: { src: SITE_IMAGE, maxWidth: 800, sizes: PRIORITY_IMAGE_SIZES }
     })

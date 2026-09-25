@@ -54,10 +54,10 @@ export default function Product() {
       />
       <ContentText
         id="content-text-marktplaats"
-        title="We sell on Marktplaats"
-        description="Hello World Cards sells its products on Marktplaats. View our stock there through the button below."
+        title="Also on Marktplaats and Vinted"
+        description="Every card in the shop is listed on Marktplaats and on Vinted as well, so you can buy wherever you prefer."
         image="/media/wooper.png"
-        link={{ url: marktplaats, title: 'Visit us on Marktplaats', target: '_blank' }}
+        link={{ url: marktplaats, title: 'See the shop on Marktplaats', target: '_blank' }}
       />
       <ContentProducts title="More from the shop" id={similarIds} products={shop} />
     </Layout>

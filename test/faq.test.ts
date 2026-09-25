@@ -7,7 +7,7 @@ describe('buy FAQ', () => {
 
     expect(item?.answer).toContain('View on Marktplaats')
     expect(item?.answer).toContain('not yet available to buy')
-    expect(item?.answer).not.toMatch(/email us/i)
+    expect(item?.answer).not.toMatch(/email (us|me)/i)
     expect(item?.answer).not.toContain('@')
   })
 })
