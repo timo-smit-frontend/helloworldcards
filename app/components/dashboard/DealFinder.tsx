@@ -1,10 +1,10 @@
 import { RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
-import Image from '~/components/elements/Image'
 import { DEAL_SOURCES, MIN_EDGE } from '~/services/deal-finder/constants'
 import { POPULAR_STAR, splitStar } from '~/services/deal-finder/popular'
 import { groupProblems } from '~/services/deal-finder/report'
 import type { DealFinderReport, DealRow, DealSource, NoCompsRow, ProblemRow } from '~/services/deal-finder/types'
+import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
 import PriceFigure from './PriceFigure'
 import { formatListedEuros, formatSignedEuros } from './money'
 
@@ -35,25 +35,6 @@ function ScanButton({ source, scanning, onScan }: { source: DealSource; scanning
       <MorphIcon icon={RotateCw} size={16} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
       {sourceLabel(source)}
     </button>
-  )
-}
-
-function Thumbnail({ src }: { src: string | null }) {
-  return (
-    <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
-      {src ? (
-        <Image
-          src={src}
-          alt=""
-          title=""
-          width={128}
-          height={192}
-          sizes="64px"
-          aria-hidden
-          className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
-        />
-      ) : null}
-    </div>
   )
 }
 
@@ -97,41 +78,41 @@ function DealTitle({ title }: { title: string }) {
 
 function DealListRow({ item }: { item: DealRow }) {
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-      <Thumbnail src={item.imageUrl} />
+    <li className={`${CARD_ROW} md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}>
+      <CardThumbnail src={item.imageUrl} />
       <div className="min-w-0">
         <DealTitle title={item.displayTitle} />
-        <p className="mt-1 truncate text-sm text-site-mantle">{evidence(item)}</p>
+        <p className="mt-1 text-sm text-site-mantle max-md:line-clamp-2 md:truncate">{evidence(item)}</p>
       </div>
-      <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+      <FigureStrip>
         <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
         <PriceFigure label="Lowest listed" value={formatListedEuros(item.marketFloor)} href={item.cardmarketUrl} />
         <PriceFigure label="Edge" value={formatSignedEuros(item.edge)} tone="text-site-envy" />
-      </div>
+      </FigureStrip>
     </li>
   )
 }
 
 function NoCompsListRow({ item }: { item: NoCompsRow }) {
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-      <Thumbnail src={item.imageUrl} />
+    <li className={`${CARD_ROW} md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}>
+      <CardThumbnail src={item.imageUrl} />
       <div className="min-w-0">
         <DealTitle title={item.displayTitle} />
-        <p className="mt-1 truncate text-sm text-site-foil">{item.reason}</p>
-        <p className="mt-1 truncate text-sm text-site-mantle">{evidence(item)}</p>
+        <p className="mt-1 text-sm text-site-foil max-md:line-clamp-2 md:truncate">{item.reason}</p>
+        <p className="mt-1 text-sm text-site-mantle max-md:line-clamp-2 md:truncate">{evidence(item)}</p>
       </div>
-      <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+      <FigureStrip>
         <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
         {item.cardmarketUrl ? <PriceFigure label="Cardmarket" value="Open" href={item.cardmarketUrl} /> : null}
-      </div>
+      </FigureStrip>
     </li>
   )
 }
 
 function ProblemListRow({ item }: { item: ProblemRow }) {
   return (
-    <li className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-6">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 py-3 sm:gap-6">
       <div className="min-w-0">
         <a
           href={item.listingUrl}
@@ -212,8 +193,8 @@ export default function DealFinder({
 
   return (
     <section className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Deal finder</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="title-l">Deal finder</h1>
         {/* Each marketplace is scanned on its own, so each gets its own button. */}
         <div className="flex flex-wrap items-center gap-2">
           {DEAL_SOURCES.map((source) => (

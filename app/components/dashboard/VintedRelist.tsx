@@ -3,7 +3,9 @@ import { MorphIcon } from 'morphicons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { adminTo } from '~/admin/runtime'
-import Image from '~/components/elements/Image'
+import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
+import RefreshButton from './RefreshButton'
+import PriceFigure from './PriceFigure'
 import { RELIST_TABS, type VintedListingStatus, type VintedRelistReport, type VintedRelistRow } from '~/services/vinted-relist'
 
 const STATUS_LABEL: Record<VintedListingStatus, string> = {
@@ -42,34 +44,6 @@ function formatPrice(value: number | null): string {
     return '—'
   }
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(value)
-}
-
-function Thumbnail({ src }: { src: string | null }) {
-  return (
-    <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
-      {src ? (
-        <Image
-          src={src}
-          alt=""
-          title=""
-          width={128}
-          height={192}
-          sizes="64px"
-          aria-hidden
-          className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="flex min-w-0 flex-col items-center gap-1 text-center sm:min-w-14 sm:items-end sm:text-right">
-      <p className="text-[0.625rem] font-semibold tracking-[0.18em] text-site-mantle uppercase sm:text-xs sm:tracking-[0.22em]">{label}</p>
-      <p className={`font-semibold tabular-nums tracking-[-0.03em] ${tone ?? 'text-site-gray-nurse'}`}>{value}</p>
-    </div>
-  )
 }
 
 function ProductLink({ product }: { product: VintedRelistRow['product'] }) {
@@ -184,30 +158,28 @@ function ListingRow({
 }) {
   const stale = row.ageDays != null && row.ageDays >= STALE_AFTER_DAYS
   return (
-    <li className="flex flex-col gap-3 py-5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6 sm:py-4">
-      <div className="flex items-start gap-4 sm:contents">
-        <Thumbnail src={row.imageUrl} />
-        <div className="min-w-0 flex-1 sm:flex-none">
-          <a
-            href={row.url}
-            target="_blank"
-            rel="noreferrer"
-            className="block font-semibold leading-snug text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth hover:decoration-site-gray-nurse max-sm:line-clamp-2 sm:truncate"
-          >
-            {row.title}
-          </a>
-          <ProductLink product={row.product} />
-          {row.status !== 'live' ? <p className="mt-1 text-sm text-site-foil">{STATUS_LABEL[row.status]}</p> : null}
-          {error ? <p className="mt-1 text-sm text-site-loss">{error}</p> : null}
-        </div>
+    <li className={`${CARD_ROW} xl:grid-cols-[auto_minmax(0,1fr)_auto_auto] xl:items-center xl:gap-x-6`}>
+      <CardThumbnail src={row.imageUrl} />
+      <div className="min-w-0">
+        <a
+          href={row.url}
+          target="_blank"
+          rel="noreferrer"
+          className="block font-semibold leading-snug text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth hover:decoration-site-gray-nurse max-xl:line-clamp-2 xl:truncate"
+        >
+          {row.title}
+        </a>
+        <ProductLink product={row.product} />
+        {row.status !== 'live' ? <p className="mt-1 text-sm text-site-foil">{STATUS_LABEL[row.status]}</p> : null}
+        {error ? <p className="mt-1 text-sm text-site-loss">{error}</p> : null}
       </div>
-      <div className="grid grid-cols-4 gap-2 rounded-panel bg-site-gunmetal px-2 py-3 sm:flex sm:justify-end sm:gap-8 sm:rounded-none sm:bg-transparent sm:p-0">
-        <Stat label="Age" value={formatAge(row)} tone={stale ? 'text-site-foil' : undefined} />
-        <Stat label="Views" value={row.views == null ? '—' : String(row.views)} />
-        <Stat label="Likes" value={row.favourites == null ? '—' : String(row.favourites)} />
-        <Stat label="Price" value={formatPrice(row.price)} />
-      </div>
-      <div className="flex sm:justify-end">
+      <FigureStrip breakpoint="xl">
+        <PriceFigure label="Age" value={formatAge(row)} tone={stale ? 'text-site-foil' : undefined} />
+        <PriceFigure label="Views" value={row.views == null ? '—' : String(row.views)} />
+        <PriceFigure label="Likes" value={row.favourites == null ? '—' : String(row.favourites)} />
+        <PriceFigure label="Price" value={formatPrice(row.price)} />
+      </FigureStrip>
+      <div className="col-span-full flex justify-end xl:col-span-1">
         <RelistButton
           label={error ? 'Retry' : 'Relist'}
           activity={activity}
@@ -309,19 +281,25 @@ export default function VintedRelist({
   const relistAll = rows.filter((row) => row.status === 'live' && activityOf(row.itemId) == null).map((row) => row.itemId)
 
   return (
-    <section className="flex flex-col gap-6 sm:gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Vinted relist</h2>
-          <button
-            type="button"
-            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={loading ? 'Reading Vinted' : 'Refresh from Vinted'}
-            onClick={onRefresh}
-            disabled={loading || batch}
-          >
-            <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={loading ? 'animate-spin' : undefined} />
-          </button>
+    <section className="flex flex-col gap-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-4xl">
+          <div className="flex items-center gap-3">
+            <h1 className="title-l">Vinted relist</h1>
+            <RefreshButton
+              label={loading ? 'Reading Vinted' : 'Refresh from Vinted'}
+              spinning={loading}
+              disabled={loading || batch}
+              onClick={onRefresh}
+            />
+          </div>
+          <p className="content-l mt-2 text-site-mantle max-sm:text-sm">
+            Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up
+            as new again. Views and likes start from zero.{' '}
+            {RELIST_TABS === 1
+              ? 'Listings are relisted one at a time, in a Chrome tab; the rest wait their turn.'
+              : `Up to ${COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a Chrome tab of its own; the rest wait their turn.`}
+          </p>
         </div>
         {rows.length === 0 ? null : waiting ? (
           <button type="button" className="button-quiet w-fit! gap-2" onClick={onStop}>
@@ -338,19 +316,11 @@ export default function VintedRelist({
         )}
       </div>
 
-      <p className="content-m text-site-mantle max-sm:text-sm">
-        Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up as
-        new again. Views and likes start from zero.{' '}
-        {RELIST_TABS === 1
-          ? 'Listings are relisted one at a time, in a Chrome tab; the rest wait their turn.'
-          : `Up to ${COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a Chrome tab of its own; the rest wait their turn.`}
-      </p>
-
       {error ? <p className="content-m text-site-loss">{error}</p> : null}
 
       {pending.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold tracking-[0.22em] text-site-loss uppercase">Deleted, not yet re-uploaded</h3>
+          <h2 className="text-xs font-semibold tracking-[0.22em] text-site-loss uppercase">Deleted, not yet re-uploaded</h2>
           <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
             {pending.map((item) => (
               <PendingRow
@@ -389,13 +359,13 @@ export default function VintedRelist({
 
       {missing.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">In the shop, not on Vinted</h3>
+          <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">In the shop, not on Vinted</h2>
           <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
             {missing.map((item) => (
-              <li key={item.product.id} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+              <li key={item.product.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
                 <Link
                   to={adminTo(`/products/${item.product.id}`)}
-                  className="truncate font-semibold text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth"
+                  className="min-w-0 truncate font-semibold text-site-gray-nurse underline decoration-site-mantle/40 underline-offset-2 smooth"
                 >
                   {item.product.title}
                 </Link>
@@ -403,7 +373,7 @@ export default function VintedRelist({
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="truncate font-mono text-xs text-site-mantle underline smooth hover:text-site-gray-nurse"
+                  className="min-w-0 truncate font-mono text-xs text-site-mantle underline smooth hover:text-site-gray-nurse"
                 >
                   {item.url}
                 </a>

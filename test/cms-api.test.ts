@@ -295,7 +295,7 @@ describe('CMS API', () => {
     )
     const body = (await listed!.json()) as { media: Array<{ key: string; url: string; title: string; alt: string }> }
     expect(body.media.some((item) => item.key === 'hero.jpg' && item.url === '/media/hero.jpg')).toBe(true)
-    expect(body.media.some((item) => item.key === '76719295_front.jpg')).toBe(true)
+    expect(body.media.some((item) => item.key === '76645522_front.jpg')).toBe(true)
     expect(body.media).toHaveLength(seedMediaFiles.length)
     expect(body.media.slice(-CMS_COMPONENT_PREVIEW_KEYS.length).map((item) => item.key)).toEqual([...CMS_COMPONENT_PREVIEW_KEYS])
     const hero = body.media.find((item) => item.key === 'hero.jpg')
@@ -779,7 +779,7 @@ describe('CMS API', () => {
     )
     const { products } = (await listed!.json()) as { products: Array<{ id: number; title: string }> }
     const mewtwo = products.find((product) => product.title === 'Mewtwo')!
-    const lugia = products.find((product) => product.title === 'Lugia V')!
+    const ekans = products.find((product) => product.title === 'Ekans')!
 
     await handleAdminRequest(
       new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
@@ -799,7 +799,7 @@ describe('CMS API', () => {
       { db }
     )
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${lugia.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'DELETE',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -814,7 +814,7 @@ describe('CMS API', () => {
     )
     const body = (await ledger!.json()) as { items: Array<{ title: string; sold: boolean }> }
     expect(body.items.some((item) => item.title === 'Mewtwo' && item.sold)).toBe(true)
-    expect(body.items.some((item) => item.title === 'Lugia V')).toBe(false)
+    expect(body.items.some((item) => item.title === 'Ekans')).toBe(false)
   })
 
   it('builds a sitemap from published pages and shop products', async () => {
@@ -887,9 +887,9 @@ describe('CMS API', () => {
     expect(text).toContain('[Mewtwo PSA 9](https://helloworldcards.com/products/mewtwo-2016-evolutions-51/): 2016 Evolutions #51. €75')
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(
-      '[Lugia V PSA 9](https://helloworldcards.com/products/lugia-v-2022-silver-tempest-185/): 2022 Silver Tempest #185. Reserved'
+      '[Dragonite V PSA 9](https://helloworldcards.com/products/dragonite-v-2022-pokemon-go-049/): 2022 Pokemon GO #049. Reserved'
     )
-    expect(text).not.toContain('€40')
+    expect(text).not.toContain('#049. €50')
     expect(text).toContain('## Events')
     expect(text).toContain('## Optional')
     expect(text).toContain('[Privacy statement](https://helloworldcards.com/privacy/)')

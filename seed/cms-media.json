@@ -170,27 +170,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "76719295_back.jpg",
-      "filename": "76719295_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1236958,
-      "title": "Lugia V, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-01T00:00:00.000Z"
-    },
-    {
-      "key": "76719295_front.jpg",
-      "filename": "76719295_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 2004089,
+      "key": "76719295_front-sold.webp",
+      "filename": "76719295_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 673,
+      "bytes": 54186,
       "title": "Lugia V, front",
       "alt": "PSA 9 Silver Tempest Lugia V full art, 185/195, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {

@@ -55,6 +55,10 @@ const LOGIN_GRACE_MS = 10 * 60_000
 /** Vinted's own email login page, which lands on the homepage once the login is in. */
 const LOGIN_PATH = '/member/login/email'
 const LOGIN_URL = `${VINTED}${LOGIN_PATH}?ref_url=%2F`
+/** OneTrust's cookie for a cookie banner that has been answered; while the window has it, no banner comes. */
+const COOKIE_CONSENT = 'OptanonAlertBoxClosed'
+/** How long a window without that cookie gives the banner to turn up. It comes a second or two after the page. */
+const COOKIE_BANNER_WAIT_MS = 10_000
 /** How long Vinted gets to take a login and leave its form. */
 const LOGIN_SUBMIT_TIMEOUT_MS = 20_000
 /**
@@ -304,7 +308,9 @@ async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healS
     throw new VintedRelistError('Vinted keeps the Chrome window on its session-refresh page. Close the window and try again.', 503)
   }
   console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
-  await page.context().clearCookies({ domain: /vinted\.nl$/ })
+  // All but the cookie banner's answer (OneTrust's `Optanon…`), which has nothing to
+  // do with the session and would otherwise put the banner back over the login form.
+  await page.context().clearCookies({ domain: /vinted\.nl$/, name: /^(?!Optanon)/ })
   // Whoever the window was logged in as, it no longer is.
   chrome.session = null
   await gotoVinted(chrome, page, url, { healSession: false })
@@ -478,9 +484,13 @@ async function logIn(page: Page, chrome: VintedChrome): Promise<{ session: Vinte
  * Put the login in on Vinted's login page and send it. Null once it is sent; what
  * stood in the way otherwise.
  *
- * The cookie banner goes first — with only the essential cookies, the answer that
- * loads least — since it sits over the form on a window that has not answered it
- * yet, and a click meant for the form lands on the banner.
+ * The cookie banner is answered first — with only the essential cookies, the answer
+ * that loads least. It is not there when the form is: it comes a second or two
+ * later, over a dark layer that covers the whole page and takes every click meant
+ * for the form, "Verder" included. A login typed in before it came used to be
+ * sent into that layer and go nowhere. So a window that has not answered the banner
+ * waits for it, it is looked for once more just before the login goes out, and the
+ * login is sent with Enter from the password field, which no layer can take.
  */
 async function typeLogin(page: Page, chrome: VintedChrome, { username, password }: VintedLogin): Promise<string | null> {
   try {
@@ -496,10 +506,19 @@ async function typeLogin(page: Page, chrome: VintedChrome, { username, password 
     } catch {
       return "Vinted's login page has no password field where it used to, so the relist could not log in. Log in in the Chrome window, then refresh here."
     }
-    await dismissCookieBanner(page)
-    await form.locator('#username').fill(username)
-    await form.locator('#password').fill(password)
-    await form.locator('button[type="submit"]').click({ timeout: 10_000 })
+    await answerCookieBanner(page, COOKIE_BANNER_WAIT_MS)
+    const usernameField = form.locator('#username')
+    const passwordField = form.locator('#password')
+    await usernameField.fill(username)
+    await passwordField.fill(password)
+    // A banner that came late after all; and the fields are checked, since the page
+    // may have drawn the form again meanwhile.
+    await answerCookieBanner(page, 0)
+    if ((await usernameField.inputValue()) !== username || (await passwordField.inputValue()) !== password) {
+      await usernameField.fill(username)
+      await passwordField.fill(password)
+    }
+    await passwordField.press('Enter')
   } catch (error) {
     if (isRateLimited(error)) {
       throw error
@@ -519,15 +538,34 @@ async function typeLogin(page: Page, chrome: VintedChrome, { username, password 
   return null
 }
 
-/** Vinted's cookie banner (OneTrust), answered with only the essential cookies when it is up. */
-async function dismissCookieBanner(page: Page): Promise<void> {
+/**
+ * Answer Vinted's cookie banner (OneTrust) with only the essential cookies. A window
+ * that has not answered it yet — no consent cookie — gives it up to `waitMs` to turn
+ * up; one that has only looks, in case it is up anyway.
+ */
+async function answerCookieBanner(page: Page, waitMs: number): Promise<void> {
   const essentialOnly = page.locator('#onetrust-reject-all-handler')
-  if (!(await essentialOnly.isVisible().catch(() => false))) {
+  const answered = (await page.context().cookies(VINTED)).some((cookie) => cookie.name === COOKIE_CONSENT)
+  const shown =
+    answered || waitMs === 0
+      ? await essentialOnly.isVisible().catch(() => false)
+      : await essentialOnly
+          .waitFor({ state: 'visible', timeout: waitMs })
+          .then(() => true)
+          .catch(() => false)
+  if (!shown) {
     return
   }
-  await essentialOnly.click({ timeout: 5_000 }).catch(() => undefined)
+  console.info('[vinted-relist] Answering the Vinted cookie banner with only the essential cookies')
+  await essentialOnly.click({ timeout: 5_000 })
+  // The dark layer under the banner fades out after it, and takes clicks until it has.
   await page
     .locator('#onetrust-banner-sdk')
+    .waitFor({ state: 'hidden', timeout: 5_000 })
+    .catch(() => undefined)
+  await page
+    .locator('.onetrust-pc-dark-filter')
+    .first()
     .waitFor({ state: 'hidden', timeout: 5_000 })
     .catch(() => undefined)
 }

@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
-import { RotateCw } from 'lucide'
-import { MorphIcon } from 'morphicons/react'
-import Image from '~/components/elements/Image'
 import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
 import type { MarketListing } from '~/services/cardmarket/grades'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
+import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
 import PriceFigure from './PriceFigure'
+import RefreshButton from './RefreshButton'
 import StatusBadge from './StatusBadge'
 import { formatEuros, formatListedEuros, formatSignedEuros, moneyTone } from './money'
 
@@ -90,6 +89,53 @@ function rowRank(item: CardmarketProductReport): number {
   return 3
 }
 
+/**
+ * The cheapest competing offers under a card, one line each: grade, seller, price, and how far
+ * it sits from yours. On a wide screen the columns are fixed so they line up from card to
+ * card; on a phone the list runs the full width of the row and the seller takes what is left.
+ */
+function CompetitorList({
+  item,
+  listings,
+  notes,
+  className
+}: {
+  item: CardmarketProductReport
+  listings: Array<{ listing: MarketListing; suffix: string | undefined }>
+  notes: string[]
+  className: string
+}) {
+  return (
+    <ul
+      className={`m-0 list-none grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-x-3 gap-y-0.5 p-0 text-sm text-site-mantle md:mt-1 md:w-max md:grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] ${className}`}
+    >
+      {listings.map(({ listing, suffix }) => {
+        const vsListed = listing.price - item.listed
+        return (
+          <li key={`${listing.id}-${suffix ?? 'live'}`} className="col-span-full grid grid-cols-subgrid">
+            <span className="min-w-0 truncate">{listing.comment}</span>
+            <span className="min-w-0 truncate">
+              {listing.seller}
+              {suffix ? ` ${suffix}` : null}
+            </span>
+            <span className="min-w-0 truncate text-right tabular-nums md:text-left">{formatListedEuros(listing.price)}</span>
+            <span
+              className={`min-w-0 truncate text-right tabular-nums font-semibold md:text-left ${vsListed === 0 ? '' : moneyTone(vsListed)}`}
+            >
+              {vsListed === 0 ? '' : formatSignedEuros(vsListed)}
+            </span>
+          </li>
+        )
+      })}
+      {notes.map((line) => (
+        <li key={line} className="col-span-full truncate">
+          {line}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   const suggestion = item.suggestion
   const delta = suggestion ? suggestion.target - item.listed : null
@@ -109,6 +155,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
     ...item.gone.map((listing) => ({ listing, suffix: 'gone' }))
   ]
   const notes = suggestion?.notes ?? []
+  const hasList = listings.length > 0 || notes.length > 0
   // The floor is the price to know even when it is yours; the suggestion only exists when it is not.
   const marketPrice = suggestion?.target ?? item.floor ?? null
 
@@ -119,60 +166,23 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         target="_blank"
         rel="noreferrer"
         title="Open on Cardmarket"
-        className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 py-4 no-underline smooth hover:opacity-80 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6"
+        className={`${CARD_ROW} no-underline smooth hover:opacity-80 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}
       >
-        <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-md">
-          {item.image ? (
-            <Image
-              src={item.image}
-              alt=""
-              title=""
-              width={192}
-              height={288}
-              maxwidth={400}
-              sizes="96px"
-              aria-hidden
-              className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
-            />
-          ) : null}
-        </div>
+        <CardThumbnail src={item.image} tall />
         <div className="min-w-0">
           <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
           {status ? <p className="mt-1 text-sm text-site-mantle">{status}</p> : null}
-          {listings.length > 0 || notes.length > 0 ? (
-            <ul className="mt-1 grid w-max grid-cols-[--spacing(16)_--spacing(36)_--spacing(16)_--spacing(16)] gap-x-3 gap-y-0.5 text-sm text-site-mantle">
-              {listings.map(({ listing, suffix }) => {
-                const vsListed = listing.price - item.listed
-                return (
-                  <li key={`${listing.id}-${suffix ?? 'live'}`} className="col-span-full grid grid-cols-subgrid">
-                    <span className="min-w-0 truncate">{listing.comment}</span>
-                    <span className="min-w-0 truncate">
-                      {listing.seller}
-                      {suffix ? ` ${suffix}` : null}
-                    </span>
-                    <span className="min-w-0 truncate tabular-nums">{formatListedEuros(listing.price)}</span>
-                    <span className={`min-w-0 truncate tabular-nums font-semibold ${vsListed === 0 ? '' : moneyTone(vsListed)}`}>
-                      {vsListed === 0 ? '' : formatSignedEuros(vsListed)}
-                    </span>
-                  </li>
-                )
-              })}
-              {notes.map((line) => (
-                <li key={line} className="col-span-full truncate">
-                  {line}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          {hasList ? <CompetitorList item={item} listings={listings} notes={notes} className="hidden md:grid" /> : null}
         </div>
-        <div className="col-span-2 flex justify-end gap-5 sm:col-span-1 sm:gap-8">
+        <FigureStrip>
           <PriceFigure label="Current" value={formatListedEuros(item.listed)} />
           <PriceFigure
             label={suggestion ? 'Suggested' : 'Floor'}
             value={marketPrice != null ? formatListedEuros(marketPrice) : '—'}
             tone={delta == null || delta === 0 ? undefined : moneyTone(delta)}
           />
-        </div>
+        </FigureStrip>
+        {hasList ? <CompetitorList item={item} listings={listings} notes={notes} className="col-span-full grid md:hidden" /> : null}
       </a>
     </li>
   )
@@ -194,18 +204,15 @@ export function PriceSuggestions({
   const rows = [...(report?.products ?? [])].sort((left, right) => rowRank(left) - rowRank(right))
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-8">
       <div className="flex items-center gap-3">
-        <h2 className="text-xs font-semibold tracking-[0.22em] text-site-mantle uppercase">Price suggestions</h2>
-        <button
-          type="button"
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-site-mantle smooth hover:bg-site-mid hover:text-site-gray-nurse disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label={scanning ? 'Scanning Cardmarket' : 'Scan Cardmarket'}
-          onClick={onScan}
+        <h1 className="title-l">Price suggestions</h1>
+        <RefreshButton
+          label={scanning ? 'Scanning Cardmarket' : 'Scan Cardmarket'}
+          spinning={scanning}
           disabled={scanning}
-        >
-          <MorphIcon icon={RotateCw} size={18} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
-        </button>
+          onClick={onScan}
+        />
       </div>
       {scanError ? <p className="content-m text-site-loss">{scanError}</p> : null}
       {scanning && rows.length === 0 ? (
@@ -229,37 +236,26 @@ function SoldRow({ item }: { item: LedgerItem }) {
   const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
   return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:gap-x-6">
-      <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-md">
-        {item.image ? (
-          <Image
-            src={item.image}
-            alt=""
-            title=""
-            width={128}
-            height={192}
-            maxwidth={400}
-            sizes="64px"
-            aria-hidden
-            className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
-          />
+    <li className={`${CARD_ROW} md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}>
+      <CardThumbnail src={item.image} />
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
+        {item.subtitle ? <p className="mt-0.5 truncate text-sm text-site-mantle">{item.subtitle}</p> : null}
+        {item.reserved || item.sold ? (
+          <div className="mt-2">
+            <StatusBadge status={item.reserved ? 'reserved' : 'sold'} />
+          </div>
         ) : null}
       </div>
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-semibold text-site-gray-nurse">{item.title}</span>
-          {item.reserved ? <StatusBadge status="reserved" /> : item.sold ? <StatusBadge status="sold" /> : null}
-        </p>
-        {item.subtitle ? <p className="mt-0.5 truncate text-sm text-site-mantle">{item.subtitle}</p> : null}
-        <p className="mt-1 text-sm tabular-nums text-site-mantle sm:hidden">{formatSoldDate(item.soldAt)}</p>
-      </div>
-      <p className="hidden text-sm tabular-nums text-site-mantle sm:block">{formatSoldDate(item.soldAt)}</p>
-      <div className="col-span-2 flex items-baseline justify-between gap-4 sm:col-span-1 sm:w-28 sm:flex-col sm:items-end sm:gap-0.5">
-        <p className="font-semibold tabular-nums text-site-envy">{item.listed == null ? 'No price' : formatEuros(item.listed)}</p>
-        <p className={`text-sm tabular-nums ${profit == null ? 'text-site-mantle' : moneyTone(profit)}`}>
-          {profit == null ? 'No cost' : formatSignedEuros(profit)}
-        </p>
-      </div>
+      <FigureStrip>
+        <PriceFigure label="Date" value={formatSoldDate(item.soldAt)} />
+        <PriceFigure label="Price" value={item.listed == null ? '—' : formatEuros(item.listed)} tone="text-site-envy" />
+        <PriceFigure
+          label="Profit"
+          value={profit == null ? '—' : formatSignedEuros(profit)}
+          tone={profit == null ? 'text-site-mantle' : moneyTone(profit)}
+        />
+      </FigureStrip>
     </li>
   )
 }
@@ -315,16 +311,8 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
       <dl className="grid grid-cols-2 gap-8 sm:grid-cols-4">
         <Stat label="Sold" value={`${totals.cardsSold}`} />
         <Stat label="In stock" value={`${totals.cardsInStock}`} />
-        <Stat
-          label="Realized"
-          value={formatSignedEuros(totals.realizedProfit)}
-          tone={moneyTone(totals.realizedProfit)}
-        />
-        <Stat
-          label="If stock sells"
-          value={formatSignedEuros(totals.potentialProfit)}
-          tone={moneyTone(totals.potentialProfit)}
-        />
+        <Stat label="Realized" value={formatSignedEuros(totals.realizedProfit)} tone={moneyTone(totals.realizedProfit)} />
+        <Stat label="If stock sells" value={formatSignedEuros(totals.potentialProfit)} tone={moneyTone(totals.potentialProfit)} />
       </dl>
 
       <section className="flex flex-col gap-4">

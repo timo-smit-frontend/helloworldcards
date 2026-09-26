@@ -131,12 +131,12 @@ describe('CMS SEO', () => {
   })
 
   it('keeps a reserved card indexed but without a Product or its sale price', async () => {
-    const seo = await seoFor('/products/lugia-v-2022-silver-tempest-185')
+    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
 
     expect(seo.robots).toBe('index, follow')
     expect(types(seo)).not.toContain('Product')
     expect(seo.description).toContain('reserved')
-    expect(seo.description).not.toContain('€40')
+    expect(seo.description).not.toContain('€50')
   })
 
   it('drops a sold card from the index without showing what it sold for', async () => {

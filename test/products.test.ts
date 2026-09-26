@@ -17,7 +17,6 @@ describe('product inventory', () => {
     const { products } = await seededShop()
     expect(products.map((product) => [product.id, product.title, product.subtitle, product.slug])).toEqual([
       [1, 'Mewtwo', '2016 Evolutions - #51', 'mewtwo-2016-evolutions-51'],
-      [2, 'Lugia V', '2022 Silver Tempest - #185', 'lugia-v-2022-silver-tempest-185'],
       [4, 'Ekans', '2000 Team Rocket - #56', 'ekans-2000-team-rocket-56'],
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
@@ -84,7 +83,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [1, 2, 4, 5, 6, 7, 8, 9]
+    const liveIds = [1, 4, 5, 6, 7, 8, 9]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -126,36 +125,21 @@ describe('product inventory', () => {
     expect(record?.firstEdition).toBeUndefined()
   })
 
-  it('lists the Silver Tempest Lugia V with slab photos', async () => {
-    const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'lugia-v-2022-silver-tempest-185')
-
-    expect(product?.title).toBe('Lugia V')
-    expect(product?.description).toContain('Full Art')
-    expect(product?.description).toContain('Silver Tempest')
-    expect(product?.description).toContain('185/195')
-    expect(product?.description).toContain('76719295')
-    expect(product?.price).toBe('€40')
-    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
-    expect(product?.images).toEqual(['/media/76719295_front.jpg', '/media/76719295_back.jpg'])
-    expect(inventory.find((item) => item.id === 2)?.cost).toBe(30)
-    expect(inventory.find((item) => item.id === 2)?.reserved).toBe(true)
-    expect(inventory.find((item) => item.id === 2)?.soldAt).toBe('2026-09-16')
-  })
-
-  it('keeps the reserved Lugia V in the shop, with its ads still on record', async () => {
+  it('keeps the sold Silver Tempest Lugia V out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
     const record = inventory.find((item) => item.id === 2)
-    const product = products.find((item) => item.id === 2)
 
-    // Bought on Vinted, on its way, money not in yet: reserved, not sold.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    // Sold on Vinted for €40 on 16 September 2026, money in: sold, not reserved, ads gone.
+    expect(record?.title).toBe('Lugia V')
+    expect(record?.description).toContain('76719295')
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.soldAt).toBe('2026-09-16')
-    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737892')
-    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10016398906')
-    expect(product?.reserved).toBe(true)
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.price).toBe('€40')
+    expect(record?.cost).toBe(30)
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 2)).toBeUndefined()
   })
 
   it('keeps the sold Generations Charizard out of the shop but in inventory at its sale price', async () => {

@@ -47,7 +47,7 @@ describe('sold cards', () => {
     expect(publicPageStatus(await buildPublicPayload(db, '/products/no-such-card'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/nowhere'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/mewtwo-2016-evolutions-51'))).toBe(200)
-    expect(publicPageStatus(await buildPublicPayload(db, '/products/lugia-v-2022-silver-tempest-185'))).toBe(200)
+    expect(publicPageStatus(await buildPublicPayload(db, '/products/dragonite-v-2022-pokemon-go-049'))).toBe(200)
   })
 })
 
@@ -60,7 +60,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
     expect(html).toContain('<dt>Price</dt><dd>€75</dd>')
     expect(html).toContain('<dt>Grade</dt><dd>PSA 9</dd>')
     expect(html).toContain('<a href="https://www.marktplaats.nl/seller/view/m2436737465">View on Marktplaats</a>')
-    expect(html).toContain('<a href="https://www.vinted.nl/items/10133855293">View on Vinted</a>')
+    expect(html).toContain('<a href="https://www.vinted.nl/items/10137103544">View on Vinted</a>')
     for (const id of payload.similarProductIds) {
       const similar = payload.products.find((product) => product.id === id)!
       expect(html).toContain(`<a href="/products/${similar.slug}/">`)
@@ -68,11 +68,11 @@ describe('page snapshot for crawlers without JavaScript', () => {
   })
 
   it('says a reserved card is reserved, without a price or a buy link', async () => {
-    const { html } = await snapshotFor('/products/lugia-v-2022-silver-tempest-185')
+    const { html } = await snapshotFor('/products/dragonite-v-2022-pokemon-go-049')
 
     expect(html).toContain('<dt>Status</dt><dd>reserved</dd>')
     expect(html).toContain('This card is reserved')
-    expect(html).not.toContain('€40')
+    expect(html).not.toContain('<dt>Price</dt>')
     expect(html).not.toContain('View on Marktplaats')
   })
 
@@ -93,7 +93,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
       expect(html).toContain(`<a href="/products/${product.slug}/">`)
     }
     expect(html).toContain('Mewtwo PSA 9 - 2016 Evolutions #51</a>, €75')
-    expect(html).toContain('Lugia V PSA 9 - 2022 Silver Tempest #185</a>, reserved')
+    expect(html).toContain('Dragonite V PSA 9 - 2022 Pokemon GO #049</a>, reserved')
   })
 
   it('writes the FAQ answers and the navigation', async () => {

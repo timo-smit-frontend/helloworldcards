@@ -111,9 +111,10 @@ ${seller ? '<button type="button" id="remove">Verwijderen</button>' : ''}
 }
 
 /**
- * The email login page, keyed as Vinted keys it — with the cookie banner over the
- * whole of it, as on a window that has not answered the banner yet, so a click on
- * "Verder" lands on the banner until it is answered.
+ * The email login page, keyed as Vinted keys it — with its cookie banner as Vinted
+ * has it on a window that has not answered it yet: it turns up a moment after the
+ * form, over a dark layer that takes every click meant for the page, and stays away
+ * once its consent cookie is set.
  */
 const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></head><body>
 <form id="login">
@@ -124,14 +125,21 @@ const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></
   <button type="submit">Verder</button>
   <a href="/member/login/reset_password">Wachtwoord vergeten?</a>
 </form>
-<div id="onetrust-banner-sdk" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6)">
+<div class="onetrust-pc-dark-filter" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6)"></div>
+<div id="onetrust-banner-sdk" style="display: none; position: fixed; bottom: 0; left: 0; right: 0">
   <button type="button" id="onetrust-accept-btn-handler">Alle toestaan</button>
   <button type="button" id="onetrust-reject-all-handler">Alleen essentiële cookies</button>
 </div>
 <script>
-  for (const id of ['onetrust-accept-btn-handler', 'onetrust-reject-all-handler']) {
+  const layers = [document.querySelector('.onetrust-pc-dark-filter'), document.getElementById('onetrust-banner-sdk')]
+  if (!document.cookie.includes('OptanonAlertBoxClosed=')) {
+    setTimeout(() => layers.forEach((layer) => (layer.style.display = 'block')), 1500)
+  }
+  for (const [id, groups] of [['onetrust-accept-btn-handler', 'all'], ['onetrust-reject-all-handler', 'essential']]) {
     document.getElementById(id).addEventListener('click', () => {
-      document.getElementById('onetrust-banner-sdk').style.display = 'none'
+      document.cookie = 'OptanonAlertBoxClosed=' + new Date().toISOString() + '; path=/'
+      document.cookie = 'OptanonConsent=groups:' + groups + '; path=/'
+      layers.forEach((layer) => (layer.style.display = 'none'))
     })
   }
   document.getElementById('login').addEventListener('submit', async (event) => {
@@ -377,7 +385,16 @@ async function setUp(
   const products = CARDS.map((card) => card.product)
   /** The URLs of the tabs open in the window right now. */
   const tabs = () => context.pages().map((page) => page.url())
-  return { site, service, store, products, state: () => state, opened: () => opened, tabs }
+  return {
+    site,
+    service,
+    store,
+    products,
+    state: () => state,
+    opened: () => opened,
+    tabs,
+    cookies: () => context.cookies('https://www.vinted.nl')
+  }
 }
 
 const count = (site: Vinted, line: string) => site.requests.filter((request) => request.line === line).length
@@ -518,9 +535,11 @@ describe('the relist, in tabs', () => {
     expect(relisted.map((result) => result.productId)).toEqual([1, 2, 3])
     expect(h.site.uploads).toHaveLength(3)
     expect(h.site.wardrobe.every((listing) => listing.id >= 5000)).toBe(true)
-    // One login for the whole batch, typed in past the cookie banner that covered the form.
+    // One login for the whole batch, sent once the cookie banner that came over the form
+    // a moment after it was answered — with only the essential cookies.
     expect(count(h.site, 'GET /member/login/email')).toBe(1)
     expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+    expect((await h.cookies()).find((cookie) => cookie.name === 'OptanonConsent')?.value).toBe('groups:essential')
     // The tabs that landed on their listing page before the login saw it without the
     // seller's "Verwijderen", and landed again: every delete went through.
     for (const card of CARDS) {

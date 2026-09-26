@@ -19,8 +19,6 @@ export const seedMediaFiles: SeedMediaFile[] = [
   { key: '18501427_front.jpg', filename: '18501427_front.jpg', contentType: 'image/jpeg', bytes: 624094 },
   { key: '76645522_back.jpg', filename: '76645522_back.jpg', contentType: 'image/jpeg', bytes: 1381739 },
   { key: '76645522_front.jpg', filename: '76645522_front.jpg', contentType: 'image/jpeg', bytes: 1315185 },
-  { key: '76719295_back.jpg', filename: '76719295_back.jpg', contentType: 'image/jpeg', bytes: 1236958 },
-  { key: '76719295_front.jpg', filename: '76719295_front.jpg', contentType: 'image/jpeg', bytes: 2004089 },
   { key: '80573086_back.jpg', filename: '80573086_back.jpg', contentType: 'image/jpeg', bytes: 1098866 },
   { key: '80573086_front.jpg', filename: '80573086_front.jpg', contentType: 'image/jpeg', bytes: 1082659 },
   { key: 'BannerFigcaption.jpg', filename: 'BannerFigcaption.jpg', contentType: 'image/jpeg', bytes: 76444 },
