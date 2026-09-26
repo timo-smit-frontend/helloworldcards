@@ -88,6 +88,16 @@ A relist batch is kept by the dev server, not by the page that asked for it: pre
 own, awake until the last one is done. The relist screen shows where the batch is when
 it is opened again, on any device.
 
+Vinted's login in that Chrome window runs out every so often, and from the phone there is
+nobody at the computer to log in again. So the relist logs in by itself with
+`VINTED_USERNAME` and `VINTED_PASSWORD` from `.env` (gitignored, read afresh on every
+request): it answers the cookie banner with only the essential cookies, puts the login in
+on Vinted's own login page, and carries on with the batch. A login Vinted turns down is
+shown on the relist screen with Vinted's reason and not tried again for 30 minutes, or
+until `.env` changes, so a wrong password cannot get the account locked. When Vinted asks
+for more than the password (a code it sent, say), the tab is left on that step for you to
+finish at the computer.
+
 The dev server itself only listens on this computer (`127.0.0.1`). It used to listen on
 every network, which handed `.dev.vars`, the local database and the scan reports to
 anyone on the same Wi-Fi; those are now refused outright, and the phone goes through

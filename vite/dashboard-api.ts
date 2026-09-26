@@ -24,7 +24,7 @@ import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-or
 import { bucketMediaSource } from './media-sync'
 import { keepMacAwake, phoneAccessEnabled, tailnetSessionCookie } from './phone-access'
 import { createRelistBatch, handleRelistBatchRequest, type RelistBatch } from './relist-batch'
-import { createVintedRelistService } from './vinted-relist'
+import { createVintedRelistService, type VintedLogin } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
 import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
@@ -57,13 +57,13 @@ function parseDotEnv(source: string): Record<string, string> {
 }
 
 /**
- * `.dev.vars`, re-read only when the file changes. Every request to the dev CMS used to
- * read and parse it twice.
+ * `.dev.vars` (or `.env`), re-read only when the file changes. Every request to the dev
+ * CMS used to read and parse it twice.
  */
 const devVars = new Map<string, { mtimeMs: number; values: Record<string, string> }>()
 
-function readDevVars(root: string): Record<string, string> {
-  const filePath = path.join(root, '.dev.vars')
+function readDevVars(root: string, name: '.dev.vars' | '.env' = '.dev.vars'): Record<string, string> {
+  const filePath = path.join(root, name)
   let mtimeMs: number
   try {
     mtimeMs = fs.statSync(filePath).mtimeMs
@@ -105,6 +105,17 @@ function loadDashboardEnv(root = process.cwd()): {
     DASHBOARD_PASSWORD: process.env.DASHBOARD_PASSWORD ?? fromFile.DASHBOARD_PASSWORD,
     DASHBOARD_SESSION_SECRET: process.env.DASHBOARD_SESSION_SECRET ?? fromFile.DASHBOARD_SESSION_SECRET
   }
+}
+
+/**
+ * The shop's Vinted login, for the relist to log the Chrome window back in once
+ * Vinted's session has run out. It is kept in `.env`, next to the Cloudflare keys.
+ */
+function loadVintedLogin(root = process.cwd()): VintedLogin | null {
+  const fromFile = readDevVars(root, '.env')
+  const username = process.env.VINTED_USERNAME ?? fromFile.VINTED_USERNAME
+  const password = process.env.VINTED_PASSWORD ?? fromFile.VINTED_PASSWORD
+  return username && password ? { username, password } : null
 }
 
 async function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
@@ -402,6 +413,7 @@ async function respond(
             vintedRelist: createVintedRelistService({
               root,
               openPage: async () => (await getScanBrowser(root)).openPage(),
+              login: () => loadVintedLogin(root),
               // A slab photo uploaded through the admin is in the local bucket and,
               // once a sync has run, in its cache of uploads; the seed files come first.
               readMedia: firstMediaSource(

@@ -52,6 +52,17 @@ const LOAD_TIMEOUT_MS = 30_000
 const IN_PAGE_FETCH_TIMEOUT_MS = 30_000
 /** How long the window stays open for someone to log in to Vinted. */
 const LOGIN_GRACE_MS = 10 * 60_000
+/** Vinted's own email login page, which lands on the homepage once the login is in. */
+const LOGIN_PATH = '/member/login/email'
+const LOGIN_URL = `${VINTED}${LOGIN_PATH}?ref_url=%2F`
+/** How long Vinted gets to take a login and leave its form. */
+const LOGIN_SUBMIT_TIMEOUT_MS = 20_000
+/**
+ * How long a login Vinted turned down is left alone before it is typed in again —
+ * unless `.env` holds another one by then. A wrong password tried time after time
+ * gets the account locked.
+ */
+const LOGIN_RETRY_MS = 30 * 60_000
 /** Photos upload one by one; a listing of three can take a while on a slow line. */
 const PHOTO_UPLOAD_TIMEOUT_MS = 90_000
 const PUBLISH_TIMEOUT_MS = 90_000
@@ -154,6 +165,9 @@ function sleep(ms: number) {
 
 type VintedSession = { userId: number; login: string }
 
+/** The shop's own Vinted login, from `.env`, for when the window's session has run out. */
+export type VintedLogin = { username: string; password: string }
+
 /**
  * What the tabs of the one Chrome window share.
  *
@@ -180,6 +194,12 @@ type VintedChrome = {
   session: { at: number; check: Promise<VintedSession> } | null
   /** A "not logged in" found a moment ago, taken as read by every tab until `until`. */
   sessionProblem: { until: number; error: VintedRelistError } | null
+  /** The shop's login, read again each time it is needed, so a change to `.env` needs no restart. */
+  login: () => VintedLogin | null
+  /** When the relist last logged the window in itself; a tab that landed before that shows a logged-out page. */
+  loggedInAt: number
+  /** The last login Vinted turned down, not typed in again until `until`. */
+  turnedDown: { login: VintedLogin; until: number; problem: string } | null
   /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
   lastWardrobe: { at: number; wardrobe: VintedWardrobeItem[] } | null
   /** How far apart relists start, and when the next may. */
@@ -199,6 +219,9 @@ function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: 
       inFlight: new Set(),
       session: null,
       sessionProblem: null,
+      login: () => null,
+      loggedInAt: 0,
+      turnedDown: null,
       lastWardrobe: null,
       startGapMs,
       nextStartAt: 0
@@ -302,9 +325,14 @@ function knownSessionProblem(chrome: VintedChrome): VintedRelistError | null {
  * logged-out window is left open so it can be logged in to.
  *
  * The session is the window's, not the tab's, so the check itself is made once and
- * its answer shared: tabs that start together wait for the one check under way.
+ * its answer shared: tabs that start together wait for the one check under way —
+ * and for the one login, when the check finds the session run out. A tab that
+ * landed while that login was under way shows the page as Vinted serves it to
+ * nobody in particular — a listing without the seller's "Verwijderen" — so it
+ * lands again once the window is logged in.
  */
 async function ensureSession(page: Page, chrome: VintedChrome, landing = `${VINTED}/`): Promise<VintedSession> {
+  const started = Date.now()
   const known = knownSessionProblem(chrome)
   if (known) {
     throw known
@@ -320,6 +348,15 @@ async function ensureSession(page: Page, chrome: VintedChrome, landing = `${VINT
     throw new VintedRelistError('Vinted is showing a bot check. Clear it in the Chrome window, then try again.', 503)
   }
 
+  const session = await sharedSessionCheck(page, chrome)
+  if (chrome.loggedInAt >= started) {
+    await gotoVinted(chrome, page, landing)
+  }
+  return session
+}
+
+/** The session check under way or just made, whichever tab made it — or a new one, made from this tab. */
+async function sharedSessionCheck(page: Page, chrome: VintedChrome): Promise<VintedSession> {
   const fresh = chrome.session && Date.now() - chrome.session.at < SESSION_TTL_MS ? chrome.session : null
   if (fresh) {
     return await fresh.check
@@ -334,9 +371,39 @@ async function ensureSession(page: Page, chrome: VintedChrome, landing = `${VINT
   return await check
 }
 
-/** Ask Vinted who the window is logged in as, from this tab. */
+/**
+ * Who the window is logged in as, and when nobody is, log it in with the shop's
+ * login from `.env`. A window that is still logged out after that is left open on
+ * the login page — or wherever the login stopped — for a person to finish.
+ */
 async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSession> {
-  const current = await page
+  const current = await currentUser(page, chrome)
+  if (current) {
+    return current
+  }
+  const login = await logIn(page, chrome)
+  if ('session' in login) {
+    return login.session
+  }
+
+  chrome.session = null
+  const error = new VintedRelistError(login.problem, 401)
+  chrome.sessionProblem = { until: Date.now() + SESSION_PROBLEM_TTL_MS, error }
+  keepScanBrowserOpen(LOGIN_GRACE_MS)
+  // A login that was typed in leaves the tab where Vinted stopped it: the form with
+  // Vinted's reason on it, or the step that asks for a code. Otherwise the tab goes
+  // to the login page — only if it is not already showing it: a refresh while logged
+  // out must not start the sign-in over.
+  if (!login.typed && !/\/member\/(?:signup|register|login)\//.test(page.url())) {
+    await gotoVinted(chrome, page, LOGIN_URL).catch(() => undefined)
+  }
+  await page.bringToFront().catch(() => undefined)
+  throw error
+}
+
+/** Ask Vinted who the window is logged in as, from this tab; null for nobody. */
+async function currentUser(page: Page, chrome: VintedChrome): Promise<VintedSession | null> {
+  return await page
     .evaluate(async (timeout) => {
       const response = await fetch('/api/v2/users/current', {
         headers: { accept: 'application/json' },
@@ -358,21 +425,130 @@ async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSes
       }
       return null
     })
+}
 
-  if (!current) {
-    chrome.session = null
-    const error = new VintedRelistError('Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.', 401)
-    chrome.sessionProblem = { until: Date.now() + SESSION_PROBLEM_TTL_MS, error }
-    keepScanBrowserOpen(LOGIN_GRACE_MS)
-    // Only if the tab is not already showing it: a refresh while logged out must not
-    // start the sign-in over.
-    if (!/\/member\/(?:signup|register|login)\//.test(page.url())) {
-      await gotoVinted(chrome, page, `${VINTED}/member/login/email?ref_url=%2F`).catch(() => undefined)
+const LOGIN_ENV = 'VINTED_USERNAME and VINTED_PASSWORD'
+
+/**
+ * Log the window in to Vinted with the shop's login from `.env`.
+ *
+ * Vinted's session runs out every so often, and a relist started from the phone —
+ * or a batch left to run — has nobody at this computer to log in again. So the
+ * relist types the login in itself, on Vinted's own login page, and then asks
+ * Vinted who is logged in: that answer, not where the page went, says whether it
+ * worked. What it cannot get past alone — a code Vinted sends to confirm the login,
+ * a bot check, a login Vinted turns down — is left in the tab for a person. A login
+ * Vinted turned down is not typed in again until `.env` holds another one or
+ * `LOGIN_RETRY_MS` has passed.
+ */
+async function logIn(page: Page, chrome: VintedChrome): Promise<{ session: VintedSession } | { problem: string; typed: boolean }> {
+  const login = chrome.login()
+  if (!login) {
+    return {
+      problem: `Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here — or put ${LOGIN_ENV} in .env, and the relist logs in by itself.`,
+      typed: false
     }
-    await page.bringToFront().catch(() => undefined)
-    throw error
   }
-  return current
+  const turnedDown = chrome.turnedDown
+  if (
+    turnedDown &&
+    Date.now() < turnedDown.until &&
+    turnedDown.login.username === login.username &&
+    turnedDown.login.password === login.password
+  ) {
+    return { problem: turnedDown.problem, typed: false }
+  }
+
+  console.info('[vinted-relist] Vinted is logged out, logging in with the login from .env')
+  const stopped = await typeLogin(page, chrome, login)
+  const session = stopped ? null : await currentUser(page, chrome)
+  if (session) {
+    chrome.turnedDown = null
+    chrome.loggedInAt = Date.now()
+    console.info(`[vinted-relist] Logged in to Vinted as ${session.login}`)
+    return { session }
+  }
+  const problem = `${stopped ?? (await whyNotLoggedIn(page))} The relist tries that login again in ${LOGIN_RETRY_MS / 60_000} min, or as soon as .env changes.`
+  chrome.turnedDown = { login, until: Date.now() + LOGIN_RETRY_MS, problem }
+  console.warn(`[vinted-relist] ${problem}`)
+  return { problem, typed: true }
+}
+
+/**
+ * Put the login in on Vinted's login page and send it. Null once it is sent; what
+ * stood in the way otherwise.
+ *
+ * The cookie banner goes first — with only the essential cookies, the answer that
+ * loads least — since it sits over the form on a window that has not answered it
+ * yet, and a click meant for the form lands on the banner.
+ */
+async function typeLogin(page: Page, chrome: VintedChrome, { username, password }: VintedLogin): Promise<string | null> {
+  try {
+    if (new URL(page.url()).pathname !== LOGIN_PATH) {
+      await gotoVinted(chrome, page, LOGIN_URL)
+    }
+    if (!(await waitForBotChallengeClear(page, 'Vinted login'))) {
+      return 'Vinted is showing a bot check on its login page. Clear it in the Chrome window, then refresh here.'
+    }
+    const form = page.locator('form').filter({ has: page.locator('#password') })
+    try {
+      await form.locator('#password').waitFor({ state: 'visible', timeout: 15_000 })
+    } catch {
+      return "Vinted's login page has no password field where it used to, so the relist could not log in. Log in in the Chrome window, then refresh here."
+    }
+    await dismissCookieBanner(page)
+    await form.locator('#username').fill(username)
+    await form.locator('#password').fill(password)
+    await form.locator('button[type="submit"]').click({ timeout: 10_000 })
+  } catch (error) {
+    if (isRateLimited(error)) {
+      throw error
+    }
+    return `Could not put the login in on Vinted's login page (${error instanceof Error ? error.message.split('\n')[0] : 'unknown error'}). Log in in the Chrome window, then refresh here.`
+  }
+
+  const left = await page
+    .waitForURL((url) => url.pathname !== LOGIN_PATH, { timeout: LOGIN_SUBMIT_TIMEOUT_MS, waitUntil: 'domcontentloaded' })
+    .then(() => true)
+    .catch(() => false)
+  if (left) {
+    await failIfRateLimited(page, page.url())
+    // The page the login lands on may bounce through the session refresh on its way.
+    await page.waitForURL((url) => !SESSION_REFRESH.test(url.pathname), { timeout: SESSION_REFRESH_WAIT_MS }).catch(() => undefined)
+  }
+  return null
+}
+
+/** Vinted's cookie banner (OneTrust), answered with only the essential cookies when it is up. */
+async function dismissCookieBanner(page: Page): Promise<void> {
+  const essentialOnly = page.locator('#onetrust-reject-all-handler')
+  if (!(await essentialOnly.isVisible().catch(() => false))) {
+    return
+  }
+  await essentialOnly.click({ timeout: 5_000 }).catch(() => undefined)
+  await page
+    .locator('#onetrust-banner-sdk')
+    .waitFor({ state: 'hidden', timeout: 5_000 })
+    .catch(() => undefined)
+}
+
+/** The login form's own wording; any other line on it is Vinted saying why not. */
+const LOGIN_FORM_WORDING = /^(?:inloggen|verder|wachtwoord vergeten\?|problemen met inloggen\?|wachtwoord weergeven)$/i
+
+/** Why a login that was sent did not log the window in, from what the tab shows now. */
+async function whyNotLoggedIn(page: Page): Promise<string> {
+  const form = page.locator('form').filter({ has: page.locator('#password') })
+  const onForm = new URL(page.url()).pathname === LOGIN_PATH && (await form.isVisible().catch(() => false))
+  if (!onForm) {
+    return 'Vinted wants more than the password for this login — a code it sent, most likely. Finish the login in the Chrome window, then refresh here.'
+  }
+  const said = (await form.innerText().catch(() => ''))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !LOGIN_FORM_WORDING.test(line))
+  return said.length > 0
+    ? `Vinted did not take the login in .env: "${said.join(' ')}". Check ${LOGIN_ENV} there, or log in in the Chrome window.`
+    : `Vinted did not take the login in .env. Check ${LOGIN_ENV} there, or log in in the Chrome window.`
 }
 
 /**
@@ -1065,6 +1241,7 @@ export function createVintedRelistService({
   openPage,
   store = fileRelistStateStore(root),
   readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root)),
+  login = () => null,
   tabs = RELIST_TABS,
   startGapMs = RELIST_START_GAP_MS,
   tabLingerMs = RELIST_TAB_LINGER_MS
@@ -1075,6 +1252,8 @@ export function createVintedRelistService({
   store?: RelistStateStore
   /** Where a product's slab photos are read from, by media key; the seed files and the sync's cache of uploads by default. */
   readMedia?: MediaSourceReader
+  /** The shop's Vinted login, to log the window in once Vinted's session has run out; none, and a person logs in. */
+  login?: () => VintedLogin | null
   /**
    * How many relists run at once, how far apart they start, and how long a done
    * relist's tab waits for the next; the constants above unless a test says otherwise.
@@ -1084,6 +1263,8 @@ export function createVintedRelistService({
   tabLingerMs?: number
 }): VintedRelistService {
   const chrome = chromeFor(root, tabs, startGapMs, tabLingerMs)
+  // The window outlives the service, which the dev server makes afresh for every request.
+  chrome.login = login
 
   const openTab = async () => {
     let page: Page

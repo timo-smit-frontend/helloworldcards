@@ -7,7 +7,7 @@ import sharp from 'sharp'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { InventoryProduct } from '../app/database/products'
 import { emptyRelistState, type VintedRelistState } from '../app/services/vinted-relist'
-import { createVintedRelistService, relistStateStore } from '../vite/vinted-relist'
+import { createVintedRelistService, relistStateStore, type VintedLogin } from '../vite/vinted-relist'
 
 /**
  * The whole relist — session, snapshot, photos, delete, upload, publish — against a
@@ -21,6 +21,8 @@ import { createVintedRelistService, relistStateStore } from '../vite/vinted-reli
  * tab of its own, without asking Vinted anything twice that one answer covers.
  */
 const USER = { id: 42, login: 'helloworldcards' }
+/** The shop's login, as `.env` has it. */
+const ACCOUNT: VintedLogin = { username: 'shop@example.com', password: 'hunter2-hunter2' }
 const TREE = [
   { id: 1904, title: 'Dames' },
   {
@@ -87,10 +89,11 @@ function editPage(listing: Listing): string {
   return `<!DOCTYPE html><html><body>${chunks.map((chunk) => `<script>self.__next_f.push([1,${JSON.stringify(chunk)}])</script>`).join('')}</body></html>`
 }
 
-function listingPage(listing: Listing): string {
+/** The listing's page; only its seller, logged in, gets the button that deletes it. */
+function listingPage(listing: Listing, seller: boolean): string {
   return `<!DOCTYPE html><html><head><title>${listing.title}</title></head><body>
 <h1>${listing.title}</h1>
-<button type="button" id="remove">Verwijderen</button>
+${seller ? '<button type="button" id="remove">Verwijderen</button>' : ''}
 <div role="dialog" id="dialog" hidden>
   <p>Weet je zeker dat je dit item wilt verwijderen?</p>
   <button type="button" id="cancel">Annuleren</button>
@@ -98,7 +101,7 @@ function listingPage(listing: Listing): string {
 </div>
 <script>
   const dialog = document.getElementById('dialog')
-  document.getElementById('remove').addEventListener('click', () => { dialog.hidden = false })
+  document.getElementById('remove')?.addEventListener('click', () => { dialog.hidden = false })
   document.getElementById('cancel').addEventListener('click', () => { dialog.hidden = true })
   document.getElementById('confirm').addEventListener('click', async () => {
     await fetch('/api/v2/items/${listing.id}/delete', { method: 'POST' })
@@ -106,6 +109,47 @@ function listingPage(listing: Listing): string {
   })
 </script></body></html>`
 }
+
+/**
+ * The email login page, keyed as Vinted keys it — with the cookie banner over the
+ * whole of it, as on a window that has not answered the banner yet, so a click on
+ * "Verder" lands on the banner until it is answered.
+ */
+const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></head><body>
+<form id="login">
+  <h2>Inloggen</h2>
+  <p id="error" hidden></p>
+  <input type="text" id="username" name="username" placeholder="Gebruikersnaam of e-mailadres">
+  <input type="password" id="password" name="password" placeholder="Wachtwoord">
+  <button type="submit">Verder</button>
+  <a href="/member/login/reset_password">Wachtwoord vergeten?</a>
+</form>
+<div id="onetrust-banner-sdk" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6)">
+  <button type="button" id="onetrust-accept-btn-handler">Alle toestaan</button>
+  <button type="button" id="onetrust-reject-all-handler">Alleen essentiële cookies</button>
+</div>
+<script>
+  for (const id of ['onetrust-accept-btn-handler', 'onetrust-reject-all-handler']) {
+    document.getElementById(id).addEventListener('click', () => {
+      document.getElementById('onetrust-banner-sdk').style.display = 'none'
+    })
+  }
+  document.getElementById('login').addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const response = await fetch('/web/api/auth/oauth', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value })
+    })
+    if (response.ok) {
+      location.href = new URLSearchParams(location.search).get('ref_url') || '/'
+      return
+    }
+    const error = document.getElementById('error')
+    error.textContent = 'Onjuiste gebruikersnaam of wachtwoord.'
+    error.hidden = false
+  })
+</script></body></html>`
 
 /** The upload form, with the fields and pickers the relist fills, keyed as Vinted keys them. */
 const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</title></head><body>
@@ -223,12 +267,18 @@ async function serve(site: Vinted, route: Route): Promise<void> {
   } else if (deleteId && request.method() === 'POST') {
     site.wardrobe = site.wardrobe.filter((candidate) => String(candidate.id) !== deleteId)
     await route.fulfill({ json: {} })
+  } else if (url.pathname === '/web/api/auth/oauth' && request.method() === 'POST') {
+    const { username, password } = request.postDataJSON() as VintedLogin
+    site.loggedIn = username === ACCOUNT.username && password === ACCOUNT.password
+    await (site.loggedIn ? route.fulfill({ json: {} }) : route.fulfill({ status: 401, json: {} }))
+  } else if (url.pathname === '/member/login/email') {
+    await route.fulfill(html(LOGIN_PAGE))
   } else if (url.pathname === '/items/new') {
     await route.fulfill(html(UPLOAD_FORM.replace('window.__tree', JSON.stringify(TREE))))
   } else if (listing && url.pathname.endsWith('/edit')) {
     await route.fulfill(html(editPage(listing)))
   } else if (listing) {
-    await route.fulfill(html(listingPage(listing)))
+    await route.fulfill(html(listingPage(listing, site.loggedIn)))
   } else if (url.pathname === '/' || url.pathname.startsWith('/member/')) {
     await route.fulfill(html('<!DOCTYPE html><html><head><title>Vinted</title></head><body><h1>Vinted</h1></body></html>'))
   } else {
@@ -277,7 +327,9 @@ const CARDS = [
 ]
 
 /** A project root with an ad photo per card, and the stand-in Vinted served into a window of its own. */
-async function setUp(options: { tabs: number; startGapMs?: number; tabLingerMs?: number; loggedIn?: boolean } = { tabs: 2 }) {
+async function setUp(
+  options: { tabs: number; startGapMs?: number; tabLingerMs?: number; loggedIn?: boolean; login?: () => VintedLogin | null } = { tabs: 2 }
+) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hwc-relist-flow-'))
   roots.push(root)
   const photo = await sharp({ create: { width: 8, height: 12, channels: 3, background: '#3355aa' } })
@@ -316,6 +368,7 @@ async function setUp(options: { tabs: number; startGapMs?: number; tabLingerMs?:
     },
     store,
     readMedia: async () => photo,
+    login: options.login,
     tabs: options.tabs,
     startGapMs: options.startGapMs ?? 0,
     // Tabs close the moment their relist is done, so each test finds the window as it left it.
@@ -454,6 +507,58 @@ describe('the relist, in tabs', () => {
     expect(h.state().pending).toEqual({})
     // The tab on the login page is left open, for the login.
     expect(h.tabs().some((url) => url.startsWith('https://www.vinted.nl/member/login/email'))).toBe(true)
+  }, 60_000)
+
+  it("logs the window in with the login from .env once Vinted's session has run out, and relists the whole batch", async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 2, loggedIn: false, login: () => ACCOUNT })
+
+    const relisted = await Promise.all(CARDS.map((card) => h.service.relist(String(card.listingId), h.products)))
+
+    expect(relisted.map((result) => result.productId)).toEqual([1, 2, 3])
+    expect(h.site.uploads).toHaveLength(3)
+    expect(h.site.wardrobe.every((listing) => listing.id >= 5000)).toBe(true)
+    // One login for the whole batch, typed in past the cookie banner that covered the form.
+    expect(count(h.site, 'GET /member/login/email')).toBe(1)
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+    // The tabs that landed on their listing page before the login saw it without the
+    // seller's "Verwijderen", and landed again: every delete went through.
+    for (const card of CARDS) {
+      expect(count(h.site, `POST /api/v2/items/${card.listingId}/delete`)).toBe(1)
+    }
+    expect(h.state().pending).toEqual({})
+  }, 60_000)
+
+  it('leaves a login Vinted turns down on the screen with its reason, and types it in again only once .env changes', async ({ skip }) => {
+    if (!browser) skip()
+    let login: VintedLogin = { ...ACCOUNT, password: 'not-the-password' }
+    const h = await setUp({ tabs: 2, loggedIn: false, login: () => login })
+
+    const outcomes = await Promise.allSettled(CARDS.map((card) => h.service.relist(String(card.listingId), h.products)))
+    for (const outcome of outcomes) {
+      expect(outcome.status).toBe('rejected')
+      const reason = (outcome as PromiseRejectedResult).reason as { status: number; message: string }
+      expect(reason.status).toBe(401)
+      expect(reason.message).toContain('Onjuiste gebruikersnaam of wachtwoord.')
+      expect(reason.message).not.toContain(login.password)
+    }
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+    expect(h.state().pending).toEqual({})
+    // The tab stays on the form, with Vinted's reason on it, for a person to look at.
+    expect(h.tabs().some((url) => url.startsWith('https://www.vinted.nl/member/login/email'))).toBe(true)
+
+    // Past the moment every tab takes the "not logged in" as read: the same login is not typed in again...
+    const realNow = Date.now.bind(Date)
+    let ahead = 20_000
+    spies.push(vi.spyOn(Date, 'now').mockImplementation(() => realNow() + ahead))
+    await expect(h.service.relist('1001', h.products)).rejects.toMatchObject({ status: 401 })
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+
+    // ...but the one `.env` holds once it is put right is, at the next relist.
+    login = ACCOUNT
+    ahead = 40_000
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(2)
   }, 60_000)
 
   it('stops a relist at its next step once Vinted has rate-limited another tab, with its state written down', async ({ skip }) => {
