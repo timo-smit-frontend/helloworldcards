@@ -345,9 +345,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2022,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877684',
+    vintedUrl: 'https://www.vinted.nl/items/10138386700',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Vaporeon-BRSTG02',
     cost: 38,
-    concept: true,
     acquiredAt: '2026-09-23'
   },
   {
@@ -363,9 +364,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2023,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877820',
+    vintedUrl: 'https://www.vinted.nl/items/10138388672',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Scarlet-Violet/Pachirisu-V2-SVI208',
     cost: 32,
-    concept: true,
     acquiredAt: '2026-09-23'
   },
   {
@@ -381,9 +383,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2026,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877984',
+    vintedUrl: 'https://www.vinted.nl/items/10138390104',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Ascended-Heroes/Marill-V2-ASC232',
     cost: 33,
-    concept: true,
     acquiredAt: '2026-09-23'
   },
   {
@@ -399,9 +402,10 @@ export const seedProductRecords: ProductRecord[] = [
     grader: 'psa',
     grade: 9,
     year: 2026,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446878119',
+    vintedUrl: 'https://www.vinted.nl/items/10138393983',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Perfect-Order/Dedenne-V2-POR093',
     cost: 29,
-    concept: true,
     acquiredAt: '2026-09-23'
   },
   {
