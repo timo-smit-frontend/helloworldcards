@@ -1,3 +1,4 @@
+import { vintedFlightData } from '../vinted-relist'
 import type { SourceListing } from './types'
 
 const VINTED_ORIGIN = 'https://www.vinted.nl'
@@ -32,6 +33,13 @@ export function titleFromVintedSlug(slug: string): string {
 }
 
 /**
+ * The item details Vinted appends to the title in a hover string. A seller who picked
+ * no brand has no `Merk:`, and the details then start at `Staat:` — which used to stay
+ * on the title with both prices, so `25.00 €` was read as card number 25.
+ */
+const HOVER_DETAILS = /,\s*(?:Merk|Staat|Maat|Brand|Condition|Size):.*$/i
+
+/**
  * Catalogue cards carry everything in one hover string:
  * `<title>, Merk: Pokémon, Staat: Heel goed, 196.00 €, 206.50 €`
  *
@@ -52,7 +60,7 @@ export function parseVintedHoverTitle(raw: string): { title: string; ask: number
     return null
   }
 
-  const title = trimmed.replace(/,\s*Merk:.*$/i, '').trim()
+  const title = trimmed.slice(0, price.index).replace(HOVER_DETAILS, '').trim()
   return title ? { title, ask } : null
 }
 
@@ -174,11 +182,31 @@ export function vintedSellerReviews(html: string): number | null {
   return printed != null ? Number(printed) : null
 }
 
+/**
+ * Whether the item can still be bought, as the item page's own data says.
+ *
+ * The page ships the item as flight data, with the same `is_closed` and `is_reserved`
+ * flags the wardrobe API carries; like the review count, the first of each is the
+ * item's own. A sold item is closed. A reserved one is promised to a buyer and only
+ * comes back if that sale falls through. Null when the page says neither.
+ */
+const CLOSED = /"is_?[cC]losed"\s*:\s*(true|false)/
+const RESERVED = /"is_?[rR]eserved"\s*:\s*(true|false)/
+
+export function vintedAvailability(html: string): 'sold' | 'reserved' | null {
+  const data = html.includes('__next_f') ? vintedFlightData(html) : html
+  if (data.match(CLOSED)?.[1] === 'true') {
+    return 'sold'
+  }
+  return data.match(RESERVED)?.[1] === 'true' ? 'reserved' : null
+}
+
 export function parseVintedDetail(html: string): {
   description: string | null
   imageUrls: string[]
   shipping: number | null
   sellerReviews: number | null
+  availability: 'sold' | 'reserved' | null
 } {
   const byImage = new Map<string, string>()
   for (const match of html.matchAll(VINTED_PHOTO)) {
@@ -195,7 +223,8 @@ export function parseVintedDetail(html: string): {
     description: detailDescription(html),
     imageUrls: [...byImage.values()],
     shipping: vintedShipping(html),
-    sellerReviews: vintedSellerReviews(html)
+    sellerReviews: vintedSellerReviews(html),
+    availability: vintedAvailability(html)
   }
 }
 

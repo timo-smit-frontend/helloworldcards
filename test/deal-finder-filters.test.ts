@@ -72,8 +72,20 @@ describe('screening a listing', () => {
     expect(screen('Pokemon lotto ex full art')).toMatchObject({ keep: false, reason: 'Not a PSA 9 or 10 listing' })
   })
 
+  it("drops another grader's slab graded in the title, whatever PSA grade the description mentions", () => {
+    // The real listing: the only "PSA 10" in it is what the seller would take in trade.
+    const listing = {
+      ...vintedRow('Charmander MEP 038 BGS 9,5'),
+      description:
+        'Charmander MEP 038 BGS 9,5Beckett 9,5First Partner Series 1, Gen 1Eventueel is trade mogelijk tegen Pokémon 30th Anniversary sealed producten of PSA 10'
+    }
+    expect(screenListing(listing, NO_OWN_LISTINGS)).toMatchObject({ keep: false, reason: 'Graded by BGS, not PSA' })
+    expect(screen('Umbreon VMAX Beckett 9.5 black label')).toMatchObject({ keep: false, reason: 'Graded by BECKETT, not PSA' })
+  })
+
   it('keeps a real PSA grade even where a rival grader is mentioned beside it', () => {
     expect(screen('Charizard PSA 10 (not CGC, not BGS)')).toEqual({ keep: true })
+    expect(screen('Charizard PSA 10, crossover from BGS 9.5')).toEqual({ keep: true })
   })
 
   it('still reads the grade it can see', () => {

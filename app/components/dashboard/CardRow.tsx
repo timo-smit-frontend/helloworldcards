@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Image from '~/components/elements/Image'
+import Pokemon from '~/components/elements/Pokemon'
 
 /**
  * The pieces every card list in the admin is built from — recently sold, price
@@ -25,8 +26,11 @@ export function FigureStrip({ children, breakpoint = 'md' }: { children: ReactNo
   return <div className={STRIP[breakpoint]}>{children}</div>
 }
 
-/** The slab photo at the start of a row. `tall` gives it more room on a wide screen, for a row with more lines beside it. */
-export function CardThumbnail({ src, tall = false }: { src: string | null; tall?: boolean }) {
+/**
+ * The slab photo at the start of a row. `tall` gives it more room on a wide screen, for a row with more lines beside it.
+ * A card without a photo shows its placeholder Pokémon when it is given one, as on the shop.
+ */
+export function CardThumbnail({ src, tall = false, pokemonId }: { src: string | null; tall?: boolean; pokemonId?: number | null }) {
   return (
     <div className={`relative h-24 w-16 shrink-0 overflow-hidden rounded-md ${tall ? 'md:h-36 md:w-24' : ''}`}>
       {src ? (
@@ -41,6 +45,8 @@ export function CardThumbnail({ src, tall = false }: { src: string | null; tall?
           aria-hidden
           className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
         />
+      ) : pokemonId != null ? (
+        <Pokemon variant="placeholder" id={pokemonId} className="absolute inset-0 size-full p-1" />
       ) : null}
     </div>
   )

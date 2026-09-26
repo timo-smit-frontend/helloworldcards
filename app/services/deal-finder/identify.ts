@@ -1,6 +1,8 @@
 import { isPopularCard, POPULAR_STAR } from './popular'
 import { describePsaLabel, looksLikeLabelText, psaSetCode } from './psa-label'
 import {
+  detectAllGrades,
+  detectAnyGrade,
   detectCardName,
   detectCardNumber,
   detectGrade,
@@ -9,6 +11,7 @@ import {
   isFirstEdition,
   isJapaneseSetCode,
   isReverseHolo,
+  rivalGrade,
   unwantedGradeReason
 } from './text'
 import type { CardIdentity, CardLanguage, IdentitySignal, PsaGrade, PsaLabel, SourceListing } from './types'
@@ -86,6 +89,15 @@ export function identifyCard({
     signals.push('psa-cert')
   }
 
+  // The same rule the title screen applies, now that the description has been read: a
+  // slab from another grader is not made a PSA slab by a PSA grade mentioned beside it.
+  // Only a label that actually carried a PSA grade outweighs the seller here — a BGS slab
+  // read as if it were PSA's comes back with neither a grade nor a cert number.
+  const rival = rivalGrade(text)
+  if (rival && label?.grade == null && detectAnyGrade(listing.title) == null) {
+    return { ok: false, scope: 'out-of-scope', reason: `Graded by ${rival}, not PSA`, detail: label ? describePsaLabel(label) : null }
+  }
+
   const grade = isSupportedGrade(label?.grade ?? null) ? (label!.grade as PsaGrade) : titleGrade
   if (!isSupportedGrade(grade)) {
     const seen = label?.grade ?? titleGrade
@@ -94,6 +106,19 @@ export function identifyCard({
       scope: 'out-of-scope',
       reason: seen != null ? `Graded PSA ${seen}, not 9 or 10` : 'No PSA 9 or 10 grade found',
       detail: label ? describePsaLabel(label) : null
+    }
+  }
+
+  // With no slab read, the text is the only witness to the grade, and a text naming two
+  // has not said which one this card is. A Gengar whose slab said PSA 8 went up as a
+  // PSA 10 on the strength of a description that also talked about another card.
+  const textGrades = detectAllGrades(text)
+  if (!label && textGrades.length > 1) {
+    return {
+      ok: false,
+      scope: 'problem',
+      reason: `Listing names ${textGrades.map((value) => `PSA ${value}`).join(' and ')}, and the slab could not be read`,
+      detail: readerNote
     }
   }
 

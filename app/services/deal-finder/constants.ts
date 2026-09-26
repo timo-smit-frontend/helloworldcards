@@ -86,6 +86,12 @@ export const IDENTIFY_CONCURRENCY = 4
 /** Cardmarket "Show more" clicks before we accept whatever rows we already have. */
 export const MAX_LOAD_MORE = 30
 
+/**
+ * How many other versions of one card number are priced beside the one Google found.
+ * A card with more than this is too uncertain to call a deal on and is shown unpriced.
+ */
+export const MAX_OTHER_VERSIONS = 3
+
 /** Which card a listing shows barely changes — re-reading the photos is the expensive half. */
 export const IDENTITY_TTL_MS = 30 * 24 * 60 * 60 * 1000
 /** Cardmarket prices move, so a cached floor is only reused for half a day. */

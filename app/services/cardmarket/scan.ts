@@ -15,6 +15,8 @@ export type CardmarketProductReport = {
   id: number
   title: string
   image: string | null
+  /** Drawn in place of the photo when the card has none. */
+  pokemonId?: number | null
   listed: number
   url: string
   /** The slab being priced. Optional because older saved reports predate it. */
@@ -156,6 +158,7 @@ export async function runCardmarketScan({
       id: product.id,
       title: product.title,
       image: product.images[0] ? toMediaSrc(product.images[0]) : null,
+      pokemonId: product.pokemonId ?? null,
       listed,
       url,
       grader: product.grader!,
@@ -246,14 +249,16 @@ export function withWatchedProductsOnly(report: CardmarketReport, products: Inve
 }
 
 export function withProductFrontImages(report: CardmarketReport, products: InventoryProduct[]): CardmarketReport {
-  const fronts = new Map(products.map((product) => [product.id, product.images[0] ?? null]))
+  const byId = new Map(products.map((product) => [product.id, product]))
   return {
     ...report,
     products: report.products.map((item) => {
-      const src = fronts.get(item.id) ?? item.image
+      const product = byId.get(item.id)
+      const src = product?.images[0] ?? item.image
       return {
         ...item,
-        image: src ? toMediaSrc(src) : null
+        image: src ? toMediaSrc(src) : null,
+        pokemonId: product?.pokemonId ?? item.pokemonId ?? null
       }
     })
   }

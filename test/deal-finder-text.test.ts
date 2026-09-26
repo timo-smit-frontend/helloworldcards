@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  detectAllGrades,
   detectAnyGrade,
   detectCardName,
   detectCardNumber,
@@ -184,6 +185,36 @@ describe('detectCardNumber', () => {
   it('does not read a set name that looks like a number', () => {
     // "Scarlet & Violet 151" is the set; 168/165 is the card.
     expect(parse('Pokémon Charmander 168/165 Scarlet & Violet 151 PSA 9').set).toBe('Scarlet & Violet 151')
+  })
+})
+
+describe('Vinted prices', () => {
+  it('never reads the amount Vinted prints before the euro sign as a card number', () => {
+    expect(detectCardNumber('Gengar PSA Pokemon Slab, Staat: Heel goed, 25.00 €, 26.95 €')).toBeNull()
+  })
+})
+
+describe('Mew', () => {
+  it('is the Pokémon, not the 151 set, unless it is written as a set code', () => {
+    // Read as set MEW, the Pokémon's name was stripped out of its own card: "ex".
+    expect(parse('Mew ex 151/165 PSA 10')).toMatchObject({ set: null, cardNumber: '151', name: 'Mew ex' })
+    expect(detectSet('Gengar PSA 8, kijk ook naar mijn Mew').code).toBeNull()
+  })
+
+  it('still names the set when the code comes before a number or sits in brackets', () => {
+    expect(detectSet('Charmander MEW 168 PSA 9').code).toBe('MEW')
+    expect(detectSet('Charmander 168/165 151 (MEW) PSA 9').code).toBe('MEW')
+  })
+})
+
+describe('detectAllGrades', () => {
+  it('lists every PSA grade the text names, once each', () => {
+    expect(detectAllGrades('Gengar PSA 8. Ook te koop: Mew PSA 10')).toEqual([8, 10])
+    expect(detectAllGrades('PSA 10 gem mint, echt een psa10')).toEqual([10])
+  })
+
+  it('leaves out a grade the seller only hopes for', () => {
+    expect(detectAllGrades('PSA 9 slab, de andere is PSA 10 waardig')).toEqual([9])
   })
 })
 

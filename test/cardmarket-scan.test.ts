@@ -394,4 +394,30 @@ describe('withProductFrontImages', () => {
 
     expect(report.products[0]?.image).toBe('/media/80573086_front.jpg')
   })
+
+  it('carries the placeholder Pokémon of a card without a photo', () => {
+    const report = withProductFrontImages(
+      {
+        scannedAt: '2026-08-30T12:00:00.000Z',
+        products: [
+          {
+            id: 9,
+            title: 'Poke Kid',
+            image: null,
+            listed: 95,
+            url: pokeKid.cardmarketUrl!,
+            listings: [],
+            competitors: [],
+            suggestion: null,
+            gone: [],
+            error: null
+          }
+        ]
+      },
+      [{ ...pokeKid, images: [], pokemonId: 25 }]
+    )
+
+    expect(report.products[0]?.image).toBeNull()
+    expect(report.products[0]?.pokemonId).toBe(25)
+  })
 })

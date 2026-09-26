@@ -38,7 +38,7 @@ export type CacheEntry = {
  * differently must not be served yesterday's answer — the TTLs cannot see that the
  * rules moved, only that the clock did.
  */
-export const CACHE_VERSION = 4
+export const CACHE_VERSION = 6
 
 export type DealFinderCache = { version?: number; entries: Record<string, CacheEntry> }
 

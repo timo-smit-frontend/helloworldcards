@@ -11,6 +11,7 @@ import {
 import {
   isVintedChallenge,
   parseVintedDetail,
+  vintedAvailability,
   vintedSellerReviews,
   parseVintedHoverTitle,
   parseVintedOverview,
@@ -123,6 +124,14 @@ describe('parseVintedOverview', () => {
       ask: 63.45
     })
     expect(parseVintedHoverTitle('no price here')).toBeNull()
+  })
+
+  it('takes the condition and prices off a title that has no brand in front of them', () => {
+    // Left on, `25.00 €` was read as card number 25 and `.00` became part of the name.
+    expect(parseVintedHoverTitle('Gengar PSA Pokemon Slab, Staat: Heel goed, 25.00 €, 26.95 €')).toEqual({
+      title: 'Gengar PSA Pokemon Slab',
+      ask: 26.95
+    })
     expect(titleFromVintedSlug('9863102973-mega-ectoplasma-ex-230193')).toBe('mega ectoplasma ex 230193')
   })
 })
@@ -141,6 +150,30 @@ describe('parseVintedDetail', () => {
       'https://images1.vinted.net/t/06_y/800x1200/b.webp?s=3'
     ])
     expect(detail.description).toBe('Umbreon VMAX PSA 10, s8b 245')
+  })
+})
+
+describe('vintedAvailability', () => {
+  /** The item page's flight data: a JS string literal with the item JSON inside it. */
+  const flight = (json: string) => `<script>self.__next_f.push([1,${JSON.stringify(`5:${json}\n`)}])</script>`
+
+  it('reads a sold or reserved item off the flight data', () => {
+    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":true,"is_reserved":false}}'))).toBe('sold')
+    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":false,"is_reserved":true}}'))).toBe('reserved')
+    expect(vintedAvailability(flight('{"item":{"id":1,"isClosed":true}}'))).toBe('sold')
+  })
+
+  it('calls an item that is neither, or does not say, available', () => {
+    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":false,"is_reserved":false}}'))).toBeNull()
+    expect(vintedAvailability('<html><div itemprop="description">Just a description</div></html>')).toBeNull()
+  })
+
+  it('goes by the item itself, not a later item on the same page', () => {
+    expect(
+      vintedAvailability(
+        flight('{"item":{"id":1,"is_closed":false,"is_reserved":false},"more":[{"id":2,"is_closed":true,"is_reserved":true}]}')
+      )
+    ).toBeNull()
   })
 })
 

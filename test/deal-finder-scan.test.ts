@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CardmarketBlockedError } from '~/services/deal-finder/cardmarket'
+import { CardmarketBlockedError, cardmarketVersionsUrl, isVersionedProduct, sameCardVersions } from '~/services/deal-finder/cardmarket'
 import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
 import { CACHE_VERSION, type DealFinderCache } from '~/services/deal-finder/cache'
@@ -193,6 +193,37 @@ describe('runDealFinderScan', () => {
     const { report } = await run({ fetchPage, readSlabs: readCharmander, sources: ['vinted'] })
 
     expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:901'])
+  })
+
+  it('skips a Vinted item its own page says is sold or reserved', async () => {
+    const flight = (flags: string) => `<script>self.__next_f.push([1,${JSON.stringify(`5:{"item":{"id":1,${flags}}}\n`)}])</script>`
+    const { fetchPage } = fetcher({
+      vinted: vintedOverview([
+        { id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' },
+        { id: '902', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' },
+        { id: '903', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }
+      ]),
+      vintedItem: (id) =>
+        `<html><div itemprop="description">Vinted omschrijving</div>${flight(
+          id === '901'
+            ? '"is_closed":true,"is_reserved":false'
+            : id === '902'
+              ? '"is_closed":false,"is_reserved":true'
+              : '"is_closed":false,"is_reserved":false'
+        )}</html>`,
+      google: () => googleResults('151', 'Charmander-V2-MEW168'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const readSlabs = vi.fn(readCharmander)
+
+    const { report, cache } = await run({ fetchPage, readSlabs, sources: ['vinted'] })
+
+    expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:903'])
+    expect(readSlabs).toHaveBeenCalledTimes(1)
+    expect(report.outOfScope).toBe(2)
+    // Not written off for the week: a reservation that falls through is worth a fresh look.
+    expect(cache.entries['vinted:901']).toBeUndefined()
+    expect(cache.entries['vinted:902']).toBeUndefined()
   })
 
   it('asks after a seller once however many listings they have up', async () => {
@@ -1025,5 +1056,80 @@ describe('runDealFinderScan', () => {
     expect(report.deals).toHaveLength(1)
     expect(report.deals[0]?.card.confidence).toBe('medium')
     expect(report.errors[0]).toContain('No PSA label reader configured')
+  })
+})
+
+describe('Cardmarket versions of one card', () => {
+  const SINGLES = 'https://www.cardmarket.com/en/Pokemon/Products/Singles'
+  const VERSIONS_URL = 'https://www.cardmarket.com/en/Pokemon/Cards/Magneton/Versions'
+  const VERSIONS_LINK = '<a href="/en/Pokemon/Cards/Magneton/Versions">Show Versions (21)</a>'
+  /** Every printing of Magneton: the two SVP 159s, another promo, and a Magneton from a set. */
+  const VERSIONS_PAGE = `<html>
+    <a href="/en/Pokemon/Products/Singles/SV-Black-Star-Promos/Magneton-V1-SVP159">Magneton</a>
+    <a href="/en/Pokemon/Products/Singles/SV-Black-Star-Promos/Magneton-V2-SVP159">Magneton</a>
+    <a href="/en/Pokemon/Products/Singles/SV-Black-Star-Promos/Magneton-V3-SVP098">Magneton</a>
+    <a href="/en/Pokemon/Products/Singles/Surging-Sparks/Magneton-SSP159">Magneton</a>
+  </html>`
+
+  it('only calls a product versioned when Cardmarket marked it so', () => {
+    expect(isVersionedProduct(`${SINGLES}/SV-Black-Star-Promos/Magneton-V2-SVP159`)).toBe(true)
+    expect(isVersionedProduct(`${SINGLES}/Surging-Sparks/Magneton-SSP159`)).toBe(false)
+  })
+
+  it('finds the versions list the product page links to', () => {
+    expect(cardmarketVersionsUrl(`<html>${VERSIONS_LINK}</html>`)).toBe(VERSIONS_URL)
+    expect(cardmarketVersionsUrl('<html><a href="/en/Pokemon/Cards/Magneton">Magneton</a></html>')).toBeNull()
+  })
+
+  it('takes only the versions that are this very card', () => {
+    expect(sameCardVersions(VERSIONS_PAGE, `${SINGLES}/SV-Black-Star-Promos/Magneton-V2-SVP159`)).toEqual([
+      `${SINGLES}/SV-Black-Star-Promos/Magneton-V1-SVP159`
+    ])
+  })
+
+  const magnetonSlab: SlabReader = async () => ({
+    slabs: [
+      slab({
+        year: '2024',
+        setLine: 'POKEMON SVP EN',
+        cardName: 'MAGNETON',
+        varietyLine: 'SURGING SPARKS ETB',
+        cardNumber: '159',
+        grade: 10
+      })
+    ],
+    note: null
+  })
+
+  function magnetonFetcher(v1Offers: string) {
+    return fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Magneton Surging Sparks Psa 10', cents: 14995 }]),
+      google: () => googleResults('SV-Black-Star-Promos', 'Magneton-V2-SVP159'),
+      offers: (url) => {
+        if (url.startsWith(VERSIONS_URL)) return VERSIONS_PAGE
+        if (url.includes('Magneton-V1-SVP159')) return v1Offers
+        // The stamped one, which Google happened to put first.
+        return offersPage([{ seller: 'shop', comment: 'PSA 10', price: '275,45 €' }]).replace('</body>', `${VERSIONS_LINK}</body>`)
+      }
+    })
+  }
+
+  it('prices a card Cardmarket sells more than once against the cheapest version', async () => {
+    const { fetchPage } = magnetonFetcher(offersPage([{ seller: 'shop', comment: 'PSA 10', price: '190,00 €' }]))
+
+    const { report } = await run({ fetchPage, readSlabs: magnetonSlab, sources: ['marktplaats'] })
+
+    expect(report.deals).toHaveLength(1)
+    expect(report.deals[0]).toMatchObject({ marketFloor: 190, edge: 28.55 })
+    expect(report.deals[0]?.cardmarketUrl).toContain('/SV-Black-Star-Promos/Magneton-V1-SVP159')
+  })
+
+  it('does not price it at all when one of the versions has nothing to price it by', async () => {
+    const { fetchPage } = magnetonFetcher(offersPage([{ seller: 'shop', comment: 'Near Mint', price: '40,00 €' }]))
+
+    const { report } = await run({ fetchPage, readSlabs: magnetonSlab, sources: ['marktplaats'] })
+
+    expect(report.deals).toHaveLength(0)
+    expect(report.noComps[0]?.reason).toBe('Cardmarket sells 2 versions of this card, and not every one has a PSA 10 to price it by')
   })
 })

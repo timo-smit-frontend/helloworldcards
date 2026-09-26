@@ -1,5 +1,14 @@
-import type { FetchCardmarketPage } from '../cardmarket/scan'
-import { CardmarketBlockedError, OFFERS_FETCH_OPTIONS, offersUrlFor, priceFromOffers } from './cardmarket'
+import { isCardmarketChallenge, type FetchCardmarketPage } from '../cardmarket/scan'
+import {
+  cardmarketVersionsUrl,
+  CardmarketBlockedError,
+  isVersionedProduct,
+  OFFERS_FETCH_OPTIONS,
+  offersUrlFor,
+  priceFromOffers,
+  sameCardVersions,
+  type MarketPrice
+} from './cardmarket'
 import { hasFreshIdentity, hasFreshPrice, hasSettledVerdict, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
 import {
   DEAL_SOURCES,
@@ -10,6 +19,7 @@ import {
   LISTING_DELAY_MS,
   MARKTPLAATS_MAX_PAGES,
   MARKTPLAATS_SEARCH_URL,
+  MAX_OTHER_VERSIONS,
   MAX_PHOTOS_PER_LISTING,
   MIN_EDGE,
   VINTED_MAX_PAGES,
@@ -473,16 +483,20 @@ async function followToCardmarket({
  * catalogue does not — the overview knows nothing about the seller at all — so it is
  * the first place the scan can tell an unreviewed Vinted seller apart. Marktplaats
  * sellers were already judged on the overview, through their own review endpoint.
+ * It is also the only place a Vinted item says it has been sold or reserved.
  */
 async function loadListingDetail(
   listing: SourceListing,
   fetchPage: FetchCardmarketPage,
   pace: Pacer,
   delayMs: number
-): Promise<{ listing: SourceListing; sellerReviews: number | null }> {
+): Promise<{ listing: SourceListing; sellerReviews: number | null; availability: 'sold' | 'reserved' | null }> {
   try {
     const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
-    const detail = listing.source === 'marktplaats' ? { ...parseMarktplaatsDetail(html), sellerReviews: null } : parseVintedDetail(html)
+    const detail =
+      listing.source === 'marktplaats'
+        ? { ...parseMarktplaatsDetail(html), sellerReviews: null, availability: null }
+        : parseVintedDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
     return {
@@ -492,11 +506,12 @@ async function loadListingDetail(
         imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
         shipping: detail.shipping ?? listing.shipping
       },
-      sellerReviews: detail.sellerReviews
+      sellerReviews: detail.sellerReviews,
+      availability: detail.availability
     }
   } catch {
     // A listing page that will not load is not fatal — the overview row still has a title.
-    return { listing, sellerReviews: null }
+    return { listing, sellerReviews: null, availability: null }
   }
 }
 
@@ -658,6 +673,7 @@ type Prepared =
   | { step: 'matched'; listing: SourceListing; evaluated: Evaluated }
   | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; googleUrl: string }
   | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
+  | { step: 'unavailable'; listing: SourceListing }
   | { step: 'failed'; listing: SourceListing; error: unknown }
 
 /** Read the listing page and its photos, and say which card is in the slab. */
@@ -713,7 +729,12 @@ async function identifyCandidate({
     return { step: 'matched', listing, evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl } }
   }
 
-  const { listing: detailed, sellerReviews } = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+  const { listing: detailed, sellerReviews, availability } = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+
+  // Sold, or promised to another buyer: there is nothing to buy, whatever the card is.
+  if (availability) {
+    return { step: 'unavailable', listing: detailed }
+  }
 
   // The same rule as for Marktplaats: an unreviewed seller is not a risk worth taking at
   // any price, so the listing is dropped before its photos are ever read.
@@ -822,6 +843,14 @@ async function evaluatePrepared({
     })
     // Deliberately not re-remembered: the week runs from the scan that did the reading,
     // so a written-off listing is looked at again eventually rather than never.
+    return
+  }
+
+  if (prepared.step === 'unavailable') {
+    // Not remembered, and anything remembered from before is dropped: a reservation can
+    // fall through, and the item is then worth a fresh look rather than last week's answer.
+    tally(report, prepared.listing.source, 'outOfScope')
+    delete cache.entries[prepared.listing.id]
     return
   }
 
@@ -937,13 +966,12 @@ async function priceEvaluated({
   retry: boolean
   blocked?: Evaluated[]
 }): Promise<void> {
-  const { listing, identity, label, query, googleUrl, cardmarketUrl } = evaluated
-  const offersUrl = offersUrlFor(cardmarketUrl, identity)
+  const { listing, identity, label, query, googleUrl } = evaluated
 
+  let cardmarketUrl = evaluated.cardmarketUrl
   let priced: ReturnType<typeof priceFromOffers>
   try {
-    const html = await pace(offersUrl, delayMs, () => fetchPage(offersUrl, OFFERS_FETCH_OPTIONS(identity.grade)))
-    priced = priceFromOffers(html, identity.grade)
+    ;({ productUrl: cardmarketUrl, priced } = await priceCheapestVersion({ productUrl: cardmarketUrl, identity, fetchPage, delayMs, pace }))
   } catch (error) {
     if (error instanceof CardmarketBlockedError && retry && blocked) {
       // Park it: the user still has to clear the bot check in the Chrome window.
@@ -959,7 +987,7 @@ async function priceEvaluated({
       detail: error instanceof Error && !(error instanceof CardmarketBlockedError) ? error.message : null,
       googleUrl,
       query,
-      cardmarketUrl: offersUrl
+      cardmarketUrl: offersUrlFor(cardmarketUrl, identity)
     })
     remember(cache, listing, now, {
       identity,
@@ -977,7 +1005,7 @@ async function priceEvaluated({
       ...listingRef(listing),
       displayTitle: rowTitle(identity, cardmarketUrl),
       card: identity,
-      cardmarketUrl: offersUrl,
+      cardmarketUrl: offersUrlFor(cardmarketUrl, identity),
       reason: priced.error,
       googleUrl,
       query
@@ -1007,6 +1035,72 @@ async function priceEvaluated({
     floor: priced.floor,
     comps: priced.comps
   })
+}
+
+/**
+ * Price the card — and when Cardmarket sells the same card number more than once, the
+ * cheapest of them.
+ *
+ * Google titles every version of a product alike, so which one a search lands on is
+ * luck: a plain Surging Sparks ETB Magneton went up as a €114 deal priced against the
+ * Pokémon Center stamped one, `Magneton-V2-SVP159`, where the plain one is `-V1-`. What
+ * tells them apart is only in the photo, but the product page links every printing of
+ * the card, so the versions that share this one's set and number are priced beside it.
+ * A deal against the cheapest of them is a deal whichever one the slab is. Where one of
+ * them cannot be priced there is no knowing which is cheapest, so the card is not priced.
+ */
+async function priceCheapestVersion({
+  productUrl,
+  identity,
+  fetchPage,
+  delayMs,
+  pace
+}: {
+  productUrl: string
+  identity: CardIdentity
+  fetchPage: FetchCardmarketPage
+  delayMs: number
+  pace: Pacer
+}): Promise<{ productUrl: string; priced: MarketPrice | { error: string } }> {
+  const load = async (url: string) => {
+    const offersUrl = offersUrlFor(url, identity)
+    const html = await pace(offersUrl, delayMs, () => fetchPage(offersUrl, OFFERS_FETCH_OPTIONS(identity.grade)))
+    return { productUrl: url, html, priced: priceFromOffers(html, identity.grade) }
+  }
+
+  const found = await load(productUrl)
+  const versionsUrl = isVersionedProduct(productUrl) ? cardmarketVersionsUrl(found.html) : null
+  if (!versionsUrl) {
+    return found
+  }
+
+  const versionsHtml = await pace(versionsUrl, delayMs, () => fetchPage(versionsUrl))
+  if (isCardmarketChallenge(versionsHtml)) {
+    throw new CardmarketBlockedError()
+  }
+  const others = sameCardVersions(versionsHtml, productUrl)
+  if (others.length === 0) {
+    return found
+  }
+
+  const versions = others.length + 1
+  if (others.length > MAX_OTHER_VERSIONS) {
+    return { productUrl, priced: { error: `Cardmarket sells ${versions} versions of this card and the slab does not say which` } }
+  }
+
+  const priced = [found]
+  for (const url of others) {
+    priced.push(await load(url))
+  }
+  if (priced.some((version) => 'error' in version.priced)) {
+    return {
+      productUrl,
+      priced: { error: `Cardmarket sells ${versions} versions of this card, and not every one has a PSA ${identity.grade} to price it by` }
+    }
+  }
+
+  const floor = (version: (typeof priced)[number]) => ('floor' in version.priced ? version.priced.floor : Number.POSITIVE_INFINITY)
+  return priced.reduce((cheapest, version) => (floor(version) < floor(cheapest) ? version : cheapest))
 }
 
 /** A priced listing is only worth showing when Cardmarket beats the ask by enough. */

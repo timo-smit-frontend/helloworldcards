@@ -168,7 +168,7 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
         title="Open on Cardmarket"
         className={`${CARD_ROW} no-underline smooth hover:opacity-80 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}
       >
-        <CardThumbnail src={item.image} tall />
+        <CardThumbnail src={item.image} pokemonId={item.pokemonId} tall />
         <div className="min-w-0">
           <p className="truncate font-semibold text-site-gray-nurse">{item.title}</p>
           {status ? <p className="mt-1 text-sm text-site-mantle">{status}</p> : null}

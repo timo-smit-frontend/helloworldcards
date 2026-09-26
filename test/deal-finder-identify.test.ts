@@ -260,6 +260,38 @@ describe('reading the listing text alone', () => {
     expect(result.reason).toBe('No card number or set on the listing or the slab')
   })
 
+  it('will not pick a grade out of text that names two when the slab could not be read', () => {
+    // The Gengar that went up as a JP PSA 10: the slab said PSA 8, and the photo reader
+    // could not read it, so the grade came from a description about more than one card.
+    const result = identifyCard({
+      listing: listing({
+        source: 'vinted',
+        title: 'Gengar PSA Pokemon Slab',
+        description: 'Gengar PSA 8. Ook te koop: Mew PSA 10 japans'
+      }),
+      slabs: [],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result).toMatchObject({ ok: false, scope: 'problem', reason: 'Listing names PSA 8 and PSA 10, and the slab could not be read' })
+  })
+
+  it("does not take a PSA grade from beside another grader's slab", () => {
+    // A BGS label read as if it were PSA's: a name and a variety, no grade, no cert.
+    const result = identifyCard({
+      listing: listing({
+        title: 'Charmander MEP 038',
+        description: 'Beckett 9,5. Eventueel is trade mogelijk tegen sealed producten of PSA 10'
+      }),
+      slabs: [label({ setLine: 'POKEMON PROMOS', cardName: 'CHARMANDER', cardNumber: null, certNumber: null, grade: null })],
+      cert: null,
+      readerNote: null
+    })
+
+    expect(result).toMatchObject({ ok: false, scope: 'out-of-scope', reason: 'Graded by BECKETT, not PSA' })
+  })
+
   it('keeps the card name out of the description', () => {
     const result = identifyCard({
       listing: listing({

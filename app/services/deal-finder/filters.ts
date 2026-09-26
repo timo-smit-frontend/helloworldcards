@@ -7,6 +7,7 @@ import {
   isSpeculativeGrade,
   looksLikeLot,
   looksUngraded,
+  rivalGrade,
   rivalGrader,
   unwantedGradeReason
 } from './text'
@@ -150,6 +151,14 @@ export function screenListing(listing: SourceListing, ids: OwnListingIds): Scree
     // while the grade sits in the description the scan has not read yet. The slab in
     // the photos settles it either way, and the label reader is the thing that reads
     // slabs — so this one goes through to it rather than being written off on a title.
+  }
+
+  // Another grader's slab, graded in the title, is what is for sale whatever PSA grade
+  // the description goes on to mention: "Charmander MEP 038 BGS 9,5" said "PSA 10" only
+  // as something the seller would take in trade.
+  const titleRival = rivalGrade(listing.title)
+  if (titleRival && detectAnyGrade(listing.title) == null) {
+    return { keep: false, scope: 'out-of-scope', reason: `Graded by ${titleRival}, not PSA` }
   }
 
   const titleLanguage = detectLanguage(listing.title)

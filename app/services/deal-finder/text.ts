@@ -39,7 +39,8 @@ const LOT_TITLE =
 
 const GRADE_WORDS = /\b(?:gem\s*mt|gem\s*mint|nm-?mt|ex-?mt|mint)\b/gi
 const YEARS = /\b(?:19|20)\d{2}\b/g
-const PRICES = /(?:€\s*\d+(?:[.,]\d{1,2})?|\b\d+(?:[.,]\d{1,2})?\s*(?:euro|eur)\b)/gi
+/** `€25`, `25 euro`, and Vinted's own `25.00 €` — the sign after the amount. */
+const PRICES = /(?:€\s*\d+(?:[.,]\d{1,2})?|\b\d+(?:[.,]\d{1,2})?\s*(?:€|euro\b|eur\b))/gi
 
 /** Set names we can recognise straight from the listing text, longest first so
  *  "Scarlet & Violet 151" wins over a bare "151" that would look like a card number. */
@@ -157,9 +158,15 @@ const SET_ERAS = [
   'mega evolution'
 ]
 
-/** Cardmarket-style expansion codes that identify a set on their own. */
+/**
+ * Cardmarket-style expansion codes that identify a set on their own.
+ *
+ * `MEW` is also Mew, and a listing that mentions the Pokémon is not naming the 151 set:
+ * a Gengar whose description said "Mew" was searched for as a 151 card. So it only
+ * counts written the way a set code is — before a card number, or in brackets.
+ */
 const SET_CODE =
-  /\b(?:sv-p|sm-p|swsh-p|xy-p|bw-p|s-p|m-p|sv-?p|svp|sve|swsh|sm|xy|bw|hgss|dp|clv|paf|evs|lor|asr|par|tef|ssp|pre|mew|pal|obf|dri|twm|sfa|scr|jtg|blk|wht|mep|prb|m-?p|s\d{1,2}[a-z]?|sv\d{1,2}[a-z]?|m\d{1,2}[a-z]?)\b/i
+  /\b(?:sv-p|sm-p|swsh-p|xy-p|bw-p|s-p|m-p|sv-?p|svp|sve|swsh|sm|xy|bw|hgss|dp|clv|paf|evs|lor|asr|par|tef|ssp|pre|mew(?=\s*-?\s*\d|\))|pal|obf|dri|twm|sfa|scr|jtg|blk|wht|mep|prb|m-?p|s\d{1,2}[a-z]?|sv\d{1,2}[a-z]?|m\d{1,2}[a-z]?)\b/i
 
 /**
  * A raw card advertised by the grade its seller hopes for or promises — "PSA 10
@@ -213,6 +220,18 @@ export function rivalGrader(text: string): string | null {
 }
 
 /**
+ * The grader of another company's slab named with its grade — `BGS 9,5`, `Beckett 9.5`,
+ * `CGC Pristine 10`. Unlike a bare mention of CGC, that is a seller saying what the slab is.
+ */
+const RIVAL_GRADE =
+  /\b(cgc|bgs|beckett|sgc|ace(?:\s*grading)?|tag(?:\s*grading)?|ars(?:\s*grading)?|rgs|collect\s*aura)\s*(?:gem\s*mint|pristine|mint|black\s*label)?\s*(\d{1,2}(?:[.,]\d)?)\b/i
+
+export function rivalGrade(text: string): string | null {
+  const match = text.match(RIVAL_GRADE)
+  return match ? match[1]!.replace(/\s+/g, ' ').toUpperCase() : null
+}
+
+/**
  * A seller saying the card is explicitly *not* PSA — "RGS 9 no PSA" is three words of
  * PSA-adjacent text about a slab from someone else entirely.
  */
@@ -239,6 +258,16 @@ export function detectGrade(text: string): PsaGrade | null {
  */
 export function unwantedGradeReason(language: CardLanguage | 'other' | null, grade: PsaGrade | null): string | null {
   return language === 'japanese' && grade === 9 ? 'Japanese PSA 9, we only buy Japanese cards in PSA 10' : null
+}
+
+/**
+ * Every PSA grade the text names, once each. More than one means the text is about more
+ * than one slab — a seller's other cards, or a grade before and after a regrade — and
+ * none of them can be taken as this card's on the text's word alone.
+ */
+export function detectAllGrades(text: string): number[] {
+  const grades = [...maskSpeculativeGrades(text).matchAll(new RegExp(ANY_GRADE.source, 'gi'))].map((match) => Number(match[1]))
+  return [...new Set(grades)]
 }
 
 /** The grade a seller claims, whatever it is — used to explain why a listing was dropped. */
