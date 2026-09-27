@@ -6,7 +6,13 @@ import { adminTo } from '~/admin/runtime'
 import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
 import RefreshButton from './RefreshButton'
 import PriceFigure from './PriceFigure'
-import { RELIST_TABS, type VintedListingStatus, type VintedRelistReport, type VintedRelistRow } from '~/services/vinted-relist'
+import {
+  RELIST_TABS,
+  relistWaitMs,
+  type VintedListingStatus,
+  type VintedRelistReport,
+  type VintedRelistRow
+} from '~/services/vinted-relist'
 
 const STATUS_LABEL: Record<VintedListingStatus, string> = {
   live: 'Live',
@@ -148,12 +154,15 @@ function ListingRow({
   activity,
   error,
   blocked,
+  tooYoung,
   onRelist
 }: {
   row: VintedRelistRow
   activity: RelistActivity | null
   error: string | undefined
   blocked: boolean
+  /** Up for less than an hour. */
+  tooYoung: boolean
   onRelist: () => void
 }) {
   const stale = row.ageDays != null && row.ageDays >= STALE_AFTER_DAYS
@@ -183,7 +192,7 @@ function ListingRow({
         <RelistButton
           label={error ? 'Retry' : 'Relist'}
           activity={activity}
-          disabled={blocked || row.status !== 'live'}
+          disabled={blocked || tooYoung || row.status !== 'live'}
           className="max-sm:min-h-11 sm:w-fit!"
           onClick={onRelist}
         />
@@ -263,6 +272,19 @@ export default function VintedRelist({
   const batch = relisting.length > 0
   const waiting = relisting.length > RELIST_TABS
 
+  // A listing under an hour old comes free while the screen is open, so the clock ticks
+  // only while one of them is on it.
+  const [now, setNow] = useState(() => new Date())
+  const tooYoung = (row: VintedRelistRow) => relistWaitMs(row.listedAt, now) > 0
+  const anyTooYoung = rows.some(tooYoung)
+  useEffect(() => {
+    if (!anyTooYoung) {
+      return
+    }
+    const timer = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(timer)
+  }, [anyTooYoung])
+
   // The first few are in the tabs, the rest wait for one. A listing the dev server
   // says it is relisting for someone else — another tab of the admin, or this one
   // before a reload — is busy too, until the list is read again.
@@ -277,8 +299,8 @@ export default function VintedRelist({
     return report?.relisting.includes(itemId) ? 'relisting' : null
   }
 
-  // Every live listing that is not busy already, down the list: the oldest first.
-  const relistAll = rows.filter((row) => row.status === 'live' && activityOf(row.itemId) == null).map((row) => row.itemId)
+  // Every live listing up for an hour or more that is not busy already, down the list: the oldest first.
+  const relistAll = rows.filter((row) => row.status === 'live' && !tooYoung(row) && activityOf(row.itemId) == null).map((row) => row.itemId)
 
   return (
     <section className="flex flex-col gap-8">
@@ -295,7 +317,7 @@ export default function VintedRelist({
           </div>
           <p className="content-l mt-2 text-site-mantle max-sm:text-sm">
             Relisting deletes the Vinted post and uploads an exact copy with the same photos, title, description and price, so it shows up
-            as new again. Views and likes start from zero.{' '}
+            as new again. Views and likes start from zero. A listing is relisted only once it has been up for an hour.{' '}
             {RELIST_TABS === 1
               ? 'Listings are relisted one at a time, in a Chrome tab; the rest wait their turn.'
               : `Up to ${COUNT_IN_WORDS[RELIST_TABS] ?? RELIST_TABS} are relisted at once, each in a Chrome tab of its own; the rest wait their turn.`}
@@ -351,6 +373,7 @@ export default function VintedRelist({
               activity={activityOf(row.itemId)}
               error={errors[row.itemId]}
               blocked={loading}
+              tooYoung={tooYoung(row)}
               onRelist={() => onRelist([row.itemId])}
             />
           ))}

@@ -598,6 +598,23 @@ describe('the relist, in tabs', () => {
     expect(h.opened()).toBe(opened)
   }, 60_000)
 
+  it('refuses a listing it relisted under an hour ago, without asking Vinted anything', async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 2 })
+    h.store.update((state) => {
+      state.records['1001'] = {
+        itemId: '1001',
+        previousItemId: '900',
+        productId: 1,
+        listedAt: new Date(Date.now() - 20 * 60_000).toISOString()
+      }
+    })
+
+    await expect(h.service.relist('1001', h.products)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('40 min') })
+    expect(h.site.requests).toEqual([])
+    expect(h.opened()).toBe(0)
+  }, 60_000)
+
   it("keeps a done relist's tab for a relist that arrives within the linger, and closes it after", async ({ skip }) => {
     if (!browser) skip()
     const h = await setUp({ tabs: 2, tabLingerMs: 2_000 })

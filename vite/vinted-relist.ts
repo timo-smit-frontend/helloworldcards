@@ -19,6 +19,7 @@ import {
   parseWardrobeItems,
   RATE_LIMIT_COOLDOWN_MS,
   RELIST_TABS,
+  relistWaitMs,
   replacementListing,
   settleMissingByHand,
   settlePendingByHand,
@@ -1678,6 +1679,11 @@ async function relistWithTab(
     const product = listingProductLookup(products, store.get())(itemId)
     if (product?.sold || product?.reserved) {
       throw new VintedRelistError(`${product.title} is ${product.sold ? 'sold' : 'reserved'}. A sold card is not relisted.`, 409)
+    }
+    // The screen holds these back too, but one opened before the last relist does not know.
+    const wait = relistWaitMs(store.get().records[itemId]?.listedAt)
+    if (wait > 0) {
+      throw new VintedRelistError(`This listing went up less than an hour ago. It can be relisted in ${Math.ceil(wait / 60_000)} min.`, 409)
     }
   }
 

@@ -12,6 +12,7 @@ import {
   normalizeRelistState,
   originalPhotos,
   pageLooksRateLimited,
+  relistWaitMs,
   parseVintedSnapshot,
   parseVintedUploadedText,
   parseWardrobeItems,
@@ -676,6 +677,16 @@ describe('rate limiting', () => {
     expect(cooldownRemainingMs({ cooldownUntil: '2026-09-12T22:20:00Z' }, now)).toBe(20 * 60_000)
     expect(cooldownRemainingMs({ cooldownUntil: '2026-09-12T21:00:00Z' }, now)).toBe(0)
     expect(cooldownRemainingMs({ cooldownUntil: 'garbage' }, now)).toBe(0)
+  })
+
+  it('holds a listing back until it has been up for an hour', () => {
+    const now = new Date('2026-09-27T20:00:00Z')
+    expect(relistWaitMs('2026-09-27T19:40:00Z', now)).toBe(40 * 60_000)
+    expect(relistWaitMs('2026-09-27T19:00:00Z', now)).toBe(0)
+    expect(relistWaitMs('2026-09-20T10:00:00Z', now)).toBe(0)
+    // Not known to the minute: nothing to hold it back on.
+    expect(relistWaitMs(null, now)).toBe(0)
+    expect(relistWaitMs('garbage', now)).toBe(0)
   })
 
   it('reads a state file from before ages and cool-downs were kept', () => {

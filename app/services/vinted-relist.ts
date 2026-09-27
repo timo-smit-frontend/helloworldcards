@@ -437,6 +437,21 @@ export function normalizeRelistState(parsed: Partial<VintedRelistState> | null |
   }
 }
 
+/**
+ * How long a listing stays up before it is relisted again: one relisted straight
+ * after it went up only throws away the views and likes it was gathering.
+ */
+export const RELIST_MIN_AGE_MS = 60 * 60_000
+
+/**
+ * How much longer a listing must stay up before it may be relisted, in ms; 0 when it
+ * may go now, or when when it went up is not known to the minute.
+ */
+export function relistWaitMs(listedAt: string | null | undefined, now = new Date()): number {
+  const at = listedAt ? Date.parse(listedAt) : NaN
+  return Number.isFinite(at) ? Math.max(0, at + RELIST_MIN_AGE_MS - now.getTime()) : 0
+}
+
 /** How much longer Vinted is to be left alone, in ms; 0 when it is fine to go. */
 export function cooldownRemainingMs(state: Pick<VintedRelistState, 'cooldownUntil'>, now = new Date()): number {
   const until = state.cooldownUntil ? Date.parse(state.cooldownUntil) : NaN
