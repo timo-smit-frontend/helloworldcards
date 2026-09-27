@@ -102,7 +102,7 @@ describe('product inventory', () => {
     expect(priced.every((product) => product.cost != null && product.cost >= 0)).toBe(true)
   })
 
-  it('lists the Evolutions Mewtwo at the current shop price', async () => {
+  it('reserves the Evolutions Mewtwo at its sale price', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'mewtwo-2016-evolutions-51')
 
@@ -114,7 +114,8 @@ describe('product inventory', () => {
     expect(product?.description).not.toContain('Email us')
     expect(product?.description).not.toContain('Fugitive Ink')
     expect(product?.description).not.toContain('graded higher')
-    expect(product?.price).toBe('€75')
+    // Sold on Marktplaats for €65 on 27 September 2026, money not in yet: reserved, not sold.
+    expect(product?.price).toBe('€65')
     expect(product?.language).toBe('english')
     expect(product?.grader).toBe('psa')
     expect(product?.year).toBe(2016)
@@ -123,6 +124,12 @@ describe('product inventory', () => {
     expect(record?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51')
     expect(record?.reverseHolo).toBe(true)
     expect(record?.firstEdition).toBeUndefined()
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-27')
+    // Sold on Marktplaats; the Vinted listing was taken down by hand.
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
   it('keeps the sold Silver Tempest Lugia V out of the shop but in inventory at its sale price', async () => {
@@ -257,9 +264,9 @@ describe('product inventory', () => {
 
   it('uses a Marktplaats buy link when the listing URL is set', async () => {
     const { products } = await seededShop()
-    const product = products.find((item) => item.slug === 'mewtwo-2016-evolutions-51')
+    const product = products.find((item) => item.slug === 'mewtwo-gx-2017-shining-legends-39')
     expect(productBuyLink(product!)).toEqual({
-      url: 'https://www.marktplaats.nl/seller/view/m2436737465',
+      url: 'https://www.marktplaats.nl/seller/view/m2440339127',
       title: 'View on Marktplaats',
       target: '_blank'
     })
@@ -302,11 +309,12 @@ describe('product inventory', () => {
 
   it('strips private fields when converting inventory to a public product', async () => {
     const { inventory } = await seededShop()
-    const publicProduct = toPublicProduct(inventory[0], inventory[0].slug)
+    const live = inventory.find((item) => item.id === 11)!
+    const publicProduct = toPublicProduct(live, live.slug)
     expect('cost' in publicProduct).toBe(false)
     expect('concept' in publicProduct).toBe(false)
     // Only a reserved card carries the flag; the rest do not say "reserved: false".
     expect('reserved' in publicProduct).toBe(false)
-    expect(toPublicProduct({ ...inventory[0], reserved: true }, inventory[0].slug).reserved).toBe(true)
+    expect(toPublicProduct({ ...live, reserved: true }, live.slug).reserved).toBe(true)
   })
 })

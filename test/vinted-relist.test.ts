@@ -742,14 +742,14 @@ describe('vinted relist API', () => {
     }
     const runtime = { db, vintedRelist }
 
-    // Seed the database by reading the report, then find a product that is on Vinted.
+    // Seed the database by reading the report, then find a product that is live on Vinted.
     const before = await handleDashboardRequest(
       new Request('https://example.com/dashboard/vinted-relist', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
       env,
       runtime
     )
     expect(before?.status).toBe(200)
-    const row = (await db.prepare(`SELECT id, vinted_url FROM products WHERE vinted_url LIKE '%vinted.nl/items/%' LIMIT 1`).first()) as {
+    const row = (await db.prepare(`SELECT id, vinted_url FROM products WHERE vinted_url LIKE '%vinted.nl/items/%' AND NOT reserved AND NOT sold LIMIT 1`).first()) as {
       id: number
       vinted_url: string
     }
@@ -810,8 +810,10 @@ describe('vinted relist API', () => {
       return response?.json()
     }
 
-    const reserved = (await db.prepare('SELECT title FROM products WHERE reserved = 1').first()) as { title: string }
-    await expect(press('reserved = 1')).resolves.toEqual({ error: `${reserved.title} is reserved. A sold card is not relisted.` })
+    const reserved = (await db.prepare(`SELECT title FROM products WHERE reserved = 1 AND vinted_url LIKE '%/items/%'`).first()) as {
+      title: string
+    }
+    await expect(press(`reserved = 1 AND vinted_url LIKE '%/items/%'`)).resolves.toEqual({ error: `${reserved.title} is reserved. A sold card is not relisted.` })
     const sold = (await db.prepare(`SELECT title FROM products WHERE sold = 1 AND vinted_url LIKE '%/items/%'`).first()) as {
       title: string
     }

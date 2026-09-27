@@ -884,7 +884,7 @@ describe('CMS API', () => {
     expect(text).toContain('[About](https://helloworldcards.com/about/)')
     expect(text).toContain('[Contact](https://helloworldcards.com/contact/)')
     expect(text).toContain('## Products')
-    expect(text).toContain('[Mewtwo PSA 9](https://helloworldcards.com/products/mewtwo-2016-evolutions-51/): 2016 Evolutions #51. €75')
+    expect(text).toContain('[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €100')
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(
       '[Dragonite V PSA 9](https://helloworldcards.com/products/dragonite-v-2022-pokemon-go-049/): 2022 Pokemon GO #049. Reserved'

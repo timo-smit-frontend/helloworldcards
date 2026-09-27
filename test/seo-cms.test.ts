@@ -80,7 +80,7 @@ describe('CMS SEO', () => {
 
     expect(seo.title).toBe(`Mewtwo PSA 9 - 2016 Evolutions #51 | ${SITE_NAME}`)
     expect(seo.description).toBe(
-      'Mewtwo PSA 9, 2016 Evolutions #51, for €75. A reverse holo from the 2016 XY Evolutions set, number 51/108.'
+      'Mewtwo PSA 9, 2016 Evolutions #51, reserved. A reverse holo from the 2016 XY Evolutions set, number 51/108.'
     )
     expect((await seoFor('/products/zorua-ar-2025-white-flare-japanese-140')).title).toBe(
       `Zorua AR BGS 9.5 - 2025 White Flare Japanese #140 | ${SITE_NAME}`
@@ -98,18 +98,21 @@ describe('CMS SEO', () => {
   })
 
   it('describes a card for sale as a Product with an in-stock offer', async () => {
-    const seo = await seoFor('/products/mewtwo-2016-evolutions-51')
+    const seo = await seoFor('/products/mewtwo-gx-2017-shining-legends-39')
     const product = graph(seo).find((node) => node['@type'] === 'Product')
 
     expect(product).toMatchObject({
-      '@id': 'https://helloworldcards.com/products/mewtwo-2016-evolutions-51/#product',
-      name: 'Mewtwo PSA 9 - 2016 Evolutions #51',
+      '@id': 'https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/#product',
+      name: 'Mewtwo GX PSA 9 - 2017 Shining Legends #39',
       brand: { '@type': 'Brand', name: 'Pokémon' },
-      image: ['https://helloworldcards.com/media/148651617_front.jpg', 'https://helloworldcards.com/media/148651617_back.jpg'],
+      image: [
+        'https://helloworldcards.com/media/mtpx3u8t-155373599-front.jpg',
+        'https://helloworldcards.com/media/mtpx3ud0-155373599-back.jpg'
+      ],
       offers: {
         '@type': 'Offer',
-        url: 'https://helloworldcards.com/products/mewtwo-2016-evolutions-51/',
-        price: '75.00',
+        url: 'https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/',
+        price: '100.00',
         priceCurrency: 'EUR',
         availability: 'https://schema.org/InStock',
         itemCondition: 'https://schema.org/UsedCondition',
@@ -119,7 +122,7 @@ describe('CMS SEO', () => {
     expect(product?.additionalProperty).toEqual([
       { '@type': 'PropertyValue', name: 'Grade', value: 'PSA 9' },
       { '@type': 'PropertyValue', name: 'Language', value: 'English' },
-      { '@type': 'PropertyValue', name: 'Year', value: 2016 }
+      { '@type': 'PropertyValue', name: 'Year', value: 2017 }
     ])
   })
 
