@@ -523,6 +523,31 @@ export function replacementListing(wardrobe: VintedWardrobeItem[], previousItemI
 }
 
 /**
+ * The copy an earlier go at a relist put up, if the wardrobe shows one: the listing
+ * that took the deleted one's place (`replacementListing`) — as long as no product
+ * points at it and no record of ours has it, since a second copy of the same card is
+ * listed under the very same title.
+ */
+export function earlierCopy(
+  wardrobe: VintedWardrobeItem[],
+  previousItemId: string,
+  title: string,
+  products: InventoryProduct[],
+  state: VintedRelistState
+): VintedWardrobeItem | null {
+  const claimed = new Set(Object.keys(state.records))
+  for (const product of products) {
+    const id = product.vintedUrl ? vintedItemId(product.vintedUrl) : null
+    if (id) claimed.add(id)
+  }
+  return replacementListing(
+    wardrobe.filter((item) => !claimed.has(String(item.id))),
+    previousItemId,
+    title
+  )
+}
+
+/**
  * Settle the pending relists the seller finished by hand.
  *
  * A relist that failed after its delete leaves the upload form open in the Chrome

@@ -91,12 +91,22 @@ it is opened again, on any device.
 Vinted's login in that Chrome window runs out every so often, and from the phone there is
 nobody at the computer to log in again. So the relist logs in by itself with
 `VINTED_USERNAME` and `VINTED_PASSWORD` from `.env` (gitignored, read afresh on every
-request): it answers the cookie banner with only the essential cookies, puts the login in
-on Vinted's own login page, and carries on with the batch. A login Vinted turns down is
-shown on the relist screen with Vinted's reason and not tried again for 30 minutes, or
-until `.env` changes, so a wrong password cannot get the account locked. When Vinted asks
-for more than the password (a code it sent, say), the tab is left on that step for you to
-finish at the computer.
+request): it puts the login in on Vinted's own login page and carries on with the batch.
+Vinted's cookie banner is answered with only the essential cookies by every relist tab
+itself, on whatever page, the moment it shows. A login Vinted turns down is shown on the
+relist screen with Vinted's reason and not tried again for 30 minutes, or until `.env`
+changes, so a wrong password cannot get the account locked; one that never reached Vinted
+is tried again at the next relist or refresh. When Vinted asks for more than the password
+(a code it sent, say), the tab is left on that step for you to finish at the computer.
+Whenever a login does not go through, what its tab showed is saved in
+`.cache/vinted-relist-login.png` and `.json`, so the reason can be looked up without
+asking Vinted anything.
+
+Every relist that stops does the same in `.cache/vinted-relist-failures/` (the newest
+20): the step it stopped at, the exact error, whether the listing was already deleted,
+the pages its tab went through, and a picture of the tab. A retry of an upload first
+looks in the wardrobe for a copy an earlier go got up after all, and takes that rather
+than putting the card on Vinted twice.
 
 The dev server itself only listens on this computer (`127.0.0.1`). It used to listen on
 every network, which handed `.dev.vars`, the local database and the scan reports to

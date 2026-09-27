@@ -1,12 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Locator, Page } from 'playwright'
+import type { Frame, Locator, Page, Request as PageRequest, Response as PageResponse } from 'playwright'
 import sharp from 'sharp'
 import type { InventoryProduct } from '../app/database/products'
 import {
   buildRelistReport,
   catalogPathTo,
   cooldownRemainingMs,
+  earlierCopy,
   emptyRelistState,
   listingProductLookup,
   listingsWithoutAge,
@@ -25,6 +26,7 @@ import {
   vintedItemUrl,
   vintedPriceInput,
   VintedRelistError,
+  wardrobeUploadedAt,
   type OriginalPhotos,
   type VintedCatalogNode,
   type VintedRelistOptions,
@@ -34,13 +36,17 @@ import {
   type VintedSnapshot,
   type VintedWardrobeItem
 } from '../app/services/vinted-relist'
-import { keepScanBrowserOpen, waitForBotChallengeClear } from './cardmarket-browser'
+import { isVintedHost, keepScanBrowserOpen, waitForBotChallengeClear } from './cardmarket-browser'
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import type { MediaSourceReader } from './media-sync'
 import { createTabPool, type TabPool } from './tab-pool'
 
 const STATE_FILE = path.join('.cache', 'vinted-relist.json')
 const PHOTO_DIR = path.join('.cache', 'vinted-relist')
+/** Where a relist that stops leaves what its tab showed, a `.json` and a `.png` per stop. */
+const FAILURE_DIR = path.join('.cache', 'vinted-relist-failures')
+/** How many of those are kept; the oldest go first. */
+const FAILURES_KEPT = 20
 const VINTED = 'https://www.vinted.nl'
 const LOAD_TIMEOUT_MS = 30_000
 /**
@@ -55,12 +61,25 @@ const LOGIN_GRACE_MS = 10 * 60_000
 /** Vinted's own email login page, which lands on the homepage once the login is in. */
 const LOGIN_PATH = '/member/login/email'
 const LOGIN_URL = `${VINTED}${LOGIN_PATH}?ref_url=%2F`
-/** OneTrust's cookie for a cookie banner that has been answered; while the window has it, no banner comes. */
-const COOKIE_CONSENT = 'OptanonAlertBoxClosed'
-/** How long a window without that cookie gives the banner to turn up. It comes a second or two after the page. */
-const COOKIE_BANNER_WAIT_MS = 10_000
+/**
+ * How long the login page gets to settle before the login goes in: OneTrust's script
+ * loaded, and its cookie banner — which comes a second or two after the page — answered.
+ */
+const LOGIN_SETTLE_MS = 10_000
 /** How long Vinted gets to take a login and leave its form. */
 const LOGIN_SUBMIT_TIMEOUT_MS = 20_000
+/** How long Enter, and then the form's own button, each get to send the login. */
+const LOGIN_SEND_WAIT_MS = 4_000
+/** Between one key and the next while the login is typed in; about as fast as a person types. */
+const LOGIN_KEY_DELAY_MS = 40
+/** A request that sends a login, going by its path; any other request the login page makes is not one. */
+const LOGIN_REQUEST = /oauth|login/i
+/**
+ * Where a login that did not go through leaves what its tab showed — `.png`, a picture,
+ * and `.json`, what was read off the page — so the next look into it needs nothing from
+ * Vinted.
+ */
+const LOGIN_REPORT = path.join('.cache', 'vinted-relist-login')
 /**
  * How long a login Vinted turned down is left alone before it is typed in again —
  * unless `.env` holds another one by then. A wrong password tried time after time
@@ -204,6 +223,10 @@ type VintedChrome = {
   loggedInAt: number
   /** The last login Vinted turned down, not typed in again until `until`. */
   turnedDown: { login: VintedLogin; until: number; problem: string } | null
+  /** When a tab last cleared the window's Vinted cookies to get off the session-refresh page. */
+  healedAt: number
+  /** The project, for the report a login that did not go through leaves in it. */
+  root: string
   /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
   lastWardrobe: { at: number; wardrobe: VintedWardrobeItem[] } | null
   /** How far apart relists start, and when the next may. */
@@ -226,6 +249,8 @@ function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: 
       login: () => null,
       loggedInAt: 0,
       turnedDown: null,
+      healedAt: 0,
+      root,
       lastWardrobe: null,
       startGapMs,
       nextStartAt: 0
@@ -277,6 +302,37 @@ async function failIfRateLimited(page: Page, where: string): Promise<void> {
   }
 }
 
+/** What Playwright says when the tab went on to another page in the middle of something. */
+const MOVED_ON = /execution context was destroyed|interrupted by another navigation|net::ERR_ABORTED/i
+
+/**
+ * Do `work` in the tab — and do it again, twice at most, when Vinted took the tab on
+ * to another page in the middle of it.
+ *
+ * Every read of Vinted is a `fetch` from inside the page, and a page that navigates
+ * takes its script, with the `fetch` under way, along with it; a page load that
+ * another navigation cuts across is dropped just the same. And Vinted moves a tab on
+ * by itself: once a listing is deleted it takes the tab off that listing's page,
+ * whenever it gets round to it — at a busy moment right in the middle of the read
+ * that checks the delete went through, or of the load of the upload form. Relists
+ * used to stop there, with Playwright's word about a navigation, their listing
+ * already gone. The reads and loads are all GETs, so doing one again once the tab
+ * has landed is safe.
+ */
+async function whileVintedMovesOn<T>(page: Page, work: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await work()
+    } catch (error) {
+      if (attempt >= 3 || !(error instanceof Error) || !MOVED_ON.test(error.message)) {
+        throw error
+      }
+      console.info('[vinted-relist] Vinted took the tab to another page meanwhile, going again once it has landed')
+      await page.waitForLoadState('domcontentloaded').catch(() => undefined)
+    }
+  }
+}
+
 const SESSION_REFRESH = /\/session-refresh/
 /** How long the session-refresh page gets to do its thing before it counts as stuck. */
 const SESSION_REFRESH_WAIT_MS = 8_000
@@ -290,9 +346,15 @@ const SESSION_REFRESH_WAIT_MS = 8_000
  * stayed there past any honest refresh, the Vinted cookies are dropped and the visit
  * is made again from clean — which does log the seller out, but the session was not
  * working anyway.
+ *
+ * That is done once for the window, not once per tab. Tabs of a batch land a few
+ * seconds apart, and each finds the same stuck refresh; the second used to clear the
+ * cookies again while the first was logging the window back in, and took the login
+ * with them. A tab whose visit began before another tab cleared them only goes again.
  */
 async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healSession = true } = {}): Promise<void> {
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
+  const started = Date.now()
+  await whileVintedMovesOn(page, () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS }))
   await failIfRateLimited(page, url)
   if (!SESSION_REFRESH.test(page.url())) {
     return
@@ -307,12 +369,18 @@ async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healS
   if (!healSession) {
     throw new VintedRelistError('Vinted keeps the Chrome window on its session-refresh page. Close the window and try again.', 503)
   }
-  console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
-  // All but the cookie banner's answer (OneTrust's `Optanon…`), which has nothing to
-  // do with the session and would otherwise put the banner back over the login form.
-  await page.context().clearCookies({ domain: /vinted\.nl$/, name: /^(?!Optanon)/ })
-  // Whoever the window was logged in as, it no longer is.
-  chrome.session = null
+  if (chrome.healedAt < started) {
+    console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
+    // All but the cookie banner's answer (OneTrust's `Optanon…`, and the IAB consent
+    // string it keeps beside them), which has nothing to do with the session and would
+    // otherwise put the banner back up on every page.
+    await page.context().clearCookies({ domain: /vinted\.nl$/, name: /^(?!Optanon|eupubconsent|euconsent)/ })
+    chrome.healedAt = Date.now()
+    // Whoever the window was logged in as, it no longer is.
+    chrome.session = null
+  } else {
+    console.info('[vinted-relist] Stuck on a Vinted session refresh another tab has cleared since, going again')
+  }
   await gotoVinted(chrome, page, url, { healSession: false })
 }
 
@@ -409,8 +477,8 @@ async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSes
 
 /** Ask Vinted who the window is logged in as, from this tab; null for nobody. */
 async function currentUser(page: Page, chrome: VintedChrome): Promise<VintedSession | null> {
-  return await page
-    .evaluate(async (timeout) => {
+  return await whileVintedMovesOn(page, () =>
+    page.evaluate(async (timeout) => {
       const response = await fetch('/api/v2/users/current', {
         headers: { accept: 'application/json' },
         signal: AbortSignal.timeout(timeout)
@@ -424,13 +492,13 @@ async function currentUser(page: Page, chrome: VintedChrome): Promise<VintedSess
       const body = (await response.json()) as { user?: { id?: number; login?: string } }
       return body.user?.id && body.user.login ? { userId: body.user.id, login: body.user.login } : null
     }, IN_PAGE_FETCH_TIMEOUT_MS)
-    .catch((error: unknown) => {
-      chrome.session = null
-      if (isRateLimited(error)) {
-        throw error
-      }
-      return null
-    })
+  ).catch((error: unknown) => {
+    chrome.session = null
+    if (isRateLimited(error)) {
+      throw error
+    }
+    return null
+  })
 }
 
 const LOGIN_ENV = 'VINTED_USERNAME and VINTED_PASSWORD'
@@ -443,9 +511,14 @@ const LOGIN_ENV = 'VINTED_USERNAME and VINTED_PASSWORD'
  * relist types the login in itself, on Vinted's own login page, and then asks
  * Vinted who is logged in: that answer, not where the page went, says whether it
  * worked. What it cannot get past alone — a code Vinted sends to confirm the login,
- * a bot check, a login Vinted turns down — is left in the tab for a person. A login
- * Vinted turned down is not typed in again until `.env` holds another one or
- * `LOGIN_RETRY_MS` has passed.
+ * a bot check, a login Vinted turns down — is left in the tab for a person, and what
+ * the tab showed is written to `LOGIN_REPORT`.
+ *
+ * A login Vinted saw and did not take is not typed in again until `.env` holds
+ * another one or `LOGIN_RETRY_MS` has passed. One that never reached Vinted — the
+ * page would not take it, or not send it — is typed in again at the next relist or
+ * refresh: there is nothing to hold it back for, and holding it used to leave the
+ * relist parked for half an hour on a login page with the cookie banner still up.
  */
 async function logIn(page: Page, chrome: VintedChrome): Promise<{ session: VintedSession } | { problem: string; typed: boolean }> {
   const login = chrome.login()
@@ -466,127 +539,337 @@ async function logIn(page: Page, chrome: VintedChrome): Promise<{ session: Vinte
   }
 
   console.info('[vinted-relist] Vinted is logged out, logging in with the login from .env')
-  const stopped = await typeLogin(page, chrome, login)
-  const session = stopped ? null : await currentUser(page, chrome)
+  const requests: string[] = []
+  const attempt = await typeLogin(page, chrome, login, requests)
+  const session = attempt.sent ? await currentUser(page, chrome) : null
   if (session) {
     chrome.turnedDown = null
     chrome.loggedInAt = Date.now()
     console.info(`[vinted-relist] Logged in to Vinted as ${session.login}`)
     return { session }
   }
-  const problem = `${stopped ?? (await whyNotLoggedIn(page))} The relist tries that login again in ${LOGIN_RETRY_MS / 60_000} min, or as soon as .env changes.`
-  chrome.turnedDown = { login, until: Date.now() + LOGIN_RETRY_MS, problem }
+  const problem = attempt.sent
+    ? `${await whyNotLoggedIn(page, attempt.formLines)} The relist tries that login again in ${LOGIN_RETRY_MS / 60_000} min, or as soon as .env changes.`
+    : attempt.problem
+  if (attempt.sent) {
+    // Vinted saw this login and did not take it. Typed in time after time, a wrong
+    // password gets the account locked, and a login Vinted wants a code for sends code
+    // after code.
+    chrome.turnedDown = { login, until: Date.now() + LOGIN_RETRY_MS, problem }
+  }
   console.warn(`[vinted-relist] ${problem}`)
+  await reportLogin(page, chrome.root, problem, requests)
   return { problem, typed: true }
 }
 
+/** What one go at the login form came to. */
+type LoginAttempt =
+  /** The login went to Vinted. `formLines` is what the form said before it went, to tell Vinted's answer from it. */
+  | { sent: true; formLines: string[] }
+  /** It never reached Vinted; `problem` says where it stopped. */
+  | { sent: false; problem: string }
+
 /**
- * Put the login in on Vinted's login page and send it. Null once it is sent; what
- * stood in the way otherwise.
+ * Put the login in on a fresh load of Vinted's login page, and send it.
  *
- * The cookie banner is answered first — with only the essential cookies, the answer
- * that loads least. It is not there when the form is: it comes a second or two
- * later, over a dark layer that covers the whole page and takes every click meant
- * for the form, "Verder" included. A login typed in before it came used to be
- * sent into that layer and go nowhere. So a window that has not answered the banner
- * waits for it, it is looked for once more just before the login goes out, and the
- * login is sent with Enter from the password field, which no layer can take.
+ * The page gets a moment to settle first: OneTrust's script in, and its cookie
+ * banner — which comes a second or two after the form, over a dark layer that takes
+ * every click meant for the page — answered, by the tab itself
+ * (`answerCookieBannerInPage`). The login is typed in a key at a time, as a person
+ * types it, and sent with Enter from the password field, which no layer can take.
+ * If nothing has gone out a few seconds later, the form's own button is pressed
+ * from inside the page. Whether it went is read off the requests the page makes:
+ * a login that never reached Vinted cannot have been turned down.
+ *
+ * Every request other than a GET that the page sends to Vinted meanwhile is noted in
+ * `requests`, by method and path, for the report on a login that did not go through.
  */
-async function typeLogin(page: Page, chrome: VintedChrome, { username, password }: VintedLogin): Promise<string | null> {
-  try {
-    if (new URL(page.url()).pathname !== LOGIN_PATH) {
-      await gotoVinted(chrome, page, LOGIN_URL)
+async function typeLogin(page: Page, chrome: VintedChrome, { username, password }: VintedLogin, requests: string[]): Promise<LoginAttempt> {
+  let pressed = false
+  let sent = false
+  let before: string[] = []
+  const noteRequest = (request: PageRequest) => {
+    const url = new URL(request.url())
+    if (request.method() !== 'GET' && isVintedHost(url.hostname)) {
+      requests.push(`${request.method()} ${url.pathname}`)
+      // Only once the login is on its way: whatever the page sends while it loads is not the login.
+      sent ||= pressed && LOGIN_REQUEST.test(url.pathname)
     }
+  }
+  page.on('request', noteRequest)
+  try {
+    // A fresh load even on a tab that shows the form already: one left there by a
+    // login that did not go through shows the form the way that login left it.
+    await gotoVinted(chrome, page, LOGIN_URL)
     if (!(await waitForBotChallengeClear(page, 'Vinted login'))) {
-      return 'Vinted is showing a bot check on its login page. Clear it in the Chrome window, then refresh here.'
+      return { sent: false, problem: 'Vinted is showing a bot check on its login page. Clear it in the Chrome window, then refresh here.' }
     }
     const form = page.locator('form').filter({ has: page.locator('#password') })
     try {
       await form.locator('#password').waitFor({ state: 'visible', timeout: 15_000 })
     } catch {
-      return "Vinted's login page has no password field where it used to, so the relist could not log in. Log in in the Chrome window, then refresh here."
+      return {
+        sent: false,
+        problem:
+          "Vinted's login page has no password field where it used to, so the relist could not log in. Log in in the Chrome window, then refresh here."
+      }
     }
-    await answerCookieBanner(page, COOKIE_BANNER_WAIT_MS)
+    await cookieBannerSettled(page, LOGIN_SETTLE_MS)
     const usernameField = form.locator('#username')
     const passwordField = form.locator('#password')
-    await usernameField.fill(username)
-    await passwordField.fill(password)
-    // A banner that came late after all; and the fields are checked, since the page
-    // may have drawn the form again meanwhile.
-    await answerCookieBanner(page, 0)
+    await typeInto(usernameField, username)
+    await typeInto(passwordField, password)
+    // A banner that came late after all is answered by the tab; the login waits for it
+    // to go. And the fields are checked, since the page may have drawn the form again.
+    await cookieBannerSettled(page, 3_000)
     if ((await usernameField.inputValue()) !== username || (await passwordField.inputValue()) !== password) {
       await usernameField.fill(username)
       await passwordField.fill(password)
     }
+    before = await linesOn(form)
+    pressed = true
     await passwordField.press('Enter')
+
+    const enterAt = Date.now()
+    let buttonAt = 0
+    for (;;) {
+      if (new URL(page.url()).pathname !== LOGIN_PATH) {
+        sent = true
+        await failIfRateLimited(page, page.url())
+        // The page the login lands on may bounce through the session refresh on its way.
+        await page.waitForURL((url) => !SESSION_REFRESH.test(url.pathname), { timeout: SESSION_REFRESH_WAIT_MS }).catch(() => undefined)
+        break
+      }
+      if (sent) {
+        // Gone out: until Vinted's answer is on the form, or the wait is up.
+        if (Date.now() - enterAt >= LOGIN_SUBMIT_TIMEOUT_MS || (await linesOn(form)).some((line) => !before.includes(line))) {
+          break
+        }
+      } else if (!buttonAt && Date.now() - enterAt >= LOGIN_SEND_WAIT_MS) {
+        console.info("[vinted-relist] Enter did not send the login, pressing the form's own button")
+        buttonAt = Date.now()
+        await pressSubmit(form)
+      } else if (buttonAt && Date.now() - buttonAt >= LOGIN_SEND_WAIT_MS) {
+        return {
+          sent: false,
+          problem:
+            "Vinted's login form did not send the login, on Enter or on its own button. Log in in the Chrome window, then refresh here."
+        }
+      }
+      await sleep(250)
+    }
+    return { sent: true, formLines: before }
   } catch (error) {
     if (isRateLimited(error)) {
       throw error
     }
-    return `Could not put the login in on Vinted's login page (${error instanceof Error ? error.message.split('\n')[0] : 'unknown error'}). Log in in the Chrome window, then refresh here.`
+    if (sent) {
+      return { sent: true, formLines: before }
+    }
+    return {
+      sent: false,
+      problem: `Could not put the login in on Vinted's login page (${error instanceof Error ? error.message.split('\n')[0] : 'unknown error'}). Log in in the Chrome window, then refresh here.`
+    }
+  } finally {
+    page.off('request', noteRequest)
   }
+}
 
-  const left = await page
-    .waitForURL((url) => url.pathname !== LOGIN_PATH, { timeout: LOGIN_SUBMIT_TIMEOUT_MS, waitUntil: 'domcontentloaded' })
-    .then(() => true)
-    .catch(() => false)
-  if (left) {
-    await failIfRateLimited(page, page.url())
-    // The page the login lands on may bounce through the session refresh on its way.
-    await page.waitForURL((url) => !SESSION_REFRESH.test(url.pathname), { timeout: SESSION_REFRESH_WAIT_MS }).catch(() => undefined)
-  }
-  return null
+/** Type a value into a field a key at a time, over whatever the field held. */
+async function typeInto(field: Locator, value: string): Promise<void> {
+  await field.fill('')
+  await field.pressSequentially(value, { delay: LOGIN_KEY_DELAY_MS })
+}
+
+/** The lines of text on a form, each trimmed; none once the form is gone. */
+async function linesOn(form: Locator): Promise<string[]> {
+  return (await form.innerText({ timeout: 1_000 }).catch(() => ''))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+/** Press the login form's own button from inside the page, where no layer over it can take the click. */
+async function pressSubmit(form: Locator): Promise<void> {
+  await form
+    .evaluate(
+      (element) => {
+        const button = element.querySelector('button[type="submit"]')
+        if (button instanceof HTMLButtonElement && !button.disabled) {
+          button.click()
+        } else if (element instanceof HTMLFormElement) {
+          element.requestSubmit()
+        }
+      },
+      undefined,
+      { timeout: 2_000 }
+    )
+    .catch(() => undefined)
 }
 
 /**
- * Answer Vinted's cookie banner (OneTrust) with only the essential cookies. A window
- * that has not answered it yet — no consent cookie — gives it up to `waitMs` to turn
- * up; one that has only looks, in case it is up anyway.
+ * Vinted's cookie banner, answered with only the essential cookies the moment it
+ * shows, on whatever page the tab has loaded. Every tab the relist opens runs this
+ * in each page it loads; it runs inside the page, so it is plain script that uses
+ * nothing from outside it.
+ *
+ * Vinted shows the banner on every page of a window that has not answered it —
+ * which a window whose cookies were cleared to get it off the session-refresh page
+ * has not, and that is the window that needs the login. It comes a second or two
+ * after the page, over a dark layer that takes every click meant for the page:
+ * "Verder" on the login form, "Verwijderen" on a listing. The relist used to click
+ * it away itself, on the login form alone, and a click from outside has to find the
+ * button, wait out the banner's slide-in and land before anything moves again; the
+ * login stopped there, with the banner still up. From inside the page none of that
+ * matters: the banner is answered through OneTrust's own `RejectAll()`, which is
+ * what its "Alleen essentiële cookies" button calls, or failing that by that
+ * button's own click, which no layer can take.
  */
-async function answerCookieBanner(page: Page, waitMs: number): Promise<void> {
-  const essentialOnly = page.locator('#onetrust-reject-all-handler')
-  const answered = (await page.context().cookies(VINTED)).some((cookie) => cookie.name === COOKIE_CONSENT)
-  const shown =
-    answered || waitMs === 0
-      ? await essentialOnly.isVisible().catch(() => false)
-      : await essentialOnly
-          .waitFor({ state: 'visible', timeout: waitMs })
-          .then(() => true)
-          .catch(() => false)
-  if (!shown) {
+function answerCookieBannerInPage(): void {
+  if (window.top !== window) {
     return
   }
-  console.info('[vinted-relist] Answering the Vinted cookie banner with only the essential cookies')
-  await essentialOnly.click({ timeout: 5_000 })
-  // The dark layer under the banner fades out after it, and takes clicks until it has.
+  let answeredAt = 0
+  let tries = 0
+  const timer = setInterval(() => {
+    try {
+      const banner = document.getElementById('onetrust-banner-sdk')
+      // An answered banner takes a moment to fade out; it is not answered again meanwhile.
+      if (!banner || Date.now() - answeredAt < 2_000) {
+        return
+      }
+      const style = getComputedStyle(banner)
+      if (banner.getClientRects().length === 0 || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+        return
+      }
+      answeredAt = Date.now()
+      tries += 1
+      if (tries > 6) {
+        clearInterval(timer)
+        return
+      }
+      // OneTrust's script first; the button when the script did not take the banner down.
+      const oneTrust = (window as unknown as { OneTrust?: { RejectAll?: () => void } }).OneTrust
+      if (tries % 2 === 1 && typeof oneTrust?.RejectAll === 'function') {
+        oneTrust.RejectAll()
+        return
+      }
+      const reject =
+        document.getElementById('onetrust-reject-all-handler') ??
+        Array.from(banner.querySelectorAll('button')).find((button) => /essenti|noodzakelijk|weiger|reject/i.test(button.textContent ?? ''))
+      reject?.click()
+    } catch {
+      // Looked at again on the next tick.
+    }
+  }, 250)
+}
+
+/**
+ * Wait, up to `timeoutMs`, for the page to be done with the cookie banner: answered
+ * — the tab answers it by itself — and nothing of it left over the page.
+ */
+async function cookieBannerSettled(page: Page, timeoutMs: number): Promise<void> {
   await page
-    .locator('#onetrust-banner-sdk')
-    .waitFor({ state: 'hidden', timeout: 5_000 })
+    .waitForFunction(
+      () => {
+        const oneTrust = (window as unknown as { OneTrust?: { IsAlertBoxClosed?: () => boolean } }).OneTrust
+        const answered =
+          typeof oneTrust?.IsAlertBoxClosed === 'function'
+            ? oneTrust.IsAlertBoxClosed()
+            : document.cookie.includes('OptanonAlertBoxClosed=')
+        return (
+          answered &&
+          Array.from(document.querySelectorAll('#onetrust-banner-sdk, .onetrust-pc-dark-filter')).every((layer) => {
+            const style = getComputedStyle(layer)
+            return layer.getClientRects().length === 0 || style.visibility === 'hidden' || Number(style.opacity) === 0
+          })
+        )
+      },
+      undefined,
+      { polling: 200, timeout: timeoutMs }
+    )
     .catch(() => undefined)
-  await page
-    .locator('.onetrust-pc-dark-filter')
-    .first()
-    .waitFor({ state: 'hidden', timeout: 5_000 })
-    .catch(() => undefined)
+}
+
+/**
+ * Leave what the login tab shows now in `LOGIN_REPORT`: a picture of it, and what was
+ * read off it — the cookie banner and its buttons, the form, the requests the login
+ * sent. It is the page as it stands, so Vinted is asked nothing for it; and the
+ * password is not in it, the fields only say whether they are filled.
+ */
+async function reportLogin(page: Page, root: string, problem: string, requests: string[]): Promise<void> {
+  const file = path.join(root, LOGIN_REPORT)
+  try {
+    const shown = await page
+      .evaluate(() => {
+        const showing = (element: Element | null) => {
+          if (!element) {
+            return false
+          }
+          const style = getComputedStyle(element)
+          return element.getClientRects().length > 0 && style.visibility !== 'hidden' && Number(style.opacity) > 0
+        }
+        const oneTrust = (window as unknown as { OneTrust?: { IsAlertBoxClosed?: () => boolean } }).OneTrust
+        const banner = document.getElementById('onetrust-banner-sdk')
+        const password = document.getElementById('password')
+        const form = password?.closest('form') ?? null
+        const username = form?.querySelector('#username')
+        const focused = document.activeElement
+        return {
+          title: document.title,
+          cookieBanner: {
+            script: Boolean(oneTrust),
+            answered: typeof oneTrust?.IsAlertBoxClosed === 'function' ? oneTrust.IsAlertBoxClosed() : null,
+            showing: showing(banner),
+            darkLayerShowing: showing(document.querySelector('.onetrust-pc-dark-filter')),
+            buttons: Array.from(banner?.querySelectorAll('button') ?? []).map(
+              (button) => `${button.id || '(no id)'}: ${button.textContent?.trim() ?? ''}${showing(button) ? '' : ' (not showing)'}`
+            )
+          },
+          form: form && {
+            usernameFilled: username instanceof HTMLInputElement && username.value.length > 0,
+            passwordFilled: password instanceof HTMLInputElement && password.value.length > 0,
+            lines: form.innerText
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean),
+            button: form.querySelector('button[type="submit"]')?.textContent?.trim() ?? null
+          },
+          focused: focused ? `${focused.tagName.toLowerCase()}${focused.id ? `#${focused.id}` : ''}` : null,
+          text: document.body?.innerText.slice(0, 1_500) ?? ''
+        }
+      })
+      .catch(() => null)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(
+      `${file}.json`,
+      JSON.stringify({ at: new Date().toISOString(), problem, url: page.url(), requests, page: shown }, null, 2)
+    )
+    fs.rmSync(`${file}.png`, { force: true })
+    await page.screenshot({ path: `${file}.png`, timeout: 5_000 }).catch(() => undefined)
+    console.info(`[vinted-relist] What the login tab showed is in ${LOGIN_REPORT}.json and .png`)
+  } catch {
+    // A report that cannot be written is no reason to stop over.
+  }
 }
 
 /** The login form's own wording; any other line on it is Vinted saying why not. */
 const LOGIN_FORM_WORDING = /^(?:inloggen|verder|wachtwoord vergeten\?|problemen met inloggen\?|wachtwoord weergeven)$/i
 
-/** Why a login that was sent did not log the window in, from what the tab shows now. */
-async function whyNotLoggedIn(page: Page): Promise<string> {
+/**
+ * Why a login that went to Vinted did not log the window in, from what the tab shows
+ * now: Vinted's reason is whatever the form says that it did not say before (`formLines`).
+ */
+async function whyNotLoggedIn(page: Page, formLines: string[]): Promise<string> {
   const form = page.locator('form').filter({ has: page.locator('#password') })
   const onForm = new URL(page.url()).pathname === LOGIN_PATH && (await form.isVisible().catch(() => false))
   if (!onForm) {
     return 'Vinted wants more than the password for this login — a code it sent, most likely. Finish the login in the Chrome window, then refresh here.'
   }
-  const said = (await form.innerText().catch(() => ''))
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !LOGIN_FORM_WORDING.test(line))
+  const said = (await linesOn(form)).filter((line) => !formLines.includes(line) && !LOGIN_FORM_WORDING.test(line))
   return said.length > 0
     ? `Vinted did not take the login in .env: "${said.join(' ')}". Check ${LOGIN_ENV} there, or log in in the Chrome window.`
-    : `Vinted did not take the login in .env. Check ${LOGIN_ENV} there, or log in in the Chrome window.`
+    : `Vinted did not take the login in .env, and gave no reason on the form. Check ${LOGIN_ENV} there, or look at the Chrome window.`
 }
 
 /**
@@ -595,27 +878,29 @@ async function whyNotLoggedIn(page: Page): Promise<string> {
  * screen's next question as one made for it.
  */
 async function readWardrobe(page: Page, chrome: VintedChrome, { userId }: VintedSession): Promise<VintedWardrobeItem[]> {
-  const pages = await page.evaluate(
-    async ({ id, timeout }) => {
-      const out: unknown[] = []
-      for (let pageNo = 1; pageNo <= 10; pageNo += 1) {
-        const response = await fetch(`/api/v2/wardrobe/${id}/items?page=${pageNo}&per_page=96`, {
-          headers: { accept: 'application/json' },
-          signal: AbortSignal.timeout(timeout)
-        })
-        if (!response.ok) {
-          // A 429 here is Vinted's rate limit; the message is what the caller looks for.
-          throw new Error(`Vinted answered ${response.status} for the wardrobe.`)
+  const pages = await whileVintedMovesOn(page, () =>
+    page.evaluate(
+      async ({ id, timeout }) => {
+        const out: unknown[] = []
+        for (let pageNo = 1; pageNo <= 10; pageNo += 1) {
+          const response = await fetch(`/api/v2/wardrobe/${id}/items?page=${pageNo}&per_page=96`, {
+            headers: { accept: 'application/json' },
+            signal: AbortSignal.timeout(timeout)
+          })
+          if (!response.ok) {
+            // A 429 here is Vinted's rate limit; the message is what the caller looks for.
+            throw new Error(`Vinted answered ${response.status} for the wardrobe.`)
+          }
+          const body = (await response.json()) as { pagination?: { total_pages?: number } }
+          out.push(body)
+          if ((body.pagination?.total_pages ?? 1) <= pageNo) {
+            break
+          }
         }
-        const body = (await response.json()) as { pagination?: { total_pages?: number } }
-        out.push(body)
-        if ((body.pagination?.total_pages ?? 1) <= pageNo) {
-          break
-        }
-      }
-      return out
-    },
-    { id: userId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+        return out
+      },
+      { id: userId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+    )
   )
   const wardrobe = pages.flatMap(parseWardrobeItems)
   chrome.lastWardrobe = { at: Date.now(), wardrobe }
@@ -662,15 +947,17 @@ async function readUploadedText(page: Page, itemIds: string[]): Promise<Record<s
 }
 
 async function readSnapshot(page: Page, itemId: string): Promise<VintedSnapshot> {
-  const html = await page.evaluate(
-    async ({ id, timeout }) => {
-      const response = await fetch(`/items/${id}/edit`, { headers: { accept: 'text/html' }, signal: AbortSignal.timeout(timeout) })
-      if (!response.ok) {
-        throw new Error(`Vinted answered ${response.status} for the listing's edit page.`)
-      }
-      return await response.text()
-    },
-    { id: itemId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+  const html = await whileVintedMovesOn(page, () =>
+    page.evaluate(
+      async ({ id, timeout }) => {
+        const response = await fetch(`/items/${id}/edit`, { headers: { accept: 'text/html' }, signal: AbortSignal.timeout(timeout) })
+        if (!response.ok) {
+          throw new Error(`Vinted answered ${response.status} for the listing's edit page.`)
+        }
+        return await response.text()
+      },
+      { id: itemId, timeout: IN_PAGE_FETCH_TIMEOUT_MS }
+    )
   )
   const snapshot = parseVintedSnapshot(html)
   if (!snapshot) {
@@ -788,11 +1075,15 @@ async function deleteListing(page: Page, chrome: VintedChrome, session: VintedSe
     throw new VintedRelistError('No "Verwijderen" button on the listing page. Is this listing yours and still live?')
   }
 
-  // The page keeps a hidden cookie-consent dialog around too, so the confirmation
-  // is the dialog that is actually visible — not simply the last one. And the button
-  // is drawn before its click handler is wired up, so a click that opens nothing is
-  // simply repeated.
-  const dialog = page.locator('[role="dialog"]:visible').first()
+  // The page keeps a hidden cookie-consent dialog around too — on show for a moment
+  // on a window that has not answered the cookie banner yet — so the confirmation is
+  // the dialog that is actually visible and not OneTrust's. And the button is drawn
+  // before its click handler is wired up, so a click that opens nothing is simply
+  // repeated.
+  const dialog = page
+    .locator('[role="dialog"]:visible')
+    .filter({ hasNot: page.locator('[id^="onetrust"]') })
+    .first()
   let opened = false
   for (let attempt = 0; attempt < 5 && !opened; attempt += 1) {
     await remove.click()
@@ -840,14 +1131,16 @@ async function deleteListing(page: Page, chrome: VintedChrome, session: VintedSe
 }
 
 async function catalogTree(page: Page): Promise<VintedCatalogNode[]> {
-  return await page.evaluate(async () => {
-    const response = await fetch('/api/v2/item_upload/catalogs', { headers: { accept: 'application/json' } })
-    if (!response.ok) {
-      throw new Error(`Vinted answered ${response.status} for the category tree.`)
-    }
-    const body = (await response.json()) as { catalogs?: VintedCatalogNode[] }
-    return body.catalogs ?? []
-  })
+  return await whileVintedMovesOn(page, () =>
+    page.evaluate(async () => {
+      const response = await fetch('/api/v2/item_upload/catalogs', { headers: { accept: 'application/json' } })
+      if (!response.ok) {
+        throw new Error(`Vinted answered ${response.status} for the category tree.`)
+      }
+      const body = (await response.json()) as { catalogs?: VintedCatalogNode[] }
+      return body.catalogs ?? []
+    })
+  )
 }
 
 /** A picker level gets this long to show the cell that is clicked next. */
@@ -1074,8 +1367,9 @@ function onUploadForm(url: URL): boolean {
  * place — once, and once more after a moment, not polled.
  *
  * A form still up after the full wait has gone through before now, behind a dialog,
- * so the wardrobe gets the same question before the form's errors call it failed: a
- * retry of a listing that did go up would put it up twice.
+ * so the wardrobe gets the same question before the form's errors call it failed. A
+ * listing Vinted took that its wardrobe does not show yet stops the relist; the retry
+ * asks the wardrobe for it again before it uploads anything (`earlierCopy`).
  */
 async function publishedListing(page: Page, chrome: VintedChrome, session: VintedSession, snapshot: VintedSnapshot): Promise<string> {
   const left = await page
@@ -1108,7 +1402,7 @@ async function publishedListing(page: Page, chrome: VintedChrome, session: Vinte
 
   if (left) {
     throw new VintedRelistError(
-      'Vinted took the listing, but its wardrobe does not show it yet. Refresh here before retrying, a retry would put it up twice.'
+      'Vinted took the listing, but its wardrobe does not show it yet. Give it a minute and retry: the retry looks for it before it uploads anything.'
     )
   }
   const errors = await formErrors(page)
@@ -1316,6 +1610,7 @@ export function createVintedRelistService({
     page.on('dialog', (dialog) => {
       void (dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()).catch(() => undefined)
     })
+    await page.addInitScript(answerCookieBannerInPage)
     return page
   }
 
@@ -1352,8 +1647,13 @@ async function relistWithTab(
   products: InventoryProduct[],
   { price }: VintedRelistOptions
 ): Promise<{ itemId: string; url: string; productId: number | null }> {
-  // Each step is named in the terminal, so a relist that stops shows where it stopped.
-  const log = (what: string) => console.info(`[vinted-relist] ${itemId}: ${what}`)
+  // Each step is named in the terminal — and in the report a relist that stops leaves
+  // behind — so a relist that stops shows where it stopped.
+  let current = 'getting started'
+  const log = (what: string) => {
+    current = what
+    console.info(`[vinted-relist] ${itemId}: ${what}`)
+  }
   // And each step that is about to ask Vinted for something first looks whether
   // another tab has run into Vinted's rate limit meanwhile: this relist then stops
   // here, where its state is written down, rather than asking again.
@@ -1367,6 +1667,8 @@ async function relistWithTab(
 
   let pending = store.get().pending[itemId]
   const resumed = Boolean(pending)
+  // An earlier go that got past the delete has had an upload under way.
+  const uploadedBefore = Boolean(pending?.deletedAt)
 
   // A card that has gone does not go back up, whatever a tab opened before the sale
   // still shows — and a sold card's record no longer names its listing, so the check
@@ -1387,75 +1689,217 @@ async function relistWithTab(
   // The tab first, then the wait for this relist's turn: the gap is between what
   // reaches Vinted, and a tab can take a while to open — a whole Chrome, at times.
   const page = await tab()
-  await spaceOut(chrome)
-  step('checking the Vinted session')
-  // A fresh tab lands on the listing's own page, which the delete would load anyway;
-  // a retry of an upload has no such page any more, and lands on the homepage.
-  const session = await ensureSession(page, chrome, pending?.deletedAt ? undefined : vintedItemUrl(itemId))
+  const watched = watchTab(page)
+  try {
+    await spaceOut(chrome)
+    step('checking the Vinted session')
+    // A fresh tab lands on the listing's own page, which the delete would load anyway;
+    // a retry of an upload has no such page any more, and lands on the homepage.
+    const session = await ensureSession(page, chrome, pending?.deletedAt ? undefined : vintedItemUrl(itemId))
 
-  if (!pending) {
-    const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
-    const productId = product?.id ?? null
-    step('reading the listing off its edit page')
-    const snapshot = await readSnapshot(page, itemId)
-    step('preparing the photos')
-    const photoFiles = await preparePhotos(page, root, snapshot, product, readMedia)
+    if (!pending) {
+      const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
+      const productId = product?.id ?? null
+      step('reading the listing off its edit page')
+      const snapshot = await readSnapshot(page, itemId)
+      step('preparing the photos')
+      const photoFiles = await preparePhotos(page, root, snapshot, product, readMedia)
 
-    // From here the listing can be rebuilt without Vinted, so it is safe to delete —
-    // and it is written down first: once the confirm button is clicked the listing
-    // may be gone even when Vinted's answer afterwards is lost, and a relist the
-    // state file does not know about could not be retried.
-    const prepared = { snapshot, productId, photoFiles, deletedAt: '', error: '' }
-    store.update((state) => {
-      state.pending[itemId] = prepared
-    })
-    pending = prepared
-  }
+      // From here the listing can be rebuilt without Vinted, so it is safe to delete —
+      // and it is written down first: once the confirm button is clicked the listing
+      // may be gone even when Vinted's answer afterwards is lost, and a relist the
+      // state file does not know about could not be retried.
+      const prepared = { snapshot, productId, photoFiles, deletedAt: '', error: '' }
+      store.update((state) => {
+        state.pending[itemId] = prepared
+      })
+      pending = prepared
+    }
 
-  if (!pending.deletedAt) {
+    if (!pending.deletedAt) {
+      try {
+        // A retry after a delete that went wrong asks the wardrobe once whether the
+        // listing is still up, rather than trying to delete it twice.
+        if (!resumed || (await stillListed(page, chrome, session, itemId))) {
+          step('deleting the listing')
+          await deleteListing(page, chrome, session, itemId)
+        }
+      } catch (error) {
+        const failed = { ...pending, error: error instanceof Error ? error.message : 'The delete failed.' }
+        store.update((state) => {
+          state.pending[itemId] = failed
+        })
+        throw error
+      }
+      const deleted = { ...pending, deletedAt: new Date().toISOString(), error: '' }
+      store.update((state) => {
+        state.pending[itemId] = deleted
+      })
+      pending = deleted
+    }
+
+    let newItemId: string
+    let listedAt = new Date().toISOString()
     try {
-      // A retry after a delete that went wrong asks the wardrobe once whether the
-      // listing is still up, rather than trying to delete it twice.
-      if (!resumed || (await stillListed(page, chrome, session, itemId))) {
-        step('deleting the listing')
-        await deleteListing(page, chrome, session, itemId)
+      // An earlier go that stopped after its upload may have got the copy up after all
+      // — Vinted took it, but its wardrobe did not show it before that go gave up — and
+      // uploading it again would put the card on Vinted twice. So the wardrobe is asked
+      // first, once.
+      let copy: VintedWardrobeItem | null = null
+      if (uploadedBefore) {
+        step('looking for a copy an earlier go put up')
+        copy = earlierCopy(await readWardrobe(page, chrome, session), itemId, pending.snapshot.title, products, store.get())
+      }
+      if (copy) {
+        newItemId = String(copy.id)
+        const uploadedAt = wardrobeUploadedAt(copy, new Date())
+        listedAt = uploadedAt != null ? new Date(uploadedAt).toISOString() : listedAt
+      } else {
+        // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
+        const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
+        step('uploading the new listing')
+        newItemId = await uploadListing(page, chrome, session, snapshot, pending.photoFiles)
       }
     } catch (error) {
-      const failed = { ...pending, error: error instanceof Error ? error.message : 'The delete failed.' }
+      const failed = { ...pending, error: error instanceof Error ? error.message : 'The upload failed.' }
       store.update((state) => {
         state.pending[itemId] = failed
       })
       throw error
     }
-    const deleted = { ...pending, deletedAt: new Date().toISOString(), error: '' }
-    store.update((state) => {
-      state.pending[itemId] = deleted
-    })
-    pending = deleted
-  }
 
-  let newItemId: string
-  try {
-    // The snapshot on disk keeps the old price, so a retry without a price is still an exact copy.
-    const snapshot = price == null ? pending.snapshot : { ...pending.snapshot, price }
-    step('uploading the new listing')
-    newItemId = await uploadListing(page, chrome, session, snapshot, pending.photoFiles)
+    log(`published as ${newItemId}`)
+    const record = { itemId: newItemId, previousItemId: itemId, productId: pending.productId, listedAt }
+    store.update((state) => {
+      delete state.pending[itemId]
+      delete state.records[itemId]
+      state.records[newItemId] = record
+    })
+    fs.rmSync(path.join(root, PHOTO_DIR, itemId), { recursive: true, force: true })
+
+    return { itemId: newItemId, url: vintedItemUrl(newItemId), productId: pending.productId }
   } catch (error) {
-    const failed = { ...pending, error: error instanceof Error ? error.message : 'The upload failed.' }
-    store.update((state) => {
-      state.pending[itemId] = failed
-    })
+    // Not logged in, refused, or left alone for Vinted's rate limit: nothing went wrong
+    // in the tab, and the login keeps a report of its own.
+    if (!(error instanceof VintedRelistError && [401, 409, 429].includes(error.status))) {
+      const entry = store.get().pending[itemId]
+      await reportFailure(page, root, {
+        itemId,
+        title: entry?.snapshot.title ?? null,
+        productId: entry?.productId ?? null,
+        step: current,
+        deleted: Boolean(entry?.deletedAt),
+        error,
+        tab: watched.lines
+      })
+    }
     throw error
+  } finally {
+    watched.stop()
   }
+}
 
-  log(`published as ${newItemId}`)
-  const record = { itemId: newItemId, previousItemId: itemId, productId: pending.productId, listedAt: new Date().toISOString() }
-  store.update((state) => {
-    delete state.pending[itemId]
-    delete state.records[itemId]
-    state.records[newItemId] = record
-  })
-  fs.rmSync(path.join(root, PHOTO_DIR, itemId), { recursive: true, force: true })
+/**
+ * Keep track of what happens in a relist's tab: every page it goes to, every answer
+ * of 400 and up from Vinted, and every request to Vinted that got no answer at all —
+ * the last 40 of them, each with the time, for the report a relist that stops leaves.
+ */
+function watchTab(page: Page): { lines: string[]; stop: () => void } {
+  const lines: string[] = []
+  const note = (line: string) => {
+    lines.push(`${new Date().toISOString().slice(11, 23)} ${line}`)
+    if (lines.length > 40) {
+      lines.shift()
+    }
+  }
+  const onNavigated = (frame: Frame) => {
+    if (frame === page.mainFrame()) {
+      note(`on ${frame.url()}`)
+    }
+  }
+  const onResponse = (response: PageResponse) => {
+    const url = new URL(response.url())
+    if (response.status() >= 400 && isVintedHost(url.hostname)) {
+      note(`${response.request().method()} ${url.pathname} answered ${response.status()}`)
+    }
+  }
+  const onFailed = (request: PageRequest) => {
+    const url = new URL(request.url())
+    if (isVintedHost(url.hostname)) {
+      note(`${request.method()} ${url.pathname} got no answer (${request.failure()?.errorText ?? 'unknown'})`)
+    }
+  }
+  page.on('framenavigated', onNavigated)
+  page.on('response', onResponse)
+  page.on('requestfailed', onFailed)
+  return {
+    lines,
+    stop() {
+      page.off('framenavigated', onNavigated)
+      page.off('response', onResponse)
+      page.off('requestfailed', onFailed)
+    }
+  }
+}
 
-  return { itemId: newItemId, url: vintedItemUrl(newItemId), productId: pending.productId }
+/**
+ * Leave what the tab of a relist that stopped shows in `FAILURE_DIR`: a picture of it,
+ * and what was read off it — the step it stopped at and Vinted's or Playwright's own
+ * words for why, whether the listing was already deleted, the pages the tab went to and
+ * Vinted's errors along the way. The error on the screen is gone once the listing is
+ * queued again, and the terminal keeps nothing; this does. It is the tab as it stands,
+ * so Vinted is asked nothing for it, and once there are more than `FAILURES_KEPT` the
+ * oldest go.
+ */
+async function reportFailure(
+  page: Page,
+  root: string,
+  failure: { itemId: string; title: string | null; productId: number | null; step: string; deleted: boolean; error: unknown; tab: string[] }
+): Promise<void> {
+  const dir = path.join(root, FAILURE_DIR)
+  const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${failure.itemId}`)
+  try {
+    const shown = await page
+      .evaluate(() => ({
+        title: document.title,
+        dialogs: Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'))
+          .filter((dialog) => dialog.getClientRects().length > 0)
+          .map((dialog) => dialog.innerText.trim().slice(0, 300)),
+        text: document.body?.innerText.slice(0, 1_500) ?? ''
+      }))
+      .catch(() => null)
+    const errors = await formErrors(page).catch(() => [])
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(
+      `${file}.json`,
+      JSON.stringify(
+        {
+          at: new Date().toISOString(),
+          itemId: failure.itemId,
+          title: failure.title,
+          productId: failure.productId,
+          step: failure.step,
+          deleted: failure.deleted,
+          error: failure.error instanceof Error ? failure.error.message : String(failure.error),
+          url: page.url(),
+          tab: failure.tab,
+          page: shown && { ...shown, formErrors: errors }
+        },
+        null,
+        2
+      )
+    )
+    await page.screenshot({ path: `${file}.png`, timeout: 5_000 }).catch(() => undefined)
+    const reports = fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .sort()
+    for (const name of reports.slice(0, -FAILURES_KEPT)) {
+      fs.rmSync(path.join(dir, name), { force: true })
+      fs.rmSync(path.join(dir, name.replace(/\.json$/, '.png')), { force: true })
+    }
+    console.info(`[vinted-relist] ${failure.itemId}: what the tab showed when the relist stopped is in ${path.relative(root, file)}.json`)
+  } catch {
+    // A report that cannot be written is no reason to stop over.
+  }
 }

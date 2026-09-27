@@ -60,7 +60,10 @@ describe('page snapshot for crawlers without JavaScript', () => {
     expect(html).toContain('<dt>Price</dt><dd>€75</dd>')
     expect(html).toContain('<dt>Grade</dt><dd>PSA 9</dd>')
     expect(html).toContain('<a href="https://www.marktplaats.nl/seller/view/m2436737465">View on Marktplaats</a>')
-    expect(html).toContain('<a href="https://www.vinted.nl/items/10137103544">View on Vinted</a>')
+    // The card's own listing, whichever it is today: every relist gives it a new one.
+    const vintedUrl = payload.product?.vintedUrl
+    expect(vintedUrl).toMatch(/^https:\/\/www\.vinted\.nl\/items\/\d+$/)
+    expect(html).toContain(`<a href="${vintedUrl}">View on Vinted</a>`)
     for (const id of payload.similarProductIds) {
       const similar = payload.products.find((product) => product.id === id)!
       expect(html).toContain(`<a href="/products/${similar.slug}/">`)

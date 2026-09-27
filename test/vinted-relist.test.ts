@@ -6,6 +6,7 @@ import {
   catalogPathTo,
   cooldownRemainingMs,
   dutchRelativeDays,
+  earlierCopy,
   emptyRelistState,
   listingsWithoutAge,
   normalizeRelistState,
@@ -544,6 +545,29 @@ describe('replacementListing', () => {
     expect(replacementListing(wardrobe, '10014364490', title)?.id).toBe(10016398906)
     expect(replacementListing(wardrobe, '10016398906', title)).toBeNull()
     expect(replacementListing([], '10014364490', title)).toBeNull()
+  })
+})
+
+describe('earlierCopy', () => {
+  const title = 'Beautifly IR 219/217 - PSA 10 - Ascended Heroes'
+
+  it('takes the copy an earlier go put up, never a second slab of the same card that a product or record already has', () => {
+    const wardrobe = parseWardrobeItems({
+      items: [
+        { id: 10139590000, title, price: '99.99' },
+        { id: 10139595000, title, price: '99.99' },
+        { id: 10139596000, title, price: '99.99' }
+      ]
+    })
+    const secondSlab = product({ id: 30, title: 'Beautifly', vintedUrl: 'https://www.vinted.nl/items/10139595000' })
+    const state = {
+      ...emptyRelistState(),
+      records: { '10139596000': { itemId: '10139596000', previousItemId: '10130000000', productId: 31, listedAt: '2026-09-26T11:00:00Z' } }
+    }
+
+    expect(earlierCopy(wardrobe, '10137114807', title, [secondSlab], state)?.id).toBe(10139590000)
+    // Nothing else of that title is anybody's copy to take: the retry uploads.
+    expect(earlierCopy(wardrobe.slice(1), '10137114807', title, [secondSlab], state)).toBeNull()
   })
 })
 

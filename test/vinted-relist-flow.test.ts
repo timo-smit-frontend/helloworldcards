@@ -32,7 +32,8 @@ const TREE = [
   }
 ]
 
-type Listing = { id: number; title: string; description: string; price: number; uploadedAt: number }
+/** A listing in the wardrobe; one uploaded a moment ago is only in the wardrobe's answers from `shownFrom` on. */
+type Listing = { id: number; title: string; description: string; price: number; uploadedAt: number; shownFrom?: number }
 type Upload = {
   title: string
   description: string
@@ -51,6 +52,25 @@ type Vinted = {
   /** Every request, as `METHOD /path`, with when it came in. */
   requests: Array<{ line: string; at: number }>
   nextId: number
+  /**
+   * The cookie banner. `script`: OneTrust's script, with its `RejectAll()`, is on the
+   * page, as on Vinted. `covered`: something sits over the banner's buttons, so no
+   * click from outside the page reaches them.
+   */
+  banner: { script: boolean; covered: boolean }
+  /** The login form ignores Enter; and for this many loads of it, sends nothing at all. */
+  loginForm: { swallowEnter: boolean; deadLoads: number }
+  /** How many `anon_id`s were handed out: one for every page asked for without one, as Vinted does. */
+  anonIds: number
+  /** How many pages were asked for with a stale session, and got the session-refresh page that never moves on. */
+  stuckRefreshes: number
+  /**
+   * How slow Vinted is, in ms: how long after a delete the listing's page takes the tab
+   * to the seller's own page; that page itself — where the tab goes after a publish
+   * too; each answer from the wardrobe; and how long a new upload takes to show up in
+   * the wardrobe.
+   */
+  slow: { leaveDeletedListingMs: number; sellerPageMs: number; wardrobeMs: number; newListingShownAfterMs: number }
 }
 
 function vinted(listings: Array<Pick<Listing, 'id' | 'title'>>): Vinted {
@@ -64,7 +84,12 @@ function vinted(listings: Array<Pick<Listing, 'id' | 'title'>>): Vinted {
     uploads: [],
     loggedIn: true,
     requests: [],
-    nextId: 5000
+    nextId: 5000,
+    banner: { script: true, covered: false },
+    loginForm: { swallowEnter: false, deadLoads: 0 },
+    anonIds: 0,
+    stuckRefreshes: 0,
+    slow: { leaveDeletedListingMs: 0, sellerPageMs: 0, wardrobeMs: 0, newListingShownAfterMs: 0 }
   }
 }
 
@@ -89,8 +114,14 @@ function editPage(listing: Listing): string {
   return `<!DOCTYPE html><html><body>${chunks.map((chunk) => `<script>self.__next_f.push([1,${JSON.stringify(chunk)}])</script>`).join('')}</body></html>`
 }
 
-/** The listing's page; only its seller, logged in, gets the button that deletes it. */
-function listingPage(listing: Listing, seller: boolean): string {
+/**
+ * The listing's page; only its seller, logged in, gets the button that deletes it.
+ * Once the listing is deleted, the page takes the tab to the seller's own page, as
+ * Vinted does — the tab does not stay on a listing that is gone — `leaveAfterMs`
+ * after the delete. (Right away, the click on the confirm button waits for that as its
+ * own navigation; a moment later, nothing waits for it.)
+ */
+function listingPage(listing: Listing, seller: boolean, leaveAfterMs: number): string {
   return `<!DOCTYPE html><html><head><title>${listing.title}</title></head><body>
 <h1>${listing.title}</h1>
 ${seller ? '<button type="button" id="remove">Verwijderen</button>' : ''}
@@ -106,17 +137,59 @@ ${seller ? '<button type="button" id="remove">Verwijderen</button>' : ''}
   document.getElementById('confirm').addEventListener('click', async () => {
     await fetch('/api/v2/items/${listing.id}/delete', { method: 'POST' })
     dialog.hidden = true
+    setTimeout(() => { location.href = '/member/${USER.id}' }, ${leaveAfterMs})
   })
 </script></body></html>`
 }
 
 /**
- * The email login page, keyed as Vinted keys it — with its cookie banner as Vinted
- * has it on a window that has not answered it yet: it turns up a moment after the
- * form, over a dark layer that takes every click meant for the page, and stays away
- * once its consent cookie is set.
+ * Vinted's cookie banner, as OneTrust puts it up on every page of a window that has
+ * not answered it: OneTrust's script comes in a second after the page, and the banner
+ * a moment later — sliding in, a dialog, over a dark layer that takes every click
+ * meant for the page. It stays away once its consent cookie is set, and `RejectAll()`
+ * answers it just as the "Alleen essentiële cookies" button does.
  */
-const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></head><body>
+function cookieBanner({ script, covered }: Vinted['banner']): string {
+  return String.raw`<div id="onetrust-consent-sdk">
+  <div class="onetrust-pc-dark-filter" style="display: none; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.6)"></div>
+  <div id="onetrust-banner-sdk" role="dialog" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 11; background: #fff; transform: translateY(100%); transition: transform 0.5s">
+    <p>Wij en onze partners gebruiken cookies.</p>
+    <button type="button" id="onetrust-accept-btn-handler">Alle toestaan</button>
+    <button type="button" id="onetrust-reject-all-handler">Alleen essentiële cookies</button>
+    ${covered ? '<div style="position: absolute; inset: 0"></div>' : ''}
+  </div>
+</div>
+<script>
+  (() => {
+    const layers = [document.querySelector('.onetrust-pc-dark-filter'), document.getElementById('onetrust-banner-sdk')]
+    const answered = () => document.cookie.includes('OptanonAlertBoxClosed=')
+    const answer = (groups) => {
+      document.cookie = 'OptanonAlertBoxClosed=' + new Date().toISOString() + '; path=/'
+      document.cookie = 'OptanonConsent=groups:' + groups + '; path=/'
+      layers.forEach((layer) => (layer.style.display = 'none'))
+    }
+    document.getElementById('onetrust-accept-btn-handler').addEventListener('click', () => answer('all'))
+    document.getElementById('onetrust-reject-all-handler').addEventListener('click', () => answer('essential'))
+    setTimeout(() => {
+      if (${script}) {
+        window.OneTrust = { RejectAll: () => answer('essential'), AllowAll: () => answer('all'), IsAlertBoxClosed: answered }
+      }
+      if (answered()) return
+      setTimeout(() => {
+        layers.forEach((layer) => (layer.style.display = 'block'))
+        requestAnimationFrame(() => requestAnimationFrame(() => (layers[1].style.transform = 'none')))
+      }, 300)
+    }, 1000)
+  })()
+</script>`
+}
+
+/**
+ * The email login page, keyed as Vinted keys it. A form that `swallowEnter`s is not
+ * sent on Enter; a `dead` one is not sent at all, on Enter or on its button.
+ */
+function loginPage({ swallowEnter, dead }: { swallowEnter: boolean; dead: boolean }): string {
+  return String.raw`<!DOCTYPE html><html><head><title>Vinted</title></head><body>
 <form id="login">
   <h2>Inloggen</h2>
   <p id="error" hidden></p>
@@ -125,25 +198,16 @@ const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></
   <button type="submit">Verder</button>
   <a href="/member/login/reset_password">Wachtwoord vergeten?</a>
 </form>
-<div class="onetrust-pc-dark-filter" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6)"></div>
-<div id="onetrust-banner-sdk" style="display: none; position: fixed; bottom: 0; left: 0; right: 0">
-  <button type="button" id="onetrust-accept-btn-handler">Alle toestaan</button>
-  <button type="button" id="onetrust-reject-all-handler">Alleen essentiële cookies</button>
-</div>
 <script>
-  const layers = [document.querySelector('.onetrust-pc-dark-filter'), document.getElementById('onetrust-banner-sdk')]
-  if (!document.cookie.includes('OptanonAlertBoxClosed=')) {
-    setTimeout(() => layers.forEach((layer) => (layer.style.display = 'block')), 1500)
-  }
-  for (const [id, groups] of [['onetrust-accept-btn-handler', 'all'], ['onetrust-reject-all-handler', 'essential']]) {
-    document.getElementById(id).addEventListener('click', () => {
-      document.cookie = 'OptanonAlertBoxClosed=' + new Date().toISOString() + '; path=/'
-      document.cookie = 'OptanonConsent=groups:' + groups + '; path=/'
-      layers.forEach((layer) => (layer.style.display = 'none'))
+  const form = document.getElementById('login')
+  if (${swallowEnter}) {
+    form.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') event.preventDefault()
     })
   }
-  document.getElementById('login').addEventListener('submit', async (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault()
+    if (${dead}) return
     const response = await fetch('/web/api/auth/oauth', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -158,6 +222,7 @@ const LOGIN_PAGE = String.raw`<!DOCTYPE html><html><head><title>Vinted</title></
     error.hidden = false
   })
 </script></body></html>`
+}
 
 /** The upload form, with the fields and pickers the relist fills, keyed as Vinted keys them. */
 const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</title></head><body>
@@ -239,12 +304,38 @@ const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</
 </script></body></html>`
 
 const html = (body: string) => ({ contentType: 'text/html; charset=utf-8', body })
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Answer the tab's requests the way Vinted would. */
-async function serve(site: Vinted, route: Route): Promise<void> {
+/**
+ * Answer the tab's requests the way Vinted would. A page asked for with a stale
+ * session is the session-refresh page instead, which never moves on — until the
+ * cookie that makes it stale is gone. (It moves to its own URL from inside the page:
+ * a redirect would not do, since Playwright hands only the first URL of a redirect to
+ * the route, and the page it redirects to would be asked of the real Vinted.)
+ */
+async function serve(site: Vinted, route: Route, context: BrowserContext): Promise<void> {
   const request = route.request()
   const url = new URL(request.url())
   site.requests.push({ line: `${request.method()} ${url.pathname}`, at: Date.now() })
+  // What the request carries is the window's cookie jar: an intercepted request's own
+  // headers do not have its cookies in them yet.
+  const cookies = new Map((await context.cookies('https://www.vinted.nl')).map((cookie) => [cookie.name, cookie.value]))
+  if (request.isNavigationRequest() && cookies.get('refresh_token_web') === 'stale') {
+    site.stuckRefreshes += 1
+    const refresh = `/session-refresh?ref_url=${encodeURIComponent(url.pathname)}`
+    await route.fulfill(
+      html(
+        `<!DOCTYPE html><html><head><title>Vinted</title><script>history.replaceState(null, '', ${JSON.stringify(refresh)})</script></head><body><p>Sessie vernieuwen</p></body></html>`
+      )
+    )
+    return
+  }
+  const headers: Record<string, string> = {}
+  if (request.isNavigationRequest() && !cookies.has('anon_id')) {
+    headers['set-cookie'] = `anon_id=${++site.anonIds}; path=/`
+  }
+  /** A page as Vinted serves it: with the cookie banner, and an `anon_id` for a window without one. */
+  const page = (body: string) => ({ ...html(body.replace('</body>', `${cookieBanner(site.banner)}</body>`)), headers })
   const listingId = /^\/items\/(\d+)/.exec(url.pathname)?.[1]
   const listing = listingId ? site.wardrobe.find((candidate) => String(candidate.id) === listingId) : undefined
   const deleteId = /^\/api\/v2\/items\/(\d+)\/delete$/.exec(url.pathname)?.[1]
@@ -252,12 +343,15 @@ async function serve(site: Vinted, route: Route): Promise<void> {
   if (url.pathname === '/api/v2/users/current') {
     await (site.loggedIn ? route.fulfill({ json: { user: USER } }) : route.fulfill({ status: 401, json: {} }))
   } else if (url.pathname === `/api/v2/wardrobe/${USER.id}/items`) {
-    const items = site.wardrobe.map((item) => ({
-      id: item.id,
-      title: item.title,
-      price: { amount: item.price.toFixed(2) },
-      photos: [{ url: `https://images1.vinted.net/${item.id}.webp`, high_resolution: { timestamp: item.uploadedAt } }]
-    }))
+    await sleep(site.slow.wardrobeMs)
+    const items = site.wardrobe
+      .filter((item) => (item.shownFrom ?? 0) <= Date.now())
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: { amount: item.price.toFixed(2) },
+        photos: [{ url: `https://images1.vinted.net/${item.id}.webp`, high_resolution: { timestamp: item.uploadedAt } }]
+      }))
     await route.fulfill({ json: { items, pagination: { total_pages: 1 } } })
   } else if (url.pathname === '/api/v2/item_upload/catalogs') {
     await route.fulfill({ json: { catalogs: TREE } })
@@ -269,7 +363,8 @@ async function serve(site: Vinted, route: Route): Promise<void> {
       title: upload.title,
       description: upload.description,
       price: Number(upload.price.replace(',', '.')),
-      uploadedAt: Math.floor(Date.now() / 1000)
+      uploadedAt: Math.floor(Date.now() / 1000),
+      shownFrom: Date.now() + site.slow.newListingShownAfterMs
     })
     await route.fulfill({ json: { id: site.nextId - 1 } })
   } else if (deleteId && request.method() === 'POST') {
@@ -280,15 +375,20 @@ async function serve(site: Vinted, route: Route): Promise<void> {
     site.loggedIn = username === ACCOUNT.username && password === ACCOUNT.password
     await (site.loggedIn ? route.fulfill({ json: {} }) : route.fulfill({ status: 401, json: {} }))
   } else if (url.pathname === '/member/login/email') {
-    await route.fulfill(html(LOGIN_PAGE))
+    const dead = site.loginForm.deadLoads > 0
+    site.loginForm.deadLoads -= dead ? 1 : 0
+    await route.fulfill(page(loginPage({ swallowEnter: site.loginForm.swallowEnter, dead })))
   } else if (url.pathname === '/items/new') {
-    await route.fulfill(html(UPLOAD_FORM.replace('window.__tree', JSON.stringify(TREE))))
+    await route.fulfill(page(UPLOAD_FORM.replace('window.__tree', JSON.stringify(TREE))))
   } else if (listing && url.pathname.endsWith('/edit')) {
     await route.fulfill(html(editPage(listing)))
   } else if (listing) {
-    await route.fulfill(html(listingPage(listing, site.loggedIn)))
+    await route.fulfill(page(listingPage(listing, site.loggedIn, site.slow.leaveDeletedListingMs)))
   } else if (url.pathname === '/' || url.pathname.startsWith('/member/')) {
-    await route.fulfill(html('<!DOCTYPE html><html><head><title>Vinted</title></head><body><h1>Vinted</h1></body></html>'))
+    if (url.pathname.startsWith('/member/')) {
+      await sleep(site.slow.sellerPageMs)
+    }
+    await route.fulfill(page('<!DOCTYPE html><html><head><title>Vinted</title></head><body><h1>Vinted</h1></body></html>'))
   } else {
     await route.fulfill({ status: 404, ...html('<!DOCTYPE html><html><body>Niet gevonden</body></html>') })
   }
@@ -301,7 +401,9 @@ const spies: Array<ReturnType<typeof vi.spyOn>> = []
 
 beforeAll(async () => {
   // The relist drives the installed Google Chrome, so the test does too; without one there is nothing to test against.
-  browser = await chromium.launch({ channel: 'chrome', headless: true }).catch(() => null)
+  // Its proxy leads nowhere: whatever the stand-in does not answer fails, rather than
+  // reaching the real Vinted — which rate-limits this computer for asking too much.
+  browser = await chromium.launch({ channel: 'chrome', headless: true, proxy: { server: 'http://127.0.0.1:9' } }).catch(() => null)
 })
 
 afterAll(async () => {
@@ -334,9 +436,20 @@ const CARDS = [
   { listingId: 1003, product: product(3, 'Psyduck', 161000001, 1003), title: 'Psyduck 54/102 – PSA 10 – Base Set' }
 ]
 
-/** A project root with an ad photo per card, and the stand-in Vinted served into a window of its own. */
+/**
+ * A project root with an ad photo per card, and the stand-in Vinted served into a
+ * window of its own — with `cookies` in it already, for www.vinted.nl.
+ */
 async function setUp(
-  options: { tabs: number; startGapMs?: number; tabLingerMs?: number; loggedIn?: boolean; login?: () => VintedLogin | null } = { tabs: 2 }
+  options: {
+    tabs: number
+    startGapMs?: number
+    tabLingerMs?: number
+    loggedIn?: boolean
+    login?: () => VintedLogin | null
+    site?: Partial<Pick<Vinted, 'banner' | 'loginForm' | 'slow'>>
+    cookies?: Array<{ name: string; value: string }>
+  } = { tabs: 2 }
 ) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hwc-relist-flow-'))
   roots.push(root)
@@ -349,11 +462,12 @@ async function setUp(
     await fs.writeFile(path.join(root, `public/ads/${cert}.jpeg`), photo)
   }
 
-  const site = vinted(CARDS.map((card) => ({ id: card.listingId, title: card.title })))
+  const site = { ...vinted(CARDS.map((card) => ({ id: card.listingId, title: card.title }))), ...options.site }
   site.loggedIn = options.loggedIn ?? true
   const context = await browser!.newContext()
   contexts.push(context)
-  await context.route('https://www.vinted.nl/**', (route) => serve(site, route))
+  await context.route('https://www.vinted.nl/**', (route) => serve(site, route, context))
+  await context.addCookies((options.cookies ?? []).map((cookie) => ({ ...cookie, domain: 'www.vinted.nl', path: '/' })))
 
   spies.push(
     vi.spyOn(console, 'info').mockImplementation(() => {}),
@@ -386,6 +500,7 @@ async function setUp(
   /** The URLs of the tabs open in the window right now. */
   const tabs = () => context.pages().map((page) => page.url())
   return {
+    root,
     site,
     service,
     store,
@@ -580,6 +695,81 @@ describe('the relist, in tabs', () => {
     expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(2)
   }, 60_000)
 
+  it.for([
+    { how: "through OneTrust's own script", banner: { script: true, covered: true } },
+    { how: 'by its own button, on a page without that script', banner: { script: false, covered: true } }
+  ])(
+    'answers the cookie banner $how, where no click from outside the page reaches it, and logs in',
+    { timeout: 60_000 },
+    async ({ banner }, { skip }) => {
+      if (!browser) skip()
+      const h = await setUp({ tabs: 1, loggedIn: false, login: () => ACCOUNT, site: { banner } })
+
+      await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+      expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+      expect((await h.cookies()).find((cookie) => cookie.name === 'OptanonConsent')?.value).toBe('groups:essential')
+    }
+  )
+
+  it("presses the login form's own button when Enter does not send the login", async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1, loggedIn: false, login: () => ACCOUNT, site: { loginForm: { swallowEnter: true, deadLoads: 0 } } })
+
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+  }, 60_000)
+
+  it('types a login that never reached Vinted in again at the next relist, and leaves what its tab showed', async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1, loggedIn: false, login: () => ACCOUNT, site: { loginForm: { swallowEnter: false, deadLoads: 1 } } })
+
+    const failed = (await h.service.relist('1001', h.products).catch((error: unknown) => error)) as { status: number; message: string }
+    expect(failed.status).toBe(401)
+    expect(failed.message).toContain('did not send the login')
+    expect(failed.message).not.toContain('tries that login again in')
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(0)
+    expect(h.state().pending).toEqual({})
+
+    // What the tab showed is left in the project, for a look that asks Vinted nothing — the password nowhere in it.
+    const report = await fs.readFile(path.join(h.root, '.cache/vinted-relist-login.json'), 'utf8')
+    expect(JSON.parse(report)).toMatchObject({
+      problem: failed.message,
+      url: expect.stringContaining('/member/login/email'),
+      page: { cookieBanner: { script: true, answered: true, showing: false }, form: { usernameFilled: true, passwordFilled: true } }
+    })
+    expect(report).not.toContain(ACCOUNT.password)
+    expect((await fs.stat(path.join(h.root, '.cache/vinted-relist-login.png'))).size).toBeGreaterThan(0)
+
+    // Nothing holds it back: past the moment every tab takes the "not logged in" as read,
+    // the next relist loads the form afresh, types the login in again and gets it through.
+    const realNow = Date.now.bind(Date)
+    spies.push(vi.spyOn(Date, 'now').mockImplementation(() => realNow() + 20_000))
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+    expect(count(h.site, 'GET /member/login/email')).toBe(2)
+    expect(count(h.site, 'POST /web/api/auth/oauth')).toBe(1)
+  }, 60_000)
+
+  it("clears the window's Vinted cookies once, not once for every tab stuck on the session refresh", async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({
+      tabs: 2,
+      startGapMs: 1_000,
+      cookies: [
+        { name: 'refresh_token_web', value: 'stale' },
+        { name: 'anon_id', value: '0' }
+      ]
+    })
+
+    const relisted = await Promise.all(CARDS.slice(0, 2).map((card) => h.service.relist(String(card.listingId), h.products)))
+
+    expect(relisted.map((result) => result.productId)).toEqual([1, 2])
+    // Both tabs found the refresh stuck; the second landed while the first was still
+    // waiting it out, and only went again once the first had cleared the cookies —
+    // one new anon_id since, where clearing them twice hands out two.
+    expect(h.site.stuckRefreshes).toBe(2)
+    expect(h.site.anonIds).toBe(1)
+  }, 60_000)
+
   it('stops a relist at its next step once Vinted has rate-limited another tab, with its state written down', async ({ skip }) => {
     if (!browser) skip()
     const h = await setUp({ tabs: 1 })
@@ -597,7 +787,58 @@ describe('the relist, in tabs', () => {
     expect(pending.deletedAt).not.toBe('')
     expect(pending.error).toMatch(/rate-limited/)
     expect(pending.snapshot.title).toBe(CARDS[0].title)
-    // A relist that stopped leaves its tab as it is, to be looked at.
-    expect(h.tabs()).toEqual(['https://www.vinted.nl/items/1001'])
+    // A relist that stopped leaves its tab as it is, to be looked at: where Vinted took
+    // it once the listing was gone.
+    expect(h.tabs()).toEqual([`https://www.vinted.nl/member/${USER.id}`])
+  }, 60_000)
+
+  it('carries on when Vinted takes the tab off the deleted listing in the middle of the read that checks the delete', async ({ skip }) => {
+    if (!browser) skip()
+    // Vinted takes the tab to the seller's page a moment after the delete, and that page
+    // comes in just after the relist has started asking the wardrobe whether the
+    // listing is gone — which a navigation takes along with the page it leaves.
+    const h = await setUp({
+      tabs: 1,
+      site: { slow: { leaveDeletedListingMs: 1_500, sellerPageMs: 1_000, wardrobeMs: 1_500, newListingShownAfterMs: 0 } }
+    })
+
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+    expect(count(h.site, 'POST /api/v2/items/1001/delete')).toBe(1)
+    expect(h.site.uploads).toHaveLength(1)
+    expect(h.state().pending).toEqual({})
+  }, 60_000)
+
+  it("does not put a card up twice when a retry finds the copy an earlier go got up, and leaves what the stopped go's tab showed", async ({
+    skip
+  }) => {
+    if (!browser) skip()
+    // Vinted takes the upload, but its wardrobe only shows the new listing a while later.
+    const h = await setUp({
+      tabs: 1,
+      site: { slow: { leaveDeletedListingMs: 0, sellerPageMs: 0, wardrobeMs: 0, newListingShownAfterMs: 5_000 } }
+    })
+
+    const failed = (await h.service.relist('1001', h.products).catch((error: unknown) => error)) as { message: string }
+    expect(failed.message).toContain('does not show it yet')
+    expect(h.site.uploads).toHaveLength(1)
+    expect(h.state().pending['1001'].deletedAt).not.toBe('')
+
+    // Where it stopped and why, with the pages the tab went to, is left in the project.
+    const dir = path.join(h.root, '.cache/vinted-relist-failures')
+    const reports = (await fs.readdir(dir)).filter((name) => name.endsWith('.json'))
+    expect(reports).toHaveLength(1)
+    const report = JSON.parse(await fs.readFile(path.join(dir, reports[0]), 'utf8')) as Record<string, unknown>
+    expect(report).toMatchObject({ itemId: '1001', step: 'uploading the new listing', deleted: true, error: failed.message })
+    expect(report.tab).toContainEqual(expect.stringContaining(`on https://www.vinted.nl/member/${USER.id}?promo_shown=true`))
+    expect((await fs.stat(path.join(dir, reports[0].replace(/\.json$/, '.png')))).size).toBeGreaterThan(0)
+
+    // Once the wardrobe shows it, the retry finds the copy and takes it, rather than
+    // uploading the card a second time.
+    await sleep(2_500)
+    const copy = h.site.wardrobe.find((listing) => listing.id >= 5000)!
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ itemId: String(copy.id), productId: 1 })
+    expect(h.site.uploads).toHaveLength(1)
+    expect(h.state().pending).toEqual({})
+    expect(h.state().records[String(copy.id)]).toMatchObject({ previousItemId: '1001', productId: 1 })
   }, 60_000)
 })
