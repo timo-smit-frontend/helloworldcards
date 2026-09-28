@@ -7,9 +7,7 @@ import { handleAdminRequest } from '../worker/cms/admin-api'
 import { assertSyncToolsInstalled, autoSyncEnabled, createCmsAutoSync, type CmsAutoSync } from './cms-auto-sync'
 import { handleMediaPublic, memoryR2, type MediaBucket } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
-import { requireAdminSession, type DashboardRuntime } from '../worker/dashboard-api'
-import { createSessionToken, SESSION_COOKIE } from '../worker/session'
-import type { RelistAnswer } from '../app/admin/relist-queue'
+import type { DashboardRuntime } from '../worker/dashboard-api'
 import { createMemoryD1, ensureCmsSchema } from '../test/helpers/memory-d1'
 import {
   closeScanBrowser,
@@ -22,9 +20,7 @@ import {
 } from './cardmarket-browser'
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import { bucketMediaSource } from './media-sync'
-import { keepMacAwake, phoneAccessEnabled, tailnetSessionCookie } from './phone-access'
-import { createRelistBatch, handleRelistBatchRequest, type RelistBatch } from './relist-batch'
-import { createVintedRelistService, type VintedLogin } from './vinted-relist'
+import { createVintedRelistService } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
 import { closeSlabReader, createSlabReader, prepareVisionReader } from './deal-finder-ocr'
@@ -57,13 +53,13 @@ function parseDotEnv(source: string): Record<string, string> {
 }
 
 /**
- * `.dev.vars` (or `.env`), re-read only when the file changes. Every request to the dev
- * CMS used to read and parse it twice.
+ * `.dev.vars`, re-read only when the file changes. Every request to the dev CMS used to
+ * read and parse it twice.
  */
 const devVars = new Map<string, { mtimeMs: number; values: Record<string, string> }>()
 
-function readDevVars(root: string, name: '.dev.vars' | '.env' = '.dev.vars'): Record<string, string> {
-  const filePath = path.join(root, name)
+function readDevVars(root: string): Record<string, string> {
+  const filePath = path.join(root, '.dev.vars')
   let mtimeMs: number
   try {
     mtimeMs = fs.statSync(filePath).mtimeMs
@@ -105,17 +101,6 @@ function loadDashboardEnv(root = process.cwd()): {
     DASHBOARD_PASSWORD: process.env.DASHBOARD_PASSWORD ?? fromFile.DASHBOARD_PASSWORD,
     DASHBOARD_SESSION_SECRET: process.env.DASHBOARD_SESSION_SECRET ?? fromFile.DASHBOARD_SESSION_SECRET
   }
-}
-
-/**
- * The shop's Vinted login, for the relist to log the Chrome window back in once
- * Vinted's session has run out. It is kept in `.env`, next to the Cloudflare keys.
- */
-function loadVintedLogin(root = process.cwd()): VintedLogin | null {
-  const fromFile = readDevVars(root, '.env')
-  const username = process.env.VINTED_USERNAME ?? fromFile.VINTED_USERNAME
-  const password = process.env.VINTED_PASSWORD ?? fromFile.VINTED_PASSWORD
-  return username && password ? { username, password } : null
 }
 
 async function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
@@ -413,7 +398,6 @@ async function respond(
             vintedRelist: createVintedRelistService({
               root,
               openPage: async () => (await getScanBrowser(root)).openPage(),
-              login: () => loadVintedLogin(root),
               // A slab photo uploaded through the admin is in the local bucket and,
               // once a sync has run, in its cache of uploads; the seed files come first.
               readMedia: firstMediaSource(
@@ -460,44 +444,6 @@ async function respond(
   }
 }
 
-/**
- * One listing of a batch, relisted the way the relist button's request is — with the
- * sold check, the database brought in step first, and the new listing written back —
- * but asked for by the dev server itself, under the dashboard login it holds.
- */
-async function relistForBatch(root: string, itemId: string): Promise<RelistAnswer> {
-  const env = loadDashboardEnv(root)
-  if (!env.DASHBOARD_USERNAME || !env.DASHBOARD_SESSION_SECRET) {
-    return { ok: false, status: 503, error: 'Sign in is not available, so the dev server cannot relist.' }
-  }
-  const token = await createSessionToken(env.DASHBOARD_SESSION_SECRET, env.DASHBOARD_USERNAME)
-  const request = new Request(`http://127.0.0.1/api/admin/vinted-relist/${itemId}`, {
-    method: 'POST',
-    headers: { cookie: `${SESSION_COOKIE}=${token}` }
-  })
-  try {
-    let answer: RelistAnswer = { ok: false, status: 404, error: 'The dev server has no relist route.' }
-    await respond(root, request, env, async (response) => {
-      const data = (await response.json().catch(() => null)) as { report?: unknown; error?: string } | null
-      answer =
-        response.ok && data?.report
-          ? { ok: true }
-          : { ok: false, status: response.status, error: data?.error ?? 'The relist failed. Check the Chrome window.' }
-    })
-    return answer
-  } catch (error) {
-    return { ok: false, status: null, error: error instanceof Error ? error.message : 'The relist failed.' }
-  }
-}
-
-/** One batch for the whole dev server, whichever admin — phone or laptop — asked for it. */
-let relistBatch: RelistBatch | null = null
-
-function relistBatchFor(root: string): RelistBatch {
-  relistBatch ??= createRelistBatch({ send: (itemId) => relistForBatch(root, itemId), keepAwake: keepMacAwake })
-  return relistBatch
-}
-
 function cmsApiMiddleware(root: string) {
   return async (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => {
     try {
@@ -508,20 +454,7 @@ function cmsApiMiddleware(root: string) {
       }
 
       const env = loadDashboardEnv(root)
-      // The phone, through Tailscale, goes straight in.
-      const tailnetCookie = phoneAccessEnabled() ? await tailnetSessionCookie(req.headers, env) : null
-      if (tailnetCookie) {
-        req.headers.cookie = tailnetCookie
-      }
       const request = await toFetchRequest(req)
-
-      // Before `respond`, which would take asking after the batch for a relist.
-      const batch = await handleRelistBatchRequest(request, relistBatchFor(root), (signedIn) => requireAdminSession(signedIn, env))
-      if (batch) {
-        await sendFetchResponse(batch, res)
-        return
-      }
-
       const answered = await respond(root, request, env, (response) => sendFetchResponse(response, res))
       if (!answered) {
         next()

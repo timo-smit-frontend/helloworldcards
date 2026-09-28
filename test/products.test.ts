@@ -22,7 +22,6 @@ describe('product inventory', () => {
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
       [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05'],
-      [9, 'Poke Kid', '2020 Shiny Star V Japanese - #197', 'poke-kid-2020-shiny-star-v-japanese-197'],
       [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
       [12, 'Dragonite V', '2022 Pokemon GO - #049', 'dragonite-v-2022-pokemon-go-049'],
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
@@ -84,7 +83,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [1, 4, 5, 6, 7, 8, 9]
+    const liveIds = [1, 4, 5, 6, 7, 8]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -229,19 +228,19 @@ describe('product inventory', () => {
     expect(record?.concept).toBeUndefined()
   })
 
-  it('keeps the reserved Shiny Star V Japanese Poke Kid FA in the shop', async () => {
+  it('keeps the sold Shiny Star V Japanese Poke Kid FA out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'poke-kid-2020-shiny-star-v-japanese-197')
     const record = inventory.find((item) => item.id === 9)
 
-    expect(product?.title).toBe('Poke Kid')
-    expect(product?.price).toBe('€70')
-    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438647317')
-    // Sold on Vinted on 23 September 2026, payout pending: reserved, not sold.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    expect(record?.title).toBe('Poke Kid')
+    // Sold on Vinted for €70 on 23 September 2026, money in: sold, not reserved, both ads gone.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.soldAt).toBe('2026-09-23')
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.price).toBe('€70')
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 9)).toBeUndefined()
     expect(record?.concept).toBeUndefined()
     expect(record?.grade).toBe(10)
     expect(record?.cost).toBe(61)

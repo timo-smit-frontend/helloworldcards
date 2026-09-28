@@ -35,6 +35,7 @@ import VintedRelist from '~/components/dashboard/VintedRelist'
 import BurgerMenu from '~/components/elements/BurgerMenu'
 import { ChoiceSelect } from '~/components/elements/ChoiceSelect'
 import Image from '~/components/elements/Image'
+import Pokemon from '~/components/elements/Pokemon'
 import SkeletonImage from '~/components/elements/SkeletonImage'
 import Logo from '~/components/elements/Logo'
 import { rasterVariantSrc } from '~/services/responsiveImage'
@@ -42,7 +43,7 @@ import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
 import type { DealFinderReport, LiveDealScan } from '~/services/deal-finder/types'
-import type { VintedRelistReport } from '~/services/vinted-relist'
+import { RELIST_TABS, type VintedRelistReport } from '~/services/vinted-relist'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
   CMS_BLOCK_LABELS,
@@ -63,8 +64,7 @@ import { formatShopPrice, parseListedPrice } from '~/services/price'
 import { SITE_NAME, toAbsoluteUrl } from '~/seo/site'
 import { AdminBlocksSkeleton, AdminFormSkeleton, AdminLoading, AdminTableSkeleton, remainingLoadingHold } from './AdminLoading'
 import { adminJson } from './api'
-import { createRemoteRelistQueue } from './relist-batch'
-import type { RelistQueue } from './relist-queue'
+import { createRelistQueue, type RelistAnswer, type RelistQueue } from './relist-queue'
 import { AdminSaveFeedback, useSaveFeedback } from './save-feedback'
 import { MAX_PRODUCT_IMAGES, removeMediaUrl, toggleMediaSelection } from './media-selection'
 import { DRAG_GHOST_SIZE, createDragGhost, discardDragGhost, landDragGhost, type DragGhost } from './media-drag'
@@ -1239,13 +1239,21 @@ function DealFinderScreen() {
   )
 }
 
+async function sendRelist(itemId: string): Promise<RelistAnswer> {
+  const result = await adminJson<{ report: VintedRelistReport; error?: string }>(`/vinted-relist/${itemId}`, { method: 'POST' })
+  if (result.ok && result.data?.report) {
+    return { ok: true }
+  }
+  return { ok: false, status: result.status, error: result.data?.error ?? 'The relist failed. Check the Chrome window.' }
+}
+
 /**
- * A relist can take a couple of minutes — photos up, form filled, publish. The dev
- * server keeps the batch and works through it on its own (`createRemoteRelistQueue`),
- * so it goes on with the phone locked, and the screen keeps every row where it is,
- * saying what its relist is up to, until the last of the batch is done: only then is
- * the list read again, so it does not re-sort under the buttons while there is still
- * pressing to do.
+ * A relist can take a couple of minutes — photos up, form filled, publish — and the
+ * request stays open for all of it. The relists asked for wait in the admin's queue
+ * (`createRelistQueue`) and go to the dev server one slot at a time, and the screen
+ * keeps every row where it is, saying what its relist is up to, until the last of the
+ * batch is done: only then is the list read again, so it does not re-sort under the
+ * buttons while there is still pressing to do.
  */
 function VintedRelistScreen({ queue }: { queue: RelistQueue }) {
   const [report, setReport] = useState<VintedRelistReport | null>(null)
@@ -1783,14 +1791,23 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
  * as what is for sale. A sold card is off the shop and its ads are gone, but its record
  * stays whole — cost, sale price, dates — for the books.
  */
-function ProductsScreen({ sold = false }: { sold?: boolean }) {
+type ProductsTab = 'stock' | 'reserved' | 'sold'
+
+/** Which tab of the product list a product sits under: sold, reserved (sold, still on its way), or in stock. */
+function productsTab(product: InventoryProduct): ProductsTab {
+  const status = productStatus(product)
+  return status === 'sold' || status === 'reserved' ? status : 'stock'
+}
+
+function ProductsScreen({ tab = 'stock' }: { tab?: ProductsTab }) {
   const [products, setProducts] = useState<InventoryProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const sold = tab === 'sold'
   const shown = useMemo(() => {
-    const matching = products.filter((product) => (product.sold === true) === sold)
-    // Sales read newest first; stock keeps the order it came in, latest acquisition first.
+    const matching = products.filter((product) => productsTab(product) === tab)
+    // Sales read newest first; stock and reserved keep the order they came in, latest acquisition first.
     return sold ? [...matching].sort((a, b) => compareSortValues(b.soldAt, a.soldAt)) : matching
-  }, [products, sold])
+  }, [products, tab, sold])
   const { rows, sortBy } = useTableSort(shown, productSortValue)
   useEffect(() => {
     void adminJson<{ products: InventoryProduct[] }>('/products')
@@ -1799,18 +1816,22 @@ function ProductsScreen({ sold = false }: { sold?: boolean }) {
       })
       .finally(() => setLoading(false))
   }, [])
-  const soldCount = products.filter((product) => product.sold).length
+  const count = (of: ProductsTab) => (loading ? null : products.filter((product) => productsTab(product) === of).length)
   return (
     <div className="admin-page flex flex-col gap-6">
       <AdminScreenHeader title="Products" to={adminTo('/products/new')} label="New product" trashTo={adminTo('/products/trash')} />
       <AdminTabs
         tabs={[
-          { to: adminTo('/products'), label: 'In stock', count: loading ? null : products.length - soldCount, current: !sold },
-          { to: adminTo('/products/sold'), label: 'Sold', count: loading ? null : soldCount, current: sold }
+          { to: adminTo('/products'), label: 'In stock', count: count('stock'), current: tab === 'stock' },
+          // Reserved only gets a tab while a card is reserved, or while you are on it.
+          ...(tab === 'reserved' || (count('reserved') ?? 0) > 0
+            ? [{ to: adminTo('/products/reserved'), label: 'Reserved', count: count('reserved'), current: tab === 'reserved' }]
+            : []),
+          { to: adminTo('/products/sold'), label: 'Sold', count: count('sold'), current: sold }
         ]}
       />
       <AdminTable
-        caption={sold ? 'Sold products' : 'Products in stock'}
+        caption={sold ? 'Sold products' : tab === 'reserved' ? 'Reserved products' : 'Products in stock'}
         loading={loading}
         columns={[
           { label: 'Title', className: adminTableColumnPad('w-4/5'), onSort: () => sortBy('title') },
@@ -1828,17 +1849,28 @@ function ProductsScreen({ sold = false }: { sold?: boolean }) {
         {rows.length === 0 ? (
           <tr>
             <td className="py-6 text-sm text-site-mantle" colSpan={3}>
-              {sold ? 'No cards sold yet.' : 'Nothing in stock.'}
+              {sold ? 'No cards sold yet.' : tab === 'reserved' ? 'Nothing reserved.' : 'Nothing in stock.'}
             </td>
           </tr>
         ) : (
           rows.map((product) => (
             <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
               <td className={adminTableCellPad()}>
-                <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
-                  {product.title}
-                </AdminRowLink>
-                {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-24 w-16 shrink-0 items-center justify-center overflow-hidden">
+                    {product.images[0] ? (
+                      <Image src={product.images[0]} alt="" width={64} height={96} maxwidth={400} className="size-full object-contain" />
+                    ) : (
+                      <Pokemon variant="placeholder" id={product.pokemonId} className="size-full p-0" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <AdminRowLink to={adminTo(`/products/${product.id}`)} className="line-clamp-1">
+                      {product.title}
+                    </AdminRowLink>
+                    {product.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-site-mantle">{product.subtitle}</p> : null}
+                  </div>
+                </div>
               </td>
               {sold ? (
                 <>
@@ -3691,7 +3723,9 @@ export default function AdminApp() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [relistQueue] = useState(() => createRemoteRelistQueue({ call: adminJson }))
+  // Kept for as long as the admin is open rather than the relist screen, so a batch
+  // goes on while the rest of the admin is used.
+  const [relistQueue] = useState(() => createRelistQueue({ slots: RELIST_TABS, send: sendRelist }))
 
   function applySession(result: { ok: boolean; status: number }) {
     if (result.status === 401 || result.status === 503) {
@@ -3777,8 +3811,10 @@ export default function AdminApp() {
       <Route path="media/folders/:folderId/" element={<MediaScreen />} />
       <Route path="products" element={<ProductsScreen />} />
       <Route path="products/" element={<ProductsScreen />} />
-      <Route path="products/sold" element={<ProductsScreen sold />} />
-      <Route path="products/sold/" element={<ProductsScreen sold />} />
+      <Route path="products/reserved" element={<ProductsScreen tab="reserved" />} />
+      <Route path="products/reserved/" element={<ProductsScreen tab="reserved" />} />
+      <Route path="products/sold" element={<ProductsScreen tab="sold" />} />
+      <Route path="products/sold/" element={<ProductsScreen tab="sold" />} />
       <Route path="products/trash" element={<ProductsTrashScreen />} />
       <Route path="products/trash/" element={<ProductsTrashScreen />} />
       <Route path="products/:id" element={<ProductEditor />} />

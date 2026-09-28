@@ -57,61 +57,26 @@ Use a long random value for `DASHBOARD_SESSION_SECRET` (for example `openssl ran
 
 Update purchase costs on each product in `app/database/products.ts`. Those numbers are stripped from the public shop bundle; the dashboard reads them on the Worker after login.
 
-## Admin on your phone
+## Vinted relist
 
 The Vinted relist, the price suggestions and the deal finder drive the Chrome window on
-this computer, so they only exist in the dev server's admin. A phone reaches that admin
-through [Tailscale](https://tailscale.com) (free for personal use): a private network
-between your own devices that works over Wi-Fi and 4G alike, with nothing opened to the
-internet.
+this computer, so they only exist in the dev server's admin. The relist works in that
+window's Vinted session: when Vinted's login there has run out, the relist stops with
+"Vinted is not logged in" and leaves a tab on Vinted's login page. Log in there, then
+refresh the relist screen.
 
-Set it up once: install Tailscale on this computer and on the phone, and sign both in to
-the same account. From then on `npm run dev` gives the dev server an HTTPS address on
-that network by itself and prints the phone link
-(`https://<this-computer>.<tailnet>.ts.net/admin/vinted-relist`). The first time,
-Tailscale asks for HTTPS to be switched on for the network; the dev log prints the page
-that does it.
+A relist batch is kept by the admin that asked for it, one relist at a time: it goes on
+while other admin screens are used, and a reload lets the relists still waiting go.
 
-That link opens the admin without a sign-in. Only devices signed in to your Tailscale
-account can reach it at all, and Tailscale tells the dev server which account a request
-came from, in a header nothing outside can fake. The admin on `localhost` and on the live
-site still asks for the dashboard login.
-
-While that link is up the computer does not go to sleep, locked or not, on the charger
-or on battery (the display still turns off): a sleeping computer drops off the network,
-and the phone link with it. Lock the screen rather than closing the lid, which still
-puts it to sleep, and leave it on the charger when you will be away for long.
-`HWC_PHONE_ACCESS=0` turns all of this off.
-
-A relist batch is kept by the dev server, not by the page that asked for it: press
-"Relist all" on the phone, lock it, and the computer works through every listing on its
-own, awake until the last one is done. The relist screen shows where the batch is when
-it is opened again, on any device.
-
-Vinted's login in that Chrome window runs out every so often, and from the phone there is
-nobody at the computer to log in again. So the relist logs in by itself with
-`VINTED_USERNAME` and `VINTED_PASSWORD` from `.env` (gitignored, read afresh on every
-request): it puts the login in on Vinted's own login page and carries on with the batch.
-Vinted's cookie banner is answered with only the essential cookies by every relist tab
-itself, on whatever page, the moment it shows. A login Vinted turns down is shown on the
-relist screen with Vinted's reason and not tried again for 30 minutes, or until `.env`
-changes, so a wrong password cannot get the account locked; one that never reached Vinted
-is tried again at the next relist or refresh. When Vinted asks for more than the password
-(a code it sent, say), the tab is left on that step for you to finish at the computer.
-Whenever a login does not go through, what its tab showed is saved in
-`.cache/vinted-relist-login.png` and `.json`, so the reason can be looked up without
-asking Vinted anything.
-
-Every relist that stops does the same in `.cache/vinted-relist-failures/` (the newest
+Every relist that stops leaves a record in `.cache/vinted-relist-failures/` (the newest
 20): the step it stopped at, the exact error, whether the listing was already deleted,
 the pages its tab went through, and a picture of the tab. A retry of an upload first
 looks in the wardrobe for a copy an earlier go got up after all, and takes that rather
 than putting the card on Vinted twice.
 
-The dev server itself only listens on this computer (`127.0.0.1`). It used to listen on
-every network, which handed `.dev.vars`, the local database and the scan reports to
-anyone on the same Wi-Fi; those are now refused outright, and the phone goes through
-Tailscale instead.
+The dev server only listens on this computer (`127.0.0.1`). It used to listen on every
+network, which handed `.dev.vars`, the local database and the scan reports to anyone on
+the same Wi-Fi; those files are also refused outright.
 
 ## CMS sync
 

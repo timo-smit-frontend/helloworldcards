@@ -182,27 +182,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "80573086_back.jpg",
-      "filename": "80573086_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1098866,
-      "title": "Poke Kid, back",
-      "alt": "The back of a graded Japanese Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-01T00:00:00.000Z"
-    },
-    {
-      "key": "80573086_front.jpg",
-      "filename": "80573086_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1082659,
+      "key": "80573086_front-sold.webp",
+      "filename": "80573086_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 657,
+      "bytes": 43648,
       "title": "Poke Kid, front",
       "alt": "PSA 10 Shiny Star V Japanese Poke Kid full art, 197/190, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
