@@ -32,7 +32,8 @@ describe('product inventory', () => {
       [20, 'Pachirisu', '2023 Scarlet & Violet - #208', 'pachirisu-2023-scarlet-violet-208'],
       [21, 'Marill', '2026 Ascended Heroes - #232', 'marill-2026-ascended-heroes-232'],
       [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093'],
-      [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55']
+      [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55'],
+      [24, 'Lugia V', '2022 Silver Tempest - #138', 'lugia-v-2022-silver-tempest-138']
     ])
   })
 
@@ -205,7 +206,7 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'mega-latias-ex-2025-mega-evolution-181')
 
     expect(product?.title).toBe('Mega Latias ex')
-    expect(product?.price).toBe('€105')
+    expect(product?.price).toBe('€100')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438256231')
     expect(inventory.find((item) => item.id === 7)?.cost).toBe(72)
     expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()

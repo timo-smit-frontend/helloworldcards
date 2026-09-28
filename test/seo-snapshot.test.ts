@@ -57,7 +57,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
 
     expect(html).toContain('<h1>Mewtwo GX PSA 9 - 2017 Shining Legends #39</h1>')
     expect(text(html)).toContain('Shining Legends set, number 39/73.')
-    expect(html).toContain('<dt>Price</dt><dd>€100</dd>')
+    expect(html).toContain('<dt>Price</dt><dd>€95</dd>')
     expect(html).toContain('<dt>Grade</dt><dd>PSA 9</dd>')
     expect(html).toContain('<a href="https://www.marktplaats.nl/seller/view/m2440339127">View on Marktplaats</a>')
     // The card's own listing, whichever it is today: every relist gives it a new one.
@@ -95,7 +95,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
     for (const product of payload.products) {
       expect(html).toContain(`<a href="/products/${product.slug}/">`)
     }
-    expect(html).toContain('Mewtwo GX PSA 9 - 2017 Shining Legends #39</a>, €100')
+    expect(html).toContain('Mewtwo GX PSA 9 - 2017 Shining Legends #39</a>, €95')
     expect(html).toContain('Mewtwo PSA 9 - 2016 Evolutions #51</a>, reserved')
     expect(html).toContain('Dragonite V PSA 9 - 2022 Pokemon GO #049</a>, reserved')
   })

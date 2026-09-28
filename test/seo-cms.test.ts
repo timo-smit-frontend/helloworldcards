@@ -112,7 +112,7 @@ describe('CMS SEO', () => {
       offers: {
         '@type': 'Offer',
         url: 'https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/',
-        price: '100.00',
+        price: '95.00',
         priceCurrency: 'EUR',
         availability: 'https://schema.org/InStock',
         itemCondition: 'https://schema.org/UsedCondition',
