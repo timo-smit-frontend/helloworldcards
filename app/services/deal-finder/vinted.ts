@@ -1,22 +1,18 @@
 import { vintedFlightData } from '../vinted-relist'
+import { decodeHtmlEntities as decodeEntities } from './entities'
 import type { SourceListing } from './types'
 
 const VINTED_ORIGIN = 'https://www.vinted.nl'
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
-
+/**
+ * Vinted escapes the text in its catalogue attributes twice — an apostrophe arrives as
+ * `&amp;#x27;` — so one pass leaves `McDonald&#x27;s` in the title, and the second is
+ * what turns it back into the words the seller typed.
+ */
 function tagAttributes(tag: string): Record<string, string> {
   const attributes: Record<string, string> = {}
   for (const match of tag.matchAll(/([a-zA-Z:-]+)="((?:\\.|[^"\\])*)"/g)) {
-    attributes[match[1]] = decodeEntities(match[2])
+    attributes[match[1]] = decodeEntities(decodeEntities(match[2]))
   }
   return attributes
 }

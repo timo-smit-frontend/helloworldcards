@@ -110,7 +110,38 @@ export function sameCardVersions(html: string, productUrl: string): string[] {
   return [...found.values()]
 }
 
-export function priceFromOffers(html: string, grade: number): MarketPrice | { error: string } {
+/** Why a card could not be priced; `wrongCard` when the page turned out to be another card. */
+export type Unpriced = { error: string; wrongCard?: boolean }
+
+/** Where a card's floor is remembered: the offers page it was read off, and the grade. */
+export function floorKey(productUrl: string, identity: CardIdentity): string {
+  return `${offersUrlFor(productUrl, identity)}#PSA${identity.grade}`
+}
+
+/**
+ * The card number a Cardmarket product page prints in its info block — `Number 049` —
+ * or null when the page does not say, or says it in a way this does not recognise.
+ */
+export function cardmarketProductNumber(html: string): string | null {
+  const match = html.match(/>\s*Number\s*<\/dt>\s*<dd[^>]*>(?:\s*<[^>]+>)*\s*([^<]{1,24}?)\s*</i)
+  return match?.[1]?.trim() || null
+}
+
+/**
+ * Whether the number a product page prints and the one on the slab are different cards.
+ *
+ * Only the digits are compared — `GG10` against `10`, `049` against `49` — because the
+ * letters are the set's, and each side spells those its own way. Nothing to compare is
+ * never a disagreement.
+ */
+export function numbersDisagree(printed: string, wanted: string): boolean {
+  const digits = (value: string) => value.split('/')[0]!.match(/(\d+)(?!.*\d)/)?.[1]
+  const left = digits(printed)
+  const right = digits(wanted)
+  return left != null && right != null && Number(left) !== Number(right)
+}
+
+export function priceFromOffers(html: string, grade: number): MarketPrice | Unpriced {
   if (isCardmarketChallenge(html)) {
     throw new CardmarketBlockedError()
   }

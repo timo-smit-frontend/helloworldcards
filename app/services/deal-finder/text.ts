@@ -19,9 +19,14 @@ const FOREIGN_LISTING =
 /** "VF" is version française; uppercase only, so it cannot match ordinary words. */
 const FOREIGN_CODE = /\bVF\b|\bVFR\b/
 
-/** PSA also slabs these, but we only buy English and Japanese. */
+/**
+ * PSA also slabs these, but we only buy English and Japanese. Dutch is one of them —
+ * Wizards printed Base Set, Jungle and Fossil in Dutch, and "Venomoth 29/64 - Dutch
+ * Jungle Set" was priced as the English Jungle card. Only the unambiguous words count:
+ * `nederlands` alone is how a Dutch seller describes their own shipping.
+ */
 const OTHER_LANGUAGE =
-  /\b(?:duits|duitse|german|deutsch|allemand|tedesco|frans|franse|french|fran[cç]ais|francese|italiaan|italiaans|italian|italiano|italienne|ita|spaans|spaanse|spanish|espa[nñ]ol|espagnol|spagnolo|koreaans|korean|cor[ée]en|chinees|chinese|chinois|cinese|portugees|portuguese|portugais|russisch|russian|pools|polish)\b/i
+  /\b(?:duits|duitse|german|deutsch|allemand|tedesco|frans|franse|french|fran[cç]ais|francese|italiaan|italiaans|italian|italiano|italienne|ita|spaans|spaanse|spanish|espa[nñ]ol|espagnol|spagnolo|koreaans|korean|cor[ée]en|chinees|chinese|chinois|cinese|portugees|portuguese|portugais|russisch|russian|pools|polish|dutch|nederlandstalige?)\b/i
 
 /** Japanese expansions print codes like s8b, sv2a, m2a — a letter block then digits. */
 const JAPANESE_SET_CODE = /^(?:s|sv|m)\d{1,2}[a-z]?$/i

@@ -3,7 +3,15 @@ import { MorphIcon } from 'morphicons/react'
 import { DEAL_SOURCES, MIN_EDGE } from '~/services/deal-finder/constants'
 import { POPULAR_STAR, splitStar } from '~/services/deal-finder/popular'
 import { groupProblems } from '~/services/deal-finder/report'
-import type { DealFinderReport, DealRow, DealSource, NoCompsRow, ProblemRow } from '~/services/deal-finder/types'
+import type {
+  DealFinderReport,
+  DealRow,
+  DealSource,
+  LiveDealScan,
+  NoCompsRow,
+  ProblemRow,
+  SourceSummary
+} from '~/services/deal-finder/types'
 import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
 import PriceFigure from './PriceFigure'
 import { formatListedEuros, formatSignedEuros } from './money'
@@ -35,6 +43,65 @@ function ScanButton({ source, scanning, onScan }: { source: DealSource; scanning
       <MorphIcon icon={RotateCw} size={16} strokeWidth={2.25} className={scanning ? 'animate-spin' : undefined} />
       {sourceLabel(source)}
     </button>
+  )
+}
+
+const SCANNED_AT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000)
+  return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`
+}
+
+/** `Marktplaats · 27 Sep, 21:12 · 161 listed, 78 checked · 4 min` */
+function lastScan(summary: SourceSummary): string {
+  const parts = [
+    sourceLabel(summary.source),
+    SCANNED_AT.format(new Date(summary.scannedAt)),
+    `${summary.found} listed, ${summary.candidates} checked`
+  ]
+  if (summary.durationMs != null) {
+    parts.push(formatDuration(summary.durationMs))
+  }
+  return parts.join(' · ')
+}
+
+/** `Checking Vinted · 34 of 66 listings` */
+function runningScan(scan: LiveDealScan): string {
+  const sources = scan.sources.map(sourceLabel).join(' and ')
+  return scan.total == null ? `Reading the ${sources} search…` : `Checking ${sources} · ${scan.checked} of ${scan.total} listings`
+}
+
+/**
+ * One line per marketplace: how far a running scan has got, or when the last one ran,
+ * what it read and how long it took — each marketplace is scanned on its own, so the
+ * two are rarely from the same moment.
+ */
+function ScanStatus({ report, scanning, live }: { report: DealFinderReport | null; scanning: ScanningSources; live: LiveDealScan[] }) {
+  const reported = new Set(live.flatMap((scan) => scan.sources))
+  const lines = [
+    ...live.map((scan) => ({ key: scan.startedAt + scan.sources.join(), text: runningScan(scan), active: true })),
+    // Started, but the dev server has not said how far it has got yet.
+    ...DEAL_SOURCES.filter((source) => scanning[source] && !reported.has(source)).map((source) => ({
+      key: `starting-${source}`,
+      text: `Reading the ${sourceLabel(source)} search…`,
+      active: true
+    })),
+    ...(report?.sources ?? [])
+      .filter((summary) => !scanning[summary.source] && !summary.error)
+      .map((summary) => ({ key: summary.source, text: lastScan(summary), active: false }))
+  ]
+  if (lines.length === 0) {
+    return null
+  }
+  return (
+    <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-site-mantle">
+      {lines.map((line) => (
+        <li key={line.key} className={line.active ? 'text-site-gray-nurse' : undefined}>
+          {line.text}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -172,11 +239,14 @@ function Accordion({ title, count, children }: { title: string; count: number; c
 export default function DealFinder({
   report,
   scanning,
+  live = [],
   scanError,
   onScan
 }: {
   report: DealFinderReport | null
   scanning: ScanningSources
+  /** Scans still going, and how far each has got. */
+  live?: LiveDealScan[]
   scanError: string | null
   onScan: (source: DealSource) => void
 }) {
@@ -202,6 +272,8 @@ export default function DealFinder({
           ))}
         </div>
       </div>
+
+      <ScanStatus report={report} scanning={scanning} live={live} />
 
       {scanError ? <p className="content-m text-site-loss">{scanError}</p> : null}
       {[...(report?.errors ?? []), ...sourceErrors].map((error) => (

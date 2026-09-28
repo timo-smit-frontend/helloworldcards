@@ -27,7 +27,7 @@ import { createRelistBatch, handleRelistBatchRequest, type RelistBatch } from '.
 import { createVintedRelistService, type VintedLogin } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { createPacer } from '../app/services/deal-finder/scan'
-import { closeSlabReader, createSlabReader } from './deal-finder-ocr'
+import { closeSlabReader, createSlabReader, prepareVisionReader } from './deal-finder-ocr'
 import { seedMediaWithVariants, type SeedSignal } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
 
@@ -546,6 +546,11 @@ export function dashboardApiPlugin(): Plugin {
         // following production because a tool the sync runs is not installed.
         assertSyncToolsInstalled()
         server.httpServer.once('listening', () => void cmsAutoSync(server.config.root))
+      }
+      // The deal finder's label reader is compiled from Swift the first time, which takes
+      // the better part of a minute — so it is done while nobody is waiting on a scan.
+      if (server.httpServer && !server.config.server.middlewareMode) {
+        server.httpServer.once('listening', () => void prepareVisionReader(server.config.root))
       }
     },
     configurePreviewServer(server) {

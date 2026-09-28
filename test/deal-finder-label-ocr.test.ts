@@ -238,3 +238,63 @@ describe('two readings of one slab', () => {
     expect(merged.slabs[0]).toMatchObject({ cardName: "N'S RESHIRAM", cardNumber: '167', grade: 9 })
   })
 })
+
+describe('reading Apple Vision output', () => {
+  /**
+   * Lines exactly as Apple Vision returned them for a Charizard V slab on Marktplaats —
+   * each column of the label a line of its own, the card's artwork below it. Tesseract
+   * read this label as `_HARIZARD V SH ARIE DEE OL EZ A SDS`, and no search found it.
+   */
+  const charizardSlab: OcrLine[] = [
+    { text: '2022 POKEMON JPN.', confidence: 100, bbox: { x0: 204, y0: 148, x1: 494, y1: 172 } },
+    { text: 'CHARIZARD V', confidence: 100, bbox: { x0: 202, y0: 174, x1: 402, y1: 198 } },
+    { text: 'CHARIZARD/RAYQUAZA SDS', confidence: 100, bbox: { x0: 202, y0: 200, x1: 620, y1: 226 } },
+    { text: '#001', confidence: 100, bbox: { x0: 680, y0: 144, x1: 750, y1: 168 } },
+    { text: 'GEM MT', confidence: 100, bbox: { x0: 634, y0: 171, x1: 750, y1: 195 } },
+    { text: '10', confidence: 100, bbox: { x0: 720, y0: 198, x1: 754, y1: 222 } },
+    { text: '98450619', confidence: 100, bbox: { x0: 616, y0: 228, x1: 752, y1: 250 } },
+    { text: 'UTTKT', confidence: 30, bbox: { x0: 300, y0: 401, x1: 484, y1: 438 } },
+    { text: 'HP220', confidence: 100, bbox: { x0: 598, y0: 398, x1: 698, y1: 438 } }
+  ]
+
+  it('reads every row of the label, the right-hand column included', () => {
+    const { slabs, note } = parsePsaLabels(charizardSlab)
+
+    expect(note).toBeNull()
+    expect(slabs).toEqual([
+      expect.objectContaining({
+        certNumber: '98450619',
+        year: '2022',
+        cardName: 'CHARIZARD V',
+        varietyLine: 'CHARIZARD/RAYQUAZA SDS',
+        cardNumber: '001',
+        language: 'japanese',
+        grade: 10
+      })
+    ])
+  })
+
+  it('reads the same slab photographed twice as one card, not a lot of two', () => {
+    // The second photo of the same listing, taken closer: every line has moved.
+    const closer = charizardSlab.map((line) => ({
+      ...line,
+      bbox: { x0: line.bbox.x0 * 1.4 - 80, y0: line.bbox.y0 * 1.4 + 300, x1: line.bbox.x1 * 1.4 - 80, y1: line.bbox.y1 * 1.4 + 300 }
+    }))
+
+    const { slabs } = mergeReadings([parsePsaLabels(charizardSlab), parsePsaLabels(closer)])
+
+    expect(slabs).toHaveLength(1)
+  })
+
+  it("finds no label in a seller's banner photo, however much Pokémon text it holds", () => {
+    const banner: OcrLine[] = [
+      { text: 'TRADING CARD GAME', confidence: 100, bbox: { x0: 29, y0: 268, x1: 123, y1: 312 } },
+      { text: 'Kijk ook bij mijn andere', confidence: 100, bbox: { x0: 328, y0: 554, x1: 738, y1: 598 } },
+      { text: 'Pokémon advertentie', confidence: 100, bbox: { x0: 337, y0: 593, x1: 730, y1: 636 } },
+      { text: '10', confidence: 100, bbox: { x0: 980, y0: 678, x1: 1000, y1: 690 } },
+      { text: 'GEM MNT', confidence: 100, bbox: { x0: 974, y0: 694, x1: 1030, y1: 706 } }
+    ]
+
+    expect(parsePsaLabels(banner).slabs).toEqual([])
+  })
+})

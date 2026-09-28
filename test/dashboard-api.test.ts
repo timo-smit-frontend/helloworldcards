@@ -435,7 +435,7 @@ describe('dashboard API', () => {
     )
 
     expect(response?.status).toBe(200)
-    await expect(response?.json()).resolves.toEqual({ report: null })
+    await expect(response?.json()).resolves.toEqual({ report: null, scanning: [] })
   })
 
   it('does not run the deal finder on the live worker without a local page fetcher', async () => {
@@ -568,6 +568,6 @@ describe('dashboard API', () => {
     const stored = await store.getReport()
     expect(stored?.sources.map((source) => source.source)).toEqual(['marktplaats', 'vinted'])
     // Each scan pruned its own marketplace; neither put the other's stale entry back.
-    await expect(store.getCache()).resolves.toEqual({ version: CACHE_VERSION, entries: {} })
+    await expect(store.getCache()).resolves.toEqual({ version: CACHE_VERSION, entries: {}, products: {}, floors: {} })
   })
 })

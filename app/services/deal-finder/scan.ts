@@ -1,15 +1,30 @@
 import { isCardmarketChallenge, type FetchCardmarketPage } from '../cardmarket/scan'
 import {
+  cardmarketProductNumber,
   cardmarketVersionsUrl,
   CardmarketBlockedError,
+  floorKey,
   isVersionedProduct,
+  numbersDisagree,
   OFFERS_FETCH_OPTIONS,
   offersUrlFor,
   priceFromOffers,
   sameCardVersions,
-  type MarketPrice
+  type MarketPrice,
+  type Unpriced
 } from './cardmarket'
-import { hasFreshIdentity, hasFreshPrice, hasSettledVerdict, pruneCache, usableCache, type CacheEntry, type DealFinderCache } from './cache'
+import {
+  hasFreshFloor,
+  hasFreshIdentity,
+  hasFreshMatch,
+  hasFreshPrice,
+  hasSettledVerdict,
+  pruneCache,
+  usableCache,
+  type CacheEntry,
+  type DealFinderCache,
+  type ProductMatch
+} from './cache'
 import {
   DEAL_SOURCES,
   FETCH_DELAY_MS,
@@ -28,10 +43,12 @@ import {
 import { listingCost } from './cost'
 import { ownListingIds, screenListing, type OwnListingIds, type Screening } from './filters'
 import {
+  buildFallbackQuery,
   buildSearchQuery,
   cardmarketProductName,
   cleanCardmarketUrl,
   googleSearchUrl,
+  productKey,
   rankCardmarketCandidates,
   scoreCardmarketUrl
 } from './google'
@@ -95,17 +112,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** A promise handed out before the work that settles it has been started. */
-type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void }
-
-function deferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((settle) => {
-    resolve = settle
-  })
-  return { promise, resolve }
-}
-
 /** Run `task` over every item, never more than `limit` of them at a time, in order. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length)
@@ -158,20 +164,6 @@ export function createPacer(): Pacer {
       )
     )
     return slot
-  }
-}
-
-/**
- * Count something against the source it came from.
- *
- * The report shows these as one number each, but they are kept per source so that a
- * run of one marketplace replaces only its own share of them — `withTotals` adds the
- * sources back up once the scan is done.
- */
-function tally(report: DealFinderReport, source: DealSource, field: 'belowEdge' | 'outOfScope' | 'fromCache'): void {
-  const summary = report.sources.find((entry) => entry.source === source)
-  if (summary) {
-    summary[field] += 1
   }
 }
 
@@ -515,6 +507,15 @@ async function loadListingDetail(
   }
 }
 
+/** How far a scan has got, handed out while it runs so the dashboard can show it. */
+export type ScanProgress = {
+  /** Everything found so far, as the finished report would show it. */
+  report: DealFinderReport
+  /** Listings worked through, of `total` that made it past the search pages. */
+  checked: number
+  total: number
+}
+
 export async function runDealFinderScan({
   fetchPage,
   readSlabs,
@@ -529,7 +530,8 @@ export async function runDealFinderScan({
   maxPages,
   now = new Date(),
   delayMs = FETCH_DELAY_MS,
-  pace = createPacer()
+  pace = createPacer(),
+  onProgress
 }: {
   fetchPage: FetchCardmarketPage
   readSlabs?: SlabReader
@@ -554,13 +556,17 @@ export async function runDealFinderScan({
    * Cardmarket see both runs' requests with only one run's pauses between them.
    */
   pace?: Pacer
+  /** Told after every listing, so what has been found can be shown before the scan ends. */
+  onProgress?: (progress: ScanProgress) => void
 }): Promise<{ report: DealFinderReport; cache: DealFinderCache }> {
+  const started = Date.now()
   const report = emptyReport(now.toISOString())
   const cache: DealFinderCache = usableCache(previousCache)
   const ids = ownListingIds(ownListings)
   // A listing page is paced far more lightly than a search or a Cardmarket load, but a
   // caller that asked for no pauses at all — a test — still gets none.
   const listingDelayMs = Math.min(delayMs, LISTING_DELAY_MS)
+  const timings = createTimings()
 
   const searchUrls: Record<DealSource, string> = { marktplaats: marktplaatsUrl, vinted: vintedUrl }
   const walking = DEAL_SOURCES.filter((source) => sources.includes(source))
@@ -598,80 +604,236 @@ export async function runDealFinderScan({
     report.errors.push('No PSA label reader configured, so the scan is going on the listing text alone.')
   }
 
-  const deals: DealRow[] = []
-  const noComps: NoCompsRow[] = []
-  const blocked: Evaluated[] = []
-
   const candidates: Candidate[] = listings.map((listing) => ({ listing, entry: cache.entries[listing.id] }))
   console.info(
     `[deal-finder] ${walking.join(' + ')}: ${candidates.length} listings to check (${withTotals(report).outOfScope} out of scope)`
   )
 
-  /**
-   * Working out which card a listing shows — its page, its photos, the label on the
-   * slab — needs neither the browser nor Cardmarket, so every listing's turn at it is
-   * started now and several run at once. The loop below then takes them in order, and
-   * a listing is nearly always worked out by the time its turn comes: what used to be
-   * the slowest thing in a scan now happens while the Google and Cardmarket pages for
-   * the listings ahead of it are loading.
-   */
-  const preparing = candidates.map(() => deferred<Prepared>())
-  const identifying = mapWithConcurrency(candidates, IDENTIFY_CONCURRENCY, async (candidate, index) => {
-    try {
-      preparing[index]!.resolve(await identifyCandidate({ candidate, fetchPage, readSlabs, lookupCert, now, pace, listingDelayMs }))
-    } catch (error) {
-      preparing[index]!.resolve({ step: 'failed', listing: candidate.listing, error })
-    }
-  })
-
-  for (const pending of preparing) {
-    const prepared = await pending.promise
-    try {
-      await evaluatePrepared({ prepared, fetchPage, resolveUrl, cache, now, delayMs, pace, deals, noComps, report, blocked })
-    } catch (error) {
-      report.problems.push({
-        ...listingRef(prepared.listing),
-        stage: 'price',
-        reason: 'Checking this listing failed',
-        detail: error instanceof Error ? error.message : String(error),
-        googleUrl: null,
-        query: null,
-        cardmarketUrl: null
-      })
-    }
+  const run: Run = {
+    fetchPage,
+    resolveUrl,
+    cache,
+    now,
+    delayMs,
+    pace,
+    timings,
+    matching: new Map(),
+    pricing: new Map()
   }
-  await identifying
+
+  /**
+   * Every listing is its own piece of work, started at once and left to get as far as
+   * it can. Nothing here needs to hold them in line: the photo reads are limited to a
+   * few at a time, and Google and Cardmarket each answer one request after another in
+   * their own tab, in the order they were asked. What that buys is overlap — while
+   * Cardmarket loads the offers for one card, Google is already finding the page for the
+   * next, where the scan used to do the two strictly one after the other.
+   *
+   * Each listing writes only to its own outcome. The report is put together from those
+   * in listing order, so two runs of the same scan read the same however the work fell.
+   */
+  const outcomes = candidates.map(() => emptyOutcome())
+  const parked: Array<{ index: number; evaluated: Evaluated }> = []
+  const identifying = createLimiter(IDENTIFY_CONCURRENCY)
+  let checked = 0
+
+  const progress = () => {
+    onProgress?.({ report: assemble(report, candidates, outcomes), checked, total: candidates.length })
+  }
+  progress()
+
+  await Promise.all(
+    candidates.map(async (candidate, index) => {
+      const out = outcomes[index]!
+      try {
+        const prepared = await identifying(() =>
+          identifyCandidate({ candidate, fetchPage, readSlabs, lookupCert, now, pace, listingDelayMs, timings })
+        ).catch((error: unknown): Prepared => ({ step: 'failed', listing: candidate.listing, error }))
+        await evaluatePrepared({ prepared, run, out, park: (evaluated) => parked.push({ index, evaluated }) })
+      } catch (error) {
+        out.problems.push({
+          ...listingRef(candidate.listing),
+          stage: 'price',
+          reason: 'Checking this listing failed',
+          detail: error instanceof Error ? error.message : String(error),
+          googleUrl: null,
+          query: null,
+          cardmarketUrl: null
+        })
+      }
+      checked += 1
+      progress()
+    })
+  )
 
   // Cardmarket's bot check needs a human; retry those listings once the run is over,
   // by which time the challenge in the Chrome window has usually been cleared.
-  for (const pending of blocked) {
-    await priceEvaluated({ evaluated: pending, fetchPage, cache, now, delayMs, pace, deals, noComps, report, retry: false })
+  for (const { index, evaluated } of parked.sort((left, right) => left.index - right.index)) {
+    await priceEvaluated({ evaluated, run, out: outcomes[index]!, park: null })
+    progress()
   }
 
-  report.deals = sortDeals(deals)
-  report.noComps = sortNoComps(noComps)
-
-  const scanned = withTotals(report)
+  const durationMs = Date.now() - started
+  const scanned = assemble(report, candidates, outcomes)
+  for (const summary of scanned.sources) {
+    summary.durationMs = durationMs
+  }
   console.info(
-    `[deal-finder] ${walking.join(' + ')}: ${scanned.deals.length} deals, ${scanned.noComps.length} without comps, ${scanned.belowEdge} below €${MIN_EDGE}, ${scanned.problems.length} problems, ${scanned.fromCache} from cache`
+    `[deal-finder] ${walking.join(' + ')}: ${scanned.deals.length} deals, ${scanned.noComps.length} without comps, ${scanned.belowEdge} below €${MIN_EDGE}, ${scanned.problems.length} problems, ${scanned.fromCache} from cache — ${formatDuration(durationMs)} (${timings.summary()})`
   )
 
-  return { report: scanned, cache: pruneCache(cache, new Set(listings.map((listing) => listing.id)), walking) }
+  return { report: scanned, cache: pruneCache(cache, new Set(listings.map((listing) => listing.id)), walking, now) }
+}
+
+/**
+ * What one listing came to. A listing only ever writes to its own, and the report is put
+ * together from all of them in listing order once they are done — or, while the scan is
+ * still going, from however many are done so far.
+ */
+type Outcome = {
+  deals: DealRow[]
+  noComps: NoCompsRow[]
+  problems: ProblemRow[]
+  /** What the listing counts towards on its source's summary. */
+  tallies: Array<'belowEdge' | 'outOfScope' | 'fromCache'>
+}
+
+function emptyOutcome(): Outcome {
+  return { deals: [], noComps: [], problems: [], tallies: [] }
+}
+
+/**
+ * The report as it stands: what the search pages gave, and every listing's outcome in
+ * listing order.
+ *
+ * The report shows the tallies as one number each, but they are kept per source so that
+ * a run of one marketplace replaces only its own share of them — `withTotals` adds the
+ * sources back up.
+ */
+function assemble(base: DealFinderReport, candidates: Candidate[], outcomes: Outcome[]): DealFinderReport {
+  const sources = base.sources.map((summary) => ({ ...summary }))
+  const deals: DealRow[] = []
+  const noComps: NoCompsRow[] = []
+  const problems: ProblemRow[] = [...base.problems]
+
+  outcomes.forEach((out, index) => {
+    deals.push(...out.deals)
+    noComps.push(...out.noComps)
+    problems.push(...out.problems)
+    const summary = sources.find((entry) => entry.source === candidates[index]!.listing.source)
+    for (const field of out.tallies) {
+      if (summary) {
+        summary[field] += 1
+      }
+    }
+  })
+
+  return withTotals({ ...base, sources, deals: sortDeals(deals), noComps: sortNoComps(noComps), problems, errors: [...base.errors] })
+}
+
+/** Holds a task back until fewer than `limit` of its kind are running; first come, first served. */
+function createLimiter(limit: number): <T>(task: () => Promise<T>) => Promise<T> {
+  let running = 0
+  const queue: Array<() => void> = []
+
+  const release = () => {
+    running -= 1
+    queue.shift()?.()
+  }
+
+  return async <T>(task: () => Promise<T>): Promise<T> => {
+    if (running >= limit) {
+      await new Promise<void>((resolve) => queue.push(resolve))
+    }
+    running += 1
+    try {
+      return await task()
+    } finally {
+      release()
+    }
+  }
+}
+
+/** The steps a scan's time goes on, counted so the dev log can say where it went. */
+type Step = 'listing' | 'photos' | 'google' | 'cardmarket'
+
+type Timings = {
+  time<T>(step: Step, task: () => Promise<T>): Promise<T>
+  summary(): string
+}
+
+const STEP_LABELS: Record<Step, [string, string]> = {
+  listing: ['listing page', 'listing pages'],
+  photos: ['photo read', 'photo reads'],
+  google: ['Google search', 'Google searches'],
+  cardmarket: ['Cardmarket card', 'Cardmarket cards']
+}
+
+/**
+ * How often each step ran and how long it took on average.
+ *
+ * Steps overlap — photos are read while Cardmarket loads — so these do not add up to
+ * the scan's own time; what they say is which step a slow scan was waiting on.
+ */
+function createTimings(): Timings {
+  const totals = new Map<Step, { count: number; ms: number }>()
+
+  return {
+    async time(step, task) {
+      const started = Date.now()
+      try {
+        return await task()
+      } finally {
+        const total = totals.get(step) ?? { count: 0, ms: 0 }
+        total.count += 1
+        total.ms += Date.now() - started
+        totals.set(step, total)
+      }
+    },
+    summary() {
+      const parts = (Object.keys(STEP_LABELS) as Step[])
+        .filter((step) => totals.has(step))
+        .map((step) => {
+          const { count, ms } = totals.get(step)!
+          const [one, many] = STEP_LABELS[step]
+          return `${count} ${count === 1 ? one : many} at ${(ms / count / 1000).toFixed(1)}s`
+        })
+      return parts.length > 0 ? parts.join(', ') : 'nothing to check'
+    }
+  }
+}
+
+function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000)
+  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`
+}
+
+/** What every listing in a run shares: the pages it can load, and what is known or being asked about each card. */
+type Run = {
+  fetchPage: FetchCardmarketPage
+  resolveUrl?: ResolveUrl
+  cache: DealFinderCache
+  now: Date
+  delayMs: number
+  pace: Pacer
+  timings: Timings
+  /** Google searches under way, by card, so a second listing of a card waits for the first's answer. */
+  matching: Map<string, Promise<ProductMatch>>
+  /** Cardmarket loads under way, by card and grade, for the same reason. */
+  pricing: Map<string, Promise<PricedCard>>
 }
 
 /**
  * What a listing came to before anything had to be asked of Google or Cardmarket.
  *
- * Nothing here touches the report or the cache. Several listings are worked out at
- * once, and a report written from whichever finished first would come out in a
- * different order every run — so what each one found is handed back, and the loop that
- * consumes them in order is the only thing that writes anything down.
+ * Nothing here touches the report or the cache: several listings are worked out at
+ * once, and only the step that consumes these writes anything down.
  */
 type Prepared =
   | { step: 'priced'; listing: SourceListing; entry: CacheEntry }
   | { step: 'settled'; listing: SourceListing; entry: CacheEntry }
   | { step: 'matched'; listing: SourceListing; evaluated: Evaluated }
-  | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; googleUrl: string }
+  | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string }
   | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
   | { step: 'unavailable'; listing: SourceListing }
   | { step: 'failed'; listing: SourceListing; error: unknown }
@@ -684,7 +846,8 @@ async function identifyCandidate({
   lookupCert,
   now,
   pace,
-  listingDelayMs
+  listingDelayMs,
+  timings
 }: {
   candidate: Candidate
   fetchPage: FetchCardmarketPage
@@ -693,6 +856,7 @@ async function identifyCandidate({
   now: Date
   pace: Pacer
   listingDelayMs: number
+  timings: Timings
 }): Promise<Prepared> {
   const cached = candidate.entry
   // Postage is only printed on the listing page, so a listing answered out of the cache
@@ -729,7 +893,11 @@ async function identifyCandidate({
     return { step: 'matched', listing, evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl } }
   }
 
-  const { listing: detailed, sellerReviews, availability } = await loadListingDetail(listing, fetchPage, pace, listingDelayMs)
+  const {
+    listing: detailed,
+    sellerReviews,
+    availability
+  } = await timings.time('listing', () => loadListingDetail(listing, fetchPage, pace, listingDelayMs))
 
   // Sold, or promised to another buyer: there is nothing to buy, whatever the card is.
   if (availability) {
@@ -745,7 +913,9 @@ async function identifyCandidate({
   let reading: SlabReading = { slabs: [], note: null }
   if (readSlabs && detailed.imageUrls.length > 0) {
     try {
-      reading = await readSlabs({ listing: detailed, imageUrls: detailed.imageUrls.slice(0, MAX_PHOTOS_PER_LISTING) })
+      reading = await timings.time('photos', () =>
+        readSlabs({ listing: detailed, imageUrls: detailed.imageUrls.slice(0, MAX_PHOTOS_PER_LISTING) })
+      )
     } catch (error) {
       reading = { slabs: [], note: error instanceof Error ? error.message : 'Could not read the photos.' }
     }
@@ -767,50 +937,36 @@ async function identifyCandidate({
     return { step: 'unidentified', listing: detailed, scope: identified.scope, reason: identified.reason, detail: identified.detail }
   }
 
-  const searchQuery = buildSearchQuery(identified.identity, identified.label)
   return {
     step: 'search',
     listing: detailed,
     identity: identified.identity,
     label: identified.label,
-    query: searchQuery,
-    googleUrl: googleSearchUrl(searchQuery)
+    query: buildSearchQuery(identified.identity, identified.label)
   }
 }
 
 /** Take an identified listing to Google and Cardmarket, and write down what came back. */
 async function evaluatePrepared({
   prepared,
-  fetchPage,
-  resolveUrl,
-  cache,
-  now,
-  delayMs,
-  pace,
-  deals,
-  noComps,
-  report,
-  blocked
+  run,
+  out,
+  park
 }: {
   prepared: Prepared
-  fetchPage: FetchCardmarketPage
-  resolveUrl?: ResolveUrl
-  cache: DealFinderCache
-  now: Date
-  delayMs: number
-  pace: Pacer
-  deals: DealRow[]
-  noComps: NoCompsRow[]
-  report: DealFinderReport
-  blocked: Evaluated[]
+  run: Run
+  out: Outcome
+  park: (evaluated: Evaluated) => void
 }): Promise<void> {
+  const { cache, now } = run
+
   if (prepared.step === 'failed') {
     throw prepared.error
   }
 
   if (prepared.step === 'priced') {
     const { listing, entry } = prepared
-    tally(report, listing.source, 'fromCache')
+    out.tallies.push('fromCache')
     bucket({
       listing,
       identity: entry.identity!,
@@ -819,20 +975,19 @@ async function evaluatePrepared({
       query: entry.query,
       floor: entry.floor!,
       comps: entry.comps,
-      deals,
-      report
+      out
     })
     return
   }
 
   if (prepared.step === 'settled') {
     const { listing, entry } = prepared
-    tally(report, listing.source, 'fromCache')
+    out.tallies.push('fromCache')
     if (!entry.problem) {
-      tally(report, listing.source, 'outOfScope')
+      out.tallies.push('outOfScope')
       return
     }
-    report.problems.push({
+    out.problems.push({
       ...listingRef(listing),
       stage: entry.problem.stage,
       reason: entry.problem.reason,
@@ -849,7 +1004,7 @@ async function evaluatePrepared({
   if (prepared.step === 'unavailable') {
     // Not remembered, and anything remembered from before is dropped: a reservation can
     // fall through, and the item is then worth a fresh look rather than last week's answer.
-    tally(report, prepared.listing.source, 'outOfScope')
+    out.tallies.push('outOfScope')
     delete cache.entries[prepared.listing.id]
     return
   }
@@ -857,9 +1012,9 @@ async function evaluatePrepared({
   if (prepared.step === 'unidentified') {
     const { listing, scope, reason, detail } = prepared
     if (scope === 'out-of-scope') {
-      tally(report, listing.source, 'outOfScope')
+      out.tallies.push('outOfScope')
     } else {
-      report.problems.push({
+      out.problems.push({
         ...listingRef(listing),
         stage: 'identify',
         reason,
@@ -880,107 +1035,144 @@ async function evaluatePrepared({
     return
   }
 
-  const evaluated =
-    prepared.step === 'matched'
-      ? prepared.evaluated
-      : await matchToCardmarket({ prepared, fetchPage, resolveUrl, cache, now, delayMs, pace, report })
+  const evaluated = prepared.step === 'matched' ? prepared.evaluated : await matchToCardmarket({ prepared, run, out })
   if (!evaluated) {
     return
   }
 
-  await priceEvaluated({ evaluated, fetchPage, cache, now, delayMs, pace, deals, noComps, report, retry: true, blocked })
+  await priceEvaluated({ evaluated, run, out, park })
 }
 
-/** Search Google for the card and pick the Cardmarket product page out of the results. */
+const NO_MATCH = 'No matching Cardmarket page in the Google results'
+
+/** Find the card's Cardmarket product page — remembered, being searched for, or searched for now. */
 async function matchToCardmarket({
   prepared,
-  fetchPage,
-  resolveUrl,
-  cache,
-  now,
-  delayMs,
-  pace,
-  report
+  run,
+  out
 }: {
   prepared: Extract<Prepared, { step: 'search' }>
-  fetchPage: FetchCardmarketPage
-  resolveUrl?: ResolveUrl
-  cache: DealFinderCache
-  now: Date
-  delayMs: number
-  pace: Pacer
-  report: DealFinderReport
+  run: Run
+  out: Outcome
 }): Promise<Evaluated | null> {
-  const { listing, identity, label, query, googleUrl } = prepared
+  const { listing, identity, label } = prepared
+  const match = await findProduct({ identity, label, query: prepared.query, run })
 
-  const googleHtml = await pace(googleUrl, delayMs, () => fetchPage(googleUrl))
-  const cardmarketUrl = await followToCardmarket({ html: googleHtml, identity, resolveUrl, delayMs, pace })
-
-  if (!cardmarketUrl) {
-    report.problems.push({
+  if (!match.url) {
+    out.problems.push({
       ...listingRef(listing),
       stage: 'match',
-      reason: 'No matching Cardmarket page in the Google results',
+      reason: NO_MATCH,
       detail: label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null,
-      googleUrl,
-      query,
+      googleUrl: match.googleUrl,
+      query: match.query,
       cardmarketUrl: null
     })
-    remember(cache, listing, now, {
+    remember(run.cache, listing, run.now, {
       identity,
       label,
-      query,
-      googleUrl,
+      query: match.query,
+      googleUrl: match.googleUrl,
       cardmarketUrl: null,
-      problem: { stage: 'match', reason: 'No matching Cardmarket page in the Google results', detail: null }
+      problem: { stage: 'match', reason: NO_MATCH, detail: null }
     })
     return null
   }
 
-  return { listing, identity, label, query, googleUrl, cardmarketUrl }
+  return { listing, identity, label, query: match.query, googleUrl: match.googleUrl, cardmarketUrl: match.url }
 }
+
+/**
+ * The card's Cardmarket product, asked of Google at most once however many listings
+ * show it: an earlier scan's answer is used while it is fresh, and a second listing of
+ * a card still being searched for waits for that search rather than starting its own.
+ */
+function findProduct({
+  identity,
+  label,
+  query,
+  run
+}: {
+  identity: CardIdentity
+  label: PsaLabel | null
+  query: string
+  run: Run
+}): Promise<ProductMatch> {
+  const key = productKey(identity, label)
+  const remembered = run.cache.products?.[key]
+  if (hasFreshMatch(remembered, run.now)) {
+    return Promise.resolve(remembered)
+  }
+
+  const underway = run.matching.get(key)
+  if (underway) {
+    return underway
+  }
+
+  const searching = searchGoogle({ identity, query, run })
+    .then((match) => {
+      ;(run.cache.products ??= {})[key] = match
+      return match
+    })
+    .finally(() => run.matching.delete(key))
+  run.matching.set(key, searching)
+  return searching
+}
+
+/** Search Google for the card and pick the Cardmarket product page out of the results. */
+async function searchGoogle({ identity, query, run }: { identity: CardIdentity; query: string; run: Run }): Promise<ProductMatch> {
+  const fallback = buildFallbackQuery(identity, query)
+  let answer: ProductMatch | null = null
+
+  for (const asked of fallback ? [query, fallback] : [query]) {
+    const googleUrl = googleSearchUrl(asked)
+    const url = await run.timings.time('google', async () => {
+      const html = await run.pace(googleUrl, run.delayMs, () => run.fetchPage(googleUrl))
+      return await followToCardmarket({ html, identity, resolveUrl: run.resolveUrl, delayMs: run.delayMs, pace: run.pace })
+    })
+    // The first search is the one to show when neither found the card: it is the one
+    // built from the slab, and the one worth correcting.
+    answer = url || !answer ? { url, query: asked, googleUrl, at: run.now.toISOString() } : answer
+    if (url) {
+      break
+    }
+  }
+
+  return answer!
+}
+
+/** A card priced on Cardmarket: the version that set the floor, and what it came to. */
+type PricedCard = { productUrl: string; priced: MarketPrice | Unpriced }
 
 /** Load the Cardmarket offers page and turn it into a deal, a no-comps row or a problem. */
 async function priceEvaluated({
   evaluated,
-  fetchPage,
-  cache,
-  now,
-  delayMs,
-  pace,
-  deals,
-  noComps,
-  report,
-  retry,
-  blocked
+  run,
+  out,
+  park
 }: {
   evaluated: Evaluated
-  fetchPage: FetchCardmarketPage
-  cache: DealFinderCache
-  now: Date
-  delayMs: number
-  pace: Pacer
-  deals: DealRow[]
-  noComps: NoCompsRow[]
-  report: DealFinderReport
-  retry: boolean
-  blocked?: Evaluated[]
+  run: Run
+  out: Outcome
+  /** Where to leave a card the bot check stopped, to be tried again at the end; null on that last try. */
+  park: ((evaluated: Evaluated) => void) | null
 }): Promise<void> {
   const { listing, identity, label, query, googleUrl } = evaluated
+  const { cache, now } = run
 
   let cardmarketUrl = evaluated.cardmarketUrl
-  let priced: ReturnType<typeof priceFromOffers>
+  let priced: PricedCard['priced']
   try {
-    ;({ productUrl: cardmarketUrl, priced } = await priceCheapestVersion({ productUrl: cardmarketUrl, identity, fetchPage, delayMs, pace }))
+    ;({ productUrl: cardmarketUrl, priced } = await priceCard({ productUrl: cardmarketUrl, identity, run }))
   } catch (error) {
-    if (error instanceof CardmarketBlockedError && retry && blocked) {
+    if (error instanceof CardmarketBlockedError && park) {
       // Park it: the user still has to clear the bot check in the Chrome window.
-      blocked.push(evaluated)
+      park(evaluated)
       return
     }
 
     const reason = error instanceof CardmarketBlockedError ? 'Cardmarket bot check blocked this card' : 'Could not load the Cardmarket page'
-    report.problems.push({
+    out.problems.push({
       ...listingRef(listing),
       stage: 'price',
       reason,
@@ -1000,8 +1192,33 @@ async function priceEvaluated({
     return
   }
 
+  if ('error' in priced && priced.wrongCard) {
+    // Google found a page, but not this card's. That is a failed match, and remembered as
+    // one — for this listing, and for every other listing of the card.
+    const reason = 'The Cardmarket page Google found is a different card'
+    out.problems.push({
+      ...listingRef(listing),
+      stage: 'match',
+      reason,
+      detail: priced.error,
+      googleUrl,
+      query,
+      cardmarketUrl: offersUrlFor(cardmarketUrl, identity)
+    })
+    remember(cache, listing, now, {
+      identity,
+      label,
+      query,
+      googleUrl,
+      cardmarketUrl: null,
+      problem: { stage: 'match', reason, detail: priced.error }
+    })
+    ;(cache.products ??= {})[productKey(identity, label)] = { url: null, query, googleUrl, at: now.toISOString() }
+    return
+  }
+
   if ('error' in priced) {
-    noComps.push({
+    out.noComps.push({
       ...listingRef(listing),
       displayTitle: rowTitle(identity, cardmarketUrl),
       card: identity,
@@ -1022,8 +1239,7 @@ async function priceEvaluated({
     query,
     floor: priced.floor,
     comps: priced.comps,
-    deals,
-    report
+    out
   })
   remember(cache, listing, now, {
     identity,
@@ -1038,6 +1254,52 @@ async function priceEvaluated({
 }
 
 /**
+ * The card's Cardmarket floor in this grade, read off Cardmarket at most once however
+ * many listings show it — an earlier scan's reading while it is fresh, the reading
+ * another listing is already waiting on, or a fresh one.
+ *
+ * A bot check or a page that would not load is not remembered: that is the scan having
+ * a bad moment, and the next listing of the card gets to try for itself.
+ */
+function priceCard({ productUrl, identity, run }: { productUrl: string; identity: CardIdentity; run: Run }): Promise<PricedCard> {
+  const key = floorKey(productUrl, identity)
+  const remembered = run.cache.floors?.[key]
+  if (hasFreshFloor(remembered, run.now)) {
+    return Promise.resolve({
+      productUrl: remembered.productUrl,
+      priced:
+        remembered.floor != null
+          ? { floor: remembered.floor, comps: remembered.comps }
+          : { error: remembered.error ?? 'No offers on the Cardmarket page', wrongCard: remembered.wrongCard }
+    })
+  }
+
+  const underway = run.pricing.get(key)
+  if (underway) {
+    return underway
+  }
+
+  const pricing = run.timings
+    .time('cardmarket', () =>
+      priceCheapestVersion({ productUrl, identity, fetchPage: run.fetchPage, delayMs: run.delayMs, pace: run.pace })
+    )
+    .then((result) => {
+      ;(run.cache.floors ??= {})[key] = {
+        productUrl: result.productUrl,
+        floor: 'floor' in result.priced ? result.priced.floor : null,
+        comps: 'comps' in result.priced ? result.priced.comps : [],
+        error: 'error' in result.priced ? result.priced.error : null,
+        wrongCard: 'error' in result.priced && result.priced.wrongCard === true,
+        at: run.now.toISOString()
+      }
+      return result
+    })
+    .finally(() => run.pricing.delete(key))
+  run.pricing.set(key, pricing)
+  return pricing
+}
+
+/**
  * Price the card — and when Cardmarket sells the same card number more than once, the
  * cheapest of them.
  *
@@ -1048,6 +1310,10 @@ async function priceEvaluated({
  * the card, so the versions that share this one's set and number are priced beside it.
  * A deal against the cheapest of them is a deal whichever one the slab is. Where one of
  * them cannot be priced there is no knowing which is cheapest, so the card is not priced.
+ *
+ * Before any of that, the page is asked which card it is. Cardmarket prints the card
+ * number on it, and a page for a different number is a Google result that looked right
+ * and was not — worth nothing as a price, however good the edge it would give.
  */
 async function priceCheapestVersion({
   productUrl,
@@ -1061,7 +1327,7 @@ async function priceCheapestVersion({
   fetchPage: FetchCardmarketPage
   delayMs: number
   pace: Pacer
-}): Promise<{ productUrl: string; priced: MarketPrice | { error: string } }> {
+}): Promise<PricedCard> {
   const load = async (url: string) => {
     const offersUrl = offersUrlFor(url, identity)
     const html = await pace(offersUrl, delayMs, () => fetchPage(offersUrl, OFFERS_FETCH_OPTIONS(identity.grade)))
@@ -1069,6 +1335,11 @@ async function priceCheapestVersion({
   }
 
   const found = await load(productUrl)
+  const printed = identity.cardNumber ? cardmarketProductNumber(found.html) : null
+  if (printed && numbersDisagree(printed, identity.cardNumber!)) {
+    return { productUrl, priced: { error: `Cardmarket's page is card ${printed}, the slab is #${identity.cardNumber}`, wrongCard: true } }
+  }
+
   const versionsUrl = isVersionedProduct(productUrl) ? cardmarketVersionsUrl(found.html) : null
   if (!versionsUrl) {
     return found
@@ -1112,8 +1383,7 @@ function bucket({
   query,
   floor,
   comps,
-  deals,
-  report
+  out
 }: {
   listing: SourceListing
   identity: CardIdentity
@@ -1122,20 +1392,19 @@ function bucket({
   query: string | null
   floor: number
   comps: DealRow['comps']
-  deals: DealRow[]
-  report: DealFinderReport
+  out: Outcome
 }): void {
   const cost = listingCost(listing)
   const edge = Math.round((floor - cost.total) * 100) / 100
   if (edge < MIN_EDGE) {
-    tally(report, listing.source, 'belowEdge')
+    out.tallies.push('belowEdge')
     return
   }
 
   // Too good to be true is the signature of a bad match, not a bargain — show it in the
   // dropdown with the numbers so it can be judged, rather than at the top as a deal.
   if (floor >= listing.ask * IMPLAUSIBLE_FLOOR_RATIO && edge >= IMPLAUSIBLE_FLOOR_GAP) {
-    report.problems.push({
+    out.problems.push({
       ...listingRef(listing),
       stage: 'match',
       reason: 'Cardmarket price is far above the ask, probably a different card',
@@ -1147,7 +1416,7 @@ function bucket({
     return
   }
 
-  deals.push({
+  out.deals.push({
     ...listingRef(listing),
     displayTitle: rowTitle(identity, cardmarketUrl),
     card: identity,

@@ -1,4 +1,5 @@
 import { MARKTPLAATS_ORIGIN } from '../marktplaats'
+import { decodeHtmlEntities } from './entities'
 import type { SourceListing } from './types'
 
 /**
@@ -250,12 +251,13 @@ export function parseMarktplaatsOverview(html: string): SourceListing[] {
     }
 
     const listingId = item.itemId?.trim() || (vipUrl.match(/\/([am]\d{6,})-/)?.[1] ?? vipUrl)
+    const description = (item.description ?? item.categorySpecificDescription)?.trim()
     listings.push({
       id: `marktplaats:${listingId}`,
       source: 'marktplaats',
       listingId,
-      title,
-      description: (item.description ?? item.categorySpecificDescription)?.trim() || null,
+      title: decodeHtmlEntities(title),
+      description: description ? decodeHtmlEntities(description) : null,
       ask: priceCents / 100,
       listingUrl: vipUrl.startsWith('http') ? vipUrl : `${MARKTPLAATS_ORIGIN}${vipUrl}`,
       sellerName: item.sellerInformation?.sellerName?.trim() ?? null,
@@ -310,18 +312,8 @@ function stripTags(value: string): string {
     .replace(/<[^>]+>/g, ' ')
 }
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
-
 function tidy(value: string): string {
-  return decodeEntities(stripTags(value))
+  return decodeHtmlEntities(stripTags(value))
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()

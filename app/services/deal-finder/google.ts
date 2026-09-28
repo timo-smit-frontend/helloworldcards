@@ -7,13 +7,23 @@ export function googleSearchUrl(query: string): string {
 
 const SINGLES_LINK = /https?:\/\/(?:www\.)?cardmarket\.com\/(?:[a-z]{2}\/)?Pokemon\/Products\/Singles\/([^/"'\s<>]+)\/([^"'&\s<>]+)/gi
 
-/** Traditional/Simplified Chinese reprints share card numbers with the English set. */
+/**
+ * Traditional/Simplified Chinese reprints share card numbers with the English and the
+ * Japanese sets. Their products carry a `CS` code with a `C` in it — `CS55C007` is a
+ * Chinese Radiant Charizard — and Cardmarket names the sets after the Chinese release
+ * ("Shadow of Glory"), so the product code is the part that gives them away.
+ */
 const CHINESE_SET = /traditional-chinese|simplified-chinese|-chinese/i
-const CHINESE_PRODUCT = /\d{2,3}C\d/i
+const CHINESE_PRODUCT = /\d{2,3}C\d|-CS\d/i
 
-/** Cardmarket sets that only ever hold Japanese printings. */
+/**
+ * Cardmarket sets that only ever hold Japanese printings. The Sun & Moon era's Japanese
+ * expansions have English-sounding names and no card number in their product slugs, so
+ * nothing else about a `Tag-Bolt/Pinsir` says it is not the 2006 English Pinsir it was
+ * priced as.
+ */
 const JAPANESE_SET =
-  /japanese|pokemon-card-game|25th-anniversary|golden-box|vstar-universe|vmax-climax|shiny-star-v|shiny-treasure|star-birth|eevee-heroes|blue-sky-stream|fusion-arts|paradigm-trigger|lost-abyss|incandescent-arcana|dark-phantasma|space-juggler|time-gazer|battle-region|terastal-festival|night-wanderer|wild-force|cyber-judge|crimson-haze|mask-of-change|stellar-miracle|super-electric-breaker|heat-wave-arena|battle-partners|clay-burst|snow-hazard|triplet-beat|raging-surf|ruler-of-the-black-flame/i
+  /japanese|-jp$|pokemon-card-game|25th-anniversary|golden-box|vstar-universe|vmax-climax|shiny-star-v|shiny-treasure|star-birth|eevee-heroes|blue-sky-stream|fusion-arts|paradigm-trigger|lost-abyss|incandescent-arcana|dark-phantasma|space-juggler|time-gazer|battle-region|terastal-festival|night-wanderer|wild-force|cyber-judge|crimson-haze|mask-of-change|stellar-miracle|super-electric-breaker|heat-wave-arena|battle-partners|clay-burst|snow-hazard|triplet-beat|raging-surf|ruler-of-the-black-flame|matchless-fighter|tag-bolt|night-unison|full-metal-wall|double-blaze|gg-end|sky-legend|miracle-twin|remix-bout|dream-league|alter-genesis|tag-all-stars|gx-ultra-shiny|flight-of-legends/i
 
 /**
  * Japanese products end in a lowercase expansion code — `s12a215`, `m2a230`, `smL032` —
@@ -21,7 +31,13 @@ const JAPANESE_SET =
  * matters, so this pattern is deliberately not case-insensitive.
  */
 const JAPANESE_PRODUCT = /-(?:s|sv|sm|m)\d{0,2}[a-zA-Z]?\d{2,4}$/
-const JAPANESE_PROMO = /-[SM]-P\d+$/
+/**
+ * Japanese promos keep the dash before the P that the English ones drop: `S-P229`,
+ * `SV-P142`, `M-P022` against the English `SVP176` and `SWSH039`. An English Espeon ex
+ * was priced against `Espeon-ex-SV-P142` because only `S-P` and `M-P` were known here.
+ * `PCG` is the Japanese e-Card and ex era's own numbering.
+ */
+const JAPANESE_PROMO = /-(?:SV|SM|XY|BW|DP|S|M)-P\d+$|-PCG\d+$/
 
 function looksJapanese(setSlug: string, productSlug: string): boolean {
   return JAPANESE_SET.test(setSlug) || JAPANESE_PRODUCT.test(productSlug) || JAPANESE_PROMO.test(productSlug)
@@ -118,18 +134,62 @@ export function buildSearchQuery(identity: CardIdentity, label: PsaLabel | null)
     words.push(`#${identity.cardNumber}`)
   }
   words.push(identity.language === 'japanese' ? 'japanese' : 'english', 'cardmarket')
+  return once(words).join(' ')
+}
 
+/**
+ * A second, plainer query for when the first found nothing: the card, its set and its
+ * number, and nothing the slab added. The label rows are what usually find the exact
+ * printing, but a row PSA spells its own way — `CLBRTNS.ULTRA-PREM.COLL` — can crowd the
+ * card out of the results altogether. Null when it would only ask the same thing again.
+ */
+export function buildFallbackQuery(identity: CardIdentity, first: string): string | null {
+  const words = [queryPart(identity.name), queryPart(identity.setName ?? identity.setCode)].join(' ').split(' ').filter(isQueryToken)
+  if (identity.cardNumber) {
+    words.push(identity.cardNumber)
+  }
+  if (identity.language === 'japanese') {
+    words.push('japanese')
+  }
+  words.push('cardmarket')
+  const query = once(words).join(' ')
+  return query.toLowerCase() === first.toLowerCase() ? null : query
+}
+
+/** Each word once, whatever its case, in the order it first came. */
+function once(words: string[]): string[] {
   const seen = new Set<string>()
-  return words
-    .filter((word) => {
-      const key = word.toLowerCase()
-      if (seen.has(key)) {
-        return false
-      }
-      seen.add(key)
-      return true
-    })
-    .join(' ')
+  return words.filter((word) => {
+    const key = word.toLowerCase()
+    if (seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
+}
+
+function simplified(value: string | null | undefined): string {
+  return tokens(value ?? '').join(' ')
+}
+
+/**
+ * The card a search is for, as a key its answer can be remembered under.
+ *
+ * A card turns up in listing after listing — twice on one marketplace, once on the
+ * other, again tomorrow — and every one of them used to cost its own Google search for
+ * the same product page. Two listings of one card read the same off their slabs, so the
+ * language, name, number and set code are what the answer is kept by. A card without a
+ * number keeps its set and variety in the key too, so two cards of one name in a set
+ * are not mistaken for each other.
+ */
+export function productKey(identity: CardIdentity, label: PsaLabel | null): string {
+  const number = identity.cardNumber ? identity.cardNumber.toLowerCase().replace(/^0+(?=\w)/, '') : ''
+  const parts = [identity.language, simplified(identity.name), number, simplified(identity.setCode)]
+  if (!number) {
+    parts.push(simplified(identity.setName), simplified(label?.varietyLine))
+  }
+  return parts.join('|')
 }
 
 export function cleanCardmarketUrl(url: string): string {
@@ -235,8 +295,10 @@ function scoreCardmarketLink(setSlug: string, productSlug: string, identity: Car
     }
   }
 
-  if (identity.language === 'english' && (CHINESE_SET.test(setSlug) || CHINESE_PRODUCT.test(productSlug))) {
-    score -= 100
+  // A Chinese reprint is neither of the cards we buy, and it shares its numbers with
+  // both: a Japanese Radiant Charizard SVF 007 was priced against the Chinese `CS55C007`.
+  if (CHINESE_SET.test(setSlug) || CHINESE_PRODUCT.test(productSlug)) {
+    return CONTRADICTED
   }
 
   // An English card must not be priced against a Japanese-only product; Cardmarket

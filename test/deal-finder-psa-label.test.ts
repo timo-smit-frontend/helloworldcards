@@ -29,6 +29,10 @@ describe('psaCardName', () => {
     expect(psaCardName("N'S RESHIRAM GEM MT")).toBe("N'S RESHIRAM")
     expect(psaCardName('MEWTWO-REV.FOIL')).toBe('MEWTWO-')
   })
+
+  it('drops the full-art prefix older slabs spell with dots', () => {
+    expect(psaCardName('F.A./KOMMO -0 GX')).toBe('KOMMO -0 GX')
+  })
 })
 
 describe('normalizePsaLabel', () => {

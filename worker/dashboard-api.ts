@@ -9,6 +9,7 @@ import type {
   DealFinderCache,
   DealFinderReport,
   DealSource,
+  LiveDealScan,
   Pacer,
   ResolveUrl,
   SellerReviews,
@@ -482,14 +483,39 @@ async function cardmarketScan(request: Request, env: DashboardEnv, runtime?: Das
   }
 }
 
+/**
+ * Scans still going, each with what it has found so far.
+ *
+ * A scan answers its own request only once it is done, minutes later — and the deals it
+ * turns up in its first minute are worth as much then as at the end. So each scan keeps
+ * its report as it stands here, and the report route folds those in: a deal shows on the
+ * dashboard as soon as it has been priced, on whichever device is looking, and a page
+ * opened mid-scan sees the scan going.
+ */
+type RunningScan = LiveDealScan & { report: DealFinderReport | null }
+
+const runningScans = new Set<RunningScan>()
+
 async function dealFinderReport(request: Request, env: DashboardEnv, runtime?: DashboardRuntime): Promise<Response> {
   const unauthorized = await requireAdminSession(request, env)
   if (unauthorized) {
     return unauthorized
   }
 
-  const report = await resolveDealsStore(env, runtime).getReport()
-  return json({ report: isCurrentReport(report) ? report : null })
+  const stored = await resolveDealsStore(env, runtime).getReport()
+  let report = isCurrentReport(stored) ? stored : null
+  for (const scan of runningScans) {
+    if (scan.report) {
+      report = mergeReports(report, scan.report)
+    }
+  }
+  const scanning: LiveDealScan[] = [...runningScans].map(({ sources, checked, total, startedAt }) => ({
+    sources,
+    checked,
+    total,
+    startedAt
+  }))
+  return json({ report, scanning })
 }
 
 /**
@@ -554,6 +580,8 @@ async function dealFinderScan(
   }
 
   const store = resolveDealsStore(env, runtime)
+  const live: RunningScan = { sources: [...sources], checked: 0, total: null, startedAt: new Date().toISOString(), report: null }
+  runningScans.add(live)
   try {
     const { report, cache } = await runDealFinderScan({
       fetchPage: runtime.fetchCardmarketPage,
@@ -564,11 +592,20 @@ async function dealFinderScan(
       pace: runtime.pacer,
       cache: await store.getCache(),
       ownListings: await inventoryFor(env, runtime),
-      sources
+      sources,
+      onProgress: (progress) => {
+        live.report = progress.report
+        live.checked = progress.checked
+        live.total = progress.total
+      }
     })
     return json({ report: await commitScan(store, report, cache, sources) })
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'The deal finder scan failed.' }, 500)
+  } finally {
+    // Only once the finished report is in the store, so there is never a moment where
+    // neither the store nor a running scan holds what this one found.
+    runningScans.delete(live)
   }
 }
 

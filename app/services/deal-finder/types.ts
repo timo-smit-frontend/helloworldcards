@@ -155,6 +155,8 @@ export type SourceSummary = {
   outOfScope: number
   /** Answered from the cache rather than re-checked. */
   fromCache: number
+  /** How long the run that read this source took. Missing on reports written before it was kept. */
+  durationMs?: number
 }
 
 export type DealFinderReport = {
@@ -175,4 +177,14 @@ export type DealFinderReport = {
   fromCache: number
   /** Whole-scan problems that belong to no single source. */
   errors: string[]
+}
+
+/** A scan still going, as far as it has got — what the dashboard shows while it waits. */
+export type LiveDealScan = {
+  sources: DealSource[]
+  /** Listings worked through so far. */
+  checked: number
+  /** Listings past the search pages; null while those are still being read. */
+  total: number | null
+  startedAt: string
 }

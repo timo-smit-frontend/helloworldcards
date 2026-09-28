@@ -106,6 +106,12 @@ describe('detectLanguage', () => {
   it('flags cards in a language we do not buy', () => {
     expect(detectLanguage('eevee 173 promo psa 9 ita – evoluzioni prismatiche')).toBe('other')
     expect(detectLanguage('Carte Pokémon Simiabraz Rare Holo Français')).toBe('other')
+    expect(detectLanguage('Venomoth 29/64 - Dutch Jungle Set (2000) (PSA 9)')).toBe('other')
+    expect(detectLanguage('Nederlandstalige Charizard Base Set PSA 9')).toBe('other')
+  })
+
+  it('does not take a Dutch seller writing Dutch for a Dutch card', () => {
+    expect(detectLanguage('Charizard ex 199 PSA 10, verzending met Nederlandse post')).toBeNull()
   })
 
   it('reads a listing written in another language as that language', () => {

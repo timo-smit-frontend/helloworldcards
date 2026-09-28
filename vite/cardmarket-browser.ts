@@ -321,13 +321,40 @@ function pageLooksChallenged(title: string, html: string): boolean {
 
 /** Pause the scan while the user completes a Cloudflare / Google bot check in Chrome. */
 export async function waitForBotChallengeClear(page: Page, label: string, timeoutMs = BOT_CHECK_WAIT_MS): Promise<boolean> {
+  return (await clearBotCheck(page, label, { timeoutMs })) !== 'blocked'
+}
+
+/**
+ * How often a scan tab looks to see whether a bot check or "Show more" has finished.
+ *
+ * Playwright polls on animation frames unless told otherwise, and a tab that is not the
+ * one in front gets none — so with Google and Cardmarket each in a tab of their own, the
+ * one behind would sit out every wait to its timeout. A timer keeps going in either.
+ */
+const SCAN_POLL_MS = 150
+
+/**
+ * Wait out a bot check, and say whether there was one: `none` when the page never showed
+ * one, `cleared` once it has been dealt with, `blocked` when it is still there.
+ *
+ * A scan brings the tab to the front first. The window holds a tab for Google and one for
+ * Cardmarket, and a check on the tab behind is one nobody can see to tick.
+ */
+async function clearBotCheck(
+  page: Page,
+  label: string,
+  { timeoutMs = BOT_CHECK_WAIT_MS, scan = false }: { timeoutMs?: number; scan?: boolean } = {}
+): Promise<'none' | 'cleared' | 'blocked'> {
   const title = await page.title().catch(() => '')
   const html = await page.content().catch(() => '')
   if (!pageLooksChallenged(title, html)) {
-    return true
+    return 'none'
   }
 
   console.info(`[cardmarket-browser] Bot check on ${label}, complete it in the Chrome window`)
+  if (scan) {
+    await page.bringToFront().catch(() => undefined)
+  }
   const cleared = await page
     .waitForFunction(
       () => {
@@ -338,7 +365,7 @@ export async function waitForBotChallengeClear(page: Page, label: string, timeou
         )
       },
       undefined,
-      { timeout: timeoutMs }
+      scan ? { timeout: timeoutMs, polling: SCAN_POLL_MS } : { timeout: timeoutMs }
     )
     .then(() => true)
     .catch(() => false)
@@ -346,7 +373,7 @@ export async function waitForBotChallengeClear(page: Page, label: string, timeou
   if (!cleared) {
     console.info(`[cardmarket-browser] Bot check still open after waiting (${label})`)
   }
-  return cleared
+  return cleared ? 'cleared' : 'blocked'
 }
 
 /**
@@ -360,7 +387,7 @@ export async function waitForBotChallengeClear(page: Page, label: string, timeou
  */
 async function warmup(page: Page) {
   await page.goto('https://www.cardmarket.com/en/Pokemon', { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
-  await waitForBotChallengeClear(page, 'Cardmarket warmup')
+  await clearBotCheck(page, 'Cardmarket warmup', { scan: true })
 }
 
 async function killCdpPort(port: number): Promise<void> {
@@ -386,6 +413,21 @@ async function connectCdpContext(chromium: typeof import('playwright').chromium)
 
 /** Holds a piece of work until the scan's Chrome tab is free, and keeps it to itself. */
 type TabLock = <T>(run: () => Promise<T>) => Promise<T>
+
+/** One tab of a scan, and the lock that keeps its page loads one at a time. */
+type Lane = { page: Page; lock: TabLock }
+
+function lane(page: Page): Lane {
+  return { page, lock: createLock() }
+}
+
+function isCardmarketUrl(url: string): boolean {
+  try {
+    return /(?:^|\.)cardmarket\.com$/i.test(new URL(url).hostname)
+  } catch {
+    return false
+  }
+}
 
 /**
  * Serialise everything that drives one scan's Chrome tab.
@@ -468,26 +510,42 @@ async function createScanBrowser(root = process.cwd()): Promise<ScanBrowser> {
     isOpen() {
       return open && (browser ? browser.isConnected() : true)
     },
+    /**
+     * A scan's tabs: one for Cardmarket and one for everything else — Google, mostly —
+     * each opened the first time it is wanted, so a scan that only prices never has an
+     * idle Google tab.
+     *
+     * With one tab the two took turns — a card's offers could not start loading until the
+     * next card's Google search was done, and the other way round — so the scan spent every
+     * page load of one site waiting on the other. In a tab each, the search for the next
+     * card runs while the offers for this one load.
+     */
     async openTab() {
-      const page = spare.shift() ?? (await context.newPage())
-      const withTab = createLock()
+      const open = async () => lane(spare.shift() ?? (await context.newPage()))
+      let search: Promise<Lane> | null = null
+      let cardmarket: Promise<Lane> | null = null
+      const searchLane = () => (search ??= open())
+      const cardmarketLane = () => (cardmarket ??= open())
 
-      // Warmed up at most once per tab, and only if a Cardmarket page is actually asked
+      // Warmed up at most once per scan, and only if a Cardmarket page is actually asked
       // for. A failed warmup is not fatal — the page that wanted it deals with its own
       // bot check.
       let warmed: Promise<void> | null = null
-      const ensureWarm = () => (warmed ??= warmup(page).catch(() => undefined))
 
       return {
         sellerReviews: marktplaatsSellerReviews,
         async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
-          return await fetchWithBotChecks(page, url, options, withTab, ensureWarm)
+          const tab = await (isCardmarketUrl(url) ? cardmarketLane() : searchLane())
+          const ensureWarm = () => (warmed ??= warmup(tab.page).catch(() => undefined))
+          return await fetchWithBotChecks(tab.page, url, options, tab.lock, ensureWarm)
         },
         async resolveUrl(url: string) {
-          return await followRedirect(page, url, withTab)
+          const tab = await searchLane()
+          return await followRedirect(tab.page, url, tab.lock)
         },
         async close() {
-          await page.close().catch(() => undefined)
+          const tabs = await Promise.all([search, cardmarket].map((opened) => opened?.catch(() => null)))
+          await Promise.all(tabs.map((tab) => tab?.page.close().catch(() => undefined)))
         }
       }
     },
@@ -575,7 +633,7 @@ async function followRedirect(page: Page, url: string, withTab: TabLock): Promis
       return null
     }
 
-    await waitForBotChallengeClear(page, new URL(page.url()).hostname)
+    await clearBotCheck(page, new URL(page.url()).hostname, { scan: true })
 
     const landed = page.url()
     return landed && !landed.includes('/goto?url=') ? landed : null
@@ -602,8 +660,19 @@ const CARDMARKET_ATTEMPTS = 3
  */
 const LOAD_TIMEOUT_MS = 25_000
 const BOT_CHECK_WAIT_MS = 45_000
-const ROWS_WAIT_MS = 10_000
 const EXPAND_WAIT_MS = 8_000
+
+/**
+ * How long to wait for the offer rows once the page is there.
+ *
+ * Cardmarket renders the offers into the page itself, so a page that loaded without a
+ * bot check has its rows the moment it has loaded — or has none, as a Japanese card with
+ * no English offers does. Waiting the full ten seconds for rows that were never coming
+ * was ten seconds of every such card. Only a page that came back from a bot check is
+ * still on its way to the real one, and that is what the long wait is for.
+ */
+const ROWS_WAIT_MS = 10_000
+const ROWS_SETTLE_MS = 1_500
 
 async function fetchWithBotChecks(
   page: Page,
@@ -662,14 +731,16 @@ async function fetchWithBotChecks(
       stopped = loaded ? 'kept blocking' : 'would not load'
 
       if (loaded) {
-        const cleared = await waitForBotChallengeClear(page, host)
+        const check = await clearBotCheck(page, host, { scan: true })
 
         if (!isOffers) {
           return await page.content()
         }
 
-        if (cleared) {
-          await page.waitForSelector('[id^="articleRow"]', { timeout: ROWS_WAIT_MS }).catch(() => undefined)
+        if (check !== 'blocked') {
+          await page
+            .waitForSelector('[id^="articleRow"]', { timeout: check === 'none' ? ROWS_SETTLE_MS : ROWS_WAIT_MS })
+            .catch(() => undefined)
           const outcome = await expandOffers(page, options)
           if (outcome === 'complete') {
             return await page.content()
@@ -770,7 +841,8 @@ async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): P
 
     const grew = await page
       .waitForFunction((before) => document.querySelectorAll('[id^="articleRow"]').length > before, read, {
-        timeout: EXPAND_WAIT_MS
+        timeout: EXPAND_WAIT_MS,
+        polling: SCAN_POLL_MS
       })
       .then(() => true)
       .catch(() => false)

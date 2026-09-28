@@ -37,18 +37,56 @@ export type CacheEntry = {
  * conclusion this code reached, not a fact about the listing, so a scan that reasons
  * differently must not be served yesterday's answer — the TTLs cannot see that the
  * rules moved, only that the clock did.
+ *
+ * 7: the labels are read with Apple Vision, so every listing Tesseract wrote off is
+ * worth reading again.
  */
-export const CACHE_VERSION = 6
+export const CACHE_VERSION = 7
 
-export type DealFinderCache = { version?: number; entries: Record<string, CacheEntry> }
+/**
+ * Which Cardmarket product a card is, as the Google search for it found — or that it
+ * found none. Keyed by the card rather than by a listing, because the same card turns
+ * up in listing after listing, on both marketplaces and day after day, and the answer
+ * does not change with the listing it came from.
+ */
+export type ProductMatch = {
+  url: string | null
+  query: string
+  googleUrl: string
+  at: string
+}
+
+/**
+ * What one Cardmarket offers page said about one card in one grade: its floor, or why
+ * there is none. Shared across listings the same way, for as long as a price is trusted.
+ */
+export type RememberedFloor = {
+  /** The version that was priced — the cheapest, when Cardmarket sells the card more than once. */
+  productUrl: string
+  floor: number | null
+  comps: MarketListing[]
+  error: string | null
+  /** The page turned out to be a different card from the one searched for. */
+  wrongCard: boolean
+  at: string
+}
+
+export type DealFinderCache = {
+  version?: number
+  entries: Record<string, CacheEntry>
+  products?: Record<string, ProductMatch>
+  floors?: Record<string, RememberedFloor>
+}
 
 /** The cache to start from: the stored one, or a fresh one when older logic wrote it. */
 export function usableCache(stored: DealFinderCache | null | undefined): DealFinderCache {
-  return stored && stored.version === CACHE_VERSION ? { version: CACHE_VERSION, entries: { ...stored.entries } } : emptyCache()
+  return stored && stored.version === CACHE_VERSION
+    ? { version: CACHE_VERSION, entries: { ...stored.entries }, products: { ...stored.products }, floors: { ...stored.floors } }
+    : emptyCache()
 }
 
 function emptyCache(): DealFinderCache {
-  return { version: CACHE_VERSION, entries: {} }
+  return { version: CACHE_VERSION, entries: {}, products: {}, floors: {} }
 }
 
 function ageMs(iso: string | null, now: Date): number {
@@ -65,6 +103,20 @@ export function hasFreshIdentity(entry: CacheEntry | undefined, now: Date): bool
     return false
   }
   return ageMs(entry.identifiedAt, now) < IDENTITY_TTL_MS
+}
+
+/**
+ * A card's Cardmarket product, as long as it is worth trusting: a month for a page that
+ * was found — products do not move — and the week a written-off listing gets for a
+ * search that found nothing, in case Cardmarket has listed the card since.
+ */
+export function hasFreshMatch(match: ProductMatch | undefined, now: Date): match is ProductMatch {
+  return match != null && ageMs(match.at, now) < (match.url ? IDENTITY_TTL_MS : VERDICT_TTL_MS)
+}
+
+/** A card's remembered floor, for as long as any Cardmarket price is trusted. */
+export function hasFreshFloor(floor: RememberedFloor | undefined, now: Date): floor is RememberedFloor {
+  return floor != null && ageMs(floor.at, now) < PRICE_TTL_MS
 }
 
 /** A remembered Cardmarket floor is only reused for half a day, and only at the same ask. */
@@ -117,7 +169,12 @@ function sourceOf(id: string): string {
  * nothing about which Vinted listings are still up, and dropping them would make the
  * next Vinted run re-read every photo it already read.
  */
-export function pruneCache(cache: DealFinderCache, liveIds: Set<string>, sources: readonly DealSource[]): DealFinderCache {
+export function pruneCache(
+  cache: DealFinderCache,
+  liveIds: Set<string>,
+  sources: readonly DealSource[],
+  now = new Date()
+): DealFinderCache {
   const scanned = new Set<string>(sources)
   const entries: Record<string, CacheEntry> = {}
   for (const [id, entry] of Object.entries(cache.entries)) {
@@ -125,7 +182,31 @@ export function pruneCache(cache: DealFinderCache, liveIds: Set<string>, sources
       entries[id] = entry
     }
   }
-  return { version: CACHE_VERSION, entries }
+  // Cards are not tied to a listing, so they go when they are too old to be used.
+  return {
+    version: CACHE_VERSION,
+    entries,
+    products: keep(cache.products, (match) => hasFreshMatch(match, now)),
+    floors: keep(cache.floors, (floor) => hasFreshFloor(floor, now))
+  }
+}
+
+function keep<T>(records: Record<string, T> | undefined, fresh: (record: T) => boolean): Record<string, T> {
+  return Object.fromEntries(Object.entries(records ?? {}).filter(([, record]) => fresh(record)))
+}
+
+/** Of two answers about the same card, the one asked for last. */
+function newest<T extends { at: string }>(...sides: Array<Record<string, T> | undefined>): Record<string, T> {
+  const merged: Record<string, T> = {}
+  for (const side of sides) {
+    for (const [key, record] of Object.entries(side ?? {})) {
+      const current = merged[key]
+      if (!current || (Date.parse(record.at) || 0) >= (Date.parse(current.at) || 0)) {
+        merged[key] = record
+      }
+    }
+  }
+  return merged
 }
 
 /**
@@ -139,8 +220,9 @@ export function pruneCache(cache: DealFinderCache, liveIds: Set<string>, sources
  */
 export function mergeCaches(stored: DealFinderCache | null, scanned: DealFinderCache, sources: readonly DealSource[]): DealFinderCache {
   const walked = new Set<string>(sources)
+  const store = usableCache(stored)
   const entries: Record<string, CacheEntry> = {}
-  for (const [id, entry] of Object.entries(usableCache(stored).entries)) {
+  for (const [id, entry] of Object.entries(store.entries)) {
     if (!walked.has(sourceOf(id))) {
       entries[id] = entry
     }
@@ -150,5 +232,12 @@ export function mergeCaches(stored: DealFinderCache | null, scanned: DealFinderC
       entries[id] = entry
     }
   }
-  return { version: CACHE_VERSION, entries }
+  // What either run learned about a card is worth keeping, whichever marketplace it
+  // was learned on; where both asked, the later answer stands.
+  return {
+    version: CACHE_VERSION,
+    entries,
+    products: newest(store.products, scanned.products),
+    floors: newest(store.floors, scanned.floors)
+  }
 }

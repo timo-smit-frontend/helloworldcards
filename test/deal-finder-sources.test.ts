@@ -304,3 +304,24 @@ describe('search page URLs', () => {
     })
   })
 })
+
+describe('text the marketplaces escape', () => {
+  it('reads an apostrophe Vinted escaped twice, rather than taking `x27` for a card number', () => {
+    const title = 'Pikachu McDonald&amp;#x27;s Promo #020 (2025 Japanese) (PSA 10)'
+    const html = `<div>
+      <img data-testid="product-item-id-10159708104--image--img" src="https://images1.vinted.net/t/a/310x430/b.webp?s=1"
+        alt="${title}, Merk: Pokémon, Staat: Zeer goed, 129.00 €, 136.15 €" />
+      <a href="/items/10159708104-pikachu" data-testid="product-item-id-10159708104--overlay-link"
+        title="${title}, Merk: Pokémon, Staat: Zeer goed, 129.00 €, 136.15 €"></a></div>`
+
+    expect(parseVintedOverview(html)[0]?.title).toBe("Pikachu McDonald's Promo #020 (2025 Japanese) (PSA 10)")
+  })
+
+  it('reads numeric entities in a Marktplaats description', () => {
+    const detail = parseMarktplaatsDetail(
+      '<div data-testid="description">Zeldzame PSA 9 gegradeerde Team Rocket&#x27;s Mimikyu &#8211; nette slab</div>'
+    )
+
+    expect(detail.description).toBe("Zeldzame PSA 9 gegradeerde Team Rocket's Mimikyu – nette slab")
+  })
+})

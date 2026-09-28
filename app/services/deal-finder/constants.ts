@@ -78,10 +78,10 @@ export const LISTING_DELAY_MS = 250
  * Reading a listing's page and its photos needs no browser and nothing from Cardmarket,
  * so it is the one part of a scan that can happen several listings at a time — and it
  * runs alongside the Google and Cardmarket work for the listings ahead of it, which is
- * where the scan's remaining time goes. Four keeps the OCR workers busy without racing
- * the marketplaces for pages.
+ * where the scan's remaining time goes. With the labels read by Apple Vision in a tenth
+ * of a second, what this holds back is the photo downloads, not the reader.
  */
-export const IDENTIFY_CONCURRENCY = 4
+export const IDENTIFY_CONCURRENCY = 6
 
 /** Cardmarket "Show more" clicks before we accept whatever rows we already have. */
 export const MAX_LOAD_MORE = 30

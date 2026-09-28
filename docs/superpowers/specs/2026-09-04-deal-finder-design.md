@@ -37,11 +37,14 @@ Three signals, in order of authority:
 1. **PSA cert lookup** — when a certification number is readable, PSA's public API
    returns the authoritative year, set, subject, card number and grade.
    Free tier, 100 lookups a day, `PSA_API_TOKEN` in `.dev.vars`.
-2. **The PSA label** — read from the listing photos by a local Tesseract OCR pass
-   (`vite/deal-finder-ocr.ts`), so a scan costs nothing and needs no API key. Each
-   photo is upscaled, greyed and contrast-stretched, then read twice: the default
-   layout pass groups the rows, and a sparse-text pass recovers the right-hand
-   column the first one drops. Rows, as PSA prints them:
+2. **The PSA label** — read from the listing photos by Apple's own text recogniser
+   (Vision, the engine behind Live Text), through a small Swift helper
+   (`vite/deal-finder-vision.swift`) that the dev server compiles once into
+   `.cache/deal-finder-vision/` and keeps running for the length of a scan. It costs
+   nothing, needs no API key, reads a photo in under a tenth of a second, and turns a
+   photo that is on its side until it finds a label row. Where Swift is missing the
+   reader falls back to Tesseract (`vite/deal-finder-ocr.ts`), which is several
+   seconds a photo and misreads most slabs. Rows, as PSA prints them:
 
    | Row | Left                                                                                     | Right                          |
    | --- | ---------------------------------------------------------------------------------------- | ------------------------------ |
@@ -63,11 +66,18 @@ Cardmarket's own search does not find graded singles reliably, so the scan searc
 **Google** with the word `cardmarket` in the query, built from the label rows in the
 order PSA prints them, then scores the results: the card name must appear in the
 product slug, the card number adds to the score, the set the card came from adds more,
-and both Chinese reprints and Japanese-only products are pushed down for English cards.
-Japanese printings are recognised by their lowercase expansion code (`s12a215`,
-`m2a230`, `smL032`) where English ones use an uppercase set code (`MEW168`, `SVP176`) —
-Cardmarket serves a Japanese product page whatever language filter is asked for, so
-matching one for an English card silently prices the wrong printing.
+Chinese reprints are never taken, and Japanese-only products are pushed down for
+English cards. Japanese printings are recognised by their lowercase expansion code
+(`s12a215`, `m2a230`, `smL032`), the dash in their promo codes (`S-P229`, `SV-P142`
+against the English `SVP176`), a `PCG` number, or an expansion Cardmarket only sells in
+Japanese (`Tag-Bolt`, `…-JP`) — Cardmarket serves a Japanese product page whatever
+language filter is asked for, so matching one for an English card silently prices the
+wrong printing.
+
+When the label's query finds nothing, a plainer one — name, set, number — is tried
+before the card is given up on. And the offers page itself is asked which card it is:
+Cardmarket prints the card number on it, and a page for another number is reported as
+a failed match rather than priced.
 
 ## Cardmarket's bot check
 
@@ -110,12 +120,40 @@ different art variant, not a bargain.
 | **Could not check**     | A dropdown grouped by what went wrong           |
 | _(hidden)_              | Not a PSA 9/10 single in range — counted only   |
 
+## Speed
+
+A scan is one piece of work per listing, all started together. Photo reads are held to
+a few at a time; Google and Cardmarket each get a tab of their own in the scan's Chrome
+window and answer one request after another, paced per site. So while Cardmarket loads
+the offers for one card, Google is already finding the page for the next — where the
+scan used to do the two strictly in turn. Each listing writes only to its own outcome,
+and the report is assembled in listing order, so the order the work finished in never
+shows. A page that loaded without a bot check is not waited on for rows it does not
+have, and a tab with a bot check on it is brought to the front, where it can be ticked.
+
+The dev log ends every scan with where its time went: how many listing pages, photo
+reads, Google searches and Cardmarket cards it took, and how long each averaged.
+
 ## Remembering between scans
 
 `.cache/deal-finder-cache.json` keyed by listing id. A card identity is reused for
 30 days (the slab in the photo does not change), a Cardmarket floor for 12 hours and
 only at the same ask. Anything that failed is always retried, so a re-scan only does
 real work on new listings.
+
+The same file also remembers **cards**, whichever listing they came from: the product
+page Google found for a card (a month; a search that found nothing, a week) and its
+Cardmarket floor per grade (12 hours). A card two listings show — on one marketplace or
+both, today or tomorrow — costs one search and one Cardmarket load, and a second listing
+of a card that is still being looked up waits for that answer instead of asking again.
+
+## While a scan runs
+
+The dev server keeps what each running scan has found so far, and the report route
+folds it in. The dashboard asks for it every few seconds while a scan runs, so deals
+appear as they are priced, with how many listings have been checked; a page opened
+mid-scan — or on the phone — sees the scan going. Once done, each marketplace's line
+says when it ran, how many listings it read and checked, and how long it took.
 
 ## Routes
 

@@ -98,7 +98,10 @@ function clean(value: string | null | undefined): string | null {
   return text.length > 0 ? text : null
 }
 
-/** The card name PSA prints, minus the variety prefixes it glues on (`FA/`, `REV.FOIL`). */
+/**
+ * The card name PSA prints, minus the variety prefixes it glues on (`FA/`, `REV.FOIL`).
+ * Older slabs spell the full-art prefix with dots, `F.A./KOMMO-O GX`.
+ */
 export function psaCardName(row: string | null): string | null {
   if (!row) {
     return null
@@ -107,7 +110,7 @@ export function psaCardName(row: string | null): string | null {
   return clean(
     row
       .replace(GRADE_WORD, ' ')
-      .replace(/^(?:FA|SIR|SAR|AR|UR|HR|CHR|RR)\s*\//i, ' ')
+      .replace(/^(?:F\.?A\.?|SIR|SAR|AR|UR|HR|CHR|RR)\s*\//i, ' ')
       .replace(/\bREV\.?\s*FOIL\b/gi, ' ')
       .replace(/[-–]\s*REV\.?\s*FOIL\b/gi, ' ')
   )

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildFallbackQuery,
   buildSearchQuery,
   cardmarketProductName,
   cardmarketTitleSlugs,
   cleanCardmarketUrl,
   googleSearchUrl,
   pickCardmarketProduct,
+  productKey,
   rankCardmarketCandidates,
   scoreCardmarketUrl
 } from '~/services/deal-finder/google'
@@ -275,5 +277,85 @@ describe('scoreCardmarketUrl', () => {
     expect(
       scoreCardmarketUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Paldean-Fates/Charizard-ex-V1-PAF234', charizard)
     ).toBeGreaterThan(0)
+  })
+})
+
+describe('products that are never the card on the slab', () => {
+  const SINGLES = 'https://www.cardmarket.com/en/Pokemon/Products/Singles'
+
+  it('never prices a Japanese card against a Chinese reprint of the same number', () => {
+    const radiant = identity({ name: 'RADIANT CHARIZARD', cardNumber: '007', setName: 'SVF', setCode: 'SVF', language: 'japanese' })
+
+    expect(scoreCardmarketUrl(`${SINGLES}/Shadow-of-Glory/Radiant-Charizard-CS55C007`, radiant)).toBeLessThan(0)
+  })
+
+  it('knows the Japanese Scarlet & Violet promos by the dash English promos drop', () => {
+    const espeon = identity({ name: 'Espeon ex', cardNumber: '142', setName: null, setCode: null })
+
+    expect(scoreCardmarketUrl(`${SINGLES}/Scarlet-Violet-Promos/Espeon-ex-SV-P142`, espeon)).toBeLessThan(0)
+    expect(scoreCardmarketUrl(`${SINGLES}/SV-Black-Star-Promos/Espeon-ex-SVP142`, espeon)).toBeGreaterThanOrEqual(0)
+  })
+
+  it('knows a Japanese e-Card era product by its PCG number', () => {
+    const drowzee = identity({ name: 'Drowzee', cardNumber: '49', setName: null, setCode: null, firstEdition: true })
+
+    expect(scoreCardmarketUrl(`${SINGLES}/Flight-of-Legends/Drowzee-PCG1049`, drowzee)).toBeLessThan(0)
+  })
+
+  it('knows the Japanese Sun & Moon expansions, whose products carry no number', () => {
+    const pinsir = identity({ name: 'PINSIR-HOLO', cardNumber: '9', setName: 'EX', setCode: 'EX' })
+
+    expect(scoreCardmarketUrl(`${SINGLES}/Tag-Bolt/Pinsir`, pinsir)).toBeLessThan(0)
+    expect(
+      scoreCardmarketUrl(`${SINGLES}/30th-Celebration-JP/Pikachu-m6a027`, identity({ name: 'Pikachu', cardNumber: '27' }))
+    ).toBeLessThan(0)
+  })
+})
+
+describe('buildFallbackQuery', () => {
+  it('asks for just the card, its set and its number when the slab rows found nothing', () => {
+    const first = '2021 POKEMON SWSH BSP PIKACHU V CLBRTNS.ULTRA-PREM.COLL #145 english cardmarket'
+
+    expect(buildFallbackQuery(identity({ name: 'PIKACHU V', cardNumber: '145', setName: 'SWSH BSP' }), first)).toBe(
+      'PIKACHU V SWSH BSP 145 cardmarket'
+    )
+  })
+
+  it('says so for a Japanese card', () => {
+    expect(buildFallbackQuery(identity({ name: 'Espeon', cardNumber: '062', setName: 'SV8a', language: 'japanese' }), 'x')).toBe(
+      'Espeon SV8a 062 japanese cardmarket'
+    )
+  })
+
+  it('does not search again for what was already searched for', () => {
+    expect(buildFallbackQuery(identity(), 'Charmander 151 168 cardmarket')).toBeNull()
+  })
+})
+
+describe('productKey', () => {
+  it('names the same card the same way however its reading was spelt', () => {
+    const label = normalizePsaLabel({
+      year: '2017',
+      setLine: 'POKEMON SUN & MOON',
+      cardName: 'F.A./KOMMO -0 GX',
+      cardNumber: '159',
+      grade: 9
+    })
+
+    expect(productKey(identity({ name: 'F.A./KOMMO -0 GX', cardNumber: '159', setCode: 'SUN & MOON' }), label)).toBe(
+      productKey(identity({ name: 'F.A./KOMMO-0 GX', cardNumber: '0159', setCode: 'Sun & Moon' }), null)
+    )
+  })
+
+  it('keeps the same card in the two languages apart', () => {
+    expect(productKey(identity({ language: 'english' }), null)).not.toBe(productKey(identity({ language: 'japanese' }), null))
+  })
+
+  it('tells two numberless cards of one name apart by their variety', () => {
+    const plain = normalizePsaLabel({ year: '2021', setLine: 'POKEMON SWSH', cardName: 'BEA', varietyLine: 'FULL ART', grade: 10 })
+    const promo = normalizePsaLabel({ year: '2021', setLine: 'POKEMON SWSH', cardName: 'BEA', varietyLine: 'PROMO', grade: 10 })
+    const bea = identity({ name: 'BEA', cardNumber: null, setCode: 'SWSH', setName: 'SWSH' })
+
+    expect(productKey(bea, plain)).not.toBe(productKey(bea, promo))
   })
 })

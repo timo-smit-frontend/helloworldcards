@@ -41,7 +41,7 @@ import { rasterVariantSrc } from '~/services/responsiveImage'
 import SkipToMainContent from '~/components/elements/SkipToMainContent'
 import type { Ledger, LedgerPeriod } from '~/database/ledger-types'
 import type { CardmarketReport } from '~/services/cardmarket/scan'
-import type { DealFinderReport } from '~/services/deal-finder/types'
+import type { DealFinderReport, LiveDealScan } from '~/services/deal-finder/types'
 import type { VintedRelistReport } from '~/services/vinted-relist'
 import { CMS_BLOCK_PREVIEWS, sortMediaLibrary } from '~/cms/block-previews'
 import {
@@ -1149,21 +1149,55 @@ function PriceSuggestionsScreen() {
 
 const NOT_SCANNING: ScanningSources = { marktplaats: false, vinted: false }
 
+/** How often the deal finder asks after a running scan. */
+const DEAL_SCAN_POLL_MS = 2500
+
+/**
+ * The deal finder, kept up to date while a scan runs.
+ *
+ * A scan answers its own request only once it is done, but the dev server has what it
+ * found so far the whole time — so while one is going, the report is asked for every
+ * few seconds and deals show up as they are priced. A scan started on another device,
+ * or before this page was opened, is picked up the same way.
+ */
 function DealFinderScreen() {
   const [report, setReport] = useState<DealFinderReport | null>(null)
-  const [scanning, setScanning] = useState<ScanningSources>(NOT_SCANNING)
+  const [started, setStarted] = useState<ScanningSources>(NOT_SCANNING)
+  const [live, setLive] = useState<LiveDealScan[]>([])
   const [scanError, setScanError] = useState<string | null>(null)
+  // A poll that set out before a scan's own answer arrived must not put its older
+  // report back over the finished one.
+  const answered = useRef(0)
 
-  useEffect(() => {
-    if (!import.meta.env.DEV) {
-      return
-    }
-    void adminJson<{ report: DealFinderReport | null }>('/deal-finder/report').then((result) => {
-      if (result.ok) {
+  const refresh = useCallback(() => {
+    const asked = answered.current
+    void adminJson<{ report: DealFinderReport | null; scanning?: LiveDealScan[] }>('/deal-finder/report').then((result) => {
+      if (result.ok && asked === answered.current) {
         setReport(result.data?.report ?? null)
+        setLive(result.data?.scanning ?? [])
       }
     })
   }, [])
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      refresh()
+    }
+  }, [refresh])
+
+  const scanning: ScanningSources = {
+    marktplaats: started.marktplaats || live.some((scan) => scan.sources.includes('marktplaats')),
+    vinted: started.vinted || live.some((scan) => scan.sources.includes('vinted'))
+  }
+  const anyScanning = scanning.marktplaats || scanning.vinted
+
+  useEffect(() => {
+    if (!anyScanning) {
+      return
+    }
+    const timer = setInterval(refresh, DEAL_SCAN_POLL_MS)
+    return () => clearInterval(timer)
+  }, [anyScanning, refresh])
 
   if (!import.meta.env.DEV) {
     return <Navigate to={adminTo('/')} replace />
@@ -1174,12 +1208,14 @@ function DealFinderScreen() {
       <DealFinder
         report={report}
         scanning={scanning}
+        live={live}
         scanError={scanError}
         onScan={(source) => {
-          setScanning((current) => ({ ...current, [source]: true }))
+          setStarted((current) => ({ ...current, [source]: true }))
           setScanError(null)
           void adminJson<{ report: DealFinderReport; error?: string }>(`/deal-finder/scan/${source}`, { method: 'POST' })
             .then((result) => {
+              answered.current += 1
               const body = result.data
               if (!result.ok || !body?.report) {
                 setScanError(body?.error ?? `The ${sourceLabel(source)} scan could not start. Try again.`)
@@ -1188,11 +1224,15 @@ function DealFinderScreen() {
               // The scan answers with the whole report: this marketplace as it was just
               // read, and the other one as the last run of it left things.
               setReport(body.report)
+              setLive((current) => current.filter((scan) => !scan.sources.includes(source)))
             })
             // A scan runs for minutes, so the dev server restarting under it is a real
             // way for this request to end. Without this the button would spin for good.
             .catch(() => setScanError(`The ${sourceLabel(source)} scan stopped before it answered. Try again.`))
-            .finally(() => setScanning((current) => ({ ...current, [source]: false })))
+            .finally(() => {
+              setStarted((current) => ({ ...current, [source]: false }))
+              refresh()
+            })
         }}
       />
     </div>
