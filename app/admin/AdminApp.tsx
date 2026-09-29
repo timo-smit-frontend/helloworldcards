@@ -2183,9 +2183,34 @@ function ProductEditor() {
             <AdminField label="Acquired at">
               <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
             </AdminField>
-            <AdminField label="Sold at">
-              <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />
-            </AdminField>
+            <div className="grid grid-cols-2 gap-5">
+              <AdminField label="Sold at">
+                <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />
+              </AdminField>
+              <AdminField label="Sold time">
+                <input
+                  type="time"
+                  className={fieldClass()}
+                  value={product.soldTime ?? ''}
+                  onChange={(event) => set('soldTime', event.target.value || undefined)}
+                />
+              </AdminField>
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <label htmlFor="product-sold-via" className="text-sm font-medium">
+                Sold via
+              </label>
+              <ChoiceSelect
+                id="product-sold-via"
+                value={product.soldVia ?? ''}
+                options={[
+                  { value: '', label: 'None' },
+                  { value: 'vinted', label: 'Vinted' },
+                  { value: 'marktplaats', label: 'Marktplaats' }
+                ]}
+                onChange={(value) => set('soldVia', value || undefined)}
+              />
+            </div>
             <AdminField label="Marktplaats URL">
               <input
                 className={fieldClass()}

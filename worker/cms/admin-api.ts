@@ -1,7 +1,7 @@
 import type { CmsBlock, CmsEvent, CmsFaq, CmsNavItem, CmsPageStatus, CmsSettings } from '../../app/cms/types'
 import { CMS_BLOCK_TYPES } from '../../app/cms/types'
 import type { ProductRecord } from '../../app/database/products'
-import { CARD_GRADERS, CARD_LANGUAGES, uniqueProductSlug } from '../../app/database/products'
+import { CARD_GRADERS, CARD_LANGUAGES, SALE_CHANNELS, uniqueProductSlug } from '../../app/database/products'
 import { parseListedPrice } from '../../app/services/price'
 import { isAdminApiAllowed, isReservedPath, normalizePagePath } from '../hosts'
 import { handleDashboardRequest, requireAdminSession, type DashboardEnv, type DashboardRuntime } from '../dashboard-api'
@@ -66,6 +66,8 @@ function asBool(value: unknown): boolean {
 function parseProduct(body: Record<string, unknown>, id: number): ProductRecord {
   const language = asString(body.language)
   const grader = asString(body.grader)
+  const soldTime = asString(body.soldTime)
+  const soldVia = asString(body.soldVia)
   const cost = typeof body.cost === 'number' || typeof body.cost === 'string' ? parseListedPrice(body.cost) : undefined
   return {
     id,
@@ -85,6 +87,8 @@ function parseProduct(body: Record<string, unknown>, id: number): ProductRecord 
     ...(asBool(body.reserved) ? { reserved: true } : {}),
     ...(asBool(body.concept) ? { concept: true } : {}),
     ...(asString(body.soldAt) ? { soldAt: asString(body.soldAt) } : {}),
+    ...(soldTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(soldTime) ? { soldTime } : {}),
+    ...(soldVia && (SALE_CHANNELS as readonly string[]).includes(soldVia) ? { soldVia: soldVia as ProductRecord['soldVia'] } : {}),
     ...(asString(body.acquiredAt) ? { acquiredAt: asString(body.acquiredAt) } : {}),
     ...(asNumber(body.grade) != null ? { grade: asNumber(body.grade) } : {}),
     ...(asString(body.cardmarketUrl) ? { cardmarketUrl: asString(body.cardmarketUrl) } : {}),

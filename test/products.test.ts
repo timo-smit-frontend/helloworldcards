@@ -57,6 +57,8 @@ describe('product inventory', () => {
           !('cost' in product) &&
           !('sold' in product) &&
           !('soldAt' in product) &&
+          !('soldTime' in product) &&
+          !('soldVia' in product) &&
           !('acquiredAt' in product) &&
           !('concept' in product) &&
           !('cardmarketUrl' in product) &&
@@ -80,6 +82,24 @@ describe('product inventory', () => {
     for (const item of sold) {
       expect(shopIds.has(item.id)).toBe(false)
     }
+  })
+
+  it('records the marketplace of every sale', async () => {
+    const { inventory } = await seededShop()
+    const sales = inventory.filter((item) => item.sold || item.reserved)
+
+    // Every sale up to 29 September 2026 was on Vinted, except the Evolutions Mewtwo and the Crown Zenith Pikachu.
+    expect(sales.map((item) => [item.id, item.soldVia])).toEqual([
+      [1, 'marktplaats'],
+      [2, 'vinted'],
+      [3, 'vinted'],
+      [8, 'vinted'],
+      [9, 'vinted'],
+      [10, 'vinted'],
+      [12, 'vinted'],
+      [13, 'vinted'],
+      [14, 'marktplaats']
+    ])
   })
 
   it('has no concept inventory left without listing URLs', async () => {

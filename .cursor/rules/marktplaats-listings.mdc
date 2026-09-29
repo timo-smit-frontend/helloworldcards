@@ -13,7 +13,7 @@ Do not post a card that is `concept` or not in stock. Do not change prices on ot
 
 - **Go live / list {card}:** pre-flight → fill the form → **stop and wait** for the user to check it → only then publish. After they confirm, drop `concept` and set `marktplaatsUrl`. Shop shows **View on Marktplaats**. Then also post the card to Vinted per **`vinted-listings`** (same title/photos/price, English description) and set `vintedUrl`. A card never goes to Vinted while still `concept`.
 - **Change price / lower price / set price to €X** (for a card): follow **cms-inventory** (seed + D1 push, or CMS pull) then **always** update Marktplaats (Vraagprijs **and** Bieden vanaf) when the card has a `marktplaatsUrl`, and Vinted when it has a `vintedUrl`. See **Shop vs Marktplaats price** below (Vinted keeps the plain shop price, no cent trick).
-- **{card} is gereserveerd / reserved / sold but still on its way / sold on Vinted, waiting for the payout** (a sale whose money has not come in yet): **shop first** (`reserved: true`, `soldAt`, the sale `price`, both URLs kept), then set the Marktplaats ad to **Gereserveerd**, then the Vinted listing (nothing to do when the sale was on Vinted). Nothing is deleted yet. See **Reserved** below.
+- **{card} is gereserveerd / reserved / sold but still on its way / sold on Vinted, waiting for the payout** (a sale whose money has not come in yet): **shop first** (`reserved: true`, `soldAt`, `soldTime`, `soldVia`, the sale `price`, both URLs kept), then set the Marktplaats ad to **Gereserveerd**, then the Vinted listing (nothing to do when the sale was on Vinted). Nothing is deleted yet. See **Reserved** below.
 - **{card} is sold for €X** (or “sold for X euros”, “the money is in”): **shop first**, then delete the Marktplaats ad under the reason that matches where it sold, then delete the Vinted ad too if `vintedUrl` is set. See Sold below. A reserved card takes the same path; only the deletes are new.
 - **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the Marktplaats ad as **not** sold, then delete the Vinted ad too if `vintedUrl` is set.
 
@@ -107,6 +107,8 @@ In `app/cms/seed-products.ts` on that card (or the local admin: status **Reserve
 
 - `reserved: true`
 - `soldAt: 'YYYY-MM-DD'` — the day it sold; today unless the user says otherwise
+- `soldTime: 'HH:mm'` — Amsterdam time the buyer bought it (the sale notification shows it). Take it from the user; when they give none, ask once in the same reply rather than guessing
+- `soldVia: 'vinted' | 'marktplaats'` — where it sold; ask when the user does not say
 - `price: '€X'` — the actual sale amount, when the user gives one (the dashboard reads revenue from `price`)
 - keep `marktplaatsUrl` and `vintedUrl`; never `sold: true` yet
 
@@ -121,7 +123,7 @@ If Playwright is not logged in, still update the shop first, then ask the user t
 
 ### When the money is in
 
-The user says the card **is sold** (“sold for €X”, “the money is in”): follow **Sold for €X — shop first** below. `soldAt` and `price` are already set — check the amount — so what changes is `sold: true`, dropping `reserved` and both URLs, and the deletes: the Marktplaats ad under the reason that matches where it sold (see **Sold / delete an ad**), and the Vinted listing unless Vinted already closed it.
+The user says the card **is sold** (“sold for €X”, “the money is in”): follow **Sold for €X — shop first** below. `soldAt`, `soldTime`, `soldVia` and `price` are already set — check the amount — so what changes is `sold: true`, dropping `reserved` and both URLs, and the deletes: the Marktplaats ad under the reason that matches where it sold (see **Sold / delete an ad**), and the Vinted listing unless Vinted already closed it.
 
 ## Sold / delete an ad
 
@@ -140,6 +142,7 @@ In `app/cms/seed-products.ts` on that card (or the local admin: status **Sold**)
 
 - `sold: true`
 - `soldAt: 'YYYY-MM-DD'` (today, or the day it sold if the card was reserved first)
+- `soldTime: 'HH:mm'` and `soldVia` — as under **Reserved**; a card that was reserved first already has them
 - `price: '€X'` — **actual sale amount** (dashboard revenue reads `price`)
 - remove `marktplaatsUrl`, `vintedUrl`, `concept`, and `reserved`
 - leave `images` alone: once the sale has settled, the dev server keeps one small front photo (`…-front-sold.webp`, media folder **Sold**) and removes the back photo, the full-size originals and the branded ad in `public/ads` on its own (see **cms-inventory**). Its rewrite of the seed files is part of the diff to commit.

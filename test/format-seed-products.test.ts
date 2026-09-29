@@ -46,4 +46,25 @@ describe('formatSeedProductsSource', () => {
 
     expect(source).toContain(['    cost: 75,', '    reserved: true,', '    acquiredAt: "2026-08-25",'].join('\n'))
   })
+
+  it('writes the time and marketplace of a sale right after its date', () => {
+    const source = formatSeedProductsSource([
+      {
+        id: 9,
+        title: 'Poke Kid',
+        subtitle: '2020 Shiny Star V Japanese - #197',
+        description: 'A Full Art.',
+        images: [],
+        sold: true,
+        soldAt: '2026-09-23',
+        soldTime: '20:41',
+        soldVia: 'vinted',
+        acquiredAt: '2026-08-31'
+      }
+    ])
+
+    expect(source).toContain(
+      ['    soldAt: "2026-09-23",', '    soldTime: "20:41",', '    soldVia: "vinted",', '    acquiredAt: "2026-08-31",'].join('\n')
+    )
+  })
 })

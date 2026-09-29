@@ -127,7 +127,7 @@ describe('CMS SEO', () => {
   })
 
   it('offers a card that is not listed yet as out of stock', async () => {
-    const seo = await seoFor('/products/slowpoke-1999-fossil-55')
+    const seo = await seoFor('/products/mega-kangaskhan-ex-2025-mega-evolution-182')
     const product = graph(seo).find((node) => node['@type'] === 'Product') as { offers?: { availability?: string } } | undefined
 
     expect(product?.offers?.availability).toBe('https://schema.org/OutOfStock')

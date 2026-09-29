@@ -170,6 +170,37 @@ describe('CMS API', () => {
     expect('reserved' in (await shop())!).toBe(false)
   })
 
+  it('records where and at what time a card sold, keeps both off the public shop, and ignores values it does not know', async () => {
+    const db = createMemoryD1()
+    const token = await signIn(db as unknown as CmsDb)
+    const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
+    const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
+    const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
+    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const save = async (fields: Record<string, unknown>) => {
+      const response = await handleAdminRequest(
+        new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, { method: 'PUT', headers, body: JSON.stringify({ ...mewtwo, ...fields }) }),
+        env,
+        { db }
+      )
+      return ((await response!.json()) as { product: { soldVia?: string; soldTime?: string } }).product
+    }
+
+    expect(await save({ reserved: true, soldAt: '2026-09-28', soldTime: '20:15', soldVia: 'vinted' })).toMatchObject({
+      soldVia: 'vinted',
+      soldTime: '20:15'
+    })
+
+    const payload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
+    const shop = ((await payload!.json()) as { products: Array<Record<string, unknown>> }).products.find(
+      (product) => product.title === 'Mewtwo'
+    )
+    expect(shop).not.toHaveProperty('soldVia')
+    expect(shop).not.toHaveProperty('soldTime')
+
+    expect(await save({ soldTime: '25:00', soldVia: 'ebay' })).toMatchObject({ soldVia: 'vinted', soldTime: '20:15' })
+  })
+
   it('accepts a euro-formatted purchase cost', async () => {
     const db = createMemoryD1()
     const token = await signIn(db as unknown as CmsDb)

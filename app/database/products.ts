@@ -2,9 +2,11 @@ import { slugify } from '../services/utils'
 
 export const CARD_LANGUAGES = ['english', 'japanese'] as const
 export const CARD_GRADERS = ['psa', 'beckett'] as const
+export const SALE_CHANNELS = ['vinted', 'marktplaats'] as const
 
 export type CardLanguage = (typeof CARD_LANGUAGES)[number]
 export type CardGrader = (typeof CARD_GRADERS)[number]
+export type SaleChannel = (typeof SALE_CHANNELS)[number]
 
 export type Product = {
   id: number
@@ -38,6 +40,10 @@ export type InventoryProduct = Product & {
   concept?: boolean
   /** ISO date `YYYY-MM-DD`. Required to sort and filter sales by month. */
   soldAt?: string
+  /** Amsterdam time `HH:mm` the buyer bought, to see which hours sell. Recorded from 29 September 2026 on. */
+  soldTime?: string
+  /** The marketplace the card sold on. */
+  soldVia?: SaleChannel
   /** ISO date `YYYY-MM-DD` when the card was bought. */
   acquiredAt?: string
   /** Cardmarket singles URL. Dashboard comps only; stripped from the public shop bundle. */
@@ -78,6 +84,8 @@ export type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   reserved?: boolean
   concept?: boolean
   soldAt?: string
+  soldTime?: string
+  soldVia?: SaleChannel
   acquiredAt?: string
   grade?: number
   cardmarketUrl?: string
@@ -121,6 +129,8 @@ export function toInventoryProduct(product: ProductRecord, slug: string): Invent
     ...(product.cost != null ? { cost: product.cost } : {}),
     ...(product.sold ? { sold: true } : {}),
     ...(product.soldAt ? { soldAt: product.soldAt } : {}),
+    ...(product.soldTime ? { soldTime: product.soldTime } : {}),
+    ...(product.soldVia ? { soldVia: product.soldVia } : {}),
     ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {}),
     ...(product.concept ? { concept: true } : {}),
     ...(product.cardmarketUrl ? { cardmarketUrl: product.cardmarketUrl } : {}),
