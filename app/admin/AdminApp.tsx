@@ -1837,8 +1837,8 @@ function ProductsScreen({ tab = 'stock' }: { tab?: ProductsTab }) {
           { label: 'Title', className: adminTableColumnPad('w-4/5'), onSort: () => sortBy('title') },
           ...(sold
             ? [
-                { label: 'Sold at', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('soldAt') },
-                { label: 'Price', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('price') }
+                { label: 'Price', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('price') },
+                { label: 'Sold at', className: 'w-1/10 whitespace-nowrap', onSort: () => sortBy('soldAt') }
               ]
             : [
                 { label: 'Price', className: adminTableColumnPad('w-1/10 whitespace-nowrap'), onSort: () => sortBy('price') },
@@ -1857,9 +1857,16 @@ function ProductsScreen({ tab = 'stock' }: { tab?: ProductsTab }) {
             <AdminClickableRow key={product.id} to={adminTo(`/products/${product.id}`)}>
               <td className={adminTableCellPad()}>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-24 w-16 shrink-0 items-center justify-center overflow-hidden">
+                  <div className="relative flex aspect-3/5 w-16 shrink-0 items-center justify-center overflow-hidden">
                     {product.images[0] ? (
-                      <Image src={product.images[0]} alt="" width={64} height={96} maxwidth={400} className="size-full object-contain" />
+                      <Image
+                        src={product.images[0]}
+                        alt=""
+                        width={64}
+                        height={107}
+                        maxwidth={400}
+                        className="absolute inset-0 size-full object-contain"
+                      />
                     ) : (
                       <Pokemon variant="placeholder" id={product.pokemonId} className="size-full p-0" />
                     )}
@@ -1874,10 +1881,10 @@ function ProductsScreen({ tab = 'stock' }: { tab?: ProductsTab }) {
               </td>
               {sold ? (
                 <>
+                  <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
                   <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>
                     {product.soldAt ? formatSoldDate(product.soldAt) : '—'}
                   </td>
-                  <td className={adminTableCellPad('text-sm whitespace-nowrap tabular-nums text-site-mantle')}>{product.price ?? '—'}</td>
                 </>
               ) : (
                 <>
