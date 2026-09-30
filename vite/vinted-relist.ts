@@ -1327,7 +1327,9 @@ async function relistWithTab(
     const session = await ensureSession(page, chrome, pending?.deletedAt ? undefined : vintedItemUrl(itemId))
 
     if (!pending) {
-      const product = products.find((product) => product.vintedUrl?.includes(`/items/${itemId}`)) ?? null
+      // Our own record of the listing names its card when the product's link fell
+      // behind, so the relist can still put the product right afterwards.
+      const product = listingProductLookup(products, store.get())(itemId) ?? null
       const productId = product?.id ?? null
       step('reading the listing off its edit page')
       const snapshot = await readSnapshot(page, itemId)

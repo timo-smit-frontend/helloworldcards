@@ -565,6 +565,25 @@ describe('the relist, in tabs', () => {
     expect(h.opened()).toBe(0)
   }, 60_000)
 
+  it("finds a listing's card through the relist record when the product still names an older listing", async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1 })
+    h.store.update((state) => {
+      state.records['1001'] = {
+        itemId: '1001',
+        previousItemId: '900',
+        productId: 1,
+        listedAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString()
+      }
+    })
+    const products = h.products.map((product) => (product.id === 1 ? { ...product, vintedUrl: 'https://www.vinted.nl/items/900' } : product))
+
+    const relisted = await h.service.relist('1001', products)
+
+    expect(relisted.productId).toBe(1)
+    expect(h.state().records[relisted.itemId]).toMatchObject({ previousItemId: '1001', productId: 1 })
+  }, 60_000)
+
   it("keeps a done relist's tab for a relist that arrives within the linger, and closes it after", async ({ skip }) => {
     if (!browser) skip()
     const h = await setUp({ tabs: 2, tabLingerMs: 2_000 })
