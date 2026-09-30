@@ -17,6 +17,8 @@
     "media:sync": "npx vite-node scripts/cms-sync.mts --media",
     "media:sync:remote": "npx vite-node scripts/cms-sync.mts --media --remote",
     "media:backfill": "vite-node scripts/backfill-media-variants.ts",
+    "marktplaats:status": "npx vite-node scripts/marktplaats-status.mts",
+    "vinted:stats": "npx vite-node scripts/vinted-stats.mts",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

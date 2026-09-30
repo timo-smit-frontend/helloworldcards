@@ -679,7 +679,7 @@ function wardrobeStatus(item: VintedWardrobeItem): VintedListingStatus {
   return 'live'
 }
 
-function wardrobePrice(item: VintedWardrobeItem): number | null {
+export function wardrobePrice(item: VintedWardrobeItem): number | null {
   const raw = typeof item.price === 'string' ? item.price : item.price?.amount
   const value = Number(raw)
   return Number.isFinite(value) && value > 0 ? value : null

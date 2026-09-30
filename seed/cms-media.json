@@ -26,27 +26,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "142991337_back.jpg",
-      "filename": "142991337_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 993608,
-      "title": "Zekrom, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-01T00:00:00.000Z"
-    },
-    {
-      "key": "142991337_front.jpg",
-      "filename": "142991337_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1102681,
+      "key": "142991337_front-sold.webp",
+      "filename": "142991337_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 668,
+      "bytes": 45558,
       "title": "Zekrom, front",
       "alt": "PSA 9 Brilliant Stars Trainer Gallery Zekrom full art, TG05/TG30, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {

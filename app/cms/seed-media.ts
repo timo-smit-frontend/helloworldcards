@@ -9,8 +9,6 @@ export type SeedMediaFile = {
 export const seedMediaFiles: SeedMediaFile[] = [
   { key: '136389084_back.jpg', filename: '136389084_back.jpg', contentType: 'image/jpeg', bytes: 1079561 },
   { key: '136389084_front.jpg', filename: '136389084_front.jpg', contentType: 'image/jpeg', bytes: 1356377 },
-  { key: '142991337_back.jpg', filename: '142991337_back.jpg', contentType: 'image/jpeg', bytes: 993608 },
-  { key: '142991337_front.jpg', filename: '142991337_front.jpg', contentType: 'image/jpeg', bytes: 1102681 },
   { key: '142991345_back.jpg', filename: '142991345_back.jpg', contentType: 'image/jpeg', bytes: 1031122 },
   { key: '142991345_front.jpg', filename: '142991345_front.jpg', contentType: 'image/jpeg', bytes: 1050438 },
   { key: '148651617_back.jpg', filename: '148651617_back.jpg', contentType: 'image/jpeg', bytes: 959585 },

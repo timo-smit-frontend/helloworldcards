@@ -74,9 +74,27 @@ the pages its tab went through, and a picture of the tab. A retry of an upload f
 looks in the wardrobe for a copy an earlier go got up after all, and takes that rather
 than putting the card on Vinted twice.
 
+Every wardrobe read the relist makes anyway — after each delete, to find each copy, and on
+every look at the relist screen — is also kept per listing in `.cache/vinted-stats.json`
+(listings still up) and `.cache/vinted-stats.jsonl` (listings that came down): its views and
+likes over its life, when it went up, when buyers could first see it, and when it was sold or
+came down. No request is made for it. `npm run vinted:stats` prints what the listings of the
+last seven days gathered while they were up (`-- --days 14` for longer): per day and per
+time of day they went up, and per card. A listing counts once a read saw it within ten
+minutes of it coming down. Within a batch that is always so. The first listing of a batch
+counts when the relist screen was opened or refreshed just before.
+
 The dev server only listens on this computer (`127.0.0.1`). It used to listen on every
 network, which handed `.dev.vars`, the local database and the scan reports to anyone on
 the same Wi-Fi; those files are also refused outright.
+
+## Marktplaats relist
+
+Marktplaats ads are left to expire and then put up again as new ads, which land at the top
+of the results. `npm run marktplaats:status` reads the shop's public Marktplaats page (no
+login) and names every card for sale whose ad is gone, with the prices and photo files its
+new ad needs. Once the new ad is up, it gives the link to put on the card. The steps are in
+`.cursor/rules/marktplaats-listings.mdc` under **Relist an expired ad**.
 
 ## CMS sync
 

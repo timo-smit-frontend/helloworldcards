@@ -21,7 +21,6 @@ describe('product inventory', () => {
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
-      [8, 'Zekrom', '2022 Brilliant Stars - #TG05', 'zekrom-2022-brilliant-stars-tg05'],
       [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
       [12, 'Dragonite V', '2022 Pokemon GO - #049', 'dragonite-v-2022-pokemon-go-049'],
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
@@ -104,7 +103,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [1, 4, 5, 6, 7, 8]
+    const liveIds = [1, 4, 5, 6, 7]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -232,19 +231,20 @@ describe('product inventory', () => {
     expect(inventory.find((item) => item.id === 7)?.concept).toBeUndefined()
   })
 
-  it('keeps the reserved Brilliant Stars Trainer Gallery Zekrom in the shop', async () => {
+  it('keeps the sold Brilliant Stars Trainer Gallery Zekrom out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'zekrom-2022-brilliant-stars-tg05')
     const record = inventory.find((item) => item.id === 8)
 
-    expect(product?.title).toBe('Zekrom')
-    expect(product?.price).toBe('€48')
-    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244101')
-    // Sold on Vinted for €48 on 25 September 2026, payout pending: reserved, not sold.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    expect(record?.title).toBe('Zekrom')
+    // Sold on Vinted for €48 on 25 September 2026, money in: sold, not reserved, both ads gone.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.soldAt).toBe('2026-09-25')
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(record?.soldVia).toBe('vinted')
+    expect(record?.price).toBe('€48')
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 8)).toBeUndefined()
     expect(record?.cost).toBe(28)
     expect(record?.concept).toBeUndefined()
   })

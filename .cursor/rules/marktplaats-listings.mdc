@@ -16,6 +16,7 @@ Do not post a card that is `concept` or not in stock. Do not change prices on ot
 - **{card} is gereserveerd / reserved / sold but still on its way / sold on Vinted, waiting for the payout** (a sale whose money has not come in yet): **shop first** (`reserved: true`, `soldAt`, `soldTime`, `soldVia`, the sale `price`, both URLs kept), then set the Marktplaats ad to **Gereserveerd**, then the Vinted listing (nothing to do when the sale was on Vinted). Nothing is deleted yet. See **Reserved** below.
 - **{card} is sold for €X** (or “sold for X euros”, “the money is in”): **shop first**, then delete the Marktplaats ad under the reason that matches where it sold, then delete the Vinted ad too if `vintedUrl` is set. See Sold below. A reserved card takes the same path; only the deletes are new.
 - **Delete the listing / not in stock / just take it down** (not a sale): **shop first** (`concept: true`, no URL, stays in the shop as **Not yet available to buy**), then delete the Marktplaats ad as **not** sold, then delete the Vinted ad too if `vintedUrl` is set.
+- **{card} and {card} need to be relisted on Marktplaats / are removed from Marktplaats / have expired:** check with `npm run marktplaats:status` that each ad really is gone, drop the dead link from the card, place a new ad per card, and once Timo has published them put the new links on the cards. See **Relist an expired ad**.
 
 Until a card is live it stays `concept: true` with no listing URL. A card is `reserved: true` from the moment it sells until the money is in, and `sold: true` after that — never `sold` while a payout is still pending.
 
@@ -56,7 +57,7 @@ Use `marktplaatsEditUrlFromListingUrl(product.marktplaatsUrl)` from `app/service
 
 ## Always (form)
 
-- **Photos:** slab front first, slab back second. Upload `public` + `product.images` (`*_front.jpg` then `*_back.jpg`).
+- **Photos:** the branded ad photo `public/ads/<cert>.jpeg` first (the first photo is the thumbnail in search results), then the slab front, then the slab back (`product.images`).
 - **Category:** title → **Vind categorie** → Verzamelkaartspellen | Pokémon (Hobby en Vrije tijd).
 - **Kenmerken:** Zo goed als nieuw, Type Losse kaart, Foil on.
 - **Levering:** Ophalen of Verzenden. Pakketgrootte **Brievenbuspakje** (never Klein pakket).
@@ -96,6 +97,29 @@ Every live ad has bidding on (rolled out 14 September 2026). The numbers come fr
 4. Description last, in `.RichTextEditor-module-editorInput`. Type it — see Description. Never `fill()` or set `innerHTML`.
 5. **Stop.** Do **not** click **Plaats je advertentie** (or **Plaats advertentie** on the last step). Tell the user the form is ready and wait until they say it looks good (or ask for a fix).
 6. Only after they confirm: **Plaats je advertentie**. Copy `marktplaatsSellerViewUrl(itemId)` onto the product; drop `concept`. Update tests if they assert concept/URL.
+
+## Relist an expired ad
+
+Timo lets Marktplaats ads expire on purpose: the ad that replaces an expired one is new, so it goes in at the top of the results again. When he says a card's ad has expired, was removed, or needs relisting, put a new ad up for it and point the card at that ad. Never extend (**verlengen**), bump (**omhoogplaatsen**) or pay for anything instead.
+
+1. **Check that the ad is really gone.** Run `npm run marktplaats:status`. It reads the shop's public Marktplaats page, which is what buyers see (one plain request per thirty ads, no login, no browser). It names every card for sale whose ad is no longer up, and prints what its new ad needs. Relist only the cards it lists under **Gone from Marktplaats**.
+   - A card it shows as **Up** still has its ad. Tell Timo and stop; a second ad next to the live one would put the card up twice.
+   - `sold`, `reserved` and `concept` cards are never relisted.
+   - When the command fails (a bot check, a changed page), look the ad up in **Mijn advertenties** instead. Never take an ad to be gone on a guess.
+2. **Shop first.** Remove the dead `marktplaatsUrl` from the card straight away (seed file or local admin, synced per **cms-inventory**), so the shop's button falls back to **View on Vinted** instead of a dead ad. Leave `vintedUrl` and the rest of the card alone. The status check keeps the card under **Gone from Marktplaats** (as `no Marktplaats link`) until its new ad is up.
+3. **Place the new ad** as in **Place an ad**. Take everything from the card and the rules, never from the dead ad:
+   - title per **Title**, and the Dutch description from the frozen reference
+   - photos: the three files the status check prints, in its order (branded ad photo, slab front, slab back). A file marked `download it first` is saved from that URL into the scratchpad, then uploaded.
+   - prijs: the Vraagprijs and Bieden vanaf it prints, which come from the current shop price
+   - everything else per **Always (form)**
+
+   For several cards, fill one tab per card before handing over.
+4. **Stop** before **Plaats je advertentie**. A relist is a new ad, and Timo publishes it himself.
+5. **Point the card at its new ad** in the same task, as soon as he has published. Run `npm run marktplaats:status` again. It lists the card under **Up again** with the new seller-view link, matched on the card's name and number. If it cannot match an ad to the card, it lists the ad under **Live ads no card links to**; take the item ID from the tab he published in instead.
+   - Set that link as the card's `marktplaatsUrl` and let it sync. Confirm the production row with `npx wrangler d1 execute helloworldcards --remote --json --command "select marktplaats_url from products where id=<id>"`.
+   - Update `test/products.test.ts` where it asserts the card's URL.
+   - A last run of the status check should show the card as **Up**.
+6. **Leave Vinted alone.** The card's Vinted listing does not change. Moving it up is the admin's **Vinted relist** tab.
 
 ## Reserved — sold, still on its way
 

@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { InventoryProduct } from '../app/database/products'
 import { emptyRelistState, type VintedRelistState } from '../app/services/vinted-relist'
 import { createVintedRelistService, relistStateStore } from '../vite/vinted-relist'
+import { readVintedStats } from '../vite/vinted-stats'
 
 /**
  * The whole relist — session, snapshot, photos, delete, upload, publish — against a
@@ -31,7 +32,16 @@ const TREE = [
 ]
 
 /** A listing in the wardrobe; one uploaded a moment ago is only in the wardrobe's answers from `shownFrom` on. */
-type Listing = { id: number; title: string; description: string; price: number; uploadedAt: number; shownFrom?: number }
+type Listing = {
+  id: number
+  title: string
+  description: string
+  price: number
+  uploadedAt: number
+  shownFrom?: number
+  views?: number
+  likes?: number
+}
 type Upload = {
   title: string
   description: string
@@ -67,6 +77,8 @@ type Vinted = {
    * the wardrobe.
    */
   slow: { leaveDeletedListingMs: number; sellerPageMs: number; wardrobeMs: number; newListingShownAfterMs: number }
+  /** How many of the upload forms served from now on crash once their photos are up. */
+  crashingForms: number
 }
 
 function vinted(listings: Array<Pick<Listing, 'id' | 'title'>>): Vinted {
@@ -84,7 +96,8 @@ function vinted(listings: Array<Pick<Listing, 'id' | 'title'>>): Vinted {
     banner: { script: true, covered: false },
     anonIds: 0,
     stuckRefreshes: 0,
-    slow: { leaveDeletedListingMs: 0, sellerPageMs: 0, wardrobeMs: 0, newListingShownAfterMs: 0 }
+    slow: { leaveDeletedListingMs: 0, sellerPageMs: 0, wardrobeMs: 0, newListingShownAfterMs: 0 },
+    crashingForms: 0
   }
 }
 
@@ -182,7 +195,12 @@ function cookieBanner({ script, covered }: Vinted['banner']): string {
 /** The email login page, where a logged-out window is left for the shop to log in. */
 const LOGIN_PAGE = '<!DOCTYPE html><html><head><title>Vinted</title></head><body><h2>Inloggen</h2></body></html>'
 
-/** The upload form, with the fields and pickers the relist fills, keyed as Vinted keys them. */
+/**
+ * The upload form, with the fields and pickers the relist fills, keyed as Vinted keys
+ * them. One that crashes (`window.__crashes`) does so as Vinted's did: a moment after
+ * the photos are up, its "Sorry, er is iets fout gegaan" dialog comes over the whole
+ * form and takes every click from then on.
+ */
 const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</title></head><body>
 <input type="file" multiple data-testid="add-photos-input">
 <div id="photos"></div>
@@ -203,6 +221,9 @@ const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</
 <div data-testid="1-package-size--cell">Klein</div>
 <input type="radio" name="package" data-testid="package_type_selector_1--input">
 <button type="button" data-testid="upload-form-save-button">Uploaden</button>
+<div data-testid="item-upload-critical-error-dialog--overlay" hidden style="position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.6)">
+  <div role="dialog">Sorry, er is iets fout gegaan <button type="button">Pagina vernieuwen</button></div>
+</div>
 <script>
   const byTestId = (id) => document.querySelector('[data-testid="' + id + '"]')
   const form = { catalogId: null, brandId: null, conditionId: null, packageSizeId: null, photos: 0 }
@@ -210,6 +231,9 @@ const UPLOAD_FORM = String.raw`<!DOCTYPE html><html><head><title>Item uploaden</
   byTestId('add-photos-input').addEventListener('change', (event) => {
     form.photos = event.target.files.length
     byTestId('add-photos-input').insertAdjacentHTML('afterend', Array.from(event.target.files, (_, i) => '<div data-testid="image-wrapper-' + i + '">photo</div>').join(''))
+    if (window.__crashes) {
+      setTimeout(() => { byTestId('item-upload-critical-error-dialog--overlay').hidden = false }, 50)
+    }
   })
 
   const tree = window.__tree
@@ -308,6 +332,8 @@ async function serve(site: Vinted, route: Route, context: BrowserContext): Promi
         id: item.id,
         title: item.title,
         price: { amount: item.price.toFixed(2) },
+        view_count: item.views ?? 0,
+        favourite_count: item.likes ?? 0,
         photos: [{ url: `https://images1.vinted.net/${item.id}.webp`, high_resolution: { timestamp: item.uploadedAt } }]
       }))
     await route.fulfill({ json: { items, pagination: { total_pages: 1 } } })
@@ -331,7 +357,9 @@ async function serve(site: Vinted, route: Route, context: BrowserContext): Promi
   } else if (url.pathname === '/member/login/email') {
     await route.fulfill(page(LOGIN_PAGE))
   } else if (url.pathname === '/items/new') {
-    await route.fulfill(page(UPLOAD_FORM.replace('window.__tree', JSON.stringify(TREE))))
+    const crashes = site.crashingForms > 0
+    site.crashingForms -= crashes ? 1 : 0
+    await route.fulfill(page(UPLOAD_FORM.replace('window.__tree', JSON.stringify(TREE)).replace('window.__crashes', String(crashes))))
   } else if (listing && url.pathname.endsWith('/edit')) {
     await route.fulfill(html(editPage(listing)))
   } else if (listing) {
@@ -398,7 +426,7 @@ async function setUp(
     startGapMs?: number
     tabLingerMs?: number
     loggedIn?: boolean
-    site?: Partial<Pick<Vinted, 'banner' | 'slow'>>
+    site?: Partial<Pick<Vinted, 'banner' | 'slow' | 'crashingForms'>>
     cookies?: Array<{ name: string; value: string }>
   } = { tabs: 2 }
 ) {
@@ -546,6 +574,40 @@ describe('the relist, in tabs', () => {
     // Answered from the read that found the copy: no wardrobe call, no tab.
     expect(count(h.site, `GET /api/v2/wardrobe/${USER.id}/items`)).toBe(wardrobeReads)
     expect(h.opened()).toBe(opened)
+  }, 60_000)
+
+  it('keeps what each listing gathered from the wardrobe reads the relists make anyway', async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1 })
+    for (const [index, listing] of h.site.wardrobe.entries()) {
+      listing.views = 10 + index
+      listing.likes = index
+    }
+
+    // A batch starts from the screen, which read the wardrobe to show it.
+    await h.service.report(h.products)
+    for (const card of CARDS) {
+      await h.service.relist(String(card.listingId), h.products)
+    }
+
+    // The screen's read, and two a relist, as ever: one to see the delete through, one to find the copy.
+    expect(count(h.site, `GET /api/v2/wardrobe/${USER.id}/items`)).toBe(1 + 2 * CARDS.length)
+    const stats = readVintedStats(h.root)
+    // The old listings came down with what they had gathered by the read before their delete.
+    expect(
+      stats
+        .filter((listing) => Number(listing.itemId) < 5000)
+        .map((listing) => [listing.itemId, listing.views, listing.likes, listing.goneAt != null])
+        .sort()
+    ).toEqual([
+      ['1001', 10, 0, true],
+      ['1002', 11, 1, true],
+      ['1003', 12, 2, true]
+    ])
+    // Their copies are up, from zero.
+    const copies = stats.filter((listing) => Number(listing.itemId) >= 5000)
+    expect(copies.map((listing) => listing.title).sort()).toEqual(CARDS.map((card) => card.title).sort())
+    expect(copies.every((listing) => listing.goneAt == null && listing.views === 0 && listing.uploadedAt != null)).toBe(true)
   }, 60_000)
 
   it('refuses a listing it relisted under an hour ago, without asking Vinted anything', async ({ skip }) => {
@@ -699,6 +761,28 @@ describe('the relist, in tabs', () => {
     expect(count(h.site, 'POST /api/v2/items/1001/delete')).toBe(1)
     expect(h.site.uploads).toHaveLength(1)
     expect(h.state().pending).toEqual({})
+  }, 60_000)
+
+  it('loads the upload form again when Vinted says it went wrong while it was being filled, and relists', async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1, site: { crashingForms: 1 } })
+
+    await expect(h.service.relist('1001', h.products)).resolves.toMatchObject({ productId: 1 })
+    expect(count(h.site, 'GET /items/new')).toBe(2)
+    expect(h.site.uploads).toHaveLength(1)
+    expect(h.site.uploads[0]).toMatchObject({ title: CARDS[0].title, catalogId: 4875, brandId: 191646, conditionId: 3, packageSizeId: 1 })
+    expect(h.state().pending).toEqual({})
+  }, 60_000)
+
+  it('stops, having saved nothing, when the upload form crashes every time it is loaded', async ({ skip }) => {
+    if (!browser) skip()
+    const h = await setUp({ tabs: 1, site: { crashingForms: 99 } })
+
+    await expect(h.service.relist('1001', h.products)).rejects.toThrow(/upload form crashed .* 2 times in a row/)
+    expect(count(h.site, 'GET /items/new')).toBe(2)
+    expect(h.site.uploads).toEqual([])
+    // The snapshot is kept for the retry: the listing is already down.
+    expect(h.state().pending['1001'].deletedAt).not.toBe('')
   }, 60_000)
 
   it("does not put a card up twice when a retry finds the copy an earlier go got up, and leaves what the stopped go's tab showed", async ({

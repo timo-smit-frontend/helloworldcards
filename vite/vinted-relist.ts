@@ -41,6 +41,7 @@ import { isVintedHost, keepScanBrowserOpen, waitForBotChallengeClear } from './c
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import type { MediaSourceReader } from './media-sync'
 import { createTabPool, type TabPool } from './tab-pool'
+import { fileVintedStatsRecorder, type VintedStatsRecorder } from './vinted-stats'
 
 const STATE_FILE = path.join('.cache', 'vinted-relist.json')
 const PHOTO_DIR = path.join('.cache', 'vinted-relist')
@@ -193,6 +194,8 @@ type VintedChrome = {
   healedAt: number
   /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
   lastWardrobe: { at: number; wardrobe: VintedWardrobeItem[] } | null
+  /** Where every wardrobe read is kept, for the views and likes each listing gathered while it was up. */
+  stats: VintedStatsRecorder
   /** How far apart relists start, and when the next may. */
   startGapMs: number
   nextStartAt: number
@@ -201,7 +204,7 @@ type VintedChrome = {
 /** One window per project, as the scan browser is; a test with a root of its own gets a window of its own. */
 const chromeByRoot = new Map<string, VintedChrome>()
 
-function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: number): VintedChrome {
+function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: number, stats: VintedStatsRecorder): VintedChrome {
   let chrome = chromeByRoot.get(root)
   if (!chrome) {
     chrome = {
@@ -212,6 +215,7 @@ function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: 
       sessionProblem: null,
       healedAt: 0,
       lastWardrobe: null,
+      stats,
       startGapMs,
       nextStartAt: 0
     }
@@ -504,7 +508,7 @@ function answerCookieBannerInPage(): void {
 /**
  * The wardrobe as Vinted has it now. Every read is kept as the last one, since a
  * read made to check on a delete or find a new listing is as good an answer to the
- * screen's next question as one made for it.
+ * screen's next question as one made for it — and goes into the view and like stats.
  */
 async function readWardrobe(page: Page, chrome: VintedChrome, { userId }: VintedSession): Promise<VintedWardrobeItem[]> {
   const pages = await whileVintedMovesOn(page, () =>
@@ -533,6 +537,7 @@ async function readWardrobe(page: Page, chrome: VintedChrome, { userId }: Vinted
   )
   const wardrobe = pages.flatMap(parseWardrobeItems)
   chrome.lastWardrobe = { at: Date.now(), wardrobe }
+  chrome.stats.record(wardrobe, new Date())
   return wardrobe
 }
 
@@ -1042,12 +1047,32 @@ async function publishedListing(page: Page, chrome: VintedChrome, session: Vinte
   )
 }
 
+/** Vinted's "Sorry, er is iets fout gegaan" over the upload form: the form is dead until the page is loaded again. */
+const FORM_CRASH_DIALOG = '[data-testid="item-upload-critical-error-dialog--overlay"]'
+/** How many times the upload form is loaded and filled before its crashing stops the relist. */
+const UPLOAD_FORM_ATTEMPTS = 2
+
+async function formCrashed(page: Page): Promise<boolean> {
+  return await page
+    .locator(FORM_CRASH_DIALOG)
+    .isVisible()
+    .catch(() => false)
+}
+
 /**
  * Fill the upload form from the snapshot and publish it.
  *
  * The form is Vinted's own; every field is found by the `data-testid` and element
  * ids it renders, and the pickers are keyed on the same ids the edit page reported,
  * so what is selected is the very thing the old listing had.
+ *
+ * Now and then the form crashes while it is being filled — one of Vinted's own
+ * requests behind it (the category suggestion for the photos, once) goes wrong — and
+ * Vinted puts up a dialog over it that asks for the page to be loaded again. Every
+ * click after that lands on the dialog. Nothing has been saved at that point, so the
+ * form is loaded again, as the dialog asks, and filled from the start. The save
+ * button is only clicked on a form that has not crashed, and outside that retry: a
+ * click that went through is never followed by a second form.
  */
 async function uploadListing(
   page: Page,
@@ -1056,6 +1081,30 @@ async function uploadListing(
   snapshot: VintedSnapshot,
   photoFiles: string[]
 ): Promise<string> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await fillUploadForm(page, chrome, snapshot, photoFiles)
+      if (!(await formCrashed(page))) {
+        break
+      }
+    } catch (error) {
+      if (!(await formCrashed(page))) {
+        throw error
+      }
+    }
+    if (attempt >= UPLOAD_FORM_ATTEMPTS) {
+      throw new VintedRelistError(
+        `Vinted's upload form crashed ("Sorry, er is iets fout gegaan") ${attempt} times in a row, before anything was saved. Retry in a while.`
+      )
+    }
+    console.info(`[vinted-relist] ${snapshot.itemId}: Vinted's upload form crashed, loading it again`)
+  }
+
+  await page.locator('[data-testid="upload-form-save-button"]').click()
+  return await publishedListing(page, chrome, session, snapshot)
+}
+
+async function fillUploadForm(page: Page, chrome: VintedChrome, snapshot: VintedSnapshot, photoFiles: string[]): Promise<void> {
   await gotoVinted(chrome, page, `${VINTED}/items/new`)
   await waitForBotChallengeClear(page, 'Vinted upload form')
   await page.locator('[data-testid="add-photos-input"]').waitFor({ state: 'attached', timeout: 20_000 })
@@ -1094,9 +1143,6 @@ async function uploadListing(
   if ((await bump.count()) > 0 && (await bump.isChecked())) {
     await page.locator('[data-testid="bump-checkbox"]').click()
   }
-
-  await page.locator('[data-testid="upload-form-save-button"]').click()
-  return await publishedListing(page, chrome, session, snapshot)
 }
 
 function cooldownMessage(remainingMs: number): string {
@@ -1202,6 +1248,7 @@ export function createVintedRelistService({
   openPage,
   store = fileRelistStateStore(root),
   readMedia = firstMediaSource(seedMediaSource(root), cachedMediaSource(root)),
+  stats = fileVintedStatsRecorder(root),
   tabs = RELIST_TABS,
   startGapMs = RELIST_START_GAP_MS,
   tabLingerMs = RELIST_TAB_LINGER_MS
@@ -1212,6 +1259,8 @@ export function createVintedRelistService({
   store?: RelistStateStore
   /** Where a product's slab photos are read from, by media key; the seed files and the sync's cache of uploads by default. */
   readMedia?: MediaSourceReader
+  /** Where the wardrobe reads go for the view and like stats; `.cache/vinted-stats.json(l)` by default. */
+  stats?: VintedStatsRecorder
   /**
    * How many relists run at once, how far apart they start, and how long a done
    * relist's tab waits for the next; the constants above unless a test says otherwise.
@@ -1220,7 +1269,7 @@ export function createVintedRelistService({
   startGapMs?: number
   tabLingerMs?: number
 }): VintedRelistService {
-  const chrome = chromeFor(root, tabs, startGapMs, tabLingerMs)
+  const chrome = chromeFor(root, tabs, startGapMs, tabLingerMs, stats)
 
   const openTab = async () => {
     let page: Page
