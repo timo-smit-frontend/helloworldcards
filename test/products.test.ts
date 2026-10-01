@@ -283,6 +283,21 @@ describe('product inventory', () => {
     expect(record?.concept).toBeUndefined()
   })
 
+  it('lists the Mega Kangaskhan ex on Marktplaats and Vinted', async () => {
+    const { inventory, products } = await seededShop()
+    const product = products.find((item) => item.slug === 'mega-kangaskhan-ex-2025-mega-evolution-182')
+    const record = inventory.find((item) => item.id === 25)
+
+    expect(record?.concept).toBeUndefined()
+    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2448883912')
+    expect(record?.vintedUrl).toMatch(/^https:\/\/www\.vinted\.nl\/items\/\d+$/)
+    expect(productBuyLink(product!)).toEqual({
+      url: 'https://www.marktplaats.nl/seller/view/m2448883912',
+      title: 'View on Marktplaats',
+      target: '_blank'
+    })
+  })
+
   it('uses a Marktplaats buy link when the listing URL is set', async () => {
     const { products } = await seededShop()
     const product = products.find((item) => item.slug === 'mewtwo-gx-2017-shining-legends-39')
