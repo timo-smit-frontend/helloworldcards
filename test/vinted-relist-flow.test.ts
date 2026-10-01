@@ -192,9 +192,6 @@ function cookieBanner({ script, covered }: Vinted['banner']): string {
 </script>`
 }
 
-/** The email login page, where a logged-out window is left for the shop to log in. */
-const LOGIN_PAGE = '<!DOCTYPE html><html><head><title>Vinted</title></head><body><h2>Inloggen</h2></body></html>'
-
 /**
  * The upload form, with the fields and pickers the relist fills, keyed as Vinted keys
  * them. One that crashes (`window.__crashes`) does so as Vinted's did: a moment after
@@ -354,8 +351,6 @@ async function serve(site: Vinted, route: Route, context: BrowserContext): Promi
   } else if (deleteId && request.method() === 'POST') {
     site.wardrobe = site.wardrobe.filter((candidate) => String(candidate.id) !== deleteId)
     await route.fulfill({ json: {} })
-  } else if (url.pathname === '/member/login/email') {
-    await route.fulfill(page(LOGIN_PAGE))
   } else if (url.pathname === '/items/new') {
     const crashes = site.crashingForms > 0
     site.crashingForms -= crashes ? 1 : 0
@@ -680,13 +675,14 @@ describe('the relist, in tabs', () => {
       expect(outcome.status).toBe('rejected')
       expect((outcome as PromiseRejectedResult).reason).toMatchObject({ status: 401 })
     }
-    // One question, one tab put on the login page; the third relist never touched Vinted.
+    // One question; the third relist never touched Vinted.
     expect(count(h.site, 'GET /api/v2/users/current')).toBe(1)
-    expect(count(h.site, 'GET /member/login/email')).toBe(1)
     expect(count(h.site, 'GET /items/1003')).toBe(0)
     expect(h.state().pending).toEqual({})
-    // The tab on the login page is left open, for the login.
-    expect(h.tabs().some((url) => url.startsWith('https://www.vinted.nl/member/login/email'))).toBe(true)
+    // The login is the person's at the window: the relist does not go to the login
+    // page for them, and the tab that asked is left open where it landed.
+    expect(h.site.requests.filter((request) => /^GET \/member\/(?:login|signup|register)/.test(request.line))).toEqual([])
+    expect(h.tabs().some((url) => /^https:\/\/www\.vinted\.nl\/items\/100[12]$/.test(url))).toBe(true)
   }, 60_000)
 
   it.for([
@@ -704,25 +700,36 @@ describe('the relist, in tabs', () => {
     }
   )
 
-  it("clears the window's Vinted cookies once, not once for every tab stuck on the session refresh", async ({ skip }) => {
+  it('stops the batch on a session stuck in the session refresh, and leaves the cookies to the person at the window', async ({ skip }) => {
     if (!browser) skip()
     const h = await setUp({
-      tabs: 2,
-      startGapMs: 1_000,
+      tabs: 1,
       cookies: [
         { name: 'refresh_token_web', value: 'stale' },
         { name: 'anon_id', value: '0' }
       ]
     })
 
-    const relisted = await Promise.all(CARDS.slice(0, 2).map((card) => h.service.relist(String(card.listingId), h.products)))
-
-    expect(relisted.map((result) => result.productId)).toEqual([1, 2])
-    // Both tabs found the refresh stuck; the second landed while the first was still
-    // waiting it out, and only went again once the first had cleared the cookies —
-    // one new anon_id since, where clearing them twice hands out two.
-    expect(h.site.stuckRefreshes).toBe(2)
-    expect(h.site.anonIds).toBe(1)
+    const outcomes = await Promise.allSettled(CARDS.map((card) => h.service.relist(String(card.listingId), h.products)))
+    for (const outcome of outcomes) {
+      expect(outcome.status).toBe('rejected')
+      expect((outcome as PromiseRejectedResult).reason).toMatchObject({ status: 401, message: expect.stringContaining('session-refresh') })
+    }
+    // One page went into the stuck refresh; the relists behind it never touched Vinted
+    // and opened no tab.
+    expect(h.site.stuckRefreshes).toBe(1)
+    expect(count(h.site, 'GET /items/1002')).toBe(0)
+    expect(count(h.site, 'GET /items/1003')).toBe(0)
+    expect(h.opened()).toBe(1)
+    expect(h.state().pending).toEqual({})
+    // The window's cookies are as they were — no fresh visit from clean, which would
+    // have handed out an anon_id — and the tab is left on the spinning page.
+    expect((await h.cookies()).map((cookie) => [cookie.name, cookie.value]).sort()).toEqual([
+      ['anon_id', '0'],
+      ['refresh_token_web', 'stale']
+    ])
+    expect(h.site.anonIds).toBe(0)
+    expect(h.tabs()).toEqual(['https://www.vinted.nl/session-refresh?ref_url=%2Fitems%2F1001'])
   }, 60_000)
 
   it('stops a relist at its next step once Vinted has rate-limited another tab, with its state written down', async ({ skip }) => {

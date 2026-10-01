@@ -466,20 +466,20 @@ describe('the sync as a whole', () => {
       const original = await sharp({ create: { width: 800, height: 1200, channels: 3, background: '#36a' } })
         .png()
         .toBuffer()
-      const h = await harness({ readOriginal: async (key) => (key === '148651617_front.jpg' ? original : null) })
+      const h = await harness({ readOriginal: async (key) => (key === '76645522_front.jpg' ? original : null) })
       await withLibrary(h)
       await h.settled()
 
-      const mewtwo = (await getProductById(h.production, 1))!
-      await updateProduct(h.production, 1, { ...mewtwo, sold: true, soldAt: '2026-09-21', marktplaatsUrl: undefined, vintedUrl: undefined })
+      const ekans = (await getProductById(h.production, 4))!
+      await updateProduct(h.production, 4, { ...ekans, sold: true, soldAt: '2026-09-21', marktplaatsUrl: undefined, vintedUrl: undefined })
       await h.reconcile()
 
       expect(h.pushes).toEqual([['--remote', '--products', '--media']])
       for (const db of [h.db, h.production]) {
-        const product = (await getProductById(db, 1))!
-        expect(product.images).toEqual(['/media/148651617_front-sold.webp'])
-        expect(product).toMatchObject({ sold: true, soldAt: '2026-09-21', cost: 55, price: '€65' })
-        expect((await listMedia(db)).some((item) => item.key === '148651617_front.jpg' || item.key === '148651617_back.jpg')).toBe(false)
+        const product = (await getProductById(db, 4))!
+        expect(product.images).toEqual(['/media/76645522_front-sold.webp'])
+        expect(product).toMatchObject({ sold: true, soldAt: '2026-09-21', cost: 25, price: '€60' })
+        expect((await listMedia(db)).some((item) => item.key === '76645522_front.jpg' || item.key === '76645522_back.jpg')).toBe(false)
       }
       expect(await h.diskFiles()).toEqual(await h.localFiles())
       expect(await h.localFiles()).toEqual(await h.remoteFiles())

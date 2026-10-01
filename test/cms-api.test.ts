@@ -86,7 +86,7 @@ describe('CMS API', () => {
       new Request(`${ADMIN}/api/admin/pages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ path: '/products/mewtwo-2016-evolutions-51', status: 'published', title: 'Nope', blocks: [] })
+        body: JSON.stringify({ path: '/products/ekans-2000-team-rocket-56', status: 'published', title: 'Nope', blocks: [] })
       }),
       env,
       { db }
@@ -103,13 +103,13 @@ describe('CMS API', () => {
       { db }
     )
     const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
-    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
 
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ ...mewtwo, sold: true, soldAt: '2026-09-01', price: '€90' })
+        body: JSON.stringify({ ...ekans, sold: true, soldAt: '2026-09-01', price: '€90' })
       }),
       env,
       { db }
@@ -119,7 +119,7 @@ describe('CMS API', () => {
       db
     })
     const body = (await payload!.json()) as { products: Array<{ title: string }> }
-    expect(body.products.some((product) => product.title === 'Mewtwo')).toBe(false)
+    expect(body.products.some((product) => product.title === 'Ekans')).toBe(false)
   })
 
   it('keeps a reserved card on the public shop, flagged, until the flag is sent back as false', async () => {
@@ -128,41 +128,41 @@ describe('CMS API', () => {
     const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
     const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
     const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
-    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
     const shop = async () => {
       const payload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
       const body = (await payload!.json()) as { products: Array<{ title: string; reserved?: boolean }> }
-      return body.products.find((product) => product.title === 'Mewtwo')
+      return body.products.find((product) => product.title === 'Ekans')
     }
 
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...mewtwo, reserved: true, soldAt: '2026-09-14', price: '€90' })
+        body: JSON.stringify({ ...ekans, reserved: true, soldAt: '2026-09-14', price: '€90' })
       }),
       env,
       { db }
     )
-    expect(await shop()).toMatchObject({ title: 'Mewtwo', reserved: true })
+    expect(await shop()).toMatchObject({ title: 'Ekans', reserved: true })
 
     // The admin form sends every flag, off ones as false; a body without the flag keeps it.
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...mewtwo, price: '€90' })
+        body: JSON.stringify({ ...ekans, price: '€90' })
       }),
       env,
       { db }
     )
-    expect(await shop()).toMatchObject({ title: 'Mewtwo', reserved: true })
+    expect(await shop()).toMatchObject({ title: 'Ekans', reserved: true })
 
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...mewtwo, reserved: false, price: '€90' })
+        body: JSON.stringify({ ...ekans, reserved: false, price: '€90' })
       }),
       env,
       { db }
@@ -176,10 +176,10 @@ describe('CMS API', () => {
     const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
     const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
     const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
-    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
     const save = async (fields: Record<string, unknown>) => {
       const response = await handleAdminRequest(
-        new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, { method: 'PUT', headers, body: JSON.stringify({ ...mewtwo, ...fields }) }),
+        new Request(`${ADMIN}/api/admin/products/${ekans.id}`, { method: 'PUT', headers, body: JSON.stringify({ ...ekans, ...fields }) }),
         env,
         { db }
       )
@@ -193,7 +193,7 @@ describe('CMS API', () => {
 
     const payload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
     const shop = ((await payload!.json()) as { products: Array<Record<string, unknown>> }).products.find(
-      (product) => product.title === 'Mewtwo'
+      (product) => product.title === 'Ekans'
     )
     expect(shop).not.toHaveProperty('soldVia')
     expect(shop).not.toHaveProperty('soldTime')
@@ -210,13 +210,13 @@ describe('CMS API', () => {
       { db }
     )
     const list = (await products!.json()) as { products: Array<{ id: number; title: string; cost?: number }> }
-    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
 
     const updated = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ ...mewtwo, cost: '€40' })
+        body: JSON.stringify({ ...ekans, cost: '€40' })
       }),
       env,
       { db }
@@ -574,10 +574,10 @@ describe('CMS API', () => {
       { db }
     )
     const { products } = (await listed!.json()) as { products: Array<{ id: number; title: string; slug: string }> }
-    const mewtwo = products.find((product) => product.title === 'Mewtwo')!
+    const ekans = products.find((product) => product.title === 'Ekans')!
 
     const trashed = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'DELETE',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -592,10 +592,10 @@ describe('CMS API', () => {
       { db }
     )
     const remaining = (await after!.json()) as { products: Array<{ title: string }> }
-    expect(remaining.products.some((product) => product.title === 'Mewtwo')).toBe(false)
+    expect(remaining.products.some((product) => product.title === 'Ekans')).toBe(false)
 
     const missing = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
       env,
       { db }
     )
@@ -603,9 +603,9 @@ describe('CMS API', () => {
 
     const publicPayload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
     const publicBody = (await publicPayload!.json()) as { products: Array<{ title: string }> }
-    expect(publicBody.products.some((product) => product.title === 'Mewtwo')).toBe(false)
+    expect(publicBody.products.some((product) => product.title === 'Ekans')).toBe(false)
 
-    const slugPage = await handlePublicApi(new Request(`https://helloworldcards.com/api/public?path=/products/${mewtwo.slug}`), env, { db })
+    const slugPage = await handlePublicApi(new Request(`https://helloworldcards.com/api/public?path=/products/${ekans.slug}`), env, { db })
     const slugBody = (await slugPage!.json()) as { notFound: boolean }
     expect(slugBody.notFound).toBe(true)
 
@@ -615,10 +615,10 @@ describe('CMS API', () => {
       { db }
     )
     const trashBody = (await trash!.json()) as { products: Array<{ id: number; title: string }> }
-    expect(trashBody.products).toEqual([expect.objectContaining({ id: mewtwo.id, title: 'Mewtwo' })])
+    expect(trashBody.products).toEqual([expect.objectContaining({ id: ekans.id, title: 'Ekans' })])
 
     const restored = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}/restore`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}/restore`, {
         method: 'POST',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -633,7 +633,7 @@ describe('CMS API', () => {
       { db }
     )
     const live = (await back!.json()) as { products: Array<{ title: string }> }
-    expect(live.products.some((product) => product.title === 'Mewtwo')).toBe(true)
+    expect(live.products.some((product) => product.title === 'Ekans')).toBe(true)
   })
 
   it('hard-deletes only from trash and keeps slugs reserved until then', async () => {
@@ -645,10 +645,10 @@ describe('CMS API', () => {
       { db }
     )
     const { products } = (await listed!.json()) as { products: Array<{ id: number; slug: string }> }
-    const mewtwo = products.find((product) => product.slug === 'mewtwo-2016-evolutions-51')!
+    const ekans = products.find((product) => product.slug === 'ekans-2000-team-rocket-56')!
 
     const livePermanent = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}/permanent`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}/permanent`, {
         method: 'DELETE',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -658,7 +658,7 @@ describe('CMS API', () => {
     expect(livePermanent?.status).toBe(404)
 
     const liveRestore = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}/restore`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}/restore`, {
         method: 'POST',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -668,7 +668,7 @@ describe('CMS API', () => {
     expect(liveRestore?.status).toBe(404)
 
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'DELETE',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -680,7 +680,7 @@ describe('CMS API', () => {
       new Request(`${ADMIN}/api/admin/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ title: 'Copy', slug: mewtwo.slug })
+        body: JSON.stringify({ title: 'Copy', slug: ekans.slug })
       }),
       env,
       { db }
@@ -688,7 +688,7 @@ describe('CMS API', () => {
     expect(reuse?.status).toBe(400)
 
     const removed = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}/permanent`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}/permanent`, {
         method: 'DELETE',
         headers: { Cookie: `${SESSION_COOKIE}=${token}` }
       }),
@@ -703,13 +703,13 @@ describe('CMS API', () => {
       { db }
     )
     const trashBody = (await trash!.json()) as { products: Array<{ id: number }> }
-    expect(trashBody.products.some((product) => product.id === mewtwo.id)).toBe(false)
+    expect(trashBody.products.some((product) => product.id === ekans.id)).toBe(false)
 
     const created = await handleAdminRequest(
       new Request(`${ADMIN}/api/admin/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ title: 'Copy', slug: mewtwo.slug })
+        body: JSON.stringify({ title: 'Copy', slug: ekans.slug })
       }),
       env,
       { db }
@@ -861,8 +861,8 @@ describe('CMS API', () => {
     expect(xml).toContain('https://helloworldcards.com/about/')
     expect(xml).toContain('https://helloworldcards.com/contact/')
     expect(xml).toContain('https://helloworldcards.com/privacy/')
-    expect(xml).toContain('/products/mewtwo-2016-evolutions-51/')
-    expect(xml).toContain('<image:loc>https://helloworldcards.com/media/148651617_front.jpg</image:loc>')
+    expect(xml).toContain('/products/ekans-2000-team-rocket-56/')
+    expect(xml).toContain('<image:loc>https://helloworldcards.com/media/76645522_front.jpg</image:loc>')
     expect(xml).not.toContain('/dashboard')
     expect(xml).not.toContain('/admin')
   })
@@ -885,12 +885,12 @@ describe('CMS API', () => {
       { db }
     )
     const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
-    const mewtwo = list.products.find((product) => product.title === 'Mewtwo')!
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
     await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/${mewtwo.id}`, {
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
-        body: JSON.stringify({ ...mewtwo, sold: true, soldAt: '2026-09-01', price: '€90' })
+        body: JSON.stringify({ ...ekans, sold: true, soldAt: '2026-09-01', price: '€90' })
       }),
       env,
       { db }
@@ -898,7 +898,7 @@ describe('CMS API', () => {
 
     const xml = await (await handleSitemap(new Request('https://helloworldcards.com/sitemap.xml'), env, { db }))!.text()
     expect(xml).not.toContain('/secret')
-    expect(xml).not.toContain('/products/mewtwo-2016-evolutions-51/')
+    expect(xml).not.toContain('/products/ekans-2000-team-rocket-56/')
   })
 
   it('builds llms.txt from published pages, shop products, and events', async () => {

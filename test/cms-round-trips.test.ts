@@ -211,10 +211,10 @@ describe('database round trips', () => {
     const token = await signIn(db)
     const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
 
-    const mewtwo = (await getProductById(db, 1))!
-    expect(mewtwo.price).toBe('€65')
+    const ekans = (await getProductById(db, 4))!
+    expect(ekans.price).toBe('€60')
     const edited = await handleAdminRequest(
-      new Request(`${ADMIN}/api/admin/products/1`, { method: 'PUT', headers, body: JSON.stringify({ ...mewtwo, price: '€80' }) }),
+      new Request(`${ADMIN}/api/admin/products/4`, { method: 'PUT', headers, body: JSON.stringify({ ...ekans, price: '€80' }) }),
       env,
       { db }
     )
@@ -231,8 +231,8 @@ describe('database round trips', () => {
     // A dropped version would have the next request replay the seed migrations, and the
     // product sync among them would put the seed price back.
     const payload = await buildPublicPayload(db, '/')
-    expect(payload.products.find((product) => product.id === 1)?.price).toBe('€80')
-    expect((await getProductById(db, 1))?.price).toBe('€80')
+    expect(payload.products.find((product) => product.id === 4)?.price).toBe('€80')
+    expect((await getProductById(db, 4))?.price).toBe('€80')
   })
 })
 

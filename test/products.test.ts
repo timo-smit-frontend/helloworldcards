@@ -16,7 +16,6 @@ describe('product inventory', () => {
   it('keeps only the shop cards, titled as printed on the slab', async () => {
     const { products } = await seededShop()
     expect(products.map((product) => [product.id, product.title, product.subtitle, product.slug])).toEqual([
-      [1, 'Mewtwo', '2016 Evolutions - #51', 'mewtwo-2016-evolutions-51'],
       [4, 'Ekans', '2000 Team Rocket - #56', 'ekans-2000-team-rocket-56'],
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
@@ -103,7 +102,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [1, 4, 5, 6, 7]
+    const liveIds = [4, 5, 6, 7]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -122,34 +121,27 @@ describe('product inventory', () => {
     expect(priced.every((product) => product.cost != null && product.cost >= 0)).toBe(true)
   })
 
-  it('reserves the Evolutions Mewtwo at its sale price', async () => {
+  it('keeps the sold Evolutions Mewtwo out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'mewtwo-2016-evolutions-51')
-
-    expect(product?.title).toBe('Mewtwo')
-    expect(product?.description).toContain('reverse holo')
-    expect(product?.description).toContain('XY Evolutions')
-    expect(product?.description).toContain('51/108')
-    expect(product?.description).toContain('148651617')
-    expect(product?.description).not.toContain('Email us')
-    expect(product?.description).not.toContain('Fugitive Ink')
-    expect(product?.description).not.toContain('graded higher')
-    // Sold on Marktplaats for €65 on 27 September 2026, money not in yet: reserved, not sold.
-    expect(product?.price).toBe('€65')
-    expect(product?.language).toBe('english')
-    expect(product?.grader).toBe('psa')
-    expect(product?.year).toBe(2016)
-    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2436737465')
     const record = inventory.find((item) => item.id === 1)
+
+    expect(record?.title).toBe('Mewtwo')
+    expect(record?.description).toContain('reverse holo')
+    expect(record?.description).toContain('XY Evolutions')
+    expect(record?.description).toContain('51/108')
+    expect(record?.description).toContain('148651617')
+    // Sold on Marktplaats for €65 on 27 September 2026, money in: sold, not reserved, ads gone.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-09-27')
+    expect(record?.soldVia).toBe('marktplaats')
+    expect(record?.price).toBe('€65')
+    expect(record?.cost).toBe(55)
     expect(record?.cardmarketUrl).toBe('https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolutions/Mewtwo-V1-EVO51')
     expect(record?.reverseHolo).toBe(true)
-    expect(record?.firstEdition).toBeUndefined()
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
-    expect(record?.soldAt).toBe('2026-09-27')
-    // Sold on Marktplaats; the Vinted listing was taken down by hand.
+    expect(record?.marktplaatsUrl).toBeUndefined()
     expect(record?.vintedUrl).toBeUndefined()
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(products.find((item) => item.id === 1)).toBeUndefined()
   })
 
   it('keeps the sold Silver Tempest Lugia V out of the shop but in inventory at its sale price', async () => {

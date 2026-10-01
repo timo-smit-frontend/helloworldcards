@@ -27,9 +27,9 @@ const PIKACHU = 14
 const PIKACHU_FRONT = 'mu00djsz-122301454-front.jpg'
 const PIKACHU_BACK = 'mu00dp1r-122301454-back.jpg'
 const PIKACHU_KEPT = 'mu00djsz-122301454-front-sold.webp'
-const MEWTWO = 1
-const MEWTWO_FRONT = '148651617_front.jpg'
-const MEWTWO_BACK = '148651617_back.jpg'
+const EKANS = 4
+const EKANS_FRONT = '76645522_front.jpg'
+const EKANS_BACK = '76645522_back.jpg'
 
 const temporaryRoots: string[] = []
 
@@ -94,7 +94,7 @@ async function markSold(db: CmsDb, id: number): Promise<void> {
 describe('what a sold card keeps', () => {
   it('names the kept photo after the front original', () => {
     expect(soldPhotoName(PIKACHU_FRONT)).toBe(PIKACHU_KEPT)
-    expect(soldPhotoName(MEWTWO_FRONT)).toBe('148651617_front-sold.webp')
+    expect(soldPhotoName(EKANS_FRONT)).toBe('76645522_front-sold.webp')
     expect(soldPhotoName('122301454_front.jpg')).toBe('122301454_front-sold.webp')
     expect(isSoldPhoto(PIKACHU_KEPT)).toBe(true)
     expect(isSoldPhoto(`/media/${PIKACHU_KEPT}`)).toBe(true)
@@ -131,7 +131,7 @@ describe('what a sold card keeps', () => {
   it('reads the cert off a slab photo key, however the photo was named', () => {
     expect(certOfSlabPhotoKey(PIKACHU_FRONT)).toBe('122301454')
     expect(certOfSlabPhotoKey(PIKACHU_KEPT)).toBe('122301454')
-    expect(certOfSlabPhotoKey(MEWTWO_FRONT)).toBe('148651617')
+    expect(certOfSlabPhotoKey(EKANS_FRONT)).toBe('76645522')
     expect(certOfSlabPhotoKey('148651617_front-sold.webp')).toBe('148651617')
     expect(certOfSlabPhotoKey('mu86wg61-54094139-front.jpeg')).toBe('54094139')
     expect(certOfSlabPhotoKey(PIKACHU_BACK)).toBeNull()
@@ -203,16 +203,16 @@ describe('archiving the photos of sold cards', () => {
     const root = await emptyRoot()
     await putOriginal(media, PIKACHU_FRONT, await photo())
     await putOriginal(media, PIKACHU_BACK, await photo())
-    await putOriginal(media, MEWTWO_FRONT, await photo())
-    const others = (await Promise.all([1, 2, 3, 16].map((id) => getProductById(db, id)))).map((product) => product!.images)
+    await putOriginal(media, EKANS_FRONT, await photo())
+    const others = (await Promise.all([4, 2, 3, 16].map((id) => getProductById(db, id)))).map((product) => product!.images)
 
     await archiveSoldPhotos({ root, db, media })
     const again = await archiveSoldPhotos({ root, db, media })
 
     expect(again).toEqual({ archived: [], skipped: [] })
-    expect((await Promise.all([1, 2, 3, 16].map((id) => getProductById(db, id)))).map((product) => product!.images)).toEqual(others)
-    expect(await has(media, MEWTWO_FRONT)).toBe(true)
-    expect((await listMedia(db)).some((item) => item.key === MEWTWO_FRONT)).toBe(true)
+    expect((await Promise.all([4, 2, 3, 16].map((id) => getProductById(db, id)))).map((product) => product!.images)).toEqual(others)
+    expect(await has(media, EKANS_FRONT)).toBe(true)
+    expect((await listMedia(db)).some((item) => item.key === EKANS_FRONT)).toBe(true)
   })
 
   it('skips a sold card whose front photo cannot be read anywhere, and says which', async () => {
@@ -244,20 +244,20 @@ describe('archiving the photos of sold cards', () => {
     const root = await emptyRoot()
     await fs.mkdir(path.join(root, 'seed/media'), { recursive: true })
     await fs.mkdir(path.join(root, 'app/cms'), { recursive: true })
-    await fs.writeFile(path.join(root, 'seed/media', MEWTWO_FRONT), await photo())
-    await fs.writeFile(path.join(root, 'seed/media', MEWTWO_BACK), await photo())
+    await fs.writeFile(path.join(root, 'seed/media', EKANS_FRONT), await photo())
+    await fs.writeFile(path.join(root, 'seed/media', EKANS_BACK), await photo())
     await fs.writeFile(path.join(root, 'seed/media', 'hero.jpg'), await photo(300, 200))
     await fs.writeFile(path.join(root, 'app/cms/seed-media.ts'), 'stale')
-    await markSold(db, MEWTWO)
+    await markSold(db, EKANS)
     const lines: string[] = []
 
     const result = await archiveSoldPhotos({ root, db, media, readOriginal: async () => null, log: (line) => lines.push(line) })
 
-    expect(result.archived.map((item) => item.id)).toEqual([MEWTWO, PIKACHU].filter((id) => id === MEWTWO))
+    expect(result.archived.map((item) => item.id)).toEqual([EKANS, PIKACHU].filter((id) => id === EKANS))
     expect(result.skipped.map((item) => item.id)).toEqual([PIKACHU])
-    expect((await getProductById(db, MEWTWO))!.images).toEqual(['/media/148651617_front-sold.webp'])
-    const kept = (await listMedia(db)).find((item) => item.key === '148651617_front-sold.webp')!
-    expect(kept).toMatchObject({ filename: '148651617_front-sold.webp', title: 'Mewtwo, front' })
+    expect((await getProductById(db, EKANS))!.images).toEqual(['/media/76645522_front-sold.webp'])
+    const kept = (await listMedia(db)).find((item) => item.key === '76645522_front-sold.webp')!
+    expect(kept).toMatchObject({ filename: '76645522_front-sold.webp', title: 'Ekans, front' })
 
     await expect(fs.readdir(path.join(root, 'seed/media'))).resolves.toEqual(['hero.jpg'])
     const source = path.join(root, 'app/cms/seed-media.ts')
@@ -266,8 +266,8 @@ describe('archiving the photos of sold cards', () => {
       await prettier.format(expected, { ...(await prettier.resolveConfig(source)), filepath: source })
     )
     expect(await fs.readFile(source, 'utf8')).toContain("key: 'hero.jpg'")
-    expect(await fs.readFile(source, 'utf8')).not.toContain('148651617')
-    expect(lines[0]).toContain(`removed seed/media/${MEWTWO_FRONT}; removed seed/media/${MEWTWO_BACK}`)
+    expect(await fs.readFile(source, 'utf8')).not.toContain('76645522')
+    expect(lines[0]).toContain(`removed seed/media/${EKANS_FRONT}; removed seed/media/${EKANS_BACK}`)
   })
 
   it('removes the branded ad photo the listings led with', async () => {
@@ -275,13 +275,13 @@ describe('archiving the photos of sold cards', () => {
     const root = await emptyRoot()
     await fs.mkdir(path.join(root, 'public/ads'), { recursive: true })
     await fs.writeFile(path.join(root, 'public/ads/122301454.jpeg'), await photo(100, 100))
-    await fs.writeFile(path.join(root, 'public/ads/148651617.jpeg'), await photo(100, 100))
+    await fs.writeFile(path.join(root, 'public/ads/76645522.jpeg'), await photo(100, 100))
     await putOriginal(media, PIKACHU_FRONT, await photo())
     const lines: string[] = []
 
     await archiveSoldPhotos({ root, db, media, log: (line) => lines.push(line) })
 
-    await expect(fs.readdir(path.join(root, 'public/ads'))).resolves.toEqual(['148651617.jpeg'])
+    await expect(fs.readdir(path.join(root, 'public/ads'))).resolves.toEqual(['76645522.jpeg'])
     expect(lines[0]).toContain('removed public/ads/122301454.jpeg')
   })
 

@@ -157,9 +157,9 @@ export async function getScanBrowser(
   root = process.cwd(),
   create: (root: string) => Promise<ScanBrowser> = createScanBrowser
 ): Promise<ScanBrowser> {
-  // A window closed by hand — which a stuck Vinted session asks for — leaves the
-  // memoised browser pointing at nothing; every tab opened on it would fail. It is
-  // forgotten here, so the next piece of work starts a window of its own.
+  // A window closed by hand leaves the memoised browser pointing at nothing; every
+  // tab opened on it would fail. It is forgotten here, so the next piece of work
+  // starts a window of its own.
   if (shared) {
     const current = await shared.catch(() => null)
     if (current && !current.isOpen()) {

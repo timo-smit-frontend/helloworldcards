@@ -50,7 +50,7 @@ describe('CMS SEO', () => {
     const list = graph(seo).find((node) => node['@type'] === 'ItemList') as { itemListElement?: Array<{ name?: string }> }
 
     expect(seo.title).toBe(`Graded Pokémon cards for sale | ${SITE_NAME}`)
-    expect(list?.itemListElement?.some((item) => item.name === 'Mewtwo PSA 9 - 2016 Evolutions #51')).toBe(true)
+    expect(list?.itemListElement?.some((item) => item.name === 'Ekans PSA 9 - 2000 Team Rocket #56')).toBe(true)
   })
 
   it('marks about as an AboutPage with people and FAQ', async () => {
@@ -67,20 +67,20 @@ describe('CMS SEO', () => {
   })
 
   it('adds product breadcrumbs and the image alt from media copy', async () => {
-    const seo = await seoFor('/products/mewtwo-2016-evolutions-51')
+    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
 
     expect(seo.type).toBe('product')
     expect(types(seo)).toContain('ItemPage')
     expect(graph(seo).some((node) => node['@type'] === 'BreadcrumbList')).toBe(true)
-    expect(seo.imageAlt).toContain('Mewtwo')
+    expect(seo.imageAlt).toContain('Dragonite')
   })
 
   it('names a product page the way buyers search for it', async () => {
-    const seo = await seoFor('/products/mewtwo-2016-evolutions-51')
+    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
 
-    expect(seo.title).toBe(`Mewtwo PSA 9 - 2016 Evolutions #51 | ${SITE_NAME}`)
+    expect(seo.title).toBe(`Dragonite V PSA 9 - 2022 Pokemon GO #049 | ${SITE_NAME}`)
     expect(seo.description).toBe(
-      'Mewtwo PSA 9, 2016 Evolutions #51, reserved. A reverse holo from the 2016 XY Evolutions set, number 51/108.'
+      'Dragonite V PSA 9, 2022 Pokemon GO #049, reserved. A Full Art from the 2022 Sword & Shield Pokemon GO set, number 049/078.'
     )
     expect((await seoFor('/products/zorua-ar-2025-white-flare-japanese-140')).title).toBe(
       `Zorua AR BGS 9.5 - 2025 White Flare Japanese #140 | ${SITE_NAME}`

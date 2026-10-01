@@ -61,9 +61,12 @@ Update purchase costs on each product in `app/database/products.ts`. Those numbe
 
 The Vinted relist, the price suggestions and the deal finder drive the Chrome window on
 this computer, so they only exist in the dev server's admin. The relist works in that
-window's Vinted session: when Vinted's login there has run out, the relist stops with
-"Vinted is not logged in" and leaves a tab on Vinted's login page. Log in there, then
-refresh the relist screen.
+window's Vinted session, and the session is yours to look after: when Vinted's login there
+has run out, the relist stops with "Vinted is not logged in" and leaves its tab in front.
+Log in there, then refresh the relist screen. A session stuck on Vinted's session-refresh
+page stops it the same way: clear Vinted's cookies in that window, log in again, then
+refresh. The relist never logs in, opens the login page or clears cookies itself — beyond
+the relist itself it does as little on Vinted as it can.
 
 A relist batch is kept by the admin that asked for it, one relist at a time: it goes on
 while other admin screens are used, and a reload lets the relists still waiting go.

@@ -62,27 +62,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "148651617_back.jpg",
-      "filename": "148651617_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 959585,
-      "title": "Mewtwo, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-01T00:00:00.000Z"
-    },
-    {
-      "key": "148651617_front.jpg",
-      "filename": "148651617_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 904854,
+      "key": "148651617_front-sold.webp",
+      "filename": "148651617_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 669,
+      "bytes": 37182,
       "title": "Mewtwo, front",
       "alt": "PSA 9 XY Evolutions Mewtwo reverse holo, 51/108, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {

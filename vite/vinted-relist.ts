@@ -60,8 +60,6 @@ const LOAD_TIMEOUT_MS = 30_000
 const IN_PAGE_FETCH_TIMEOUT_MS = 30_000
 /** How long the window stays open for someone to log in to Vinted. */
 const LOGIN_GRACE_MS = 10 * 60_000
-/** Vinted's own email login page, where a logged-out window is left for the login. */
-const LOGIN_URL = `${VINTED}/member/login/email?ref_url=%2F`
 /** Photos upload one by one; a listing of three can take a while on a slow line. */
 const PHOTO_UPLOAD_TIMEOUT_MS = 90_000
 const PUBLISH_TIMEOUT_MS = 90_000
@@ -91,10 +89,11 @@ const REPORT_TTL_MS = 60_000
  */
 const SESSION_TTL_MS = 60_000
 /**
- * How long a "not logged in" answer holds for every tab. The relists queued behind
- * the one that found Vinted logged out would otherwise each load a page and ask the
- * same question, and the one whose tab is showing the login page is the only one
- * that needs to. Short, so that a login in the window is not waited out.
+ * How long a session problem — "not logged in", or a session stuck in Vinted's
+ * session refresh — holds for every tab. The relists queued behind the one that
+ * found it would otherwise each load a page to find the same, and the tab it left in
+ * front is the only one the login needs. Short, so that a login in the window is not
+ * waited out.
  */
 const SESSION_PROBLEM_TTL_MS = 15_000
 /**
@@ -188,10 +187,8 @@ type VintedChrome = {
   inFlight: Set<string>
   /** The last session check, answered again to anyone who asks within `SESSION_TTL_MS`. */
   session: { at: number; check: Promise<VintedSession> } | null
-  /** A "not logged in" found a moment ago, taken as read by every tab until `until`. */
+  /** A session problem found a moment ago, taken as read by every tab until `until`. */
   sessionProblem: { until: number; error: VintedRelistError } | null
-  /** When a tab last cleared the window's Vinted cookies to get off the session-refresh page. */
-  healedAt: number
   /** The last wardrobe read, answered again to anyone who asks within `REPORT_TTL_MS`. */
   lastWardrobe: { at: number; wardrobe: VintedWardrobeItem[] } | null
   /** Where every wardrobe read is kept, for the views and likes each listing gathered while it was up. */
@@ -213,7 +210,6 @@ function chromeFor(root: string, tabs: number, startGapMs: number, tabLingerMs: 
       inFlight: new Set(),
       session: null,
       sessionProblem: null,
-      healedAt: 0,
       lastWardrobe: null,
       stats,
       startGapMs,
@@ -306,19 +302,14 @@ const SESSION_REFRESH_WAIT_MS = 8_000
  *
  * Vinted bounces a visit through `/session-refresh`, which renews its cookies with
  * script and moves on. With a stale `refresh_token_web` it never moves on: the page
- * spins for good, on every URL. That state is only cookies, so once the page has
- * stayed there past any honest refresh, the Vinted cookies are dropped and the visit
- * is made again from clean — which does log the seller out, but the session was not
- * working anyway.
- *
- * That is done once for the window, not once per tab. Tabs of a batch land a few
- * seconds apart, and each finds the same stuck refresh; the second used to clear the
- * cookies again while the first was already going again from clean, and took the
- * fresh ones out from under it. A tab whose visit began before another tab cleared
- * them only goes again.
+ * spins for good, on every URL, until the window's Vinted cookies are cleared and
+ * the shop logs in again. The relist does neither: the cookies and the login are
+ * the person's at the window, and beyond the relist itself it does as little on
+ * Vinted as it can. So a refresh that stays put past any honest one stops the relist,
+ * and every tab after it, the way a session that has run out does — with the tab
+ * left on the spinning page, in front.
  */
-async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healSession = true } = {}): Promise<void> {
-  const started = Date.now()
+async function gotoVinted(chrome: VintedChrome, page: Page, url: string): Promise<void> {
   await whileVintedMovesOn(page, () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS }))
   await failIfRateLimited(page, url)
   if (!SESSION_REFRESH.test(page.url())) {
@@ -328,30 +319,32 @@ async function gotoVinted(chrome: VintedChrome, page: Page, url: string, { healS
     .waitForURL((current) => !SESSION_REFRESH.test(current.pathname), { timeout: SESSION_REFRESH_WAIT_MS })
     .then(() => true)
     .catch(() => false)
-  if (moved) {
-    return
+  if (!moved) {
+    await stopForSession(
+      chrome,
+      page,
+      "Vinted's session in the Chrome window is stuck on its session-refresh page. Clear Vinted's cookies there and log in again, then refresh here."
+    )
   }
-  if (!healSession) {
-    throw new VintedRelistError('Vinted keeps the Chrome window on its session-refresh page. Close the window and try again.', 503)
-  }
-  if (chrome.healedAt < started) {
-    console.info('[vinted-relist] Stuck on Vinted session refresh, clearing Vinted cookies and trying again')
-    // All but the cookie banner's answer (OneTrust's `Optanon…`, and the IAB consent
-    // string it keeps beside them), which has nothing to do with the session and would
-    // otherwise put the banner back up on every page.
-    await page.context().clearCookies({ domain: /vinted\.nl$/, name: /^(?!Optanon|eupubconsent|euconsent)/ })
-    chrome.healedAt = Date.now()
-    // Whoever the window was logged in as, it no longer is.
-    chrome.session = null
-  } else {
-    console.info('[vinted-relist] Stuck on a Vinted session refresh another tab has cleared since, going again')
-  }
-  await gotoVinted(chrome, page, url, { healSession: false })
 }
 
-/** The "not logged in" a tab found a moment ago, while every tab still takes it as read. */
+/** The session problem a tab found a moment ago, while every tab still takes it as read. */
 function knownSessionProblem(chrome: VintedChrome): VintedRelistError | null {
   return chrome.sessionProblem && Date.now() < chrome.sessionProblem.until ? chrome.sessionProblem.error : null
+}
+
+/**
+ * Stop over a session only the person at the window can put right, and every tab
+ * with it for a moment. The window is held open for them, with this tab in front
+ * just as it is: the relist goes nowhere on Vinted to help, not even the login page.
+ */
+async function stopForSession(chrome: VintedChrome, page: Page, message: string): Promise<never> {
+  chrome.session = null
+  const error = new VintedRelistError(message, 401)
+  chrome.sessionProblem = { until: Date.now() + SESSION_PROBLEM_TTL_MS, error }
+  keepScanBrowserOpen(LOGIN_GRACE_MS)
+  await page.bringToFront().catch(() => undefined)
+  throw error
 }
 
 /**
@@ -402,26 +395,15 @@ async function sharedSessionCheck(page: Page, chrome: VintedChrome): Promise<Vin
 }
 
 /**
- * Who the window is logged in as. A window nobody is logged in to is left open on
- * Vinted's login page, for the shop to log in there.
+ * Who the window is logged in as. A window nobody is logged in to is left for the
+ * shop to log in to, on the Vinted page the tab is on.
  */
 async function checkSession(page: Page, chrome: VintedChrome): Promise<VintedSession> {
   const current = await currentUser(page, chrome)
   if (current) {
     return current
   }
-
-  chrome.session = null
-  const error = new VintedRelistError('Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.', 401)
-  chrome.sessionProblem = { until: Date.now() + SESSION_PROBLEM_TTL_MS, error }
-  keepScanBrowserOpen(LOGIN_GRACE_MS)
-  // Only if the tab is not already showing it: a refresh while logged out must not
-  // start the sign-in over.
-  if (!/\/member\/(?:signup|register|login)\//.test(page.url())) {
-    await gotoVinted(chrome, page, LOGIN_URL).catch(() => undefined)
-  }
-  await page.bringToFront().catch(() => undefined)
-  throw error
+  return await stopForSession(chrome, page, 'Vinted is not logged in. Log in as the shop in the Chrome window, then refresh here.')
 }
 
 /** Ask Vinted who the window is logged in as, from this tab; null for nobody. */
@@ -456,9 +438,8 @@ async function currentUser(page: Page, chrome: VintedChrome): Promise<VintedSess
  * in each page it loads; it runs inside the page, so it is plain script that uses
  * nothing from outside it.
  *
- * Vinted shows the banner on every page of a window that has not answered it —
- * which a window whose cookies were cleared to get it off the session-refresh page
- * has not. It comes a second or two after the page, over a dark layer that takes
+ * Vinted shows the banner on every page of a window that has not answered it — one
+ * whose cookies were cleared, say. It comes a second or two after the page, over a dark layer that takes
  * every click meant for the page: "Verwijderen" on a listing, the pickers on the
  * upload form. A click from outside would have to find the button, wait out the
  * banner's slide-in and land before anything moves again. From inside the page

@@ -46,7 +46,7 @@ describe('sold cards', () => {
     expect(publicPageStatus(await buildPublicPayload(db, '/products/charizard-2016-radiant-collection-rc5'))).toBe(410)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/no-such-card'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/nowhere'))).toBe(404)
-    expect(publicPageStatus(await buildPublicPayload(db, '/products/mewtwo-2016-evolutions-51'))).toBe(200)
+    expect(publicPageStatus(await buildPublicPayload(db, '/products/ekans-2000-team-rocket-56'))).toBe(200)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/dragonite-v-2022-pokemon-go-049'))).toBe(200)
   })
 })
@@ -96,7 +96,6 @@ describe('page snapshot for crawlers without JavaScript', () => {
       expect(html).toContain(`<a href="/products/${product.slug}/">`)
     }
     expect(html).toContain('Mewtwo GX PSA 9 - 2017 Shining Legends #39</a>, €95')
-    expect(html).toContain('Mewtwo PSA 9 - 2016 Evolutions #51</a>, reserved')
     expect(html).toContain('Dragonite V PSA 9 - 2022 Pokemon GO #049</a>, reserved')
   })
 

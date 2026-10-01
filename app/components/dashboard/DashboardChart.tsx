@@ -81,11 +81,13 @@ function marketStatus(item: CardmarketProductReport, competing: MarketListing[],
 /**
  * Reading order: cards being undercut first, then ones priced under the market, then
  * ones sitting even with it, and last the ones with nothing to compare against.
+ * "Even" is the same-grade floor matching your price — any offer on the page (a lower
+ * grade, a gone one) does not make a card even with the market.
  */
 function rowRank(item: CardmarketProductReport): number {
   if (item.suggestion?.direction === 'down') return 0
   if (item.suggestion?.direction === 'up') return 1
-  if (!item.error && (item.competitors?.length || item.similar?.length || item.listings.length)) return 2
+  if (!item.error && item.floor != null && item.floor === item.listed) return 2
   return 3
 }
 

@@ -234,7 +234,7 @@ describe('createTabPool', () => {
         throw new Error('Vinted is not logged in.')
       })
     ).rejects.toThrow('not logged in')
-    // The next job finds the same tab, on the login page.
+    // The next job finds the same tab, as the failed one left it.
     expect(await pool.run(chrome.open, async (tab) => (await tab()).id)).toBe(1)
   })
 

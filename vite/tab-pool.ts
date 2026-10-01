@@ -13,8 +13,8 @@
  * unless a job is waiting for a slot, which takes it over instead — or one arrives
  * within `lingerMs`, for a job that is on its way but not in the queue yet; a tab
  * nobody has come for by then is closed. A job that failed leaves its tab as it is,
- * out of the pool, for what it shows — the login page, a bot check, a form that did
- * not go through — until the window closes.
+ * out of the pool, for what it shows — a Vinted that wants a login, a bot check, a
+ * form that did not go through — until the window closes.
  */
 export type TabLike = { isClosed(): boolean; close(): Promise<void> }
 
