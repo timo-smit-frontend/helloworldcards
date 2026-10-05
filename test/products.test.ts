@@ -275,6 +275,21 @@ describe('product inventory', () => {
     expect(record?.concept).toBeUndefined()
   })
 
+  it('lists the Silver Tempest Lugia V #138 on Marktplaats and Vinted', async () => {
+    const { inventory, products } = await seededShop()
+    const product = products.find((item) => item.slug === 'lugia-v-2022-silver-tempest-138')
+    const record = inventory.find((item) => item.id === 24)
+
+    expect(record?.concept).toBeUndefined()
+    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2450411302')
+    expect(record?.vintedUrl).toMatch(/^https:\/\/www\.vinted\.nl\/items\/\d+$/)
+    expect(productBuyLink(product!)).toEqual({
+      url: 'https://www.marktplaats.nl/seller/view/m2450411302',
+      title: 'View on Marktplaats',
+      target: '_blank'
+    })
+  })
+
   it('lists the Mega Kangaskhan ex on Marktplaats and Vinted', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'mega-kangaskhan-ex-2025-mega-evolution-182')

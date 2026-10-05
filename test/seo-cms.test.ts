@@ -4,6 +4,7 @@ import { getSeoForPath } from '~/seo/pages'
 import type { SeoPage } from '~/seo/pages'
 import { SITE_NAME } from '~/seo/site'
 import { buildPublicPayload } from '../worker/cms/public'
+import { ensureSeeded } from '../worker/cms/seed'
 import { createMemoryD1 } from './helpers/memory-d1'
 
 function graph(seo: SeoPage): Array<Record<string, unknown>> {
@@ -127,7 +128,11 @@ describe('CMS SEO', () => {
   })
 
   it('offers a card that is not listed yet as out of stock', async () => {
-    const seo = await seoFor('/products/lugia-v-2022-silver-tempest-138')
+    const path = '/products/lugia-v-2022-silver-tempest-138'
+    const db = createMemoryD1()
+    await ensureSeeded(db)
+    await db.prepare('UPDATE products SET concept = 1, marktplaats_url = NULL, vinted_url = NULL WHERE id = 24').run()
+    const seo = getSeoForPayload(path, await buildPublicPayload(db, path))
     const product = graph(seo).find((node) => node['@type'] === 'Product') as { offers?: { availability?: string } } | undefined
 
     expect(product?.offers?.availability).toBe('https://schema.org/OutOfStock')
