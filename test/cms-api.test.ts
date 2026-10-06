@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CMS_COMPONENT_PREVIEW_KEYS } from '../app/cms/block-previews'
 import { seedMediaFiles } from '../app/cms/seed-media'
 import { handleAdminRequest } from '../worker/cms/admin-api'
+import { ensureSeeded } from '../worker/cms/seed'
 import { handleMediaPublic, memoryR2 } from '../worker/cms/media'
 import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public-api'
 import { handleDashboardRequest } from '../worker/dashboard-api'
@@ -903,6 +904,9 @@ describe('CMS API', () => {
 
   it('builds llms.txt from published pages, shop products, and events', async () => {
     const db = createMemoryD1()
+    await ensureSeeded(db)
+    // Giratina V sold, payout pending.
+    await db.prepare("UPDATE products SET reserved = 1, sold_at = '2026-10-06', sold_via = 'vinted' WHERE id = 17").run()
     const llms = await handleLlms(new Request('https://helloworldcards.com/llms.txt'), env, { db })
     expect(llms?.status).toBe(200)
     expect(llms?.headers.get('Content-Type')).toContain('text/plain')
@@ -918,9 +922,9 @@ describe('CMS API', () => {
     expect(text).toContain('[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €95')
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(
-      '[Dragonite V PSA 9](https://helloworldcards.com/products/dragonite-v-2022-pokemon-go-049/): 2022 Pokemon GO #049. Reserved'
+      '[Giratina V PSA 9](https://helloworldcards.com/products/giratina-v-2022-lost-origin-185/): 2022 Lost Origin #185. Reserved'
     )
-    expect(text).not.toContain('#049. €50')
+    expect(text).not.toContain('#185. €95')
     expect(text).toContain('## Events')
     expect(text).toContain('## Optional')
     expect(text).toContain('[Privacy statement](https://helloworldcards.com/privacy/)')

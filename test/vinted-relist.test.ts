@@ -798,12 +798,13 @@ describe('vinted relist API', () => {
       }
     }
     const runtime = { db, vintedRelist }
-    // Reading the report seeds the database; the seed has reserved cards in it.
+    // Reading the report seeds the database; Giratina V then sells, payout pending.
     await handleDashboardRequest(
       new Request('https://example.com/dashboard/vinted-relist', { headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
       env,
       runtime
     )
+    await db.prepare("UPDATE products SET reserved = 1, sold_at = '2026-10-06', sold_via = 'vinted' WHERE id = 17").run()
     const press = async (where: string) => {
       const row = (await db.prepare(`SELECT title, vinted_url FROM products WHERE ${where}`).first()) as {
         title: string

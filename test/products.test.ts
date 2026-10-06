@@ -21,7 +21,6 @@ describe('product inventory', () => {
       [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
       [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
-      [12, 'Dragonite V', '2022 Pokemon GO - #049', 'dragonite-v-2022-pokemon-go-049'],
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
       [16, 'Beautifly', '2026 Ascended Heroes - #219', 'beautifly-2026-ascended-heroes-219'],
       [17, 'Giratina V', '2022 Lost Origin - #185', 'giratina-v-2022-lost-origin-185'],
@@ -259,20 +258,28 @@ describe('product inventory', () => {
     expect(record?.cost).toBe(61)
   })
 
-  it('keeps the reserved Dragonite V in the shop', async () => {
+  it('keeps the sold Dragonite V out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'dragonite-v-2022-pokemon-go-049')
     const record = inventory.find((item) => item.id === 12)
 
-    expect(product?.price).toBe('€50')
-    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2440340001')
-    expect(record?.vintedUrl).toBe('https://www.vinted.nl/items/10114603205')
-    // Sold on Vinted for the asking price on 24 September 2026, payout pending: reserved, not sold.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    // Sold on Vinted for the asking price on 24 September 2026, reserved until the payout came in.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.soldAt).toBe('2026-09-24')
+    expect(record?.soldVia).toBe('vinted')
+    expect(record?.price).toBe('€50')
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 12)).toBeUndefined()
+  })
+
+  it('keeps a reserved card in the shop, saying it is reserved', async () => {
+    const { db } = await seededShop()
+    await db.prepare("UPDATE products SET reserved = 1, sold_at = '2026-10-06', sold_via = 'vinted' WHERE id = 17").run()
+    const product = (await listShopProducts(db)).find((item) => item.id === 17)
+
+    expect(product).toBeDefined()
     expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
-    expect(record?.concept).toBeUndefined()
   })
 
   it('lists the Silver Tempest Lugia V #138 on Marktplaats and Vinted', async () => {

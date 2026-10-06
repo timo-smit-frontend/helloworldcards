@@ -20,6 +20,14 @@ async function seoFor(path: string): Promise<SeoPage> {
   return getSeoForPayload(path, payload)
 }
 
+/** SEO for a path with Giratina V (id 17) reserved: sold, payout pending. */
+async function reservedSeoFor(path: string): Promise<SeoPage> {
+  const db = createMemoryD1()
+  await ensureSeeded(db)
+  await db.prepare("UPDATE products SET reserved = 1, sold_at = '2026-10-06', sold_via = 'vinted' WHERE id = 17").run()
+  return getSeoForPayload(path, await buildPublicPayload(db, path))
+}
+
 describe('CMS SEO', () => {
   it('keeps the OnlineStore + WebSite graph on the homepage fallback shell', () => {
     const seo = getSeoForPath('/')
@@ -68,20 +76,20 @@ describe('CMS SEO', () => {
   })
 
   it('adds product breadcrumbs and the image alt from media copy', async () => {
-    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
+    const seo = await seoFor('/products/giratina-v-2022-lost-origin-185')
 
     expect(seo.type).toBe('product')
     expect(types(seo)).toContain('ItemPage')
     expect(graph(seo).some((node) => node['@type'] === 'BreadcrumbList')).toBe(true)
-    expect(seo.imageAlt).toContain('Dragonite')
+    expect(seo.imageAlt).toContain('Giratina')
   })
 
   it('names a product page the way buyers search for it', async () => {
-    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
+    const seo = await reservedSeoFor('/products/giratina-v-2022-lost-origin-185')
 
-    expect(seo.title).toBe(`Dragonite V PSA 9 - 2022 Pokemon GO #049 | ${SITE_NAME}`)
+    expect(seo.title).toBe(`Giratina V PSA 9 - 2022 Lost Origin #185 | ${SITE_NAME}`)
     expect(seo.description).toBe(
-      'Dragonite V PSA 9, 2022 Pokemon GO #049, reserved. A Full Art from the 2022 Sword & Shield Pokemon GO set, number 049/078.'
+      'Giratina V PSA 9, 2022 Lost Origin #185, reserved. A Full Art from the 2022 Sword & Shield Lost Origin set, number 185/196.'
     )
     expect((await seoFor('/products/zorua-ar-2025-white-flare-japanese-140')).title).toBe(
       `Zorua AR BGS 9.5 - 2025 White Flare Japanese #140 | ${SITE_NAME}`
@@ -139,12 +147,12 @@ describe('CMS SEO', () => {
   })
 
   it('keeps a reserved card indexed but without a Product or its sale price', async () => {
-    const seo = await seoFor('/products/dragonite-v-2022-pokemon-go-049')
+    const seo = await reservedSeoFor('/products/giratina-v-2022-lost-origin-185')
 
     expect(seo.robots).toBe('index, follow')
     expect(types(seo)).not.toContain('Product')
     expect(seo.description).toContain('reserved')
-    expect(seo.description).not.toContain('€50')
+    expect(seo.description).not.toContain('€95')
   })
 
   it('drops a sold card from the index without showing what it sold for', async () => {

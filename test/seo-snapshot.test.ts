@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { applyPageSnapshot, buildPageSnapshot } from '~/seo/snapshot'
 import { injectCmsPayload } from '../worker/cms/html'
 import { buildPublicPayload, publicPageStatus } from '../worker/cms/public'
+import { ensureSeeded } from '../worker/cms/seed'
 import { createMemoryD1 } from './helpers/memory-d1'
 
 const SHELL = '<html><head><title>x</title></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>'
 
-async function snapshotFor(path: string) {
-  const payload = await buildPublicPayload(createMemoryD1(), path)
+async function snapshotFor(path: string, { reserved = false } = {}) {
+  const db = createMemoryD1()
+  if (reserved) {
+    // Giratina V (id 17) sold, payout pending.
+    await ensureSeeded(db)
+    await db.prepare("UPDATE products SET reserved = 1, sold_at = '2026-10-06', sold_via = 'vinted' WHERE id = 17").run()
+  }
+  const payload = await buildPublicPayload(db, path)
   return { payload, html: buildPageSnapshot(payload) }
 }
 
@@ -47,7 +54,6 @@ describe('sold cards', () => {
     expect(publicPageStatus(await buildPublicPayload(db, '/products/no-such-card'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/nowhere'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/ekans-2000-team-rocket-56'))).toBe(200)
-    expect(publicPageStatus(await buildPublicPayload(db, '/products/dragonite-v-2022-pokemon-go-049'))).toBe(200)
   })
 })
 
@@ -71,7 +77,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
   })
 
   it('says a reserved card is reserved, without a price or a buy link', async () => {
-    const { html } = await snapshotFor('/products/dragonite-v-2022-pokemon-go-049')
+    const { html } = await snapshotFor('/products/giratina-v-2022-lost-origin-185', { reserved: true })
 
     expect(html).toContain('<dt>Status</dt><dd>reserved</dd>')
     expect(html).toContain('This card is reserved')
@@ -89,14 +95,14 @@ describe('page snapshot for crawlers without JavaScript', () => {
   })
 
   it('lists every card in the shop on the products page, reserved ones as reserved', async () => {
-    const { payload, html } = await snapshotFor('/products')
+    const { payload, html } = await snapshotFor('/products', { reserved: true })
 
     expect(html.match(/<h1>/g)).toHaveLength(1)
     for (const product of payload.products) {
       expect(html).toContain(`<a href="/products/${product.slug}/">`)
     }
     expect(html).toContain('Mewtwo GX PSA 9 - 2017 Shining Legends #39</a>, €95')
-    expect(html).toContain('Dragonite V PSA 9 - 2022 Pokemon GO #049</a>, reserved')
+    expect(html).toContain('Giratina V PSA 9 - 2022 Lost Origin #185</a>, reserved')
   })
 
   it('writes the FAQ answers and the navigation', async () => {
