@@ -10,15 +10,10 @@ import {
 } from '~/services/deal-finder/marktplaats'
 import {
   isVintedChallenge,
-  parseVintedDetail,
-  vintedAvailability,
-  vintedSellerReviews,
   parseVintedHoverTitle,
   parseVintedOverview,
   titleFromVintedSlug,
-  vintedPhotoArea,
-  vintedSearchPageUrl,
-  vintedShipping
+  vintedSearchPageUrl
 } from '~/services/deal-finder/vinted'
 
 const MARKTPLAATS_OVERVIEW = `<html><body><script>window.__STATE__ = {"listings":[
@@ -139,76 +134,15 @@ describe('parseVintedOverview', () => {
   })
 })
 
-describe('parseVintedDetail', () => {
-  it('keeps the largest copy of each photo, since thumbnails cannot be read', () => {
-    const html = `
-      <img src="https://images1.vinted.net/t/06_x/310x430/a.webp?s=1"/>
-      <img src="https://images1.vinted.net/t/06_x/800x1200/a.webp?s=2"/>
-      <img src="https://images1.vinted.net/t/06_y/800x1200/b.webp?s=3"/>
-      <div itemprop="description">Umbreon VMAX PSA 10, s8b 245</div>`
-    const detail = parseVintedDetail(html)
-
-    expect(detail.imageUrls).toEqual([
-      'https://images1.vinted.net/t/06_x/800x1200/a.webp?s=2',
-      'https://images1.vinted.net/t/06_y/800x1200/b.webp?s=3'
-    ])
-    expect(detail.description).toBe('Umbreon VMAX PSA 10, s8b 245')
-  })
-})
-
-describe('vintedAvailability', () => {
-  /** The item page's flight data: a JS string literal with the item JSON inside it. */
-  const flight = (json: string) => `<script>self.__next_f.push([1,${JSON.stringify(`5:${json}\n`)}])</script>`
-
-  it('reads a sold or reserved item off the flight data', () => {
-    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":true,"is_reserved":false}}'))).toBe('sold')
-    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":false,"is_reserved":true}}'))).toBe('reserved')
-    expect(vintedAvailability(flight('{"item":{"id":1,"isClosed":true}}'))).toBe('sold')
-  })
-
-  it('calls an item that is neither, or does not say, available', () => {
-    expect(vintedAvailability(flight('{"item":{"id":1,"is_closed":false,"is_reserved":false}}'))).toBeNull()
-    expect(vintedAvailability('<html><div itemprop="description">Just a description</div></html>')).toBeNull()
-  })
-
-  it('goes by the item itself, not a later item on the same page', () => {
-    expect(
-      vintedAvailability(
-        flight('{"item":{"id":1,"is_closed":false,"is_reserved":false},"more":[{"id":2,"is_closed":true,"is_reserved":true}]}')
-      )
-    ).toBeNull()
-  })
-})
-
-describe('vintedSellerReviews', () => {
-  it('reads the count out of the item JSON the page ships with', () => {
-    expect(vintedSellerReviews('<script>{"user":{"id":1,"login":"x","feedback_count":23,"feedback_reputation":0.98}}</script>')).toBe(23)
-    expect(vintedSellerReviews('<script>{"user":{"positive_feedback_count":0,"feedback_count":0}}</script>')).toBe(0)
-  })
-
-  it('reads the seller box when there is no JSON to go on', () => {
-    expect(vintedSellerReviews('<div><span class="web_ui__Text__caption">Nog geen beoordelingen</span></div>')).toBe(0)
-    expect(vintedSellerReviews('<div><span class="web_ui__Text__caption">No reviews yet</span></div>')).toBe(0)
-    expect(vintedSellerReviews('<div class="web_ui__Rating__rating"></div><span class="web_ui__Rating__label">(37)</span>')).toBe(37)
-  })
-
-  it('does not guess when the page says nothing about the seller', () => {
-    expect(vintedSellerReviews('<html><div itemprop="description">Just a description</div></html>')).toBeNull()
-  })
-})
-
-describe('vintedPhotoArea', () => {
-  it('prefers the full-size photo over the catalogue thumbnail', () => {
-    const full = 'https://images1.vinted.net/t/02_01a93_abc/f800/1788640130.webp'
-    const thumb = 'https://images1.vinted.net/t/02_01a93_abc/310x430/1788640130.webp'
-
-    expect(vintedPhotoArea(full)).toBeGreaterThan(vintedPhotoArea(thumb))
-  })
-})
-
 describe('isVintedChallenge', () => {
   it('flags the session-refresh interstitial Vinted serves instead of results', () => {
     expect(isVintedChallenge('<html><head><title>Session refresh</title></head><body></body></html>')).toBe(true)
+  })
+
+  it("flags Vinted's own Dutch human check", () => {
+    expect(
+      isVintedChallenge('<html><head><title>Even geduld...</title></head><body><h2>Verifieer dat u een mens bent</h2></body></html>')
+    ).toBe(true)
   })
 
   it('does not flag a page that actually has listings on it', () => {
@@ -246,12 +180,6 @@ describe('search page URLs', () => {
     expect(page(1).get('offset')).toBe('0')
     expect(page(1).get('limit')).toBe('100')
     expect(page(4).get('offset')).toBe('300')
-  })
-
-  it('reads the postage the item page quotes under the price', () => {
-    const banner = '<h3 data-testid="item-shipping-banner-price">vanaf &euro; 4,35</h3>'
-    expect(vintedShipping(banner.replace('&euro;', '€'))).toBe(4.35)
-    expect(vintedShipping('<p>no shipping banner here</p>')).toBeNull()
   })
 
   it('pages Vinted through its query parameter', () => {

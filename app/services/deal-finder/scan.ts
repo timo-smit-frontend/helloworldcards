@@ -77,7 +77,7 @@ import {
 } from './marktplaats'
 import { emptyReport, sortDeals, sortNoComps, withTotals } from './report'
 import { detectCardName, detectSet, unwantedGradeReason } from './text'
-import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
+import { isVintedChallenge, parseVintedOverview, vintedSearchPageUrl } from './vinted'
 import type {
   CardIdentity,
   Comp,
@@ -468,8 +468,8 @@ async function loadSellerReviews(
  * An unreviewed Marktplaats seller is not a risk worth taking at any price, so the
  * listing is dropped before its photos are ever read — the review count is the last
  * check rather than the first only because it costs a request and the cheap rules
- * usually settle it. Vinted sellers get the same verdict, but only once their item
- * page has been read — see `loadListingDetail`.
+ * usually settle it. Vinted sellers go unchecked: their standing is only on the item
+ * page, which the scan never opens — see `loadListingDetail`.
  */
 function withSellerStanding(listing: SourceListing, screening: Screening, counts: Map<string, number | null>): Screening {
   if (!screening.keep || listing.source !== 'marktplaats' || !listing.sellerId) {
@@ -532,39 +532,31 @@ async function followToCardmarket({
 
 /**
  * Overview rows carry a clipped description and one small photo; the listing page has
- * both in full. A Vinted page also carries the seller's review count, which the
- * catalogue does not — the overview knows nothing about the seller at all — so it is
- * the first place the scan can tell an unreviewed Vinted seller apart. Marktplaats
- * sellers were already judged on the overview, through their own review endpoint.
- * It is also the only place a Vinted item says it has been sold or reserved.
+ * both in full, and the postage. Only Marktplaats listings are opened: Vinted blocks the
+ * whole home connection for a burst of automated page loads, and that block takes the
+ * shop's own Vinted sales and relists down with it, so a Vinted listing is judged on its
+ * search-page row alone.
  */
 async function loadListingDetail(
   listing: SourceListing,
   fetchPage: FetchCardmarketPage,
   pace: Pacer,
   delayMs: number
-): Promise<{ listing: SourceListing; sellerReviews: number | null; availability: 'sold' | 'reserved' | null }> {
+): Promise<SourceListing> {
   try {
     const html = await pace(listing.listingUrl, delayMs, () => fetchPage(listing.listingUrl))
-    const detail =
-      listing.source === 'marktplaats'
-        ? { ...parseMarktplaatsDetail(html), sellerReviews: null, availability: null }
-        : parseVintedDetail(html)
+    const detail = parseMarktplaatsDetail(html)
     const description =
       detail.description && detail.description.length > (listing.description?.length ?? 0) ? detail.description : listing.description
     return {
-      listing: {
-        ...listing,
-        description,
-        imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
-        shipping: detail.shipping ?? listing.shipping
-      },
-      sellerReviews: detail.sellerReviews,
-      availability: detail.availability
+      ...listing,
+      description,
+      imageUrls: detail.imageUrls.length > 0 ? detail.imageUrls : listing.imageUrls,
+      shipping: detail.shipping ?? listing.shipping
     }
   } catch {
     // A listing page that will not load is not fatal — the overview row still has a title.
-    return { listing, sellerReviews: null, availability: null }
+    return listing
   }
 }
 
@@ -936,7 +928,6 @@ type Prepared =
   | { step: 'matched'; listing: SourceListing; evaluated: Evaluated; fromCache?: boolean }
   | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; fromCache?: boolean }
   | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
-  | { step: 'unavailable'; listing: SourceListing }
   | { step: 'failed'; listing: SourceListing; error: unknown }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -1092,25 +1083,13 @@ async function identifyCandidate({
     return { step: 'search', listing, identity, label, query, fromCache: true }
   }
 
-  const {
-    listing: detailed,
-    sellerReviews,
-    availability
-  } = await timings.time('listing', () => loadListingDetail(listing, fetchPage, pace, listingDelayMs))
-
-  // Sold, or promised to another buyer: there is nothing to buy, whatever the card is.
-  if (availability) {
-    return { step: 'unavailable', listing: detailed }
-  }
-
-  // The same rule as for Marktplaats: an unreviewed seller is not a risk worth taking at
-  // any price, so the listing is dropped before its photos are ever read.
-  if (sellerReviews === 0) {
-    return { step: 'unidentified', listing: detailed, scope: 'out-of-scope', reason: 'Seller has no reviews', detail: null }
-  }
+  // A Vinted listing is never opened (see `loadListingDetail`), and its one catalogue
+  // thumbnail is too small to read a PSA label, so the title alone identifies it.
+  const fromVinted = listing.source === 'vinted'
+  const detailed = fromVinted ? listing : await timings.time('listing', () => loadListingDetail(listing, fetchPage, pace, listingDelayMs))
 
   let reading: SlabReading = { slabs: [], note: null }
-  if (readSlabs && detailed.imageUrls.length > 0) {
+  if (readSlabs && !fromVinted && detailed.imageUrls.length > 0) {
     try {
       reading = await timings.time('photos', () =>
         readSlabs({ listing: detailed, imageUrls: detailed.imageUrls.slice(0, MAX_PHOTOS_PER_LISTING) })
@@ -1206,14 +1185,6 @@ async function evaluatePrepared({
     })
     // Deliberately not re-remembered: the week runs from the scan that did the reading,
     // so a written-off listing is looked at again eventually rather than never.
-    return
-  }
-
-  if (prepared.step === 'unavailable') {
-    // Not remembered, and anything remembered from before is dropped: a reservation can
-    // fall through, and the item is then worth a fresh look rather than last week's answer.
-    out.tallies.push('outOfScope')
-    delete cache.entries[prepared.listing.id]
     return
   }
 

@@ -120,8 +120,6 @@ function searchPage(fixture: string | string[] | undefined, url: string, empty: 
 function fetcher(pages: {
   marktplaats?: string | string[]
   vinted?: string | string[]
-  /** The item page for a Vinted listing, keyed on its id; the default has no seller box. */
-  vintedItem?: (id: string) => string
   google?: (url: string) => string
   offers?: (url: string) => string
 }) {
@@ -131,10 +129,6 @@ function fetcher(pages: {
     if (url.startsWith(MARKTPLAATS_API)) return searchPage(pages.marktplaats, url, marktplaatsOverview([]))
     if (url.startsWith(VINTED_URL)) return searchPage(pages.vinted, url, vintedOverview([]))
     if (url.includes('marktplaats.nl/v/')) return marktplaatsDetail(url.split('/').pop() ?? 'x')
-    if (url.includes('vinted.nl/items')) {
-      const id = url.match(/\/items\/(\d+)/)?.[1] ?? 'x'
-      return pages.vintedItem?.(id) ?? '<html><div itemprop="description">Vinted omschrijving</div></html>'
-    }
     if (url.includes('google.com/search')) return pages.google?.(url) ?? '<html></html>'
     if (url.includes('cardmarket.com')) return pages.offers?.(url) ?? offersPage([])
     return '<html></html>'
@@ -169,16 +163,9 @@ describe('runDealFinderScan', () => {
     expect(report.outOfScope).toBe(1)
   })
 
-  it('never looks at a card whose Vinted seller has no reviews', async () => {
-    const { fetchPage } = fetcher({
-      vinted: vintedOverview([
-        { id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' },
-        { id: '902', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }
-      ]),
-      // The catalogue says nothing about the seller; only the item page does.
-      vintedItem: (id) =>
-        `<html><div itemprop="description">Vinted omschrijving</div>
-         <div data-testid="item-page-seller-info">${id === '901' ? '<span>Nog geen beoordelingen</span>' : '<span class="web_ui__Rating__label">(37)</span>'}</div></html>`,
+  it('reads Vinted only through its search pages, never a listing page or its photos', async () => {
+    const { fetchPage, calls } = fetcher({
+      vinted: vintedOverview([{ id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
       google: () => googleResults('151', 'Charmander-V2-MEW168'),
       offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
     })
@@ -186,53 +173,11 @@ describe('runDealFinderScan', () => {
 
     const { report } = await run({ fetchPage, readSlabs, sources: ['vinted'] })
 
-    expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:902'])
-    // The unreviewed seller's listing never reached the photo reader.
-    expect(readSlabs).toHaveBeenCalledTimes(1)
-    expect(report.outOfScope).toBe(1)
-  })
-
-  it('does not hold a Vinted item page without a seller box against the seller', async () => {
-    const { fetchPage } = fetcher({
-      vinted: vintedOverview([{ id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }]),
-      google: () => googleResults('151', 'Charmander-V2-MEW168'),
-      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
-    })
-
-    const { report } = await run({ fetchPage, readSlabs: readCharmander, sources: ['vinted'] })
-
+    // A burst of automated item-page loads gets the whole home connection blocked by Vinted.
+    expect(calls.filter((url) => url.includes('vinted.nl/items'))).toEqual([])
+    expect(readSlabs).not.toHaveBeenCalled()
+    // The title alone identifies the card.
     expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:901'])
-  })
-
-  it('skips a Vinted item its own page says is sold or reserved', async () => {
-    const flight = (flags: string) => `<script>self.__next_f.push([1,${JSON.stringify(`5:{"item":{"id":1,${flags}}}\n`)}])</script>`
-    const { fetchPage } = fetcher({
-      vinted: vintedOverview([
-        { id: '901', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' },
-        { id: '902', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' },
-        { id: '903', title: 'Charmander 168/165 151 PSA 9', ask: '110.00' }
-      ]),
-      vintedItem: (id) =>
-        `<html><div itemprop="description">Vinted omschrijving</div>${flight(
-          id === '901'
-            ? '"is_closed":true,"is_reserved":false'
-            : id === '902'
-              ? '"is_closed":false,"is_reserved":true'
-              : '"is_closed":false,"is_reserved":false'
-        )}</html>`,
-      google: () => googleResults('151', 'Charmander-V2-MEW168'),
-      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
-    })
-    const readSlabs = vi.fn(readCharmander)
-
-    const { report, cache } = await run({ fetchPage, readSlabs, sources: ['vinted'] })
-
-    expect(report.deals.map((deal) => deal.id)).toEqual(['vinted:903'])
-    expect(readSlabs).toHaveBeenCalledTimes(1)
-    expect(report.outOfScope).toBe(2)
-    // Not written off for the week: a reservation that falls through is worth a fresh look.
-    expect(cache.entries['vinted:901']).toBeUndefined()
-    expect(cache.entries['vinted:902']).toBeUndefined()
   })
 
   it('asks after a seller once however many listings they have up', async () => {

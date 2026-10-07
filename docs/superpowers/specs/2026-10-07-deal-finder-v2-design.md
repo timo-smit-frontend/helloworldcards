@@ -23,7 +23,11 @@ a dozen popular trainers. Ranks 1–25 are GemRate's count of PSA slabs per Pok�
 | After the slab | A name that is a scrap naming no Pokémon, with no PSA cert to correct it, takes the title's name when the title names a top character. |
 
 The candidate search itself is unchanged: today's Marktplaats listings and the newest
-Vinted pages.
+Vinted pages. A Vinted candidate is judged on its search-page row alone (decided
+7 October 2026, after a scan's ~50 item-page loads got the home connection blocked by
+Vinted): its item page is never opened and its thumbnail never read, so the title
+identifies the card, and the seller's reviews, the postage and whether it is already
+sold or reserved stay unknown until Timo opens the deal himself.
 
 ## Identifying without AI
 
