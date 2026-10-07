@@ -34,6 +34,28 @@ function spentInPeriod(item: LedgerItem, period: LedgerPeriod, now: Date): boole
   return inSameMonth(item.acquiredAt, now) || inSameMonth(item.soldAt, now)
 }
 
+function isoDay(iso: string | null): number | null {
+  const match = iso?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) {
+    return null
+  }
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86_400_000
+}
+
+/** Whole days from buying the card to selling it, or null when either date is missing. */
+export function daysToSell(item: Pick<LedgerItem, 'acquiredAt' | 'soldAt'>): number | null {
+  const acquired = isoDay(item.acquiredAt)
+  const sold = isoDay(item.soldAt)
+  if (acquired == null || sold == null) {
+    return null
+  }
+  return Math.max(0, sold - acquired)
+}
+
+function average(values: number[]): number | null {
+  return values.length === 0 ? null : values.reduce((total, value) => total + value, 0) / values.length
+}
+
 function margin(profit: number, cost: number): number | null {
   if (cost <= 0) {
     return null
@@ -84,6 +106,7 @@ export function summarizeLedger(items: LedgerItem[], period: LedgerPeriod, now =
     realizedProfit,
     realizedMargin: margin(realizedProfit, soldCost),
     potentialProfit,
-    potentialMargin: margin(potentialProfit, stockCost)
+    potentialMargin: margin(potentialProfit, stockCost),
+    averageDaysToSell: average(soldItems.map(daysToSell).filter((days) => days != null))
   }
 }

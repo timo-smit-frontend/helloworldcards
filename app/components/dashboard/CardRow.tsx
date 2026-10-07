@@ -29,6 +29,8 @@ export function FigureStrip({ children, breakpoint = 'md' }: { children: ReactNo
 /**
  * The slab photo at the start of a row. `tall` gives it more room on a wide screen, for a row with more lines beside it.
  * A card without a photo shows its placeholder Pokémon when it is given one, as on the shop.
+ * The photo is sized by the box's height, not by the size the browser gives the file, so
+ * every slab in a list comes out the same size, also in Safari on a phone.
  */
 export function CardThumbnail({ src, tall = false, pokemonId }: { src: string | null; tall?: boolean; pokemonId?: number | null }) {
   return (
@@ -43,7 +45,7 @@ export function CardThumbnail({ src, tall = false, pokemonId }: { src: string | 
           maxwidth={400}
           sizes={tall ? '(min-width: 768px) 96px, 64px' : '64px'}
           aria-hidden
-          className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-md"
+          className="absolute inset-0 m-auto h-full w-auto max-w-full rounded-md object-contain"
         />
       ) : pokemonId != null ? (
         <Pokemon variant="placeholder" id={pokemonId} className="absolute inset-0 size-full p-1" />

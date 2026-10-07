@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
+import { daysToSell, soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
 import { closestOffers, type MarketListing } from '~/services/cardmarket/grades'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
@@ -18,6 +18,14 @@ export function formatSoldDate(iso: string | null): string {
     month: 'short',
     year: 'numeric'
   })
+}
+
+/** How long a card took to sell, from the day it was bought to the day it sold. */
+function formatSellTime(days: number | null): string {
+  if (days == null) return '—'
+  const whole = Math.round(days)
+  if (whole === 0) return 'Same day'
+  return whole === 1 ? '1 day' : `${whole} days`
 }
 
 export function PeriodToggle({ period, onChange }: { period: LedgerPeriod; onChange: (period: LedgerPeriod) => void }) {
@@ -243,6 +251,12 @@ export function PriceSuggestions({
   )
 }
 
+/** Under the sale date, so a phone keeps its three figures side by side. */
+function sellTimeHint(days: number | null): string | undefined {
+  if (days == null) return undefined
+  return Math.round(days) === 0 ? 'Sold the same day' : `Sold in ${formatSellTime(days)}`
+}
+
 function SoldRow({ item }: { item: LedgerItem }) {
   const profit = item.spending != null && item.listed != null ? item.listed - item.spending : null
 
@@ -259,7 +273,7 @@ function SoldRow({ item }: { item: LedgerItem }) {
         ) : null}
       </div>
       <FigureStrip>
-        <PriceFigure label="Date" value={formatSoldDate(item.soldAt)} />
+        <PriceFigure label="Date" value={formatSoldDate(item.soldAt)} hint={sellTimeHint(daysToSell(item))} />
         <PriceFigure label="Price" value={item.listed == null ? '—' : formatEuros(item.listed)} tone="text-site-envy" />
         <PriceFigure
           label="Profit"
@@ -319,11 +333,12 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
         </tbody>
       </table>
 
-      <dl className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Sold" value={`${totals.cardsSold}`} />
         <Stat label="In stock" value={`${totals.cardsInStock}`} />
+        <Stat label="Avg. sell time" value={formatSellTime(totals.averageDaysToSell)} />
         <Stat label="Realized" value={formatSignedEuros(totals.realizedProfit)} tone={moneyTone(totals.realizedProfit)} />
-        <Stat label="If stock sells" value={formatSignedEuros(totals.potentialProfit)} tone={moneyTone(totals.potentialProfit)} />
+        <Stat label="Still to gain" value={formatEuros(totals.potential)} tone="text-site-envy" />
       </dl>
 
       <section className="flex flex-col gap-4">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LedgerItem } from '~/database/ledger-types'
-import { buildLedger, parseListedPrice, soldItemsForPeriod, summarizeLedger } from '../worker/ledger'
+import { buildLedger, daysToSell, parseListedPrice, soldItemsForPeriod, summarizeLedger } from '../worker/ledger'
 import { listInventory } from '../worker/cms/db'
 import { ensureSeeded } from '../worker/cms/seed'
 import { createMemoryD1 } from './helpers/memory-d1'
@@ -147,6 +147,7 @@ describe('summarizeLedger', () => {
     expect(totals.realizedMargin).toBe(45 / 40)
     expect(totals.potentialProfit).toBe(50)
     expect(totals.potentialMargin).toBe(50 / 70)
+    expect(totals.averageDaysToSell).toBe((172 + 183) / 2)
   })
 
   it('scopes spent and sold to this month and keeps potential as current stock', () => {
@@ -161,6 +162,14 @@ describe('summarizeLedger', () => {
     expect(totals.realizedMargin).toBe(1)
     expect(totals.potentialProfit).toBe(50)
     expect(totals.potentialMargin).toBe(50 / 70)
+    expect(totals.averageDaysToSell).toBe(172)
+  })
+
+  it('leaves sold cards without a purchase date out of the average sell time', () => {
+    const undated: LedgerItem = { ...items[2], id: 6, acquiredAt: null }
+
+    expect(summarizeLedger([undated], 'all', now).averageDaysToSell).toBeNull()
+    expect(summarizeLedger([...items, undated], 'all', now).averageDaysToSell).toBe((172 + 183) / 2)
   })
 })
 
@@ -168,5 +177,19 @@ describe('soldItemsForPeriod', () => {
   it('lists sold cards from newest sale to oldest', () => {
     expect(soldItemsForPeriod(items, 'all', now).map((item) => item.id)).toEqual([3, 4])
     expect(soldItemsForPeriod(items, 'month', now).map((item) => item.id)).toEqual([3])
+  })
+})
+
+describe('daysToSell', () => {
+  it('counts the days from buying the card to selling it', () => {
+    expect(daysToSell({ acquiredAt: '2026-08-16', soldAt: '2026-09-27' })).toBe(42)
+    // Across the switch to winter time a day is still one day.
+    expect(daysToSell({ acquiredAt: '2026-10-24', soldAt: '2026-10-26' })).toBe(2)
+    expect(daysToSell({ acquiredAt: '2026-09-27', soldAt: '2026-09-27' })).toBe(0)
+  })
+
+  it('has no answer without both dates', () => {
+    expect(daysToSell({ acquiredAt: null, soldAt: '2026-09-27' })).toBeNull()
+    expect(daysToSell({ acquiredAt: '2026-08-16', soldAt: null })).toBeNull()
   })
 })

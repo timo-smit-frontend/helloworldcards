@@ -28,6 +28,8 @@ export type LedgerTotals = {
   realizedMargin: number | null
   potentialProfit: number
   potentialMargin: number | null
+  /** Mean days from buying to selling, over the sold cards that have both dates. */
+  averageDaysToSell: number | null
 }
 
 export type Ledger = {
