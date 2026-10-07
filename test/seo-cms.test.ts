@@ -136,10 +136,10 @@ describe('CMS SEO', () => {
   })
 
   it('offers a card that is not listed yet as out of stock', async () => {
-    const path = '/products/lugia-v-2022-silver-tempest-138'
+    const path = '/products/mega-kangaskhan-ex-2025-mega-evolution-182'
     const db = createMemoryD1()
     await ensureSeeded(db)
-    await db.prepare('UPDATE products SET concept = 1, marktplaats_url = NULL, vinted_url = NULL WHERE id = 24').run()
+    await db.prepare('UPDATE products SET concept = 1, marktplaats_url = NULL, vinted_url = NULL WHERE id = 25').run()
     const seo = getSeoForPayload(path, await buildPublicPayload(db, path))
     const product = graph(seo).find((node) => node['@type'] === 'Product') as { offers?: { availability?: string } } | undefined
 

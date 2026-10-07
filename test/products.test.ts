@@ -96,7 +96,8 @@ describe('product inventory', () => {
       [10, 'vinted'],
       [12, 'vinted'],
       [13, 'vinted'],
-      [14, 'marktplaats']
+      [14, 'marktplaats'],
+      [24, 'marktplaats']
     ])
   })
 
@@ -284,19 +285,20 @@ describe('product inventory', () => {
     expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
-  it('lists the Silver Tempest Lugia V #138 on Marktplaats and Vinted', async () => {
+  it('keeps the Silver Tempest Lugia V #138 reserved after its Marktplaats sale', async () => {
     const { inventory, products } = await seededShop()
     const product = products.find((item) => item.slug === 'lugia-v-2022-silver-tempest-138')
     const record = inventory.find((item) => item.id === 24)
 
-    expect(record?.concept).toBeUndefined()
+    // Sold on Marktplaats for €69 on 7 October 2026, money not in yet; the Vinted listing came down.
+    expect(record?.reserved).toBe(true)
+    expect(record?.sold).toBeUndefined()
+    expect(record?.price).toBe('€69')
+    expect(record?.soldAt).toBe('2026-10-07')
+    expect(record?.soldVia).toBe('marktplaats')
     expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2450411302')
-    expect(record?.vintedUrl).toMatch(/^https:\/\/www\.vinted\.nl\/items\/\d+$/)
-    expect(productBuyLink(product!)).toEqual({
-      url: 'https://www.marktplaats.nl/seller/view/m2450411302',
-      title: 'View on Marktplaats',
-      target: '_blank'
-    })
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
   it('lists the Mega Kangaskhan ex on Marktplaats and Vinted', async () => {
