@@ -1,4 +1,5 @@
 import { slugify } from '../services/utils'
+import { shopDisplayPrice } from '../services/price'
 
 export const CARD_LANGUAGES = ['english', 'japanese'] as const
 export const CARD_GRADERS = ['psa', 'beckett'] as const
@@ -112,7 +113,7 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
     images: product.images ?? [],
     slug,
     ...(product.pokemonId != null ? { pokemonId: product.pokemonId } : {}),
-    ...(product.price != null ? { price: product.price } : {}),
+    ...(product.price != null ? { price: shopDisplayPrice(product.price) } : {}),
     ...(product.language ? { language: product.language } : {}),
     ...(product.grader ? { grader: product.grader } : {}),
     ...(product.year != null ? { year: product.year } : {}),
@@ -126,6 +127,8 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
 export function toInventoryProduct(product: ProductRecord, slug: string): InventoryProduct {
   return {
     ...toPublicProduct(product, slug),
+    // The books keep the exact amount, cents and all; only the website rounds it down.
+    ...(product.price != null ? { price: product.price } : {}),
     ...(product.cost != null ? { cost: product.cost } : {}),
     ...(product.sold ? { sold: true } : {}),
     ...(product.soldAt ? { soldAt: product.soldAt } : {}),

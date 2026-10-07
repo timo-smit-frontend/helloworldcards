@@ -133,7 +133,7 @@ In `app/cms/seed-products.ts` on that card (or the local admin: status **Reserve
 - `soldAt: 'YYYY-MM-DD'` — the day it sold; today unless the user says otherwise
 - `soldTime: 'HH:mm'` — Amsterdam time the buyer bought it (the sale notification shows it). Take it from the user; when they give none, ask once in the same reply rather than guessing
 - `soldVia: 'vinted' | 'marktplaats'` — where it sold; ask when the user does not say
-- `price: '€X'` — the actual sale amount, when the user gives one (the dashboard reads revenue from `price`)
+- `price: '€X'` — the actual sale amount, when the user gives one (the dashboard reads revenue from `price`), cents and all: `'€40,50'`. The website shows whole euros (`shopDisplayPrice`): X,99 as the euro above it, any other cents rounded down, so cents never show there; the record keeps them
 - keep `marktplaatsUrl` and `vintedUrl`; never `sold: true` yet
 
 The shop keeps the card but hides its price: the card in the grid and the button on its page both say **This card is reserved** instead. The card leaves the Vinted relist tab and the price suggestions on its own, and the relist API refuses it. Sync per **cms-inventory** and update tests that assert the card's price or status.

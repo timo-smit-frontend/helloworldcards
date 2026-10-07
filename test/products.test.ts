@@ -90,6 +90,7 @@ describe('product inventory', () => {
       [1, 'marktplaats'],
       [2, 'vinted'],
       [3, 'vinted'],
+      [6, 'vinted'],
       [8, 'vinted'],
       [9, 'vinted'],
       [10, 'vinted'],
@@ -205,7 +206,8 @@ describe('product inventory', () => {
     const product = products.find((item) => item.slug === 'arceus-v-2022-brilliant-stars-165')
 
     expect(product?.title).toBe('Arceus V')
-    expect(product?.price).toBe('€45')
+    expect(product?.reserved).toBe(true)
+    expect(product?.price).toBe('€40')
     expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244195')
     expect(inventory.find((item) => item.id === 6)?.cost).toBe(28)
     expect(inventory.find((item) => item.id === 6)?.concept).toBeUndefined()
@@ -366,5 +368,12 @@ describe('product inventory', () => {
     // Only a reserved card carries the flag; the rest do not say "reserved: false".
     expect('reserved' in publicProduct).toBe(false)
     expect(toPublicProduct({ ...live, reserved: true }, live.slug).reserved).toBe(true)
+  })
+
+  it('rounds cents down on the website but keeps them on the books', async () => {
+    const { inventory } = await seededShop()
+    const live = inventory.find((item) => item.id === 11)!
+    expect(toPublicProduct({ ...live, price: '€40,50' }, live.slug).price).toBe('€40')
+    expect(inventory.find((item) => item.id === 6)?.price).toBe('€40,50')
   })
 })

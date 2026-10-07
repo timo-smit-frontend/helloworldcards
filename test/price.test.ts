@@ -4,7 +4,9 @@ import {
   marktplaatsBiddingFromShop,
   marktplaatsBiedenVanafFromShop,
   marktplaatsListingEuros,
-  marktplaatsVraagprijsFromShop
+  marktplaatsVraagprijsFromShop,
+  parseListedPrice,
+  shopDisplayPrice
 } from '../app/services/price'
 
 describe('marktplaatsListingEuros', () => {
@@ -67,5 +69,24 @@ describe('marktplaatsBiedenVanafFromShop', () => {
     expect(marktplaatsBiedenVanafFromShop('€90')).toBe('79,99')
     expect(marktplaatsBiedenVanafFromShop('€45')).toBe('34,99')
     expect(marktplaatsBiedenVanafFromShop(undefined)).toBeNull()
+  })
+})
+
+describe('shopDisplayPrice', () => {
+  it('shows whole euros, rounding X,99 up and any other cents down', () => {
+    expect(shopDisplayPrice('€40,50')).toBe('€40')
+    expect(shopDisplayPrice('€40,98')).toBe('€40')
+    expect(shopDisplayPrice('€44,99')).toBe('€45')
+    expect(shopDisplayPrice(44.99)).toBe('€45')
+    expect(shopDisplayPrice('€45')).toBe('€45')
+    expect(shopDisplayPrice(40.5)).toBe('€40')
+  })
+
+  it('leaves a price it cannot read as it is', () => {
+    expect(shopDisplayPrice('on request')).toBe('on request')
+  })
+
+  it('reads cents when parsing', () => {
+    expect(parseListedPrice('€40,50')).toBe(40.5)
   })
 })

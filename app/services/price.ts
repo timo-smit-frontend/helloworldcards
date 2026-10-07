@@ -32,6 +32,20 @@ export function formatShopPrice(value: number): string {
   return `€${value}`
 }
 
+/**
+ * What the website shows for a price: whole euros. X,99 reads as the euro above it (`€44,99` → `€45`);
+ * any other cents are rounded down (`€40,50` → `€40`). The record keeps the cents.
+ */
+export function shopDisplayPrice(price: string | number): string | number {
+  const euros = parseListedPrice(price)
+  if (euros == null) {
+    return price
+  }
+  const cents = Math.round(euros * 100)
+  const whole = Math.floor(cents / 100)
+  return formatShopPrice(cents % 100 >= 99 ? whole + 1 : whole)
+}
+
 /** Shop listing price minus €0,01 for Marktplaats (psychological pricing). Shop stays clean; MP looks slightly cheaper. */
 export function marktplaatsListingEuros(shopPrice: string | number | undefined): number | null {
   const euros = parseListedPrice(shopPrice)
