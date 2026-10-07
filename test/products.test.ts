@@ -184,7 +184,7 @@ describe('product inventory', () => {
     const record = inventory.find((item) => item.id === 4)
 
     expect(product?.title).toBe('Ekans')
-    expect(product?.price).toBe('€60')
+    expect(product?.price).toBe('€55')
     expect(record?.cost).toBe(25)
     expect(record?.firstEdition).toBe(true)
   })
@@ -197,7 +197,7 @@ describe('product inventory', () => {
     expect(product?.title).toBe('Zorua AR')
     expect(product?.language).toBe('japanese')
     expect(product?.grader).toBe('beckett')
-    expect(product?.price).toBe('€60')
+    expect(product?.price).toBe('€55')
     expect(record?.cost).toBe(40)
     expect(record?.acquiredAt).toBe('2026-08-30')
   })

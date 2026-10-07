@@ -2,6 +2,10 @@
 
 Date: 2026-09-04 · replaces the 2026-09-02 "Marktplaats deals" design
 
+> Pricing, the top-100 scope and the buckets changed on 2026-10-07: see
+> [Deal finder v2](2026-10-07-deal-finder-v2-design.md). Reading the slab, matching
+> Cardmarket, its bot check and the scan's speed are still as described here.
+
 ## Goal
 
 Find PSA 9 and PSA 10 Pokémon singles on Marktplaats and Vinted that are priced

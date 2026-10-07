@@ -2,6 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { listingCost } from '~/services/deal-finder/cost'
 import { emptyReport, isCurrentReport, mergeReports } from '~/services/deal-finder/report'
 import type { DealFinderReport, DealRow, DealSource, SourceSummary } from '~/services/deal-finder/types'
+import { emptyOwnHistory, valueCard } from '~/services/deal-finder/valuation'
+
+/** Priced against one Cardmarket offer. */
+function valuedAt(price: number): DealRow['valuation'] {
+  const comp = {
+    id: 'cardmarket:1',
+    source: 'cardmarket' as const,
+    price,
+    shipping: null,
+    title: 'PSA 9',
+    url: null,
+    seller: 'shop',
+    country: null,
+    seenAt: '2026-09-07T20:00:00.000Z'
+  }
+  return valueCard({ comps: [comp], own: emptyOwnHistory() })
+}
 
 function dealRow(cost: DealRow['cost'] | undefined, source: DealSource = 'marktplaats', edge = 41.5): DealRow {
   return {
@@ -27,9 +44,9 @@ function dealRow(cost: DealRow['cost'] | undefined, source: DealSource = 'marktp
       signals: []
     },
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Base-Set/Charizard',
-    marketFloor: 140,
+    valuation: valuedAt(140),
     edge,
-    comps: [],
+    soldSearchUrl: 'https://www.ebay.de/sch/i.html?_nkw=Charizard+4+PSA+9',
     googleUrl: null,
     query: null
   }
@@ -46,6 +63,12 @@ describe('isCurrentReport', () => {
 
   it('drops a report written before fees and postage were counted', () => {
     const report = { ...emptyReport('2026-09-07T20:00:00.000Z'), deals: [dealRow(undefined)] }
+    expect(isCurrentReport(report)).toBe(false)
+  })
+
+  it('drops a report written before cards were priced against every site', () => {
+    const old = { ...dealRow(listingCost({ source: 'marktplaats', ask: 90, shipping: null })), valuation: undefined }
+    const report = { ...emptyReport('2026-09-07T20:00:00.000Z'), deals: [old as unknown as DealRow] }
     expect(isCurrentReport(report)).toBe(false)
   })
 

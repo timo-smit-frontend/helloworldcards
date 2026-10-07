@@ -568,6 +568,13 @@ describe('dashboard API', () => {
     const stored = await store.getReport()
     expect(stored?.sources.map((source) => source.source)).toEqual(['marktplaats', 'vinted'])
     // Each scan pruned its own marketplace; neither put the other's stale entry back.
-    await expect(store.getCache()).resolves.toEqual({ version: CACHE_VERSION, entries: {}, products: {}, floors: {} })
+    await expect(store.getCache()).resolves.toEqual({
+      version: CACHE_VERSION,
+      entries: {},
+      products: {},
+      floors: {},
+      certs: {},
+      comps: {}
+    })
   })
 })

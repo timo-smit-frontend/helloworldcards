@@ -44,20 +44,21 @@ const HOVER_DETAILS = /,\s*(?:Merk|Staat|Maat|Brand|Condition|Size):.*$/i
  * "incl. Vinted-kosten". That second one is the money that leaves your account, so
  * that is the one the scan reads.
  */
-export function parseVintedHoverTitle(raw: string): { title: string; ask: number } | null {
+export function parseVintedHoverTitle(raw: string): { title: string; ask: number; sellerAsk: number } | null {
   const trimmed = raw.trim()
-  const price = trimmed.match(/,\s*[\d.,]+\s*€,\s*([\d.,]+)\s*€\s*$/)
+  const price = trimmed.match(/,\s*([\d.,]+)\s*€,\s*([\d.,]+)\s*€\s*$/)
   if (!price) {
     return null
   }
 
-  const ask = euros(price[1])
+  const ask = euros(price[2])
   if (ask == null) {
     return null
   }
 
   const title = trimmed.slice(0, price.index).replace(HOVER_DETAILS, '').trim()
-  return title ? { title, ask } : null
+  // The seller's own figure is what another seller's listing competes with.
+  return title ? { title, ask, sellerAsk: euros(price[1]) ?? ask } : null
 }
 
 function absoluteVintedUrl(href: string): string {
@@ -108,6 +109,7 @@ export function parseVintedOverview(html: string): SourceListing[] {
       title: hover.title || titleFromVintedSlug(slug),
       description: null,
       ask: hover.ask,
+      sellerAsk: hover.sellerAsk,
       listingUrl: absoluteVintedUrl(href),
       sellerName: null,
       sellerId: null,

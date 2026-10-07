@@ -13,11 +13,16 @@ import {
   type MarketPrice,
   type Unpriced
 } from './cardmarket'
+import type { InventoryProduct } from '../../database/products'
+import type { MarketListing } from '../cardmarket/grades'
 import {
+  certLookupsSince,
+  hasFreshComps,
   hasFreshFloor,
   hasFreshIdentity,
   hasFreshMatch,
   hasFreshPrice,
+  hasSettledMatch,
   hasSettledVerdict,
   pruneCache,
   usableCache,
@@ -25,7 +30,9 @@ import {
   type DealFinderCache,
   type ProductMatch
 } from './cache'
+import { cardmarketComps, compsKey, compsQuery, ebayComps, marktplaatsComps, marktplaatsCompsUrl, rememberedComps } from './comps'
 import {
+  CERT_LOOKUPS_PER_DAY,
   DEAL_SOURCES,
   FETCH_DELAY_MS,
   IDENTIFY_CONCURRENCY,
@@ -38,10 +45,16 @@ import {
   MAX_PHOTOS_PER_LISTING,
   MIN_EDGE,
   VINTED_MAX_PAGES,
+  VINTED_MEMORY_DAYS,
   VINTED_SEARCH_URL
 } from './constants'
 import { listingCost } from './cost'
+import { ebaySoldSearchUrl, type EbaySearch } from './ebay'
 import { ownListingIds, screenListing, type OwnListingIds, type Screening } from './filters'
+import type { MarketMemory, RememberedListing } from './memory'
+import { ownHistory } from './own'
+import { characterGate, offListReason, tidyCardName, topCharacter } from './popular'
+import { COMP_SOURCE_LABELS, valueCard } from './valuation'
 import {
   buildFallbackQuery,
   buildSearchQuery,
@@ -63,10 +76,12 @@ import {
   parseMarktplaatsOverview
 } from './marktplaats'
 import { emptyReport, sortDeals, sortNoComps, withTotals } from './report'
-import { unwantedGradeReason } from './text'
+import { detectCardName, detectSet, unwantedGradeReason } from './text'
 import { isVintedChallenge, parseVintedDetail, parseVintedOverview, vintedSearchPageUrl } from './vinted'
 import type {
   CardIdentity,
+  Comp,
+  CompSource,
   DealFinderReport,
   DealRow,
   DealSource,
@@ -75,7 +90,8 @@ import type {
   PsaLabel,
   SlabReading,
   SourceListing,
-  SourceSummary
+  SourceSummary,
+  Valuation
 } from './types'
 
 export type { DealFinderCache } from './cache'
@@ -93,19 +109,38 @@ export type ResolveUrl = (url: string) => Promise<string | null>
 /** How many reviews a Marktplaats seller has, or null when it could not be found out. */
 export type SellerReviews = (sellerId: string) => Promise<number | null>
 
+/** Where a card's competition is looked up, beside Cardmarket. */
+export type Comparisons = {
+  /** Search Marktplaats for the card — any age, any price — once per card per half day. */
+  marktplaats: boolean
+  /** eBay's European sites; left out without keys. */
+  ebay?: EbaySearch
+  /** Every search page the scans read, kept between scans: Vinted's competition comes only from here. */
+  memory?: MarketMemory
+}
+
+/** The shop's own products, as far as the scan reads them — its ads to skip, and its sales to learn from. */
+export type OwnProduct = Omit<Partial<InventoryProduct>, 'marktplaatsUrl' | 'vintedUrl'> & {
+  marktplaatsUrl?: string | null
+  vintedUrl?: string | null
+}
+
 type Candidate = {
   listing: SourceListing
   entry: CacheEntry | undefined
 }
 
-/** Everything a listing produced once identified and priced — before it is bucketed. */
+/** Everything a listing produced once identified and matched — before it is priced and bucketed. */
 type Evaluated = {
   listing: SourceListing
   identity: CardIdentity
   label: PsaLabel | null
   query: string
   googleUrl: string
-  cardmarketUrl: string
+  /** Null when no Cardmarket page is the card: it is then priced against the other sites alone. */
+  cardmarketUrl: string | null
+  /** Why there is no Cardmarket page, when an earlier scan already found out. */
+  noPage?: { reason: string; detail: string | null }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -218,6 +253,7 @@ async function collectSource({
   delayMs,
   pace,
   sellerReviews,
+  memory,
   maxPages,
   scannedAt
 }: {
@@ -228,6 +264,7 @@ async function collectSource({
   delayMs: number
   pace: Pacer
   sellerReviews?: SellerReviews
+  memory?: MarketMemory
   maxPages: number
   scannedAt: string
 }): Promise<Collected> {
@@ -303,6 +340,13 @@ async function collectSource({
       seen.add(listing.id)
     }
 
+    // Every row on the page is someone's competition, whether or not it is a card we
+    // would buy today — and remembering it is what lets a later scan price a card against
+    // Vinted without asking Vinted anything.
+    await memory?.remember(unseen, scannedAt).catch((error: unknown) => {
+      console.warn('[deal-finder] could not remember the search page:', error instanceof Error ? error.message : error)
+    })
+
     // Newest first, so a page without a single listing from inside the window means the
     // window has been read through — the pages behind it are older still. Reading them
     // was what made a scan of "today" take as long as a scan of the whole month: every
@@ -315,7 +359,7 @@ async function collectSource({
 
     found += fresh.length
 
-    const screened = fresh.map((listing) => ({ listing, screening: screenListing(listing, ids) }))
+    const screened = fresh.map((listing) => ({ listing, screening: onTheList(listing, screenListing(listing, ids)) }))
     await loadSellerReviews(screened, sellerReviews, reviewCounts)
 
     for (const { listing, screening } of screened) {
@@ -366,6 +410,23 @@ async function collectSource({
     listings,
     problems
   }
+}
+
+/**
+ * A listing that passed every buying rule, judged on its character.
+ *
+ * Only the top-100 characters are looked at, and a title that names a Pokémon off the
+ * list settles it before a single page is opened — the listing page, the photos, Google
+ * and Cardmarket all cost the same for a card that was never going to be bought. A title
+ * that names no Pokémon at all goes through: the slab says who it is, and the identity
+ * step asks the same question of that.
+ */
+function onTheList(listing: SourceListing, screening: Screening): Screening {
+  if (!screening.keep) {
+    return screening
+  }
+  const gate = characterGate(listing.title)
+  return gate.verdict === 'other' ? { keep: false, scope: 'out-of-scope', reason: offListReason(gate.names) } : screening
 }
 
 /** How many sellers are asked about at once — a small JSON endpoint, not a page load. */
@@ -524,6 +585,7 @@ export async function runDealFinderScan({
   sellerReviews,
   cache: previousCache,
   ownListings = [],
+  comparisons,
   sources = DEAL_SOURCES,
   marktplaatsUrl = MARKTPLAATS_SEARCH_URL,
   vintedUrl = VINTED_SEARCH_URL,
@@ -541,7 +603,15 @@ export async function runDealFinderScan({
   /** Looks up a Marktplaats seller's review count, so unreviewed sellers can be skipped. */
   sellerReviews?: SellerReviews
   cache?: DealFinderCache | null
-  ownListings?: Array<{ marktplaatsUrl?: string | null; vintedUrl?: string | null }>
+  /** The shop's own stock and sales: skipped in the feeds, and what a card sold for here before. */
+  ownListings?: OwnProduct[]
+  /**
+   * Price each card against everyone else selling it, beside Cardmarket: a Marktplaats
+   * search for the card, eBay's European sites when there are keys for them, and the
+   * Vinted listings earlier scans remembered — Vinted itself is never searched. Without
+   * it a card is priced on Cardmarket alone.
+   */
+  comparisons?: Comparisons
   /** Which marketplaces to walk. Each can be run on its own; both by default. */
   sources?: readonly DealSource[]
   marktplaatsUrl?: string
@@ -585,6 +655,7 @@ export async function runDealFinderScan({
         delayMs,
         pace,
         sellerReviews,
+        memory: comparisons?.memory,
         maxPages: maxPages?.[source] ?? PAGING[source].maxPages,
         scannedAt: report.scannedAt
       })
@@ -603,6 +674,12 @@ export async function runDealFinderScan({
     // which is exactly what used to go wrong — so say so rather than quietly degrading.
     report.errors.push('No PSA label reader configured, so the scan is going on the listing text alone.')
   }
+  if (readSlabs && !lookupCert) {
+    report.errors.push('PSA cert lookups are off, so slabs are identified from the photo alone. Add PSA_API_TOKEN to .dev.vars.')
+  }
+  if (comparisons && !comparisons.ebay) {
+    report.errors.push('eBay is not set up, so the European market is left out. Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET to .dev.vars.')
+  }
 
   const candidates: Candidate[] = listings.map((listing) => ({ listing, entry: cache.entries[listing.id] }))
   console.info(
@@ -618,7 +695,17 @@ export async function runDealFinderScan({
     pace,
     timings,
     matching: new Map(),
-    pricing: new Map()
+    pricing: new Map(),
+    comparing: new Map(),
+    lookupCert: rememberingCertLookup(lookupCert, cache, now),
+    compare: {
+      marktplaats: comparisons?.marktplaats ?? false,
+      ebay: comparisons?.ebay,
+      // Read once, after this scan's own search pages have gone in.
+      vinted: comparisons?.memory ? recentVinted(comparisons.memory, now) : null
+    },
+    own: ownListings,
+    ownCompIds: ownCompIds(ids)
   }
 
   /**
@@ -647,7 +734,7 @@ export async function runDealFinderScan({
       const out = outcomes[index]!
       try {
         const prepared = await identifying(() =>
-          identifyCandidate({ candidate, fetchPage, readSlabs, lookupCert, now, pace, listingDelayMs, timings })
+          identifyCandidate({ candidate, fetchPage, readSlabs, lookupCert: run.lookupCert, now, pace, listingDelayMs, timings })
         ).catch((error: unknown): Prepared => ({ step: 'failed', listing: candidate.listing, error }))
         await evaluatePrepared({ prepared, run, out, park: (evaluated) => parked.push({ index, evaluated }) })
       } catch (error) {
@@ -755,7 +842,7 @@ function createLimiter(limit: number): <T>(task: () => Promise<T>) => Promise<T>
 }
 
 /** The steps a scan's time goes on, counted so the dev log can say where it went. */
-type Step = 'listing' | 'photos' | 'google' | 'cardmarket'
+type Step = 'listing' | 'photos' | 'google' | 'cardmarket' | 'comparing'
 
 type Timings = {
   time<T>(step: Step, task: () => Promise<T>): Promise<T>
@@ -766,7 +853,8 @@ const STEP_LABELS: Record<Step, [string, string]> = {
   listing: ['listing page', 'listing pages'],
   photos: ['photo read', 'photo reads'],
   google: ['Google search', 'Google searches'],
-  cardmarket: ['Cardmarket card', 'Cardmarket cards']
+  cardmarket: ['Cardmarket card', 'Cardmarket cards'],
+  comparing: ['comparison search', 'comparison searches']
 }
 
 /**
@@ -821,6 +909,19 @@ type Run = {
   matching: Map<string, Promise<ProductMatch>>
   /** Cardmarket loads under way, by card and grade, for the same reason. */
   pricing: Map<string, Promise<PricedCard>>
+  /** Comparison searches under way, by card, grade and site, for the same reason again. */
+  comparing: Map<string, Promise<Comp[] | null>>
+  /** PSA's records, asked once per cert and never past the day's allowance. */
+  lookupCert?: CertLookup
+  compare: {
+    marktplaats: boolean
+    ebay?: EbaySearch
+    /** The Vinted listings remembered from the last month, read once per scan. */
+    vinted: Promise<RememberedListing[]> | null
+  }
+  own: OwnProduct[]
+  /** Our own ads as comparison ids: we are never our own competition. */
+  ownCompIds: Set<string>
 }
 
 /**
@@ -832,11 +933,91 @@ type Run = {
 type Prepared =
   | { step: 'priced'; listing: SourceListing; entry: CacheEntry }
   | { step: 'settled'; listing: SourceListing; entry: CacheEntry }
-  | { step: 'matched'; listing: SourceListing; evaluated: Evaluated }
-  | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string }
+  | { step: 'matched'; listing: SourceListing; evaluated: Evaluated; fromCache?: boolean }
+  | { step: 'search'; listing: SourceListing; identity: CardIdentity; label: PsaLabel | null; query: string; fromCache?: boolean }
   | { step: 'unidentified'; listing: SourceListing; scope: 'out-of-scope' | 'problem'; reason: string; detail: string | null }
   | { step: 'unavailable'; listing: SourceListing }
   | { step: 'failed'; listing: SourceListing; error: unknown }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * PSA's records, asked once per cert and kept for good, and never more often than the
+ * free tier allows in a day. A lookup that fails is not held against the cert — PSA is
+ * occasionally down — but three failures in one scan and the rest of the scan does
+ * without, rather than spending the day's allowance on errors.
+ */
+function rememberingCertLookup(lookupCert: CertLookup | undefined, cache: DealFinderCache, now: Date): CertLookup | undefined {
+  if (!lookupCert) {
+    return undefined
+  }
+  const underway = new Map<string, Promise<PsaLabel | null>>()
+  let failures = 0
+
+  return (certNumber) => {
+    const known = cache.certs?.[certNumber]
+    if (known) {
+      return Promise.resolve(known.label)
+    }
+    const pending = underway.get(certNumber)
+    if (pending) {
+      return pending
+    }
+    if (failures >= 3 || certLookupsSince(cache, now) >= CERT_LOOKUPS_PER_DAY) {
+      return Promise.resolve(null)
+    }
+
+    const asking = lookupCert(certNumber)
+      .then((label) => {
+        ;(cache.certs ??= {})[certNumber] = { label, at: now.toISOString() }
+        return label
+      })
+      .catch(() => {
+        failures += 1
+        return null
+      })
+      .finally(() => underway.delete(certNumber))
+    underway.set(certNumber, asking)
+    return asking
+  }
+}
+
+/** The Vinted listings remembered from the last month. A memory that cannot be read only costs Vinted's share. */
+function recentVinted(memory: MarketMemory, now: Date): Promise<RememberedListing[]> {
+  return memory.seenSince('vinted', new Date(now.getTime() - VINTED_MEMORY_DAYS * DAY_MS).toISOString()).catch((error: unknown) => {
+    console.warn('[deal-finder] could not read the remembered listings:', error instanceof Error ? error.message : error)
+    return []
+  })
+}
+
+/** Our own ads, spelled the way a comparison names a listing. */
+function ownCompIds(ids: OwnListingIds): Set<string> {
+  return new Set([...[...ids.marktplaats].map((id) => `marktplaats:m${id}`), ...[...ids.vinted].map((id) => `vinted:${id}`)])
+}
+
+/**
+ * The identified card, when its character is on the list — with its name put back
+ * together when Vision ran it into one word.
+ *
+ * The slab settles who the card is. Only where its name is a scrap that names no Pokémon
+ * at all, and PSA's records were not there to correct it, does a title naming a character
+ * on the list get the benefit of the doubt — and lend the card its name, since a scrap
+ * finds nothing on Google.
+ */
+function onTopList(identity: CardIdentity, listing: SourceListing): { identity: CardIdentity } | { reason: string } {
+  const name = tidyCardName(identity.name)
+  if (topCharacter(name)) {
+    return { identity: name === identity.name ? identity : { ...identity, name } }
+  }
+
+  const titled = characterGate(listing.title)
+  const scrap = characterGate(identity.name).verdict === 'unknown'
+  if (scrap && titled.verdict === 'top' && !identity.signals.includes('psa-cert')) {
+    const set = detectSet(listing.title)
+    return { identity: { ...identity, name: detectCardName(listing.title, set.matched, identity.cardNumber) || titled.character } }
+  }
+  return { reason: offListReason([identity.name]) }
+}
 
 /** Read the listing page and its photos, and say which card is in the slab. */
 async function identifyCandidate({
@@ -865,10 +1046,14 @@ async function identifyCandidate({
     candidate.listing.shipping == null && cached?.shipping != null ? { ...candidate.listing, shipping: cached.shipping } : candidate.listing
 
   // A card identified before the buying rules narrowed is still in the cache as a
-  // priced identity; the rule is asked again here so the cache cannot outlive it.
+  // priced identity; the rules are asked again here so the cache cannot outlive them.
   const cachedUnwanted = cached?.identity ? unwantedGradeReason(cached.identity.language, cached.identity.grade) : null
   if (cachedUnwanted) {
     return { step: 'unidentified', listing, scope: 'out-of-scope', reason: cachedUnwanted, detail: null }
+  }
+  const cachedOnList = cached?.identity ? onTopList(cached.identity, listing) : null
+  if (cachedOnList && 'reason' in cachedOnList) {
+    return { step: 'unidentified', listing, scope: 'out-of-scope', reason: cachedOnList.reason, detail: null }
   }
 
   if (cached && hasFreshPrice(cached, now, listing.ask) && cached.identity && cached.cardmarketUrl) {
@@ -882,15 +1067,29 @@ async function identifyCandidate({
   }
 
   const fresh = cached && hasFreshIdentity(cached, now) ? cached : null
-  const identity = fresh?.identity ?? null
+  const identity = fresh?.identity && cachedOnList && 'identity' in cachedOnList ? cachedOnList.identity : null
   const label = fresh?.label ?? null
   const query = fresh?.query ?? null
   const googleUrl = fresh?.googleUrl ?? null
   const cardmarketUrl = fresh?.cardmarketUrl ?? null
 
-  // A half-written cache entry (identity but no Cardmarket page) is repaired by redoing the lookup.
   if (identity && query && googleUrl && cardmarketUrl) {
     return { step: 'matched', listing, evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl } }
+  }
+  // Cardmarket had no page for it this week: priced against everyone else, Google left alone.
+  if (identity && query && googleUrl && fresh?.problem && hasSettledMatch(fresh, now, listing.ask)) {
+    const noPage = { reason: fresh.problem.reason, detail: fresh.problem.detail }
+    return {
+      step: 'matched',
+      listing,
+      evaluated: { listing, identity, label, query, googleUrl, cardmarketUrl: null, noPage },
+      fromCache: true
+    }
+  }
+  // Known card, no Cardmarket page: the product search answers from what it remembers,
+  // and the card is priced against everyone else — the photos stay unread.
+  if (identity && query) {
+    return { step: 'search', listing, identity, label, query, fromCache: true }
   }
 
   const {
@@ -937,12 +1136,17 @@ async function identifyCandidate({
     return { step: 'unidentified', listing: detailed, scope: identified.scope, reason: identified.reason, detail: identified.detail }
   }
 
+  const onList = onTopList(identified.identity, detailed)
+  if ('reason' in onList) {
+    return { step: 'unidentified', listing: detailed, scope: 'out-of-scope', reason: onList.reason, detail: null }
+  }
+
   return {
     step: 'search',
     listing: detailed,
-    identity: identified.identity,
+    identity: onList.identity,
     label: identified.label,
-    query: buildSearchQuery(identified.identity, identified.label)
+    query: buildSearchQuery(onList.identity, identified.label)
   }
 }
 
@@ -967,15 +1171,19 @@ async function evaluatePrepared({
   if (prepared.step === 'priced') {
     const { listing, entry } = prepared
     out.tallies.push('fromCache')
-    bucket({
-      listing,
-      identity: entry.identity!,
-      cardmarketUrl: entry.cardmarketUrl!,
-      googleUrl: entry.googleUrl,
-      query: entry.query,
-      floor: entry.floor!,
-      comps: entry.comps,
-      out
+    await settle({
+      evaluated: {
+        listing,
+        identity: entry.identity!,
+        label: entry.label,
+        query: entry.query ?? '',
+        googleUrl: entry.googleUrl ?? '',
+        cardmarketUrl: entry.cardmarketUrl
+      },
+      cardmarket: { kind: 'priced', productUrl: entry.cardmarketUrl!, floor: entry.floor!, comps: entry.comps },
+      run,
+      out,
+      fromCache: true
     })
     return
   }
@@ -1035,50 +1243,24 @@ async function evaluatePrepared({
     return
   }
 
-  const evaluated = prepared.step === 'matched' ? prepared.evaluated : await matchToCardmarket({ prepared, run, out })
-  if (!evaluated) {
-    return
+  const fromCache = (prepared.step === 'search' || prepared.step === 'matched') && prepared.fromCache === true
+  if (fromCache) {
+    out.tallies.push('fromCache')
   }
-
-  await priceEvaluated({ evaluated, run, out, park })
+  const evaluated = prepared.step === 'matched' ? prepared.evaluated : await matchToCardmarket({ prepared, run })
+  // A card already known to have no Cardmarket page is not written down again: the week
+  // that answer is trusted for runs from the scan that found out, and once it is over the
+  // card is searched for again.
+  await priceEvaluated({ evaluated, run, out, park, remembered: prepared.step === 'matched' && evaluated.noPage != null })
 }
 
 const NO_MATCH = 'No matching Cardmarket page in the Google results'
+const WRONG_CARD = 'The Cardmarket page Google found is a different card'
 
 /** Find the card's Cardmarket product page — remembered, being searched for, or searched for now. */
-async function matchToCardmarket({
-  prepared,
-  run,
-  out
-}: {
-  prepared: Extract<Prepared, { step: 'search' }>
-  run: Run
-  out: Outcome
-}): Promise<Evaluated | null> {
+async function matchToCardmarket({ prepared, run }: { prepared: Extract<Prepared, { step: 'search' }>; run: Run }): Promise<Evaluated> {
   const { listing, identity, label } = prepared
   const match = await findProduct({ identity, label, query: prepared.query, run })
-
-  if (!match.url) {
-    out.problems.push({
-      ...listingRef(listing),
-      stage: 'match',
-      reason: NO_MATCH,
-      detail: label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null,
-      googleUrl: match.googleUrl,
-      query: match.query,
-      cardmarketUrl: null
-    })
-    remember(run.cache, listing, run.now, {
-      identity,
-      label,
-      query: match.query,
-      googleUrl: match.googleUrl,
-      cardmarketUrl: null,
-      problem: { stage: 'match', reason: NO_MATCH, detail: null }
-    })
-    return null
-  }
-
   return { listing, identity, label, query: match.query, googleUrl: match.googleUrl, cardmarketUrl: match.url }
 }
 
@@ -1144,112 +1326,245 @@ async function searchGoogle({ identity, query, run }: { identity: CardIdentity; 
 /** A card priced on Cardmarket: the version that set the floor, and what it came to. */
 type PricedCard = { productUrl: string; priced: MarketPrice | Unpriced }
 
-/** Load the Cardmarket offers page and turn it into a deal, a no-comps row or a problem. */
+/** What Cardmarket said about a card: its PSA offers in the grade, why it has none, or why it could not be asked. */
+type CardmarketEvidence =
+  | { kind: 'priced'; productUrl: string; floor: number; comps: MarketListing[] }
+  | { kind: 'unpriced'; productUrl: string; error: string }
+  | { kind: 'failed'; productUrl: string | null; stage: 'match' | 'price'; reason: string; detail: string | null }
+
+/** Price the card on Cardmarket and against everyone else, and turn it into a deal, a no-comps row or a problem. */
 async function priceEvaluated({
   evaluated,
   run,
   out,
-  park
+  park,
+  remembered = false
 }: {
   evaluated: Evaluated
   run: Run
   out: Outcome
   /** Where to leave a card the bot check stopped, to be tried again at the end; null on that last try. */
   park: ((evaluated: Evaluated) => void) | null
+  /** What an earlier scan wrote down still stands, and is left as it is. */
+  remembered?: boolean
 }): Promise<void> {
-  const { listing, identity, label, query, googleUrl } = evaluated
-  const { cache, now } = run
+  const cardmarket = await askCardmarket({ evaluated, run, park })
+  if (cardmarket) {
+    await settle({ evaluated, cardmarket, run, out, fromCache: remembered })
+  }
+}
 
-  let cardmarketUrl = evaluated.cardmarketUrl
-  let priced: PricedCard['priced']
+/** Cardmarket's side of the story, or null when the card was parked behind a bot check. */
+async function askCardmarket({
+  evaluated,
+  run,
+  park
+}: {
+  evaluated: Evaluated
+  run: Run
+  park: ((evaluated: Evaluated) => void) | null
+}): Promise<CardmarketEvidence | null> {
+  const { identity, label, query, googleUrl } = evaluated
+
+  if (!evaluated.cardmarketUrl) {
+    if (evaluated.noPage) {
+      return { kind: 'failed', productUrl: null, stage: 'match', ...evaluated.noPage }
+    }
+    const slab = label ? `Slab reads: ${[label.year, label.setLine, label.cardName, label.varietyLine].filter(Boolean).join(' ')}` : null
+    return { kind: 'failed', productUrl: null, stage: 'match', reason: NO_MATCH, detail: slab }
+  }
+
   try {
-    ;({ productUrl: cardmarketUrl, priced } = await priceCard({ productUrl: cardmarketUrl, identity, run }))
+    const { productUrl, priced } = await priceCard({ productUrl: evaluated.cardmarketUrl, identity, run })
+    if ('error' in priced && priced.wrongCard) {
+      // Google found a page, but not this card's. That is a failed match, and remembered as
+      // one for every other listing of the card.
+      ;(run.cache.products ??= {})[productKey(identity, label)] = { url: null, query, googleUrl, at: run.now.toISOString() }
+      return { kind: 'failed', productUrl: null, stage: 'match', reason: WRONG_CARD, detail: priced.error }
+    }
+    if ('error' in priced) {
+      return { kind: 'unpriced', productUrl, error: priced.error }
+    }
+    return { kind: 'priced', productUrl, floor: priced.floor, comps: priced.comps }
   } catch (error) {
     if (error instanceof CardmarketBlockedError && park) {
       // Park it: the user still has to clear the bot check in the Chrome window.
       park(evaluated)
-      return
+      return null
     }
-
-    const reason = error instanceof CardmarketBlockedError ? 'Cardmarket bot check blocked this card' : 'Could not load the Cardmarket page'
-    out.problems.push({
-      ...listingRef(listing),
+    const blocked = error instanceof CardmarketBlockedError
+    return {
+      kind: 'failed',
+      productUrl: evaluated.cardmarketUrl,
       stage: 'price',
-      reason,
-      detail: error instanceof Error && !(error instanceof CardmarketBlockedError) ? error.message : null,
-      googleUrl,
-      query,
-      cardmarketUrl: offersUrlFor(cardmarketUrl, identity)
-    })
-    remember(cache, listing, now, {
-      identity,
-      label,
-      query,
-      googleUrl,
-      cardmarketUrl,
-      problem: { stage: 'price', reason, detail: null }
-    })
-    return
+      reason: blocked ? 'Cardmarket bot check blocked this card' : 'Could not load the Cardmarket page',
+      detail: !blocked && error instanceof Error ? error.message : null
+    }
+  }
+}
+
+function cardmarketNote(evidence: CardmarketEvidence): string | null {
+  if (evidence.kind === 'priced') {
+    return null
+  }
+  return evidence.kind === 'unpriced' ? evidence.error : evidence.reason
+}
+
+/** eBay's sold listings for the card, to be checked by hand — eBay keeps them behind a login. */
+function soldSearchUrl(identity: CardIdentity): string {
+  return ebaySoldSearchUrl(`${compsQuery(identity) ?? identity.name} PSA ${identity.grade}`)
+}
+
+/**
+ * One comparison search for a card — Marktplaats or eBay — asked at most once however
+ * many listings show the card: an earlier scan's answer while it is fresh, the search
+ * another listing is already waiting on, or a new one. A search that fails is not
+ * remembered, and the card goes without that site's competitors this time.
+ */
+function compareOnce({
+  identity,
+  site,
+  run,
+  search
+}: {
+  identity: CardIdentity
+  site: 'marktplaats' | 'ebay'
+  run: Run
+  search: () => Promise<Comp[]>
+}): Promise<Comp[] | null> {
+  const key = `${site}|${compsKey(identity)}`
+  const remembered = run.cache.comps?.[key]
+  if (hasFreshComps(remembered, run.now)) {
+    return Promise.resolve(remembered.comps)
+  }
+  const underway = run.comparing.get(key)
+  if (underway) {
+    return underway
   }
 
-  if ('error' in priced && priced.wrongCard) {
-    // Google found a page, but not this card's. That is a failed match, and remembered as
-    // one — for this listing, and for every other listing of the card.
-    const reason = 'The Cardmarket page Google found is a different card'
-    out.problems.push({
-      ...listingRef(listing),
-      stage: 'match',
-      reason,
-      detail: priced.error,
-      googleUrl,
-      query,
-      cardmarketUrl: offersUrlFor(cardmarketUrl, identity)
+  const asking = run.timings
+    .time('comparing', search)
+    .then((comps) => {
+      ;(run.cache.comps ??= {})[key] = { comps, at: run.now.toISOString() }
+      return comps
     })
-    remember(cache, listing, now, {
-      identity,
-      label,
-      query,
-      googleUrl,
-      cardmarketUrl: null,
-      problem: { stage: 'match', reason, detail: priced.error }
+    .catch((error: unknown) => {
+      console.warn(`[deal-finder] ${site} comparison failed:`, error instanceof Error ? error.message : error)
+      return null
     })
-    ;(cache.products ??= {})[productKey(identity, label)] = { url: null, query, googleUrl, at: now.toISOString() }
-    return
-  }
+    .finally(() => run.comparing.delete(key))
+  run.comparing.set(key, asking)
+  return asking
+}
 
-  if ('error' in priced) {
-    out.noComps.push({
-      ...listingRef(listing),
-      displayTitle: rowTitle(identity, cardmarketUrl),
-      card: identity,
-      cardmarketUrl: offersUrlFor(cardmarketUrl, identity),
-      reason: priced.error,
-      googleUrl,
-      query
-    })
-    remember(cache, listing, now, { identity, label, query, googleUrl, cardmarketUrl, problem: null })
-    return
-  }
+/** Everyone selling the card off Cardmarket: Marktplaats, eBay's European sites, and the Vinted listings remembered. */
+async function otherComps(identity: CardIdentity, run: Run): Promise<{ comps: Comp[]; notes: Partial<Record<CompSource, string>> }> {
+  const seenAt = run.now.toISOString()
+  const ebay = run.compare.ebay
 
-  bucket({
-    listing,
-    identity,
-    cardmarketUrl,
-    googleUrl,
-    query,
-    floor: priced.floor,
-    comps: priced.comps,
-    out
+  const [marktplaats, european, vinted] = await Promise.all([
+    run.compare.marktplaats
+      ? compareOnce({
+          identity,
+          site: 'marktplaats',
+          run,
+          search: async () => {
+            const url = marktplaatsCompsUrl(identity)
+            return url ? marktplaatsComps(await run.pace(url, run.delayMs, () => run.fetchPage(url)), identity, seenAt) : []
+          }
+        })
+      : Promise.resolve(null),
+    ebay
+      ? compareOnce({
+          identity,
+          site: 'ebay',
+          run,
+          search: async () => {
+            const query = compsQuery(identity)
+            return query ? ebayComps(await ebay(`${query} PSA ${identity.grade}`), identity, seenAt) : []
+          }
+        })
+      : Promise.resolve(null),
+    run.compare.vinted ? run.compare.vinted.then((rows) => rememberedComps(rows, identity)) : Promise.resolve(null)
+  ])
+
+  const notes: Partial<Record<CompSource, string>> = {}
+  if (marktplaats == null) {
+    notes.marktplaats = run.compare.marktplaats ? 'search failed' : 'not compared'
+  }
+  if (european == null) {
+    notes.ebay = ebay ? 'search failed' : 'not set up'
+  }
+  if (vinted == null) {
+    notes.vinted = 'not compared'
+  }
+  return { comps: [...(marktplaats ?? []), ...(european ?? []), ...(vinted ?? [])], notes }
+}
+
+/**
+ * Put a card's price together and decide what the listing is.
+ *
+ * Cardmarket is one source among several now: a card it has no page for, or no PSA
+ * offers on, is still priced against everyone else selling it. Only a card nobody sells
+ * anywhere keeps the verdict Cardmarket gave it — the problem it ran into, or "nobody is
+ * selling one".
+ */
+async function settle({
+  evaluated,
+  cardmarket,
+  run,
+  out,
+  fromCache
+}: {
+  evaluated: Evaluated
+  cardmarket: CardmarketEvidence
+  run: Run
+  out: Outcome
+  /** Priced from a remembered floor, which keeps the date it was read on. */
+  fromCache: boolean
+}): Promise<void> {
+  const { listing, identity, label, query, googleUrl } = evaluated
+  const { productUrl } = cardmarket
+  const offersUrl = productUrl ? offersUrlFor(productUrl, identity) : null
+
+  const others = await otherComps(identity, run)
+  const comps = [
+    ...(cardmarket.kind === 'priced' ? cardmarketComps(cardmarket.comps, offersUrl, run.now.toISOString()) : []),
+    ...others.comps
+  ]
+    // The listing itself, and our own ads, are never the competition.
+    .filter((comp) => comp.id !== listing.id && !run.ownCompIds.has(comp.id))
+  const valuation = valueCard({
+    comps,
+    own: ownHistory({ card: identity, cardmarketUrl: productUrl, products: run.own }),
+    notes: { ...others.notes, ...(cardmarketNote(cardmarket) ? { cardmarket: cardmarketNote(cardmarket)! } : {}) }
   })
-  remember(cache, listing, now, {
+
+  bucket({ evaluated, cardmarket, offersUrl, valuation, out })
+
+  if (fromCache) {
+    return
+  }
+  if (cardmarket.kind === 'failed') {
+    remember(run.cache, listing, run.now, {
+      identity,
+      label,
+      query,
+      googleUrl,
+      cardmarketUrl: cardmarket.productUrl,
+      // Only a wrong card is worth its detail later; the rest says it again when retried.
+      problem: { stage: cardmarket.stage, reason: cardmarket.reason, detail: cardmarket.reason === WRONG_CARD ? cardmarket.detail : null }
+    })
+    return
+  }
+  remember(run.cache, listing, run.now, {
     identity,
     label,
     query,
     googleUrl,
-    cardmarketUrl,
+    cardmarketUrl: productUrl,
     problem: null,
-    floor: priced.floor,
-    comps: priced.comps
+    ...(cardmarket.kind === 'priced' ? { floor: cardmarket.floor, comps: cardmarket.comps } : {})
   })
 }
 
@@ -1374,28 +1689,54 @@ async function priceCheapestVersion({
   return priced.reduce((cheapest, version) => (floor(version) < floor(cheapest) ? version : cheapest))
 }
 
-/** A priced listing is only worth showing when Cardmarket beats the ask by enough. */
+/** A priced listing is only worth showing when it sells for enough more than it costs. */
 function bucket({
-  listing,
-  identity,
-  cardmarketUrl,
-  googleUrl,
-  query,
-  floor,
-  comps,
+  evaluated,
+  cardmarket,
+  offersUrl,
+  valuation,
   out
 }: {
-  listing: SourceListing
-  identity: CardIdentity
-  cardmarketUrl: string
-  googleUrl: string | null
-  query: string | null
-  floor: number
-  comps: DealRow['comps']
+  evaluated: Evaluated
+  cardmarket: CardmarketEvidence
+  offersUrl: string | null
+  valuation: Valuation
   out: Outcome
 }): void {
+  const { listing, identity, query, googleUrl } = evaluated
+  const shared = {
+    ...listingRef(listing),
+    displayTitle: rowTitle(identity, cardmarket.productUrl),
+    card: identity,
+    cardmarketUrl: offersUrl,
+    soldSearchUrl: soldSearchUrl(identity),
+    googleUrl,
+    query
+  }
+
+  if (valuation.expectedSale == null || valuation.basis == null) {
+    if (cardmarket.kind === 'failed') {
+      out.problems.push({
+        ...listingRef(listing),
+        stage: cardmarket.stage,
+        reason: cardmarket.reason,
+        detail: cardmarket.detail,
+        googleUrl,
+        query,
+        cardmarketUrl: offersUrl
+      })
+      return
+    }
+    out.noComps.push({
+      ...shared,
+      reason: cardmarket.kind === 'unpriced' ? cardmarket.error : 'Nobody else is selling this card',
+      valuation
+    })
+    return
+  }
+
   const cost = listingCost(listing)
-  const edge = Math.round((floor - cost.total) * 100) / 100
+  const edge = Math.round((valuation.expectedSale - cost.total) * 100) / 100
   if (edge < MIN_EDGE) {
     out.tallies.push('belowEdge')
     return
@@ -1403,30 +1744,21 @@ function bucket({
 
   // Too good to be true is the signature of a bad match, not a bargain — show it in the
   // dropdown with the numbers so it can be judged, rather than at the top as a deal.
-  if (floor >= listing.ask * IMPLAUSIBLE_FLOOR_RATIO && edge >= IMPLAUSIBLE_FLOOR_GAP) {
+  if (valuation.expectedSale >= listing.ask * IMPLAUSIBLE_FLOOR_RATIO && edge >= IMPLAUSIBLE_FLOOR_GAP) {
+    const site = COMP_SOURCE_LABELS[valuation.basis.source]
     out.problems.push({
       ...listingRef(listing),
       stage: 'match',
-      reason: 'Cardmarket price is far above the ask, probably a different card',
-      detail: `Asking €${listing.ask}, Cardmarket floor €${floor}`,
+      reason: `${site} price is far above the ask, probably a different card`,
+      detail: `Asking €${listing.ask}, ${site} ${valuation.basis.source === 'cardmarket' ? 'floor' : 'from'} €${valuation.expectedSale}`,
       googleUrl,
       query,
-      cardmarketUrl: offersUrlFor(cardmarketUrl, identity)
+      cardmarketUrl: offersUrl
     })
     return
   }
 
-  out.deals.push({
-    ...listingRef(listing),
-    displayTitle: rowTitle(identity, cardmarketUrl),
-    card: identity,
-    cardmarketUrl: offersUrlFor(cardmarketUrl, identity),
-    marketFloor: floor,
-    edge,
-    comps,
-    googleUrl,
-    query
-  })
+  out.deals.push({ ...shared, valuation, edge })
 }
 
 function remember(

@@ -478,7 +478,7 @@ describe('the sync as a whole', () => {
       for (const db of [h.db, h.production]) {
         const product = (await getProductById(db, 4))!
         expect(product.images).toEqual(['/media/76645522_front-sold.webp'])
-        expect(product).toMatchObject({ sold: true, soldAt: '2026-09-21', cost: 25, price: '€60' })
+        expect(product).toMatchObject({ sold: true, soldAt: '2026-09-21', cost: 25, price: '€55' })
         expect((await listMedia(db)).some((item) => item.key === '76645522_front.jpg' || item.key === '76645522_back.jpg')).toBe(false)
       }
       expect(await h.diskFiles()).toEqual(await h.localFiles())

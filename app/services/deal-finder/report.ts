@@ -105,6 +105,11 @@ export function isCurrentReport(report: DealFinderReport | null): report is Deal
   if (!report.sources.every(hasPerSourceTallies)) {
     return false
   }
+  // A report from before cards were priced against every site has rows measured against
+  // Cardmarket alone; the screen asks for a scan rather than mixing the two.
+  if (![...report.deals, ...report.noComps].every((row) => row.valuation != null)) {
+    return false
+  }
   return [...report.deals, ...report.noComps, ...report.problems].every((row) => row.cost != null)
 }
 

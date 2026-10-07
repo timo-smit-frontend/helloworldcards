@@ -1,4 +1,3 @@
-import type { MarketListing } from '../cardmarket/grades'
 import type { ListingCost } from './cost'
 
 export type DealSource = 'marktplaats' | 'vinted'
@@ -24,6 +23,12 @@ export type SourceListing = {
   sellerId: string | null
   priceType: string
   imageUrls: string[]
+  /**
+   * What the seller asks before the site's own buyer fees. Vinted's catalogue prints both
+   * figures and `ask` is the one with the fees; this is the one another seller's listing
+   * competes with. Absent where the site shows only one price — then it is `ask`.
+   */
+  sellerAsk?: number | null
   /** Marktplaats "type" attribute: `Losse kaart` (single) or `Meerdere kaarten` (a lot). */
   itemType: string | null
   /** Postage the listing quotes, read off its own page; Marktplaats never quotes one. */
@@ -98,24 +103,109 @@ type ListingRef = {
   imageUrl: string | null
 }
 
+/** Where a competing listing was found. */
+export type CompSource = 'cardmarket' | 'marktplaats' | 'vinted' | 'ebay'
+
+/**
+ * Someone else selling the same card, in the same grade and language — the competition a
+ * card bought here would be sold against.
+ */
+export type Comp = {
+  /** `marktplaats:m123`, `vinted:456`, `ebay:v1|…`, `cardmarket:<article id>`. */
+  id: string
+  source: CompSource
+  /**
+   * What a buyer weighs it at: the seller's ask, before any fee the site charges the buyer
+   * on top. For eBay it includes the postage to the Netherlands, which from abroad is
+   * real money a Dutch buyer pays and a Dutch seller does not ask for.
+   */
+  price: number
+  /** Postage counted in `price`, when there is any. */
+  shipping: number | null
+  title: string
+  url: string | null
+  seller: string | null
+  /** Where the seller is, when the site says (`DE`, `FR`, …). */
+  country: string | null
+  /** When it was seen. Live sources are read during the scan; Vinted's are remembered from earlier scans. */
+  seenAt: string
+}
+
+/** One of your own sales of a card. */
+export type OwnSale = {
+  title: string
+  price: number
+  soldAt: string
+  /** From buying to selling, when both dates are on the books. */
+  daysToSell: number | null
+  via: 'marktplaats' | 'vinted' | null
+}
+
+/** What your own shop knows about a card. */
+export type OwnHistory = {
+  /** This very card — same Cardmarket product, or the same character, number, grade and language — sold before. */
+  sold: OwnSale[]
+  /** This very card, still in your stock, at the price you ask. */
+  inStock: Array<{ title: string; price: number }>
+  /** How long cards of this character took to sell, median days, and over how many sales. */
+  characterDaysToSell: number | null
+  characterSales: number
+}
+
+/** One source's share in a valuation: what it had, or why it had nothing. */
+export type SourceTally = {
+  source: CompSource
+  count: number
+  lowest: number | null
+  /** Why the source contributed nothing, when it did not — "page not found", "not configured". */
+  note: string | null
+}
+
+/**
+ * What the card can be sold for, worked out from everyone else who sells it.
+ *
+ * The expected sale is the cheapest believable competitor across every source: a card
+ * bought here has to be sold against all of them, and the buyer it is waiting for looks
+ * at the cheapest first.
+ */
+export type Valuation = {
+  expectedSale: number | null
+  /** The competitor that set it. */
+  basis: Comp | null
+  /** Every believable competitor, cheapest first. */
+  comps: Comp[]
+  /** Set aside as too cheap to be the same thing — a raw card, a wrong grade, a scam. */
+  outliers: Comp[]
+  perSource: SourceTally[]
+  own: OwnHistory
+  /** `strong`: two or more sources agree. `fair`: one source, several sellers. `thin`: a single seller. */
+  confidence: 'strong' | 'fair' | 'thin' | 'none'
+  /** Where the number came from, in one line. */
+  summary: string
+}
+
 export type DealRow = ListingRef & {
-  /** `★ Charizard ex (PAF 234) EN — PSA 10`, starred when the card is a popular character. */
+  /** `Charizard ex (PAF 234) EN, PSA 10` */
   displayTitle: string
   card: CardIdentity
-  cardmarketUrl: string
-  marketFloor: number
+  cardmarketUrl: string | null
+  valuation: Valuation
+  /** What it sells for less what it costs to buy. */
   edge: number
-  comps: MarketListing[]
+  /** eBay's sold listings for the card, to check by hand: eBay keeps them behind a login. */
+  soldSearchUrl: string
   googleUrl: string | null
   query: string | null
 }
 
-/** Found the card, but Cardmarket has nothing to price it against. */
+/** Found the card, but nobody else is selling it to price it against. */
 export type NoCompsRow = ListingRef & {
   displayTitle: string
   card: CardIdentity
   cardmarketUrl: string | null
   reason: string
+  valuation: Valuation
+  soldSearchUrl: string
   googleUrl: string | null
   query: string | null
 }
@@ -151,7 +241,7 @@ export type SourceSummary = {
   notes: string[]
   /** Priced fine but the edge was too small to bother with. */
   belowEdge: number
-  /** Not a PSA 9/10 single in our price range. */
+  /** Not a PSA 9/10 single of a top-100 character in our price range. */
   outOfScope: number
   /** Answered from the cache rather than re-checked. */
   fromCache: number

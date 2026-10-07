@@ -919,12 +919,12 @@ describe('CMS API', () => {
     expect(text).toContain('[About](https://helloworldcards.com/about/)')
     expect(text).toContain('[Contact](https://helloworldcards.com/contact/)')
     expect(text).toContain('## Products')
-    expect(text).toContain('[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €95')
+    expect(text).toContain('[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €90')
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(
       '[Giratina V PSA 9](https://helloworldcards.com/products/giratina-v-2022-lost-origin-185/): 2022 Lost Origin #185. Reserved'
     )
-    expect(text).not.toContain('#185. €95')
+    expect(text).not.toContain('#185. €90')
     expect(text).toContain('## Events')
     expect(text).toContain('## Optional')
     expect(text).toContain('[Privacy statement](https://helloworldcards.com/privacy/)')

@@ -5,7 +5,8 @@ const GRADE = /\bpsa\s*(?:gem\s*mint|gem\s*mt|gem|mint|nm-?mt)?\s*(10|9)\b(?!\s*
 /** Any PSA grade, so a PSA 8 listing is recognised and dropped rather than misread. */
 const ANY_GRADE = /\bpsa\s*(?:gem\s*mint|gem\s*mt|gem|mint|nm-?mt)?\s*(\d{1,2}(?:\.\d)?)\b/i
 
-const JAPANESE = /\b(?:jp|jpn|jap|japan|japans|japanse|japanees|japanese|japon|japonais|japonés|japones|giapponese|japones[ae]?)\b/i
+const JAPANESE =
+  /\b(?:jp|jpn|jap|japan|japans|japanse|japanees|japanese|japon|japonais|japonaise|japonés|japones|giapponese|japones[ae]?|japanisch(?:e[nrs]?)?)\b/i
 
 /**
  * A listing written in French, German, Spanish or Italian is selling that language's
@@ -289,6 +290,19 @@ export function detectLanguage(text: string): CardLanguage | 'other' | null {
     return 'other'
   }
   return null
+}
+
+/**
+ * The card's language as the text names it outright, ignoring what language the text is
+ * written in. An eBay seller in Germany writes "Pokemon Karte" about an English card, so
+ * the prose that makes a Marktplaats listing French or German says nothing there — only
+ * a stated language does.
+ */
+export function detectStatedLanguage(text: string): CardLanguage | 'other' | null {
+  if (JAPANESE.test(text)) {
+    return 'japanese'
+  }
+  return OTHER_LANGUAGE.test(text) ? 'other' : null
 }
 
 export function isJapaneseSetCode(code: string | null): boolean {

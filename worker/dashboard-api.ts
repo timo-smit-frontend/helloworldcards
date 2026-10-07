@@ -4,6 +4,8 @@ import { runCardmarketScan, withProductFrontImages, withWatchedProductsOnly } fr
 import { mergeCaches } from '../app/services/deal-finder/cache'
 import { DEAL_SOURCES } from '../app/services/deal-finder/constants'
 import { isCurrentReport, mergeReports } from '../app/services/deal-finder/report'
+import type { EbaySearch } from '../app/services/deal-finder/ebay'
+import type { MarketMemory } from '../app/services/deal-finder/memory'
 import type {
   CertLookup,
   DealFinderCache,
@@ -82,6 +84,10 @@ export type DashboardRuntime = {
   readSlabs?: SlabReader
   /** Resolves a certification number against PSA's own records. */
   lookupCert?: CertLookup
+  /** eBay's European sites, for what other sellers there ask; absent without keys. */
+  ebaySearch?: EbaySearch
+  /** Every search page the scans read, kept on the dev machine between scans. */
+  marketMemory?: MarketMemory
   /** Follows Google's result redirects to the page they point at. */
   resolveUrl?: ResolveUrl
   /** Looks up how many reviews a Marktplaats seller has. */
@@ -592,6 +598,7 @@ async function dealFinderScan(
       pace: runtime.pacer,
       cache: await store.getCache(),
       ownListings: await inventoryFor(env, runtime),
+      comparisons: { marktplaats: true, ebay: runtime.ebaySearch, memory: runtime.marketMemory },
       sources,
       onProgress: (progress) => {
         live.report = progress.report

@@ -1,8 +1,8 @@
 import { RotateCw } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { DEAL_SOURCES, MIN_EDGE } from '~/services/deal-finder/constants'
-import { POPULAR_STAR, splitStar } from '~/services/deal-finder/popular'
 import { groupProblems } from '~/services/deal-finder/report'
+import { COMP_SOURCE_LABELS } from '~/services/deal-finder/valuation'
 import type {
   DealFinderReport,
   DealRow,
@@ -121,39 +121,59 @@ function evidence(row: DealRow | NoCompsRow): string {
   return parts.join(' · ')
 }
 
-/**
- * The card, with its popular-character star on its own line above the name.
- *
- * Sitting over the title rather than in front of it keeps the mark out of the truncated
- * text — a long card name can never push it off the end — and leaves every title in the
- * column starting at the same place, which is what makes a starred row findable by
- * running your eye down the list.
- */
-function DealTitle({ title }: { title: string }) {
-  const { starred, title: name } = splitStar(title)
+const CONFIDENCE: Record<DealRow['valuation']['confidence'], string> = {
+  strong: 'several sites',
+  fair: 'several sellers',
+  thin: 'one seller',
+  none: 'nobody'
+}
+
+/** Which site set the price, and how many others back it up. */
+function basisHint(valuation: DealRow['valuation']): string {
+  return valuation.basis ? `${COMP_SOURCE_LABELS[valuation.basis.source]} · ${CONFIDENCE[valuation.confidence]}` : ''
+}
+
+/** The card on Cardmarket, and its sold listings on eBay — which eBay only shows to a logged-in buyer. */
+function RowLinks({ item }: { item: DealRow | NoCompsRow }) {
+  const link = 'underline smooth hover:text-site-gray-nurse'
   return (
-    <>
-      {starred ? (
-        <p className="mb-1 text-sm leading-none text-site-foil" title="Popular character">
-          {POPULAR_STAR}
-        </p>
+    <p className="mt-1 text-xs text-site-mantle">
+      {item.cardmarketUrl ? (
+        <>
+          <a href={item.cardmarketUrl} target="_blank" rel="noreferrer" className={link}>
+            Cardmarket
+          </a>
+          {' · '}
+        </>
       ) : null}
-      <p className="truncate font-semibold text-site-gray-nurse">{name}</p>
-    </>
+      <a href={item.soldSearchUrl} target="_blank" rel="noreferrer" className={link}>
+        Sold on eBay
+      </a>
+    </p>
   )
 }
 
 function DealListRow({ item }: { item: DealRow }) {
+  const { valuation } = item
   return (
     <li className={`${CARD_ROW} md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}>
       <CardThumbnail src={item.imageUrl} />
       <div className="min-w-0">
-        <DealTitle title={item.displayTitle} />
+        <p className="truncate font-semibold text-site-gray-nurse">{item.displayTitle}</p>
+        <p className="mt-1 text-sm text-site-gray-nurse/80 max-md:line-clamp-2 md:truncate" title={valuation.summary}>
+          {valuation.summary}
+        </p>
         <p className="mt-1 text-sm text-site-mantle max-md:line-clamp-2 md:truncate">{evidence(item)}</p>
+        <RowLinks item={item} />
       </div>
       <FigureStrip>
         <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
-        <PriceFigure label="Lowest listed" value={formatListedEuros(item.marketFloor)} href={item.cardmarketUrl} />
+        <PriceFigure
+          label="Sells for"
+          value={formatListedEuros(valuation.expectedSale ?? 0)}
+          href={valuation.basis?.url ?? undefined}
+          hint={basisHint(valuation)}
+        />
         <PriceFigure label="Edge" value={formatSignedEuros(item.edge)} tone="text-site-envy" />
       </FigureStrip>
     </li>
@@ -165,13 +185,13 @@ function NoCompsListRow({ item }: { item: NoCompsRow }) {
     <li className={`${CARD_ROW} md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-6`}>
       <CardThumbnail src={item.imageUrl} />
       <div className="min-w-0">
-        <DealTitle title={item.displayTitle} />
+        <p className="truncate font-semibold text-site-gray-nurse">{item.displayTitle}</p>
         <p className="mt-1 text-sm text-site-foil max-md:line-clamp-2 md:truncate">{item.reason}</p>
         <p className="mt-1 text-sm text-site-mantle max-md:line-clamp-2 md:truncate">{evidence(item)}</p>
+        <RowLinks item={item} />
       </div>
       <FigureStrip>
         <PriceFigure label="You pay" value={formatListedEuros(item.cost.total)} href={item.listingUrl} />
-        {item.cardmarketUrl ? <PriceFigure label="Cardmarket" value="Open" href={item.cardmarketUrl} /> : null}
       </FigureStrip>
     </li>
   )
@@ -283,12 +303,12 @@ export default function DealFinder({
       ))}
 
       {anyScanning && deals.length === 0 ? (
-        <p className="content-m text-site-mantle">Reading listings, slab labels and Cardmarket…</p>
+        <p className="content-m text-site-mantle">Reading listings, slabs and prices…</p>
       ) : deals.length === 0 ? (
         <p className="content-m text-site-mantle">
           {report
-            ? `Nothing on Marktplaats or Vinted is €${MIN_EDGE} under the Cardmarket floor right now.`
-            : 'Scan Marktplaats and Vinted for PSA 9 and 10 cards priced below Cardmarket.'}
+            ? `Nothing on Marktplaats or Vinted sells for €${MIN_EDGE} more than it costs right now.`
+            : 'Scan Marktplaats and Vinted for PSA 9 and 10 cards of the top 100 Pokémon that sell for more than they cost.'}
         </p>
       ) : (
         <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine border-y border-site-mulled-wine p-0">
@@ -299,7 +319,7 @@ export default function DealFinder({
       )}
 
       {noComps.length > 0 ? (
-        <Accordion title="No Cardmarket price" count={noComps.length}>
+        <Accordion title="Nothing to compare" count={noComps.length}>
           <ol className="m-0 flex list-none flex-col divide-y divide-site-mulled-wine p-0">
             {noComps.map((item) => (
               <NoCompsListRow key={item.id} item={item} />

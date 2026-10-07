@@ -1,6 +1,6 @@
 import type { MarketListing } from '../cardmarket/grades'
-import { IDENTITY_TTL_MS, PRICE_TTL_MS, VERDICT_TTL_MS } from './constants'
-import type { CardIdentity, DealSource, PsaLabel } from './types'
+import { COMPS_TTL_MS, IDENTITY_TTL_MS, PRICE_TTL_MS, VERDICT_TTL_MS } from './constants'
+import type { CardIdentity, Comp, DealSource, PsaLabel } from './types'
 
 /**
  * What we already know about one listing. Identifying a card costs a photo read,
@@ -71,23 +71,53 @@ export type RememberedFloor = {
   at: string
 }
 
+/**
+ * What PSA's own records say about a certification number. A cert never changes, so the
+ * answer is kept for good, and the lookups it took are what the daily allowance is counted
+ * in. A number PSA did not know is kept too, so it is not asked about again tomorrow.
+ */
+export type RememberedCert = {
+  label: PsaLabel | null
+  at: string
+}
+
+/**
+ * What one comparison search found for a card: Marktplaats or eBay, per card and grade.
+ * Shared across listings like a floor, for as long as other sellers' asks are trusted.
+ */
+export type RememberedComps = {
+  comps: Comp[]
+  at: string
+}
+
 export type DealFinderCache = {
   version?: number
   entries: Record<string, CacheEntry>
   products?: Record<string, ProductMatch>
   floors?: Record<string, RememberedFloor>
+  certs?: Record<string, RememberedCert>
+  comps?: Record<string, RememberedComps>
 }
 
 /** The cache to start from: the stored one, or a fresh one when older logic wrote it. */
 export function usableCache(stored: DealFinderCache | null | undefined): DealFinderCache {
   return stored && stored.version === CACHE_VERSION
-    ? { version: CACHE_VERSION, entries: { ...stored.entries }, products: { ...stored.products }, floors: { ...stored.floors } }
+    ? {
+        version: CACHE_VERSION,
+        entries: { ...stored.entries },
+        products: { ...stored.products },
+        floors: { ...stored.floors },
+        certs: { ...stored.certs },
+        comps: { ...stored.comps }
+      }
     : emptyCache()
 }
 
 function emptyCache(): DealFinderCache {
-  return { version: CACHE_VERSION, entries: {}, products: {}, floors: {} }
+  return { version: CACHE_VERSION, entries: {}, products: {}, floors: {}, certs: {}, comps: {} }
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 function ageMs(iso: string | null, now: Date): number {
   if (!iso) {
@@ -97,9 +127,15 @@ function ageMs(iso: string | null, now: Date): number {
   return Number.isFinite(at) ? now.getTime() - at : Number.POSITIVE_INFINITY
 }
 
-/** A remembered card identity is reusable for a month — the listing still shows the same slab. */
+/**
+ * A remembered card identity is reusable for a month — the listing still shows the same slab.
+ *
+ * That holds when it was the matching or pricing that went wrong rather than the reading:
+ * a card Cardmarket had no page for is still the card the photos showed, and pricing it
+ * against everyone else selling it does not need the photos read a second time.
+ */
 export function hasFreshIdentity(entry: CacheEntry | undefined, now: Date): boolean {
-  if (!entry || entry.problem || !entry.identity) {
+  if (!entry || !entry.identity || entry.problem?.stage === 'identify' || entry.problem?.stage === 'listing') {
     return false
   }
   return ageMs(entry.identifiedAt, now) < IDENTITY_TTL_MS
@@ -119,6 +155,16 @@ export function hasFreshFloor(floor: RememberedFloor | undefined, now: Date): fl
   return floor != null && ageMs(floor.at, now) < PRICE_TTL_MS
 }
 
+/** Another seller's ask is only trusted for half a day, like a floor. */
+export function hasFreshComps(record: RememberedComps | undefined, now: Date): record is RememberedComps {
+  return record != null && ageMs(record.at, now) < COMPS_TTL_MS
+}
+
+/** How many PSA cert lookups the scans made in the day before `now` — the allowance is per day. */
+export function certLookupsSince(cache: DealFinderCache, now: Date): number {
+  return Object.values(cache.certs ?? {}).filter((cert) => ageMs(cert.at, now) < DAY_MS).length
+}
+
 /** A remembered Cardmarket floor is only reused for half a day, and only at the same ask. */
 export function hasFreshPrice(entry: CacheEntry | undefined, now: Date, ask: number): boolean {
   if (!entry || !hasFreshIdentity(entry, now) || entry.floor == null || entry.ask !== ask) {
@@ -130,19 +176,20 @@ export function hasFreshPrice(entry: CacheEntry | undefined, now: Date, ask: num
 /**
  * A conclusion the listing itself settles, which asking again would only reach a second time.
  *
- * Two of these: the photos were read and the slab is not a PSA 9/10 single we buy, and the
- * card was worked out but no Cardmarket page matched it. Both are readings of a listing that
- * is not going to change, so they are answered from here rather than re-read.
+ * The photos were read and the slab is not a card we buy, or could not be read at all.
+ * That is a reading of a listing that is not going to change, so it is answered from here
+ * rather than read again.
  *
- * A Cardmarket bot check or a page that would not load is deliberately not one of them —
- * that is the scan having a bad moment, not a fact about the listing — and neither is a
- * `listing` stage failure, which is decided before the cache is ever consulted.
+ * A card no Cardmarket page matched is not one of them any more: Cardmarket is one source
+ * among several, and the card is priced against the others every scan — from its remembered
+ * identity, without its photos being read again. Nor is a Cardmarket bot check or a page
+ * that would not load, which is the scan having a bad moment, not a fact about the listing.
  */
 function isSettled(entry: CacheEntry): boolean {
   if (!entry.problem) {
     return entry.identity == null
   }
-  return entry.problem.stage === 'identify' || entry.problem.stage === 'match'
+  return entry.problem.stage === 'identify'
 }
 
 /**
@@ -152,6 +199,18 @@ function isSettled(entry: CacheEntry): boolean {
  */
 export function hasSettledVerdict(entry: CacheEntry | undefined, now: Date, ask: number): boolean {
   if (!entry || !isSettled(entry) || entry.ask !== ask) {
+    return false
+  }
+  return ageMs(entry.identifiedAt, now) < VERDICT_TTL_MS
+}
+
+/**
+ * A card Cardmarket had no page for, still within the week that answer is trusted for and
+ * at the same ask. The card is priced against everyone else without Google being asked
+ * again — and the week keeps running from the scan that asked.
+ */
+export function hasSettledMatch(entry: CacheEntry | undefined, now: Date, ask: number): boolean {
+  if (!entry || entry.problem?.stage !== 'match' || entry.ask !== ask) {
     return false
   }
   return ageMs(entry.identifiedAt, now) < VERDICT_TTL_MS
@@ -182,12 +241,16 @@ export function pruneCache(
       entries[id] = entry
     }
   }
-  // Cards are not tied to a listing, so they go when they are too old to be used.
+  // Cards are not tied to a listing, so they go when they are too old to be used. A
+  // cert never goes stale, but the allowance only needs the last day of them and a cert
+  // a year old is from a slab long sold.
   return {
     version: CACHE_VERSION,
     entries,
     products: keep(cache.products, (match) => hasFreshMatch(match, now)),
-    floors: keep(cache.floors, (floor) => hasFreshFloor(floor, now))
+    floors: keep(cache.floors, (floor) => hasFreshFloor(floor, now)),
+    certs: keep(cache.certs, (cert) => ageMs(cert.at, now) < 365 * DAY_MS),
+    comps: keep(cache.comps, (record) => hasFreshComps(record, now))
   }
 }
 
@@ -238,6 +301,8 @@ export function mergeCaches(stored: DealFinderCache | null, scanned: DealFinderC
     version: CACHE_VERSION,
     entries,
     products: newest(store.products, scanned.products),
-    floors: newest(store.floors, scanned.floors)
+    floors: newest(store.floors, scanned.floors),
+    certs: newest(store.certs, scanned.certs),
+    comps: newest(store.comps, scanned.comps)
   }
 }

@@ -112,3 +112,41 @@ export const VERDICT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 /** Photos handed to the label reader per listing — the label is rarely past the fourth. */
 export const MAX_PHOTOS_PER_LISTING = 4
+
+/**
+ * PSA's free tier answers 100 certification lookups a day. The scan keeps itself under
+ * that with room to spare, so a second scan the same day — or a lookup by hand on PSA's
+ * site — never finds the day used up. A cert is only ever looked up once: what PSA says
+ * about a slab does not change.
+ */
+export const CERT_LOOKUPS_PER_DAY = 90
+
+/** What other sellers ask moves slower than a single listing, but not by much — the same half day as a Cardmarket floor. */
+export const COMPS_TTL_MS = PRICE_TTL_MS
+
+/**
+ * How far back the remembered Vinted listings count as competition. Vinted is never
+ * searched for a card (that would be a request per card on a site that blocks the whole
+ * computer for too many), so its competitors are the listings earlier scans already
+ * read. A month-old ask may have sold since; older than that it mostly has.
+ */
+export const VINTED_MEMORY_DAYS = 30
+
+/**
+ * A competitor asking under half what the others ask is not selling the same thing —
+ * a raw card in a slab's title, the wrong grade, or a price that is a placeholder or a
+ * scam. Such asks are shown, but not priced against. It takes three asks to say what
+ * "the others" are.
+ */
+export const OUTLIER_RATIO = 0.5
+export const OUTLIER_MIN_COMPS = 3
+
+/** The cheapest competitors kept on a row; the rest only count. */
+export const MAX_COMPS_KEPT = 12
+
+/**
+ * Marktplaats comparisons ask for the card itself, whatever it costs and however long it
+ * has been up — unlike the deal search, which is today's listings under €150. Under a
+ * fiver is never a slab.
+ */
+export const COMPS_MIN_ASK = 5

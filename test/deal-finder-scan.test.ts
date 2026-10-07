@@ -10,6 +10,8 @@ import {
 import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
 import { CACHE_VERSION, type DealFinderCache } from '~/services/deal-finder/cache'
+import type { EbayItem } from '~/services/deal-finder/ebay'
+import { inMemoryMarketMemory } from '~/services/deal-finder/memory'
 import type { CardIdentity, PsaLabel } from '~/services/deal-finder/types'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
 
@@ -393,9 +395,10 @@ describe('runDealFinderScan', () => {
       ask: 120,
       // €120 plus €6 Kopersbescherming and €4 postage is €130 out of pocket.
       cost: { fee: 6, shipping: 4, total: 130 },
-      marketFloor: 170,
+      // One Cardmarket seller is all there is to go on.
+      valuation: { expectedSale: 170, confidence: 'thin' },
       edge: 40,
-      displayTitle: '★ Charmander (MEW 168) EN, PSA 9'
+      displayTitle: 'Charmander (MEW 168) EN, PSA 9'
     })
     expect(report.deals[0]?.cardmarketUrl).toContain('cardmarket.com/en/Pokemon/Products/Singles/151/Charmander-V2-MEW168')
   })
@@ -812,7 +815,7 @@ describe('runDealFinderScan', () => {
       expect(report.fromCache).toBe(0)
       // The identity was still good, so the photos were not read again.
       expect(readSlabs).not.toHaveBeenCalled()
-      expect(report.deals[0]?.marketFloor).toBe(170)
+      expect(report.deals[0]?.valuation.expectedSale).toBe(170)
     })
 
     /** Whatever a run concluded about `m1`, written as the cache would have written it. */
@@ -1088,7 +1091,7 @@ describe('runDealFinderScan', () => {
       })
       const { report } = await run({ fetchPage: second.fetchPage, readSlabs: readCharmander, cache })
 
-      expect(report.deals.map((deal) => [deal.id, deal.marketFloor])).toEqual([['marktplaats:m9', 170]])
+      expect(report.deals.map((deal) => [deal.id, deal.valuation.expectedSale])).toEqual([['marktplaats:m9', 170]])
       expect(second.calls.some((url) => url.includes('google.com/search') || url.includes('cardmarket.com'))).toBe(false)
     })
 
@@ -1288,12 +1291,18 @@ describe('Cardmarket versions of one card', () => {
     ])
   })
 
-  const magnetonSlab: SlabReader = async () => ({
+  // Magneton is not on the top-100 list, so the scan is shown a Pikachu that Cardmarket
+  // sells the same way: two products of one card number, one of them stamped.
+  const PIKACHU_VERSIONS_URL = 'https://www.cardmarket.com/en/Pokemon/Cards/Pikachu/Versions'
+  const PIKACHU_VERSIONS_LINK = '<a href="/en/Pokemon/Cards/Pikachu/Versions">Show Versions (80)</a>'
+  const PIKACHU_VERSIONS_PAGE = VERSIONS_PAGE.replace(/Magneton/g, 'Pikachu')
+
+  const versionedSlab: SlabReader = async () => ({
     slabs: [
       slab({
         year: '2024',
         setLine: 'POKEMON SVP EN',
-        cardName: 'MAGNETON',
+        cardName: 'PIKACHU',
         varietyLine: 'SURGING SPARKS ETB',
         cardNumber: '159',
         grade: 10
@@ -1302,35 +1311,262 @@ describe('Cardmarket versions of one card', () => {
     note: null
   })
 
-  function magnetonFetcher(v1Offers: string) {
+  function versionedFetcher(v1Offers: string) {
     return fetcher({
-      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Magneton Surging Sparks Psa 10', cents: 14995 }]),
-      google: () => googleResults('SV-Black-Star-Promos', 'Magneton-V2-SVP159'),
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Pikachu Surging Sparks Psa 10', cents: 14995 }]),
+      google: () => googleResults('SV-Black-Star-Promos', 'Pikachu-V2-SVP159'),
       offers: (url) => {
-        if (url.startsWith(VERSIONS_URL)) return VERSIONS_PAGE
-        if (url.includes('Magneton-V1-SVP159')) return v1Offers
+        if (url.startsWith(PIKACHU_VERSIONS_URL)) return PIKACHU_VERSIONS_PAGE
+        if (url.includes('Pikachu-V1-SVP159')) return v1Offers
         // The stamped one, which Google happened to put first.
-        return offersPage([{ seller: 'shop', comment: 'PSA 10', price: '275,45 €' }]).replace('</body>', `${VERSIONS_LINK}</body>`)
+        return offersPage([{ seller: 'shop', comment: 'PSA 10', price: '275,45 €' }]).replace('</body>', `${PIKACHU_VERSIONS_LINK}</body>`)
       }
     })
   }
 
   it('prices a card Cardmarket sells more than once against the cheapest version', async () => {
-    const { fetchPage } = magnetonFetcher(offersPage([{ seller: 'shop', comment: 'PSA 10', price: '190,00 €' }]))
+    const { fetchPage } = versionedFetcher(offersPage([{ seller: 'shop', comment: 'PSA 10', price: '190,00 €' }]))
 
-    const { report } = await run({ fetchPage, readSlabs: magnetonSlab, sources: ['marktplaats'] })
+    const { report } = await run({ fetchPage, readSlabs: versionedSlab, sources: ['marktplaats'] })
 
     expect(report.deals).toHaveLength(1)
-    expect(report.deals[0]).toMatchObject({ marketFloor: 190, edge: 28.55 })
-    expect(report.deals[0]?.cardmarketUrl).toContain('/SV-Black-Star-Promos/Magneton-V1-SVP159')
+    expect(report.deals[0]).toMatchObject({ valuation: { expectedSale: 190 }, edge: 28.55 })
+    expect(report.deals[0]?.cardmarketUrl).toContain('/SV-Black-Star-Promos/Pikachu-V1-SVP159')
   })
 
   it('does not price it at all when one of the versions has nothing to price it by', async () => {
-    const { fetchPage } = magnetonFetcher(offersPage([{ seller: 'shop', comment: 'Near Mint', price: '40,00 €' }]))
+    const { fetchPage } = versionedFetcher(offersPage([{ seller: 'shop', comment: 'Near Mint', price: '40,00 €' }]))
 
-    const { report } = await run({ fetchPage, readSlabs: magnetonSlab, sources: ['marktplaats'] })
+    const { report } = await run({ fetchPage, readSlabs: versionedSlab, sources: ['marktplaats'] })
 
     expect(report.deals).toHaveLength(0)
     expect(report.noComps[0]?.reason).toBe('Cardmarket sells 2 versions of this card, and not every one has a PSA 10 to price it by')
+  })
+})
+
+describe('the top list', () => {
+  it('never opens a listing whose title names a Pokémon off the list', async () => {
+    const { fetchPage, calls } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: "Team Rocket's Nidoking ex PSA 10", cents: 9000 }])
+    })
+    const readSlabs = vi.fn(readCharmander)
+
+    const { report } = await run({ fetchPage, readSlabs, sources: ['marktplaats'] })
+
+    expect(report.outOfScope).toBe(1)
+    expect(readSlabs).not.toHaveBeenCalled()
+    expect(calls.some((url) => url.includes('marktplaats.nl/v/'))).toBe(false)
+  })
+
+  it('drops a card whose slab names a Pokémon off the list, when the title named none', async () => {
+    const { fetchPage, calls } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Mooie PSA 10 slab', cents: 9000 }])
+    })
+    const readSlabs: SlabReader = async () => ({ slabs: [slab({ cardName: 'NIDOKING', cardNumber: '034', grade: 10 })], note: null })
+
+    const { report } = await run({ fetchPage, readSlabs, sources: ['marktplaats'] })
+
+    expect(report.outOfScope).toBe(1)
+    expect(report.deals).toEqual([])
+    expect(calls.some((url) => url.includes('google.com/search'))).toBe(false)
+  })
+
+  it('lends a misread slab the name its title gives, when the slab names no Pokémon at all', async () => {
+    const { fetchPage } = fetcher({
+      marktplaats: marktplaatsOverview([{ id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 }]),
+      google: (url) => (decodeURIComponent(url).includes('Charmander') ? googleResults('151', 'Charmander-V2-MEW168') : '<html></html>'),
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const readSlabs: SlabReader = async () => ({ slabs: [slab({ cardName: 'STARURIVERDEE' })], note: null })
+
+    const { report } = await run({ fetchPage, readSlabs, sources: ['marktplaats'] })
+
+    // The name the title gives, set and all — enough for Google to find the card by.
+    expect(report.deals.map((deal) => deal.card.name)).toEqual(['Charmander 151'])
+  })
+})
+
+describe('pricing against every site', () => {
+  const NOW = new Date('2026-10-07T12:00:00.000Z')
+  const CANDIDATE = { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 10000 }
+  const OWN_AD = 'https://www.marktplaats.nl/v/verzamelen/m2000001-charmander'
+
+  /** The deal search answers the feed; the comparison search for the card answers everyone selling it. */
+  function comparing(google: (url: string) => string = () => googleResults('151', 'Charmander-V2-MEW168')) {
+    const base = fetcher({
+      marktplaats: marktplaatsOverview([CANDIDATE]),
+      google,
+      offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+    })
+    const competition = marktplaatsOverview([
+      // The listing itself and our own ad turn up in the search too; neither is competition.
+      CANDIDATE,
+      { id: 'm2000001', title: 'Charmander 168/165 PSA 9', cents: 9500 },
+      { id: 'm7', title: 'Charmander 168/165 PSA 9', cents: 14000, date: '3 okt 26' },
+      { id: 'm8', title: 'Charmander 168/165 PSA 10', cents: 30000 }
+    ])
+    const fetchPage = vi.fn(async (url: string) => (url.includes('query=Charmander') ? competition : base.fetchPage(url)))
+    return { fetchPage, calls: base.calls }
+  }
+
+  const vintedMemory = () =>
+    inMemoryMarketMemory([
+      {
+        id: 'vinted:5',
+        source: 'vinted',
+        title: 'Charmander 168/165 PSA 9',
+        ask: 152.6,
+        sellerAsk: 145,
+        url: 'https://www.vinted.nl/items/5',
+        firstSeen: '2026-10-05T12:00:00.000Z',
+        lastSeen: '2026-10-05T12:00:00.000Z'
+      }
+    ])
+
+  const ebayItem: EbayItem = {
+    itemId: 'v1|9|0',
+    title: 'PSA 9 Charmander 168/165 151 Pokemon Karte',
+    price: 150,
+    currency: 'EUR',
+    shipping: 10,
+    url: 'https://www.ebay.de/itm/9',
+    seller: 'kartenladen',
+    country: 'DE'
+  }
+
+  it('sells a card at the cheapest believable competitor on any site', async () => {
+    const { fetchPage } = comparing()
+    const ebay = vi.fn(async () => [ebayItem])
+
+    const { report } = await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sources: ['marktplaats'],
+      now: NOW,
+      ownListings: [{ marktplaatsUrl: OWN_AD }],
+      comparisons: { marktplaats: true, ebay, memory: vintedMemory() }
+    })
+
+    expect(ebay).toHaveBeenCalledWith('Charmander 168 PSA 9')
+    expect(report.deals).toHaveLength(1)
+    const deal = report.deals[0]!
+    // €100 plus €5 Kopersbescherming and €4 postage, against the €140 Marktplaats ask.
+    expect(deal.cost.total).toBe(109)
+    expect(deal.edge).toBe(31)
+    expect(deal.valuation).toMatchObject({ expectedSale: 140, confidence: 'strong', basis: { id: 'marktplaats:m7' } })
+    expect(deal.valuation.summary).toBe('Cardmarket from €170 · Marktplaats from €140 · Vinted from €145 · eBay EU from €160')
+    expect(deal.soldSearchUrl).toContain('ebay.de')
+  })
+
+  it('still prices a card Cardmarket has no page for, against the other sites', async () => {
+    const { fetchPage } = comparing(() => '<html></html>')
+
+    const { report } = await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sources: ['marktplaats'],
+      now: NOW,
+      ownListings: [{ marktplaatsUrl: OWN_AD }],
+      comparisons: { marktplaats: true, memory: vintedMemory() }
+    })
+
+    expect(report.problems).toEqual([])
+    expect(report.deals).toHaveLength(1)
+    expect(report.deals[0]).toMatchObject({ cardmarketUrl: null, valuation: { expectedSale: 140 } })
+    expect(report.deals[0]?.valuation.perSource[0]).toMatchObject({
+      source: 'cardmarket',
+      count: 0,
+      note: 'No matching Cardmarket page in the Google results'
+    })
+  })
+
+  it('asks Marktplaats about a card once however many listings show it', async () => {
+    const { fetchPage } = comparing()
+    const first = await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sources: ['marktplaats'],
+      now: NOW,
+      comparisons: { marktplaats: true }
+    })
+    await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sources: ['marktplaats'],
+      now: NOW,
+      cache: first.cache,
+      comparisons: { marktplaats: true }
+    })
+
+    expect(fetchPage.mock.calls.filter(([url]) => url.includes('query=Charmander'))).toHaveLength(1)
+  })
+
+  it('says what is not set up', async () => {
+    const { fetchPage } = comparing()
+    const { report } = await run({
+      fetchPage,
+      readSlabs: readCharmander,
+      sources: ['marktplaats'],
+      now: NOW,
+      comparisons: { marktplaats: true }
+    })
+
+    expect(report.errors).toEqual([
+      'PSA cert lookups are off, so slabs are identified from the photo alone. Add PSA_API_TOKEN to .dev.vars.',
+      'eBay is not set up, so the European market is left out. Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET to .dev.vars.'
+    ])
+  })
+
+  it('remembers every listing on the search pages for later scans', async () => {
+    const { fetchPage } = comparing()
+    const memory = inMemoryMarketMemory()
+
+    await run({ fetchPage, readSlabs: readCharmander, sources: ['marktplaats'], now: NOW, comparisons: { marktplaats: true, memory } })
+
+    expect((await memory.seenSince('marktplaats', '2026-10-01T00:00:00.000Z')).map((row) => row.id)).toEqual(['marktplaats:m1'])
+  })
+})
+
+describe('PSA cert lookups', () => {
+  const pages = {
+    marktplaats: marktplaatsOverview([
+      { id: 'm1', title: 'Charmander 168/165 151 PSA 9', cents: 12000 },
+      { id: 'm2', title: 'Charmander 168/165 PSA 9', cents: 12500 }
+    ]),
+    google: () => googleResults('151', 'Charmander-V2-MEW168'),
+    offers: () => offersPage([{ seller: 'shop', comment: 'PSA 9', price: '170,00 €' }])
+  }
+
+  it('looks a cert up once, however many listings and scans show it', async () => {
+    const lookupCert = vi.fn(async () => slab())
+
+    const first = await run({ fetchPage: fetcher(pages).fetchPage, readSlabs: readCharmander, lookupCert, sources: ['marktplaats'] })
+    const fresh = { ...first.cache, entries: {} }
+    await run({ fetchPage: fetcher(pages).fetchPage, readSlabs: readCharmander, lookupCert, sources: ['marktplaats'], cache: fresh })
+
+    expect(lookupCert).toHaveBeenCalledTimes(1)
+    expect(first.cache.certs?.['99887766']?.label?.cardName).toBe('CHARMANDER')
+  })
+
+  it('stops for the day before PSA’s free allowance runs out', async () => {
+    const now = new Date('2026-10-07T12:00:00.000Z')
+    const spent = Object.fromEntries(
+      Array.from({ length: 90 }, (_, index) => [`5000${index}`, { label: null, at: '2026-10-07T08:00:00.000Z' }])
+    )
+    const cache: DealFinderCache = { version: CACHE_VERSION, entries: {}, products: {}, floors: {}, certs: spent, comps: {} }
+    const lookupCert = vi.fn(async () => slab())
+
+    const { report } = await run({
+      fetchPage: fetcher(pages).fetchPage,
+      readSlabs: readCharmander,
+      lookupCert,
+      sources: ['marktplaats'],
+      cache,
+      now
+    })
+
+    expect(lookupCert).not.toHaveBeenCalled()
+    // The slab read off the photo is still enough to price the card.
+    expect(report.deals.length).toBeGreaterThan(0)
   })
 })

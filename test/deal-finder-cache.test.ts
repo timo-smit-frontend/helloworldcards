@@ -30,7 +30,14 @@ function entry(id: string, ask = 10): CacheEntry {
 }
 
 function cache(...entries: CacheEntry[]): DealFinderCache {
-  return { version: CACHE_VERSION, entries: Object.fromEntries(entries.map((item) => [item.id, item])), products: {}, floors: {} }
+  return {
+    version: CACHE_VERSION,
+    entries: Object.fromEntries(entries.map((item) => [item.id, item])),
+    products: {},
+    floors: {},
+    certs: {},
+    comps: {}
+  }
 }
 
 const NOW = new Date('2026-09-27T20:00:00.000Z')

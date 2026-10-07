@@ -212,7 +212,7 @@ describe('database round trips', () => {
     const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
 
     const ekans = (await getProductById(db, 4))!
-    expect(ekans.price).toBe('€60')
+    expect(ekans.price).toBe('€55')
     const edited = await handleAdminRequest(
       new Request(`${ADMIN}/api/admin/products/4`, { method: 'PUT', headers, body: JSON.stringify({ ...ekans, price: '€80' }) }),
       env,

@@ -119,9 +119,11 @@ describe('parseVintedOverview', () => {
   })
 
   it('reads the hover string and the slug on their own', () => {
+    // The ask is what the buyer pays; the seller's own figure is what another seller competes with.
     expect(parseVintedHoverTitle('Espeon ex, Merk: Pokémon, Staat: Goed, 59.99 €, 63.45 €')).toEqual({
       title: 'Espeon ex',
-      ask: 63.45
+      ask: 63.45,
+      sellerAsk: 59.99
     })
     expect(parseVintedHoverTitle('no price here')).toBeNull()
   })
@@ -130,7 +132,8 @@ describe('parseVintedOverview', () => {
     // Left on, `25.00 €` was read as card number 25 and `.00` became part of the name.
     expect(parseVintedHoverTitle('Gengar PSA Pokemon Slab, Staat: Heel goed, 25.00 €, 26.95 €')).toEqual({
       title: 'Gengar PSA Pokemon Slab',
-      ask: 26.95
+      ask: 26.95,
+      sellerAsk: 25
     })
     expect(titleFromVintedSlug('9863102973-mega-ectoplasma-ex-230193')).toBe('mega ectoplasma ex 230193')
   })

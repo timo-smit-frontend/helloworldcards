@@ -20,6 +20,8 @@ npm run dev
 
 `.dev.vars` holds dashboard login secrets locally. It is gitignored. Do not prefix those names with `VITE_` — Vite would bake them into the public JavaScript.
 
+The deal finder reads two optional sets of keys from `.dev.vars`: `PSA_API_TOKEN` (PSA's free public API, 100 cert lookups a day) and `EBAY_CLIENT_ID` with `EBAY_CLIENT_SECRET` (the production keys of a free eBay developer app, for the Browse API). Without them it identifies slabs from the photo alone and leaves eBay out of the price comparison, and says so above the deals.
+
 `CM_LOGIN` and `CM_PASS` in `.env` are the Cardmarket account the scans read offers as — Cardmarket only shows the first page of offers to a visitor ("Login to see more offers"). The scan Chrome logs in with them when its session has lapsed, and keeps the session in its profile (`.cache/cardmarket-chrome`). A login that does not go through is left for you to finish in that window; credentials that fail are not tried again until `.env` changes.
 
 ## Scripts
