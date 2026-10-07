@@ -20,6 +20,8 @@ npm run dev
 
 `.dev.vars` holds dashboard login secrets locally. It is gitignored. Do not prefix those names with `VITE_` — Vite would bake them into the public JavaScript.
 
+`CM_LOGIN` and `CM_PASS` in `.env` are the Cardmarket account the scans read offers as — Cardmarket only shows the first page of offers to a visitor ("Login to see more offers"). The scan Chrome logs in with them when its session has lapsed, and keeps the session in its profile (`.cache/cardmarket-chrome`). A login that does not go through is left for you to finish in that window; credentials that fail are not tried again until `.env` changes.
+
 ## Scripts
 
 | Command           | Description                             |

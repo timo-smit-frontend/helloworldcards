@@ -22,35 +22,11 @@ import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-or
 import { bucketMediaSource } from './media-sync'
 import { createVintedRelistService } from './vinted-relist'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
+import { parseDotEnv } from './dotenv'
 import { createPacer } from '../app/services/deal-finder/scan'
 import { closeSlabReader, createSlabReader, prepareVisionReader } from './deal-finder-ocr'
 import { seedMediaWithVariants, type SeedSignal } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
-
-function parseDotEnv(source: string): Record<string, string> {
-  const env: Record<string, string> = {}
-
-  for (const line of source.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue
-    }
-
-    const separator = trimmed.indexOf('=')
-    if (separator === -1) {
-      continue
-    }
-
-    const key = trimmed.slice(0, separator).trim()
-    let value = trimmed.slice(separator + 1).trim()
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1)
-    }
-    env[key] = value
-  }
-
-  return env
-}
 
 /**
  * `.dev.vars`, re-read only when the file changes. Every request to the dev CMS used to

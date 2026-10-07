@@ -75,7 +75,13 @@ export function marketFloorPrice({
   }
 
   const floor = Math.min(...anchors.map((item) => item.price))
-  const basis = listings.filter((item) => (item.grader === grader && item.grade === grade) || inCluster(item.price, floor))
+  // A nearby price only counts from your grade up to one above: a PSA 8 is not what a PSA 9
+  // is judged against, however close its price sits.
+  const basis = listings.filter(
+    (item) =>
+      (item.grader === grader && item.grade === grade) ||
+      (item.grade >= grade && item.grade <= grade + 1 && inCluster(item.price, floor))
+  )
   return {
     floor: Math.min(...basis.map((item) => item.price)),
     basis
@@ -135,4 +141,26 @@ export function sameOrBetterGrade({ grade, listings }: { grade: number; listings
  */
 export function nearestLowerGrades({ grade, listings }: { grade: number; listings: MarketListing[] }): MarketListing[] {
   return listings.filter((item) => item.grade < grade).sort((left, right) => right.grade - left.grade || left.price - right.price)
+}
+
+/**
+ * The few offers worth reading under a card: the ones priced closest to yours, shown
+ * cheapest first. The offer a suggested price came from always makes the cut, however
+ * far from yours it sits, so the number the suggestion names is on screen.
+ */
+export function closestOffers({
+  listed,
+  offers,
+  target,
+  count
+}: {
+  listed: number
+  offers: MarketListing[]
+  target?: MarketListing
+  count: number
+}): MarketListing[] {
+  const rest = offers
+    .filter((item) => item.id !== target?.id)
+    .sort((left, right) => Math.abs(left.price - listed) - Math.abs(right.price - listed) || left.price - right.price)
+  return [...(target ? [target] : []), ...rest].slice(0, count).sort((left, right) => left.price - right.price)
 }

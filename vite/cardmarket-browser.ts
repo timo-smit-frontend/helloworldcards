@@ -15,6 +15,7 @@ import type { DealFinderCache } from '../app/services/deal-finder/cache'
 import type { ResolveUrl, SellerReviews } from '../app/services/deal-finder/scan'
 import type { DealFinderReport } from '../app/services/deal-finder/types'
 import type { CardmarketStore, DealFinderStore } from '../worker/dashboard-api'
+import { CardmarketLoginError, ensureCardmarketLogin, OFFERS_LOGIN_WALL, resetCardmarketLogin } from './cardmarket-login'
 
 const execFileAsync = promisify(execFile)
 const REPORT_FILE = path.join('.cache', 'cardmarket-report.json')
@@ -141,6 +142,7 @@ export function scanBrowserPinnedForMs(): number {
 export function resetScanBrowser() {
   shared = null
   pinnedUntil = 0
+  resetCardmarketLogin()
 }
 
 export async function closeScanBrowser() {
@@ -378,16 +380,23 @@ async function clearBotCheck(
 
 /**
  * Land on Cardmarket's Pokémon page once, to pick up the session every offers page
- * after it needs.
+ * after it needs — logged in, when the profile's login has lapsed, since Cardmarket
+ * only shows the first page of offers to a visitor.
  *
  * This is only ever done on demand. Marktplaats and Vinted are read over plain HTTP and
  * Google is read in the tab, so a sync can walk a whole marketplace — and answer from
  * cached prices — without a Cardmarket page being wanted at all. Opening one up front
  * spent a bot check on nobody's behalf.
  */
-async function warmup(page: Page) {
+async function warmup(page: Page, root: string) {
   await page.goto('https://www.cardmarket.com/en/Pokemon', { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS })
   await clearBotCheck(page, 'Cardmarket warmup', { scan: true })
+  await ensureCardmarketLogin(page, { root, settle: settleCardmarket })
+}
+
+/** A Cardmarket page after a navigation the login made: its bot check waited out like any other. */
+async function settleCardmarket(page: Page): Promise<void> {
+  await clearBotCheck(page, 'Cardmarket login', { scan: true })
 }
 
 async function killCdpPort(port: number): Promise<void> {
@@ -536,8 +545,8 @@ async function createScanBrowser(root = process.cwd()): Promise<ScanBrowser> {
         sellerReviews: marktplaatsSellerReviews,
         async fetchPage(url: string, options?: FetchCardmarketPageOptions) {
           const tab = await (isCardmarketUrl(url) ? cardmarketLane() : searchLane())
-          const ensureWarm = () => (warmed ??= warmup(tab.page).catch(() => undefined))
-          return await fetchWithBotChecks(tab.page, url, options, tab.lock, ensureWarm)
+          const ensureWarm = () => (warmed ??= warmup(tab.page, root).catch(() => undefined))
+          return await fetchWithBotChecks(tab.page, url, options, tab.lock, ensureWarm, root)
         },
         async resolveUrl(url: string) {
           const tab = await searchLane()
@@ -679,7 +688,8 @@ async function fetchWithBotChecks(
   url: string,
   options: FetchCardmarketPageOptions | undefined,
   withTab: TabLock,
-  ensureWarm: () => Promise<void>
+  ensureWarm: () => Promise<void>,
+  root = process.cwd()
 ): Promise<string> {
   const host = new URL(url).hostname
   const isOffers = url.includes('cardmarket.com')
@@ -718,6 +728,9 @@ async function fetchWithBotChecks(
     }
 
     let stopped = 'kept blocking'
+    // One login per page: a list still behind the wall after it is not one another login
+    // will open, and every try is a login Cardmarket counts.
+    let loggedIn = false
 
     for (let attempt = 1; attempt <= CARDMARKET_ATTEMPTS; attempt += 1) {
       // A load that never finishes used to fail the listing outright after a minute of
@@ -744,6 +757,18 @@ async function fetchWithBotChecks(
           const outcome = await expandOffers(page, options)
           if (outcome === 'complete') {
             return await page.content()
+          }
+
+          // Held back for a login — the session lapsed, or never was. Log in and read the
+          // list again from the top; the reload is the login's, not the bot check's.
+          if (outcome === 'login') {
+            if (loggedIn) {
+              throw new CardmarketLoginError(`Cardmarket still asks for a login to show more offers on ${url}.`)
+            }
+            await ensureCardmarketLogin(page, { root, settle: settleCardmarket, required: true })
+            loggedIn = true
+            attempt -= 1
+            continue
           }
 
           // Stalled part-way: if the rows we already have answer the question, take them.
@@ -779,37 +804,48 @@ type OffersState = {
   rows: string
   total: number
   hasMore: boolean
+  /** "Login to see more offers" where "Show more" used to be. */
+  loginWall: boolean
 }
 
 function offersState(page: Page, from: number): Promise<OffersState> {
-  return page.evaluate((start) => {
-    const rows = document.querySelectorAll('[id^="articleRow"]')
-    const button = document.querySelector('#loadMoreButton') as HTMLElement | null
-    return {
-      title: document.title,
-      // A bot check replaces the document and takes the offers with it, so while there
-      // are still rows the title is the whole story — and reading the body text of a
-      // fully expanded offers list thirty times over is not free either.
-      snippet: rows.length > 0 ? '' : (document.body?.innerText?.slice(0, 4_000) ?? ''),
-      rows: Array.from(rows)
-        .slice(start)
-        .map((row) => row.outerHTML)
-        .join(''),
-      total: rows.length,
-      hasMore: button != null && (button.offsetWidth > 0 || button.offsetHeight > 0 || button.getClientRects().length > 0)
-    }
-  }, from)
+  return page.evaluate(
+    ({ start, wall }) => {
+      const rows = document.querySelectorAll('[id^="articleRow"]')
+      const button = document.querySelector('#loadMoreButton') as HTMLElement | null
+      const hasMore = button != null && (button.offsetWidth > 0 || button.offsetHeight > 0 || button.getClientRects().length > 0)
+      const loginWall = new RegExp(wall, 'i')
+      return {
+        title: document.title,
+        // A bot check replaces the document and takes the offers with it, so while there
+        // are still rows the title is the whole story — and reading the body text of a
+        // fully expanded offers list thirty times over is not free either.
+        snippet: rows.length > 0 ? '' : (document.body?.innerText?.slice(0, 4_000) ?? ''),
+        rows: Array.from(rows)
+          .slice(start)
+          .map((row) => row.outerHTML)
+          .join(''),
+        total: rows.length,
+        hasMore,
+        // The button's own text when it is there, the page's once it is gone — read only
+        // at the end of the list, so a long expansion does not pay for it on every click.
+        loginWall: loginWall.test(button?.innerText ?? '') || (!hasMore && loginWall.test(document.body?.innerText ?? ''))
+      }
+    },
+    { start: from, wall: OFFERS_LOGIN_WALL }
+  )
 }
 
 /**
  * Click "Show more" until the whole offer list is loaded, the caller has what it
- * needs, or the page stalls. Returns `stalled` when only a reload can recover.
+ * needs, or the page stalls. Returns `stalled` when only a reload can recover, and
+ * `login` when Cardmarket holds the rest of the list back for a logged-in account.
  *
  * `stopWhen` is asked about the new rows rather than the whole page each time. It only
  * ever answers "is there a comp in here", and once that is true the expansion is over,
  * so rows already judged never need judging again.
  */
-async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): Promise<'complete' | 'stalled'> {
+async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): Promise<'complete' | 'stalled' | 'login'> {
   const maxLoadMore = options?.maxLoadMore ?? 0
   if (maxLoadMore <= 0) {
     return 'complete'
@@ -828,6 +864,10 @@ async function expandOffers(page: Page, options?: FetchCardmarketPageOptions): P
     // reason to stop — only running out of "Show more" is.
     if (!options?.loadAll && options?.stopWhen?.(state.rows)) {
       return 'complete'
+    }
+    // Not the bottom of the list, however it looks: the rest is there for an account.
+    if (state.loginWall) {
+      return 'login'
     }
     if (!state.hasMore) {
       // No button left — this is the bottom of the list.

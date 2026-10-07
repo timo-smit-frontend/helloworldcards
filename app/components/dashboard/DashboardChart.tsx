@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { soldItemsForPeriod, summarizeLedger } from '~/database/ledger'
 import type { Ledger, LedgerItem, LedgerPeriod } from '~/database/ledger-types'
-import type { MarketListing } from '~/services/cardmarket/grades'
+import { closestOffers, type MarketListing } from '~/services/cardmarket/grades'
 import type { CardmarketProductReport, CardmarketReport } from '~/services/cardmarket/scan'
 import { CARD_ROW, CardThumbnail, FigureStrip } from './CardRow'
 import PriceFigure from './PriceFigure'
@@ -58,7 +58,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   )
 }
 
-/** Competitors shown per card — the cheapest few are the ones a price is judged against. */
+/** Competitors shown per card — the few priced closest to yours are the ones a price is judged against. */
 const SHOWN_COMPETITORS = 5
 
 /** The scan's stored error strings, said the way a person would. */
@@ -89,6 +89,12 @@ function rowRank(item: CardmarketProductReport): number {
   if (item.suggestion?.direction === 'up') return 1
   if (!item.error && item.floor != null && item.floor === item.listed) return 2
   return 3
+}
+
+/** Within the cards to lower and the cards to raise, the biggest price move comes first. */
+function compareRows(left: CardmarketProductReport, right: CardmarketProductReport): number {
+  const move = (item: CardmarketProductReport) => (item.suggestion ? Math.abs(item.suggestion.target - item.listed) : 0)
+  return rowRank(left) - rowRank(right) || move(right) - move(left)
 }
 
 /**
@@ -149,11 +155,14 @@ function SuggestionRow({ item }: { item: CardmarketProductReport }) {
   const similar = competing.length === 0 ? (item.similar ?? []) : []
   const status = marketStatus(item, competing, similar)
   const listings = [
-    // The scan reads the whole offer list, but only the cheapest few are worth reading:
-    // they are already sorted, so this is the top of the list rather than an arbitrary cut.
-    ...(competing.length > 0 ? competing : similar)
-      .slice(0, SHOWN_COMPETITORS)
-      .map((listing) => ({ listing, suffix: undefined as string | undefined })),
+    // The scan reads the whole offer list, but only the few priced closest to yours are worth
+    // reading — plus the one the suggested price came from, however far from yours it is.
+    ...closestOffers({
+      listed: item.listed,
+      offers: competing.length > 0 ? competing : similar,
+      target: suggestion?.basis.find((listing) => listing.price === suggestion.target),
+      count: SHOWN_COMPETITORS
+    }).map((listing) => ({ listing, suffix: undefined as string | undefined })),
     ...item.gone.map((listing) => ({ listing, suffix: 'gone' }))
   ]
   const notes = suggestion?.notes ?? []
@@ -203,7 +212,7 @@ export function PriceSuggestions({
 }) {
   // Every scanned card, not just the ones whose price should move: the page is for
   // seeing what the competition is doing, and a price that is already right still has one.
-  const rows = [...(report?.products ?? [])].sort((left, right) => rowRank(left) - rowRank(right))
+  const rows = [...(report?.products ?? [])].sort(compareRows)
 
   return (
     <section className="flex flex-col gap-8">

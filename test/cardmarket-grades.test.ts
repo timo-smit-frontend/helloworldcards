@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSlabComment, marketFloorPrice, suggestListedPrice, type MarketListing } from '~/services/cardmarket/grades'
+import { closestOffers, parseSlabComment, marketFloorPrice, suggestListedPrice, type MarketListing } from '~/services/cardmarket/grades'
 
 describe('parseSlabComment', () => {
   it('reads a slab that is the whole comment', () => {
@@ -54,6 +54,36 @@ describe('marketFloorPrice', () => {
 })
 
 describe('suggestListedPrice', () => {
+  it('never lets a lower grade set the price, however close it sits', () => {
+    const suggestion = suggestListedPrice({
+      grader: 'psa',
+      grade: 9,
+      listed: 100,
+      listings: [
+        listing({ id: 'eight', grader: 'psa', grade: 8, price: 95 }),
+        listing({ id: 'nine', grader: 'psa', grade: 9, price: 100 }),
+        listing({ id: 'ten', grader: 'psa', grade: 10, price: 119.98 })
+      ]
+    })
+
+    expect(suggestion).toBeNull()
+  })
+
+  it('lets one grade higher pull the price down, but not two', () => {
+    const suggestion = suggestListedPrice({
+      grader: 'psa',
+      grade: 8,
+      listed: 100,
+      listings: [
+        listing({ id: 'eight', grader: 'psa', grade: 8, price: 100 }),
+        listing({ id: 'nine', grader: 'psa', grade: 9, price: 95 }),
+        listing({ id: 'ten', grader: 'psa', grade: 10, price: 90 })
+      ]
+    })
+
+    expect(suggestion).toMatchObject({ direction: 'down', target: 95 })
+  })
+
   it('suggests up to the cheapest same-grade listing', () => {
     const suggestion = suggestListedPrice({
       grader: 'psa',
@@ -144,5 +174,32 @@ describe('suggestListedPrice', () => {
         listings: [listing({ id: 'psa', grader: 'psa', grade: 10, price: 100 })]
       })
     ).toBeNull()
+  })
+})
+
+describe('closestOffers', () => {
+  const offer = (id: string, grade: number, price: number): MarketListing => ({
+    id,
+    seller: id,
+    comment: `PSA ${grade}`,
+    grader: 'psa',
+    grade,
+    price
+  })
+
+  it('keeps the offers priced closest to yours, cheapest first', () => {
+    const offers = [offer('a', 9, 100), offer('b', 9, 110), offer('c', 10, 119.98), offer('d', 9, 119.99), offer('e', 9, 130), offer('f', 9, 80)]
+    expect(closestOffers({ listed: 100, offers, count: 3 }).map((item) => item.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('always shows the offer the suggested price came from', () => {
+    const offers = [offer('a', 9, 100), offer('b', 9, 110), offer('c', 10, 119.98), offer('d', 9, 119.99), offer('e', 9, 120), offer('f', 9, 121)]
+    const target = offer('psa8', 8, 60)
+    expect(closestOffers({ listed: 120, offers, target, count: 5 }).map((item) => item.id)).toEqual(['psa8', 'c', 'd', 'e', 'f'])
+  })
+
+  it('does not show the target twice when it is also a competitor', () => {
+    const offers = [offer('a', 9, 95), offer('b', 9, 100), offer('c', 9, 110)]
+    expect(closestOffers({ listed: 100, offers, target: offers[0], count: 5 }).map((item) => item.id)).toEqual(['a', 'b', 'c'])
   })
 })
