@@ -101,7 +101,7 @@ if (gone.length > 0) {
   for (const { card, ad } of gone) {
     console.log(`  ${cardName(card)}: ${ad === 'gone' ? `${card.marktplaatsUrl} is no longer up` : 'no Marktplaats link'}`)
     console.log(
-      `    Vraagprijs ${marktplaatsVraagprijsFromShop(card.price) ?? '?'}, Bieden vanaf ${marktplaatsBiedenVanafFromShop(card.price) ?? '?'} (shop ${card.price ?? '?'})`
+      `    Vraagprijs ${marktplaatsVraagprijsFromShop(card.price) ?? '?'}, Bieden vanaf ${marktplaatsBiedenVanafFromShop(card.price) ?? '?'} (shop ${card.price ?? '?'}), Direct Kopen on`
     )
     for (const file of relistPhotos(card)) {
       console.log(`    ${file}`)

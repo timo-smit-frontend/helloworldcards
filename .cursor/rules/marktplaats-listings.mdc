@@ -61,7 +61,7 @@ Use `marktplaatsEditUrlFromListingUrl(product.marktplaatsUrl)` from `app/service
 - **Category:** title → **Vind categorie** → Verzamelkaartspellen | Pokémon (Hobby en Vrije tijd).
 - **Kenmerken:** Zo goed als nieuw, Type Losse kaart, Foil on.
 - **Levering:** Ophalen of Verzenden. Pakketgrootte **Brievenbuspakje** (never Klein pakket).
-- **Prijs:** Vraagprijs = `marktplaatsVraagprijsFromShop(shop price)` (one cent below shop). **Bieden toestaan** on, **Bieden vanaf** = `marktplaatsBiedenVanafFromShop(shop price)` (e.g. `84,99`). See **Bieden**.
+- **Prijs:** Vraagprijs = `marktplaatsVraagprijsFromShop(shop price)` (one cent below shop). **Bieden toestaan** on, **Bieden vanaf** = `marktplaatsBiedenVanafFromShop(shop price)` (e.g. `84,99`). See **Bieden**. **Direct Kopen toegestaan** on — see **Direct Kopen**.
 - **Adverteren:** **Gratis** only. Never Plus/Premium unless asked.
 
 ## Bieden
@@ -89,11 +89,19 @@ Every live ad has bidding on (rolled out 14 September 2026). The numbers come fr
 - Never go under the floor, never split the difference, never a second tegenbod. If they walk, they walk (see the no-price-drops rule).
 - A price change moves the floor and the Bieden vanaf with it — update both on the edit form. Set the **Vraagprijs first**, let it lose focus, and only then fill **Bieden vanaf**: when the Vraagprijs blurs, Marktplaats resets Bieden vanaf to 60% of it (99,99 → 59,99), silently overwriting a value typed before. Check the seller view shows the right `Vanaf € …` after saving.
 
+## Direct Kopen
+
+Every live ad has **Direct Kopen toegestaan** on (rolled out 8 October 2026): a buyer can buy the card straight away for the Vraagprijs, pays through Marktplaats with Kopersbescherming, and the card ships through Marktplaats. Bidding stays on next to it.
+
+- **On the form** (place and edit): click `[data-testid="syi-buy-now-switch"]`; `#syi-buy-now-switch-input` is then checked. It does not touch the Vraagprijs or Bieden vanaf. It takes **Zelf Verzenden** out of the Vervoerder list and leaves PostNL, DHL and Budbee on, with Brievenbuspakje as the package size. After **Opslaan** the seller view says `Direct Kopen actief`.
+- **A card that sells elsewhere** (Vinted, in person) can now be bought on Marktplaats in one click, so set its ad to **Gereserveerd** the moment it sells (see **Reserved**). Never switch Direct Kopen on for a reserved ad.
+- A Direct Kopen sale is a sale **on Marktplaats** (`soldVia: 'marktplaats'`); it is `reserved` until Marktplaats pays out, like any other.
+
 ## Place an ad
 
 1. Draft title + description from the frozen references **before** opening the form.
 2. **Plaats advertentie** → paste title → **Vind categorie** → Pokémon → **Verder**.
-3. Photos, kenmerken, levering, prijs (Vraagprijs **and** Bieden toestaan + Bieden vanaf), Gratis (defaults above).
+3. Photos, kenmerken, levering, prijs (Vraagprijs **and** Bieden toestaan + Bieden vanaf, **and** Direct Kopen toegestaan), Gratis (defaults above).
 4. Description last, in `.RichTextEditor-module-editorInput`. Type it — see Description. Never `fill()` or set `innerHTML`.
 5. **Stop.** Do **not** click **Plaats je advertentie** (or **Plaats advertentie** on the last step). Tell the user the form is ready and wait until they say it looks good (or ask for a fix).
 6. Only after they confirm: **Plaats je advertentie**. Copy `marktplaatsSellerViewUrl(itemId)` onto the product; drop `concept`. Update tests if they assert concept/URL.
@@ -110,7 +118,7 @@ Timo lets Marktplaats ads expire on purpose: the ad that replaces an expired one
 3. **Place the new ad** as in **Place an ad**. Take everything from the card and the rules, never from the dead ad:
    - title per **Title**, and the Dutch description from the frozen reference
    - photos: the three files the status check prints, in its order (branded ad photo, slab front, slab back). A file marked `download it first` is saved from that URL into the scratchpad, then uploaded.
-   - prijs: the Vraagprijs and Bieden vanaf it prints, which come from the current shop price
+   - prijs: the Vraagprijs and Bieden vanaf it prints, which come from the current shop price, with Direct Kopen on
    - everything else per **Always (form)**
 
    For several cards, fill one tab per card before handing over.
