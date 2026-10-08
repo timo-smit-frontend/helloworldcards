@@ -30,7 +30,8 @@ describe('product inventory', () => {
       [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093'],
       [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55'],
       [24, 'Lugia V', '2022 Silver Tempest - #138', 'lugia-v-2022-silver-tempest-138'],
-      [25, 'Mega Kangaskhan ex', '2025 Mega Evolution - #182', 'mega-kangaskhan-ex-2025-mega-evolution-182']
+      [25, 'Mega Kangaskhan ex', '2025 Mega Evolution - #182', 'mega-kangaskhan-ex-2025-mega-evolution-182'],
+      [26, 'Arcanine', '2011 Hail Blizzard Japanese - #010', 'arcanine-2011-hail-blizzard-japanese-010']
     ])
   })
 

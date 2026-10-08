@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Animated } from '~/components/elements/Animated'
 import Breadcrumbs from '~/components/elements/Breadcrumbs'
@@ -190,10 +190,7 @@ export default function ContentProducts({
                 <li key={product.id} className="flex w-full min-w-0">
                   <Animated delay={productDelays[Math.min(index, productDelays.length - 1)]} className="flex w-full min-w-0">
                     <div className="flex w-full min-w-0 flex-1 flex-col">
-                      <Link
-                        to={`/products/${product.slug}/`}
-                        className="group relative flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy"
-                      >
+                      <ProductCardFrame product={product}>
                         <div className="relative sm:aspect-5/7 aspect-square w-full shrink-0 overflow-hidden bg-site-mid">
                           {product.images[0] ? (
                             <>
@@ -231,16 +228,13 @@ export default function ContentProducts({
                         <div className="flex flex-col gap-1 border-t border-site-mulled-wine px-4 py-3">
                           {product.subtitle && <span className="text-sm leading-snug text-site-mantle">{product.subtitle}</span>}
                           <span className="text-lg font-semibold text-site-gray-nurse">{product.title}</span>
-                          {product.reserved && <span className="sr-only">Sold</span>}
-                          {product.price != null && <span className="text-sm font-semibold text-site-summer-green">{product.price}</span>}
+                          {product.reserved ? (
+                            <span className="text-sm font-semibold tracking-[0.2em] text-site-mantle uppercase">Sold</span>
+                          ) : (
+                            product.price != null && <span className="text-sm font-semibold text-site-summer-green">{product.price}</span>
+                          )}
                         </div>
-                        {product.reserved && (
-                          // A sash from the card's top-left corner to its bottom-right one: it stays on show, but it is no longer for sale.
-                          <div aria-hidden className="sold-sash-overlay">
-                            <span className="sold-sash bg-site-envy/95 py-1.5 text-site-mirage shadow-md">Sold</span>
-                          </div>
-                        )}
-                      </Link>
+                      </ProductCardFrame>
                     </div>
                   </Animated>
                 </li>
@@ -258,5 +252,22 @@ export default function ContentProducts({
         </div>
       </div>
     </section>
+  )
+}
+
+const PRODUCT_CARD_CLASS =
+  'relative flex flex-1 flex-col overflow-hidden rounded-panel bg-site-gunmetal shadow-card ring-1 ring-site-mulled-wine'
+
+// A sold card stays on show, greyed out and no longer a link: it is not for sale anymore.
+function ProductCardFrame({ product, children }: { product: Product; children: ReactNode }) {
+  if (product.reserved) return <div className={cn(PRODUCT_CARD_CLASS, 'opacity-75 grayscale-75')}>{children}</div>
+
+  return (
+    <Link
+      to={`/products/${product.slug}/`}
+      className={cn(PRODUCT_CARD_CLASS, 'group smooth hover:-translate-y-0.5 hover:shadow-md hover:ring-site-envy')}
+    >
+      {children}
+    </Link>
   )
 }

@@ -602,6 +602,30 @@
       "createdAt": "2026-09-29T11:33:01.987Z"
     },
     {
+      "key": "muzucfo2-83741274-back.jpg",
+      "filename": "83741274_back.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 1049063,
+      "title": "",
+      "alt": "",
+      "folder": "Slabs",
+      "createdAt": "2026-10-08T17:59:25.106Z"
+    },
+    {
+      "key": "muzucgdu-83741274-front.jpg",
+      "filename": "83741274_front.jpg",
+      "contentType": "image/jpeg",
+      "width": null,
+      "height": null,
+      "bytes": 886116,
+      "title": "",
+      "alt": "",
+      "folder": "Slabs",
+      "createdAt": "2026-10-08T17:59:26.019Z"
+    },
+    {
       "key": "Product.png",
       "filename": "Product.png",
       "contentType": "image/png",
