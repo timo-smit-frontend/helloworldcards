@@ -530,28 +530,16 @@
       "createdAt": "2026-09-23T19:06:23.295Z"
     },
     {
-      "key": "muk02wcc-123801430-front.jpg",
-      "filename": "123801430_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 3250440,
+      "key": "muk02wcc-123801430-front-sold.webp",
+      "filename": "123801430_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 668,
+      "bytes": 50840,
       "title": "Lugia V, front",
       "alt": "PSA 9 Silver Tempest Lugia V, 138/195, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-27T15:55:39.020Z"
-    },
-    {
-      "key": "muk02wgu-123801430-back.jpg",
-      "filename": "123801430_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 2039375,
-      "title": "Lugia V, back",
-      "alt": "Back of a PSA 9 Silver Tempest Lugia V, 138/195, in a grading slab.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-27T15:55:39.170Z"
     },
     {
       "key": "mumljeb9-168318340-back.jpg",
