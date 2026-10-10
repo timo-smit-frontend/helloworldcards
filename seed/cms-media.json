@@ -38,27 +38,15 @@
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {
-      "key": "142991345_back.jpg",
-      "filename": "142991345_back.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1031122,
-      "title": "Arceus V, back",
-      "alt": "The back of a graded Pokémon card in a PSA slab, showing the Poké Ball design.",
-      "folder": "Slabs",
-      "createdAt": "2026-09-01T00:00:00.000Z"
-    },
-    {
-      "key": "142991345_front.jpg",
-      "filename": "142991345_front.jpg",
-      "contentType": "image/jpeg",
-      "width": null,
-      "height": null,
-      "bytes": 1050438,
+      "key": "142991345_front-sold.webp",
+      "filename": "142991345_front-sold.webp",
+      "contentType": "image/webp",
+      "width": 400,
+      "height": 669,
+      "bytes": 50444,
       "title": "Arceus V, front",
       "alt": "PSA 9 Brilliant Stars Arceus V full art, 165/172, in a grading slab.",
-      "folder": "Slabs",
+      "folder": "Sold",
       "createdAt": "2026-09-01T00:00:00.000Z"
     },
     {

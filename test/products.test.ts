@@ -18,7 +18,6 @@ describe('product inventory', () => {
     expect(products.map((product) => [product.id, product.title, product.subtitle, product.slug])).toEqual([
       [4, 'Ekans', '2000 Team Rocket - #56', 'ekans-2000-team-rocket-56'],
       [5, 'Zorua AR', '2025 White Flare Japanese - #140', 'zorua-ar-2025-white-flare-japanese-140'],
-      [6, 'Arceus V', '2022 Brilliant Stars - #165', 'arceus-v-2022-brilliant-stars-165'],
       [7, 'Mega Latias ex', '2025 Mega Evolution - #181', 'mega-latias-ex-2025-mega-evolution-181'],
       [11, 'Mewtwo GX', '2017 Shining Legends - #39', 'mewtwo-gx-2017-shining-legends-39'],
       [15, 'Psyduck', '2000 Team Rocket - #65', 'psyduck-2000-team-rocket-65'],
@@ -29,7 +28,6 @@ describe('product inventory', () => {
       [21, 'Marill', '2026 Ascended Heroes - #232', 'marill-2026-ascended-heroes-232'],
       [22, 'Dedenne', '2026 Perfect Order - #093', 'dedenne-2026-perfect-order-093'],
       [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55'],
-      [24, 'Lugia V', '2022 Silver Tempest - #138', 'lugia-v-2022-silver-tempest-138'],
       [25, 'Mega Kangaskhan ex', '2025 Mega Evolution - #182', 'mega-kangaskhan-ex-2025-mega-evolution-182'],
       [26, 'Arcanine', '2011 Hail Blizzard Japanese - #010', 'arcanine-2011-hail-blizzard-japanese-010']
     ])
@@ -104,7 +102,7 @@ describe('product inventory', () => {
 
   it('has no concept inventory left without listing URLs', async () => {
     const { inventory } = await seededShop()
-    const liveIds = [4, 5, 6, 7]
+    const liveIds = [4, 5, 7]
 
     for (const id of liveIds) {
       const item = inventory.find((product) => product.id === id)
@@ -203,16 +201,21 @@ describe('product inventory', () => {
     expect(record?.acquiredAt).toBe('2026-08-30')
   })
 
-  it('lists the Brilliant Stars Arceus V with slab photos', async () => {
+  it('keeps the sold Arceus V out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'arceus-v-2022-brilliant-stars-165')
+    const record = inventory.find((item) => item.id === 6)
 
-    expect(product?.title).toBe('Arceus V')
-    expect(product?.reserved).toBe(true)
-    expect(product?.price).toBe('€40')
-    expect(product?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2438244195')
-    expect(inventory.find((item) => item.id === 6)?.cost).toBe(28)
-    expect(inventory.find((item) => item.id === 6)?.concept).toBeUndefined()
+    // Sold on Vinted on 7 October 2026, reserved until the payout came in.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
+    expect(record?.soldAt).toBe('2026-10-07')
+    expect(record?.soldTime).toBe('08:00')
+    expect(record?.soldVia).toBe('vinted')
+    expect(record?.price).toBe('€40,50')
+    expect(record?.cost).toBe(28)
+    expect(record?.marktplaatsUrl).toBeUndefined()
+    expect(record?.vintedUrl).toBeUndefined()
+    expect(products.find((item) => item.id === 6)).toBeUndefined()
   })
 
   it('lists the Mega Evolution Mega Latias ex SIR with slab photos', async () => {
@@ -286,20 +289,20 @@ describe('product inventory', () => {
     expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
   })
 
-  it('keeps the Silver Tempest Lugia V #138 reserved after its Marktplaats sale', async () => {
+  it('keeps the sold Silver Tempest Lugia V #138 out of the shop but in inventory at its sale price', async () => {
     const { inventory, products } = await seededShop()
-    const product = products.find((item) => item.slug === 'lugia-v-2022-silver-tempest-138')
     const record = inventory.find((item) => item.id === 24)
 
-    // Sold on Marktplaats for €69 on 7 October 2026, money not in yet; the Vinted listing came down.
-    expect(record?.reserved).toBe(true)
-    expect(record?.sold).toBeUndefined()
+    // Sold on Marktplaats for €69 on 7 October 2026, reserved until the payout came in.
+    expect(record?.sold).toBe(true)
+    expect(record?.reserved).toBeUndefined()
     expect(record?.price).toBe('€69')
     expect(record?.soldAt).toBe('2026-10-07')
+    expect(record?.soldTime).toBe('19:00')
     expect(record?.soldVia).toBe('marktplaats')
-    expect(record?.marktplaatsUrl).toBe('https://www.marktplaats.nl/seller/view/m2450411302')
+    expect(record?.marktplaatsUrl).toBeUndefined()
     expect(record?.vintedUrl).toBeUndefined()
-    expect(productBuyLink(product!)).toEqual({ title: 'This card is reserved' })
+    expect(products.find((item) => item.id === 24)).toBeUndefined()
   })
 
   it('lists the Mega Kangaskhan ex on Marktplaats and Vinted', async () => {
