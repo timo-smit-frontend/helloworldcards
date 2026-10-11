@@ -1,10 +1,9 @@
 import type { MarketListing } from '../cardmarket/grades'
 import { COMPS_MIN_ASK } from './constants'
-import { EU_COUNTRIES, type EbayItem } from './ebay'
 import { marktplaatsSearchPageUrl, parseMarktplaatsOverview } from './marktplaats'
 import type { RememberedListing } from './memory'
 import { mentionsCharacter, topCharacter } from './popular'
-import { detectAllGrades, detectCardNumber, detectLanguage, detectSet, detectStatedLanguage, looksLikeLot, looksUngraded } from './text'
+import { detectAllGrades, detectCardNumber, detectLanguage, detectSet, looksLikeLot, looksUngraded } from './text'
 import type { CardIdentity, Comp } from './types'
 
 /** What a competing listing has to share with the card to be competing with it. */
@@ -30,15 +29,8 @@ function setKey(name: string | null | undefined): string | null {
  * one is worse than having nothing to price against. So most competitors that are the
  * same card but say less are missed; that is the price of never being compared with a
  * different card.
- *
- * `stated` is for eBay, where a German seller of an English card writes "Pokemon Karte":
- * only a language named outright counts there, not the language the text is written in.
  */
-export function isSameCard(
-  listed: { title: string; description?: string | null },
-  card: CardFacts,
-  { languages = 'written' }: { languages?: 'written' | 'stated' } = {}
-): boolean {
+export function isSameCard(listed: { title: string; description?: string | null }, card: CardFacts): boolean {
   const { title } = listed
   const description = listed.description ?? ''
   const character = topCharacter(card.name)
@@ -54,8 +46,7 @@ export function isSameCard(
     return false
   }
 
-  const language = languages === 'stated' ? detectStatedLanguage : detectLanguage
-  const said = language(title) ?? language(description)
+  const said = detectLanguage(title) ?? detectLanguage(description)
   if (said === 'other' || (card.language === 'japanese') !== (said === 'japanese')) {
     return false
   }
@@ -141,27 +132,6 @@ export function rememberedComps(rows: RememberedListing[], card: CardFacts): Com
       seller: null,
       country: null,
       seenAt: row.firstSeen
-    }))
-}
-
-/**
- * eBay listings that are this card from a seller inside the EU, at what they cost a buyer
- * here: the price plus the postage to the Netherlands.
- */
-export function ebayComps(items: EbayItem[], card: CardFacts, seenAt: string): Comp[] {
-  return items
-    .filter((item) => item.country != null && EU_COUNTRIES.has(item.country))
-    .filter((item) => isSameCard(item, card, { languages: 'stated' }))
-    .map((item) => ({
-      id: `ebay:${item.itemId}`,
-      source: 'ebay' as const,
-      price: Math.round((item.price + (item.shipping ?? 0)) * 100) / 100,
-      shipping: item.shipping,
-      title: item.title,
-      url: item.url,
-      seller: item.seller,
-      country: item.country,
-      seenAt
     }))
 }
 

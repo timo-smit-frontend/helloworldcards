@@ -292,19 +292,6 @@ export function detectLanguage(text: string): CardLanguage | 'other' | null {
   return null
 }
 
-/**
- * The card's language as the text names it outright, ignoring what language the text is
- * written in. An eBay seller in Germany writes "Pokemon Karte" about an English card, so
- * the prose that makes a Marktplaats listing French or German says nothing there — only
- * a stated language does.
- */
-export function detectStatedLanguage(text: string): CardLanguage | 'other' | null {
-  if (JAPANESE.test(text)) {
-    return 'japanese'
-  }
-  return OTHER_LANGUAGE.test(text) ? 'other' : null
-}
-
 export function isJapaneseSetCode(code: string | null): boolean {
   return code != null && (JAPANESE_SET_CODE.test(code) || JAPANESE_PROMO_CODE.test(code))
 }

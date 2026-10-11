@@ -21,11 +21,9 @@ import {
 import { cachedMediaSource, firstMediaSource, seedMediaSource } from './media-originals'
 import { bucketMediaSource } from './media-sync'
 import { createVintedRelistService } from './vinted-relist'
-import { ebayBrowseSearch, type EbaySearch } from '../app/services/deal-finder/ebay'
 import { psaCertLookup } from '../app/services/deal-finder/psa-cert'
 import { parseDotEnv } from './dotenv'
 import { createPacer } from '../app/services/deal-finder/scan'
-import { marketMemory } from './deal-finder-memory'
 import { closeSlabReader, createSlabReader, prepareVisionReader } from './deal-finder-ocr'
 import { seedMediaWithVariants, type SeedSignal } from './media-variants'
 import { stripProductCosts } from './strip-product-costs'
@@ -54,37 +52,19 @@ function readDevVars(root: string): Record<string, string> {
   return values
 }
 
-type ScanSecrets = { PSA_API_TOKEN?: string; EBAY_CLIENT_ID?: string; EBAY_CLIENT_SECRET?: string }
+type ScanSecrets = { PSA_API_TOKEN?: string }
 
 /**
  * Keys the deal finder needs, read from `.dev.vars` like the dashboard login.
- * The label reader runs locally and needs nothing. Both keys are optional: without
- * PSA_API_TOKEN the scan trusts the label it read off the photos, and without the eBay
- * pair it leaves eBay's European sites out of the comparison.
+ * The label reader runs locally and needs nothing. The key is optional: without
+ * PSA_API_TOKEN the scan trusts the label it read off the photos.
  */
 function loadScanSecrets(root = process.cwd()): ScanSecrets {
   const fromFile = readDevVars(root)
 
   return {
-    PSA_API_TOKEN: process.env.PSA_API_TOKEN ?? fromFile.PSA_API_TOKEN,
-    EBAY_CLIENT_ID: process.env.EBAY_CLIENT_ID ?? fromFile.EBAY_CLIENT_ID,
-    EBAY_CLIENT_SECRET: process.env.EBAY_CLIENT_SECRET ?? fromFile.EBAY_CLIENT_SECRET
+    PSA_API_TOKEN: process.env.PSA_API_TOKEN ?? fromFile.PSA_API_TOKEN
   }
-}
-
-/** One eBay client for as long as its keys stay the same, so its access token outlives a request. */
-let ebayClient: { keys: string; search: EbaySearch } | null = null
-
-function ebayFor(secrets: ScanSecrets): EbaySearch | undefined {
-  const { EBAY_CLIENT_ID: clientId, EBAY_CLIENT_SECRET: clientSecret } = secrets
-  if (!clientId || !clientSecret) {
-    return undefined
-  }
-  const keys = `${clientId}:${clientSecret}`
-  if (ebayClient?.keys !== keys) {
-    ebayClient = { keys, search: ebayBrowseSearch({ clientId, clientSecret }) }
-  }
-  return ebayClient.search
 }
 
 function loadDashboardEnv(root = process.cwd()): {
@@ -356,9 +336,7 @@ async function respond(
     dealFinderStore: fileDealFinderStore(root),
     readSlabs: createSlabReader({ root }),
     pacer: scanPacer,
-    marketMemory: marketMemory(root),
-    ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {}),
-    ...(ebayFor(secrets) ? { ebaySearch: ebayFor(secrets) } : {})
+    ...(secrets.PSA_API_TOKEN ? { lookupCert: psaCertLookup({ token: secrets.PSA_API_TOKEN }) } : {})
   }
 
   let browser: CardmarketFetcher | null = null

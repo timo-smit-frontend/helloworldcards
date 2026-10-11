@@ -22,19 +22,19 @@ function comp(source: CompSource, price: number): Comp {
 describe('valueCard', () => {
   it('sells the card at the cheapest believable competitor, whichever site it is on', () => {
     const valuation = valueCard({
-      comps: [comp('cardmarket', 520), comp('marktplaats', 495), comp('ebay', 505), comp('vinted', 540)],
+      comps: [comp('cardmarket', 520), comp('marktplaats', 495), comp('vinted', 540)],
       own: emptyOwnHistory()
     })
 
     expect(valuation.expectedSale).toBe(495)
     expect(valuation.basis?.source).toBe('marktplaats')
     expect(valuation.confidence).toBe('strong')
-    expect(valuation.summary).toBe('Cardmarket from €520 · Marktplaats from €495 · Vinted from €540 · eBay EU from €505')
+    expect(valuation.summary).toBe('Cardmarket from €520 · Marktplaats from €495 · Vinted from €540')
   })
 
   it('sets aside an ask far under everyone else’s rather than pricing against it', () => {
     const valuation = valueCard({
-      comps: [comp('marktplaats', 60), comp('cardmarket', 150), comp('cardmarket', 160), comp('ebay', 170)],
+      comps: [comp('marktplaats', 60), comp('cardmarket', 150), comp('cardmarket', 160), comp('vinted', 170)],
       own: emptyOwnHistory()
     })
 
@@ -58,14 +58,13 @@ describe('valueCard', () => {
     const valuation = valueCard({
       comps: [comp('marktplaats', 90)],
       own: emptyOwnHistory(),
-      notes: { cardmarket: 'Nobody is selling a PSA 10 on Cardmarket', ebay: 'not set up' }
+      notes: { cardmarket: 'Nobody is selling a PSA 10 on Cardmarket', marktplaats: 'search failed' }
     })
 
     expect(valuation.perSource).toEqual([
       { source: 'cardmarket', count: 0, lowest: null, note: 'Nobody is selling a PSA 10 on Cardmarket' },
       { source: 'marktplaats', count: 1, lowest: 90, note: null },
-      { source: 'vinted', count: 0, lowest: null, note: null },
-      { source: 'ebay', count: 0, lowest: null, note: 'not set up' }
+      { source: 'vinted', count: 0, lowest: null, note: null }
     ])
   })
 

@@ -30,7 +30,7 @@ import {
   type DealFinderCache,
   type ProductMatch
 } from './cache'
-import { cardmarketComps, compsKey, compsQuery, ebayComps, marktplaatsComps, marktplaatsCompsUrl, rememberedComps } from './comps'
+import { cardmarketComps, compsKey, compsQuery, marktplaatsComps, marktplaatsCompsUrl, rememberedComps } from './comps'
 import {
   CERT_LOOKUPS_PER_DAY,
   DEAL_SOURCES,
@@ -49,7 +49,7 @@ import {
   VINTED_SEARCH_URL
 } from './constants'
 import { listingCost } from './cost'
-import { ebaySoldSearchUrl, type EbaySearch } from './ebay'
+import { ebaySoldSearchUrl } from './ebay'
 import { ownListingIds, screenListing, type OwnListingIds, type Screening } from './filters'
 import type { MarketMemory, RememberedListing } from './memory'
 import { ownHistory } from './own'
@@ -113,8 +113,6 @@ export type SellerReviews = (sellerId: string) => Promise<number | null>
 export type Comparisons = {
   /** Search Marktplaats for the card — any age, any price — once per card per half day. */
   marktplaats: boolean
-  /** eBay's European sites; left out without keys. */
-  ebay?: EbaySearch
   /** Every search page the scans read, kept between scans: Vinted's competition comes only from here. */
   memory?: MarketMemory
 }
@@ -599,8 +597,7 @@ export async function runDealFinderScan({
   ownListings?: OwnProduct[]
   /**
    * Price each card against everyone else selling it, beside Cardmarket: a Marktplaats
-   * search for the card, eBay's European sites when there are keys for them, and the
-   * Vinted listings earlier scans remembered — Vinted itself is never searched. Without
+   * search for the card and the Vinted listings earlier scans remembered — Vinted itself is never searched. Without
    * it a card is priced on Cardmarket alone.
    */
   comparisons?: Comparisons
@@ -669,9 +666,6 @@ export async function runDealFinderScan({
   if (readSlabs && !lookupCert) {
     report.errors.push('PSA cert lookups are off, so slabs are identified from the photo alone. Add PSA_API_TOKEN to .dev.vars.')
   }
-  if (comparisons && !comparisons.ebay) {
-    report.errors.push('eBay is not set up, so the European market is left out. Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET to .dev.vars.')
-  }
 
   const candidates: Candidate[] = listings.map((listing) => ({ listing, entry: cache.entries[listing.id] }))
   console.info(
@@ -692,7 +686,6 @@ export async function runDealFinderScan({
     lookupCert: rememberingCertLookup(lookupCert, cache, now),
     compare: {
       marktplaats: comparisons?.marktplaats ?? false,
-      ebay: comparisons?.ebay,
       // Read once, after this scan's own search pages have gone in.
       vinted: comparisons?.memory ? recentVinted(comparisons.memory, now) : null
     },
@@ -907,7 +900,6 @@ type Run = {
   lookupCert?: CertLookup
   compare: {
     marktplaats: boolean
-    ebay?: EbaySearch
     /** The Vinted listings remembered from the last month, read once per scan. */
     vinted: Promise<RememberedListing[]> | null
   }
@@ -1387,7 +1379,7 @@ function soldSearchUrl(identity: CardIdentity): string {
 }
 
 /**
- * One comparison search for a card — Marktplaats or eBay — asked at most once however
+ * One comparison search for a card on Marktplaats, asked at most once however
  * many listings show the card: an earlier scan's answer while it is fresh, the search
  * another listing is already waiting on, or a new one. A search that fails is not
  * remembered, and the card goes without that site's competitors this time.
@@ -1399,7 +1391,7 @@ function compareOnce({
   search
 }: {
   identity: CardIdentity
-  site: 'marktplaats' | 'ebay'
+  site: 'marktplaats'
   run: Run
   search: () => Promise<Comp[]>
 }): Promise<Comp[] | null> {
@@ -1428,12 +1420,11 @@ function compareOnce({
   return asking
 }
 
-/** Everyone selling the card off Cardmarket: Marktplaats, eBay's European sites, and the Vinted listings remembered. */
+/** Everyone selling the card off Cardmarket: Marktplaats, and the Vinted listings remembered. */
 async function otherComps(identity: CardIdentity, run: Run): Promise<{ comps: Comp[]; notes: Partial<Record<CompSource, string>> }> {
   const seenAt = run.now.toISOString()
-  const ebay = run.compare.ebay
 
-  const [marktplaats, european, vinted] = await Promise.all([
+  const [marktplaats, vinted] = await Promise.all([
     run.compare.marktplaats
       ? compareOnce({
           identity,
@@ -1445,17 +1436,6 @@ async function otherComps(identity: CardIdentity, run: Run): Promise<{ comps: Co
           }
         })
       : Promise.resolve(null),
-    ebay
-      ? compareOnce({
-          identity,
-          site: 'ebay',
-          run,
-          search: async () => {
-            const query = compsQuery(identity)
-            return query ? ebayComps(await ebay(`${query} PSA ${identity.grade}`), identity, seenAt) : []
-          }
-        })
-      : Promise.resolve(null),
     run.compare.vinted ? run.compare.vinted.then((rows) => rememberedComps(rows, identity)) : Promise.resolve(null)
   ])
 
@@ -1463,13 +1443,10 @@ async function otherComps(identity: CardIdentity, run: Run): Promise<{ comps: Co
   if (marktplaats == null) {
     notes.marktplaats = run.compare.marktplaats ? 'search failed' : 'not compared'
   }
-  if (european == null) {
-    notes.ebay = ebay ? 'search failed' : 'not set up'
-  }
   if (vinted == null) {
     notes.vinted = 'not compared'
   }
-  return { comps: [...(marktplaats ?? []), ...(european ?? []), ...(vinted ?? [])], notes }
+  return { comps: [...(marktplaats ?? []), ...(vinted ?? [])], notes }
 }
 
 /**

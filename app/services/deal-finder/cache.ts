@@ -82,7 +82,7 @@ export type RememberedCert = {
 }
 
 /**
- * What one comparison search found for a card: Marktplaats or eBay, per card and grade.
+ * What one comparison search found for a card on Marktplaats, per card and grade.
  * Shared across listings like a floor, for as long as other sellers' asks are trusted.
  */
 export type RememberedComps = {

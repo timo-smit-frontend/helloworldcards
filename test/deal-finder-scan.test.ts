@@ -10,7 +10,6 @@ import {
 import { MARKTPLAATS_PAGE_SIZE } from '~/services/deal-finder/marktplaats'
 import { runDealFinderScan, type SlabReader } from '~/services/deal-finder/scan'
 import { CACHE_VERSION, type DealFinderCache } from '~/services/deal-finder/cache'
-import type { EbayItem } from '~/services/deal-finder/ebay'
 import { inMemoryMarketMemory } from '~/services/deal-finder/memory'
 import type { CardIdentity, PsaLabel } from '~/services/deal-finder/types'
 import { normalizePsaLabel } from '~/services/deal-finder/psa-label'
@@ -1368,20 +1367,8 @@ describe('pricing against every site', () => {
       }
     ])
 
-  const ebayItem: EbayItem = {
-    itemId: 'v1|9|0',
-    title: 'PSA 9 Charmander 168/165 151 Pokemon Karte',
-    price: 150,
-    currency: 'EUR',
-    shipping: 10,
-    url: 'https://www.ebay.de/itm/9',
-    seller: 'kartenladen',
-    country: 'DE'
-  }
-
   it('sells a card at the cheapest believable competitor on any site', async () => {
     const { fetchPage } = comparing()
-    const ebay = vi.fn(async () => [ebayItem])
 
     const { report } = await run({
       fetchPage,
@@ -1389,17 +1376,16 @@ describe('pricing against every site', () => {
       sources: ['marktplaats'],
       now: NOW,
       ownListings: [{ marktplaatsUrl: OWN_AD }],
-      comparisons: { marktplaats: true, ebay, memory: vintedMemory() }
+      comparisons: { marktplaats: true, memory: vintedMemory() }
     })
 
-    expect(ebay).toHaveBeenCalledWith('Charmander 168 PSA 9')
     expect(report.deals).toHaveLength(1)
     const deal = report.deals[0]!
     // €100 plus €5 Kopersbescherming and €4 postage, against the €140 Marktplaats ask.
     expect(deal.cost.total).toBe(109)
     expect(deal.edge).toBe(31)
     expect(deal.valuation).toMatchObject({ expectedSale: 140, confidence: 'strong', basis: { id: 'marktplaats:m7' } })
-    expect(deal.valuation.summary).toBe('Cardmarket from €170 · Marktplaats from €140 · Vinted from €145 · eBay EU from €160')
+    expect(deal.valuation.summary).toBe('Cardmarket from €170 · Marktplaats from €140 · Vinted from €145')
     expect(deal.soldSearchUrl).toContain('ebay.de')
   })
 
@@ -1457,8 +1443,7 @@ describe('pricing against every site', () => {
     })
 
     expect(report.errors).toEqual([
-      'PSA cert lookups are off, so slabs are identified from the photo alone. Add PSA_API_TOKEN to .dev.vars.',
-      'eBay is not set up, so the European market is left out. Add EBAY_CLIENT_ID and EBAY_CLIENT_SECRET to .dev.vars.'
+      'PSA cert lookups are off, so slabs are identified from the photo alone. Add PSA_API_TOKEN to .dev.vars.'
     ])
   })
 

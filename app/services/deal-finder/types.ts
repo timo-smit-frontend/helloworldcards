@@ -104,20 +104,19 @@ type ListingRef = {
 }
 
 /** Where a competing listing was found. */
-export type CompSource = 'cardmarket' | 'marktplaats' | 'vinted' | 'ebay'
+export type CompSource = 'cardmarket' | 'marktplaats' | 'vinted'
 
 /**
  * Someone else selling the same card, in the same grade and language — the competition a
  * card bought here would be sold against.
  */
 export type Comp = {
-  /** `marktplaats:m123`, `vinted:456`, `ebay:v1|…`, `cardmarket:<article id>`. */
+  /** `marktplaats:m123`, `vinted:456`, `cardmarket:<article id>`. */
   id: string
   source: CompSource
   /**
    * What a buyer weighs it at: the seller's ask, before any fee the site charges the buyer
-   * on top. For eBay it includes the postage to the Netherlands, which from abroad is
-   * real money a Dutch buyer pays and a Dutch seller does not ask for.
+   * on top.
    */
   price: number
   /** Postage counted in `price`, when there is any. */

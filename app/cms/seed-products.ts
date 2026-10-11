@@ -75,7 +75,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436738700',
-    vintedUrl: 'https://www.vinted.nl/items/10322251899',
+    vintedUrl: 'https://www.vinted.nl/items/10335529205',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Ekans-TR56',
     firstEdition: true,
     cost: 25,
@@ -95,7 +95,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9.5,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2436896724',
-    vintedUrl: 'https://www.vinted.nl/items/10322268953',
+    vintedUrl: 'https://www.vinted.nl/items/10335562103',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/White-Flare-JP/Zorua-V2-sv11W140',
     cost: 40,
     acquiredAt: '2026-08-30'
@@ -135,7 +135,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2438256231',
-    vintedUrl: 'https://www.vinted.nl/items/10322230254',
+    vintedUrl: 'https://www.vinted.nl/items/10335486907',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Latias-ex-V3-MEG181',
     cost: 72,
     acquiredAt: '2026-08-30'
@@ -213,7 +213,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2017,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2440339127',
-    vintedUrl: 'https://www.vinted.nl/items/10322264753',
+    vintedUrl: 'https://www.vinted.nl/items/10335552676',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Shining-Legends/Mewtwo-GX-V1-SLG39',
     cost: 43,
     acquiredAt: '2026-09-06'
@@ -292,7 +292,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2000,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2444257980',
-    vintedUrl: 'https://www.vinted.nl/items/10322247639',
+    vintedUrl: 'https://www.vinted.nl/items/10335519672',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Team-Rocket/Psyduck-TR65',
     firstEdition: true,
     cost: 73,
@@ -312,7 +312,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 10,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2445385694',
-    vintedUrl: 'https://www.vinted.nl/items/10322243393',
+    vintedUrl: 'https://www.vinted.nl/items/10335510554',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Ascended-Heroes/Beautifly-V2-ASC219',
     cost: 67,
     acquiredAt: '2026-09-18'
@@ -331,7 +331,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2445386071',
-    vintedUrl: 'https://www.vinted.nl/items/10322234542',
+    vintedUrl: 'https://www.vinted.nl/items/10335494671',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Lost-Origin/Giratina-V-V2-LOR185',
     cost: 67,
     acquiredAt: '2026-09-18'
@@ -350,7 +350,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2022,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877684',
-    vintedUrl: 'https://www.vinted.nl/items/10322226140',
+    vintedUrl: 'https://www.vinted.nl/items/10335478213',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Brilliant-Stars/Vaporeon-BRSTG02',
     cost: 38,
     acquiredAt: '2026-09-23'
@@ -369,7 +369,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2023,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877820',
-    vintedUrl: 'https://www.vinted.nl/items/10322260502',
+    vintedUrl: 'https://www.vinted.nl/items/10335544516',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Scarlet-Violet/Pachirisu-V2-SVI208',
     cost: 32,
     acquiredAt: '2026-09-23'
@@ -388,7 +388,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446877984',
-    vintedUrl: 'https://www.vinted.nl/items/10322238993',
+    vintedUrl: 'https://www.vinted.nl/items/10335502472',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Ascended-Heroes/Marill-V2-ASC232',
     cost: 33,
     acquiredAt: '2026-09-23'
@@ -407,7 +407,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2026,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2446878119',
-    vintedUrl: 'https://www.vinted.nl/items/10322273421',
+    vintedUrl: 'https://www.vinted.nl/items/10335570195',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Perfect-Order/Dedenne-V2-POR093',
     cost: 29,
     acquiredAt: '2026-09-23'
@@ -426,7 +426,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 1999,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2448075737',
-    vintedUrl: 'https://www.vinted.nl/items/10312307410',
+    vintedUrl: 'https://www.vinted.nl/items/10335469442',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Fossil/Slowpoke-FO55',
     firstEdition: true,
     cost: 73,
@@ -467,7 +467,7 @@ export const seedProductRecords: ProductRecord[] = [
     grade: 9,
     year: 2025,
     marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2448883912',
-    vintedUrl: 'https://www.vinted.nl/items/10322256215',
+    vintedUrl: 'https://www.vinted.nl/items/10335536329',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Mega-Evolution/Mega-Kangaskhan-ex-V3-MEG182',
     cost: 61,
     acquiredAt: '2026-09-26'
@@ -490,5 +490,43 @@ export const seedProductRecords: ProductRecord[] = [
     cost: 30.82,
     concept: true,
     acquiredAt: '2026-10-08'
+  },
+  {
+    id: 27,
+    title: 'Snorlax',
+    subtitle: '2020 Rebel Clash - #141',
+    description:
+      'A Cosmos Holo of number 141/192 from the 2020 Sword & Shield Rebel Clash set, with Eri Yamaki artwork. The booster print is a non-holo rare; this Cosmos Holo comes from the 2021 Snorlax Knockout tin. This copy is graded PSA 9 Mint, cert 134223443. The PSA population is 181, with only 43 graded higher.',
+    images: ['/media/mv3zqppg-134223443-front.jpg', '/media/mv3zqosw-134223443-back.jpg'],
+    pokemonId: 143,
+    price: '€60',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2020,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2452684160',
+    vintedUrl: 'https://www.vinted.nl/items/10336065363',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Rebel-Clash/Snorlax-V2-RCL141',
+    cost: 34,
+    acquiredAt: '2026-10-11'
+  },
+  {
+    id: 28,
+    title: 'Igglybuff',
+    subtitle: '2001 Black Star Promo - #36',
+    description:
+      'A Wizards of the Coast Black Star Promo, number 36, handed out through the Pokémon League in 2001, with Kagemaru Himeno artwork. Promos come from the League itself, not from a main set print run. This copy is graded PSA 9 Mint, cert 55894941. The PSA population is 677.',
+    images: ['/media/mv3zqt1e-55894941-front.jpg', '/media/mv3zqsb0-55894941-back.jpg'],
+    pokemonId: 174,
+    price: '€80',
+    language: 'english',
+    grader: 'psa',
+    grade: 9,
+    year: 2001,
+    marktplaatsUrl: 'https://www.marktplaats.nl/seller/view/m2452684181',
+    vintedUrl: 'https://www.vinted.nl/items/10336066298',
+    cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Wizards-Black-Star-Promos/Igglybuff-WP36',
+    cost: 51,
+    acquiredAt: '2026-10-11'
   }
 ]

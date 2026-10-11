@@ -3,14 +3,12 @@ import {
   cardmarketComps,
   compsKey,
   compsQuery,
-  ebayComps,
   isSameCard,
   marktplaatsComps,
   marktplaatsCompsUrl,
   rememberedComps,
   type CardFacts
 } from '~/services/deal-finder/comps'
-import type { EbayItem } from '~/services/deal-finder/ebay'
 import type { RememberedListing } from '~/services/deal-finder/memory'
 
 const UMBREON: CardFacts = { name: 'Umbreon VMAX', cardNumber: '215', setName: 'Evolving Skies', language: 'english', grade: 10 }
@@ -48,13 +46,6 @@ describe('isSameCard', () => {
 
   it('never takes the same number from another set', () => {
     expect(isSameCard({ title: 'Umbreon VMAX 215 Brilliant Stars PSA 10' }, UMBREON)).toBe(false)
-  })
-
-  it('reads only a stated language on eBay, where the title is in the seller’s own language', () => {
-    expect(isSameCard({ title: 'Pokemon Karte Umbreon VMAX 215/203 PSA 10' }, UMBREON, { languages: 'stated' })).toBe(true)
-    expect(isSameCard({ title: 'Pokemon Karte Umbreon VMAX 215/203 PSA 10' }, UMBREON)).toBe(false)
-    expect(isSameCard({ title: 'Umbreon VMAX 215/203 PSA 10 Deutsch' }, UMBREON, { languages: 'stated' })).toBe(false)
-    expect(isSameCard({ title: 'Pikachu 025 SV-P PSA 10 japanisch' }, JAPANESE_PIKACHU, { languages: 'stated' })).toBe(true)
   })
 })
 
@@ -135,30 +126,6 @@ describe('rememberedComps', () => {
       { id: 'vinted:9', source: 'vinted', price: 500, seenAt: '2026-10-01T09:00:00.000Z' }
     ])
     expect(rememberedComps([{ ...row, title: 'Umbreon VMAX PSA 10' }], UMBREON)).toEqual([])
-  })
-})
-
-describe('ebayComps', () => {
-  const item = (overrides: Partial<EbayItem>): EbayItem => ({
-    itemId: 'v1|1|0',
-    title: 'PSA 10 Umbreon VMAX 215/203 Evolving Skies',
-    price: 480,
-    currency: 'EUR',
-    shipping: 12.5,
-    url: 'https://www.ebay.de/itm/1',
-    seller: 'kartenladen',
-    country: 'DE',
-    ...overrides
-  })
-
-  it('counts what a buyer here pays: the price plus the postage to the Netherlands', () => {
-    expect(ebayComps([item({})], UMBREON, SEEN)).toMatchObject([
-      { id: 'ebay:v1|1|0', source: 'ebay', price: 492.5, shipping: 12.5, country: 'DE' }
-    ])
-  })
-
-  it('leaves out sellers outside the EU, whose price leaves out import costs', () => {
-    expect(ebayComps([item({ country: 'GB' }), item({ country: 'US' }), item({ country: null })], UMBREON, SEEN)).toEqual([])
   })
 })
 

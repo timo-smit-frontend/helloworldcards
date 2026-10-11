@@ -1,13 +1,12 @@
 import { MAX_COMPS_KEPT, OUTLIER_MIN_COMPS, OUTLIER_RATIO } from './constants'
 import type { Comp, CompSource, OwnHistory, SourceTally, Valuation } from './types'
 
-export const COMP_SOURCES: readonly CompSource[] = ['cardmarket', 'marktplaats', 'vinted', 'ebay']
+export const COMP_SOURCES: readonly CompSource[] = ['cardmarket', 'marktplaats', 'vinted']
 
 export const COMP_SOURCE_LABELS: Record<CompSource, string> = {
   cardmarket: 'Cardmarket',
   marktplaats: 'Marktplaats',
-  vinted: 'Vinted',
-  ebay: 'eBay EU'
+  vinted: 'Vinted'
 }
 
 /** Whole euros, rounded up — a figure on the dashboard never reads cheaper than it is. */
