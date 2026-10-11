@@ -499,7 +499,7 @@ export const seedProductRecords: ProductRecord[] = [
       'A Cosmos Holo of number 141/192 from the 2020 Sword & Shield Rebel Clash set, with Eri Yamaki artwork. The booster print is a non-holo rare; this Cosmos Holo comes from the 2021 Snorlax Knockout tin. This copy is graded PSA 9 Mint, cert 134223443. The PSA population is 181, with only 43 graded higher.',
     images: ['/media/mv3zqppg-134223443-front.jpg', '/media/mv3zqosw-134223443-back.jpg'],
     pokemonId: 143,
-    price: '€60',
+    price: '€55',
     language: 'english',
     grader: 'psa',
     grade: 9,
@@ -508,6 +508,10 @@ export const seedProductRecords: ProductRecord[] = [
     vintedUrl: 'https://www.vinted.nl/items/10336065363',
     cardmarketUrl: 'https://www.cardmarket.com/en/Pokemon/Products/Singles/Rebel-Clash/Snorlax-V2-RCL141',
     cost: 34,
+    reserved: true,
+    soldAt: '2026-10-11',
+    soldTime: '18:30',
+    soldVia: 'vinted',
     acquiredAt: '2026-10-11'
   },
   {

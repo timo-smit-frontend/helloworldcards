@@ -98,7 +98,8 @@ describe('product inventory', () => {
       [12, 'vinted'],
       [13, 'vinted'],
       [14, 'marktplaats'],
-      [24, 'marktplaats']
+      [24, 'marktplaats'],
+      [27, 'vinted']
     ])
   })
 
