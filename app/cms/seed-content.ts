@@ -279,14 +279,6 @@ const privacyBlocks: CmsBlock[] = [
       {
         title: 'Google Tag Manager',
         body: "I use Google Tag Manager to add measurement tools to the site. It may set cookies and load other Google tags. See [Google's privacy policy](https://policies.google.com/privacy)."
-      },
-      {
-        title: 'Microsoft Clarity',
-        body: "I use Microsoft Clarity to see how people move around the shop. Clarity uses cookies. See [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement) and [Clarity's terms](https://clarity.microsoft.com/terms)."
-      },
-      {
-        title: 'Cookies',
-        body: 'Google Tag Manager and Microsoft Clarity may store cookies in your browser. You can block or delete cookies in your browser settings. The shop will still work.'
       }
     ]
   })
@@ -344,7 +336,7 @@ export const seedPages: Array<Omit<CmsPage, 'id'>> = [
     status: 'published',
     title: 'Privacy',
     seoTitle: `Privacy statement | ${SITE_NAME}`,
-    seoDescription: 'How Hello World Cards uses Google Tag Manager and Microsoft Clarity, and what happens when you send Timo a message.',
+    seoDescription: 'How Hello World Cards uses Google Tag Manager, and what happens when you send Timo a message.',
     seoImage: SITE_IMAGE,
     blocks: privacyBlocks
   }
