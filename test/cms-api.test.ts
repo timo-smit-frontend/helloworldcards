@@ -202,6 +202,33 @@ describe('CMS API', () => {
     expect(await save({ soldTime: '25:00', soldVia: 'ebay' })).toMatchObject({ soldVia: 'vinted', soldTime: '20:15' })
   })
 
+  it('records where a card was bought and keeps it off the public shop', async () => {
+    const db = createMemoryD1()
+    const token = await signIn(db as unknown as CmsDb)
+    const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
+    const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
+    const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
+    const response = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...ekans, acquiredFrom: 'Marktplaats – kaartenverzamelaar' })
+      }),
+      env,
+      { db }
+    )
+    expect(((await response!.json()) as { product: { acquiredFrom?: string } }).product.acquiredFrom).toBe(
+      'Marktplaats – kaartenverzamelaar'
+    )
+
+    const payload = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/products'), env, { db })
+    const shop = ((await payload!.json()) as { products: Array<Record<string, unknown>> }).products.find(
+      (product) => product.title === 'Ekans'
+    )
+    expect(shop).not.toHaveProperty('acquiredFrom')
+  })
+
   it('accepts a euro-formatted purchase cost', async () => {
     const db = createMemoryD1()
     const token = await signIn(db as unknown as CmsDb)

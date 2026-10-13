@@ -2180,9 +2180,19 @@ function ProductEditor() {
                 />
               </AdminField>
             </div>
-            <AdminField label="Acquired at">
-              <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
-            </AdminField>
+            <div className="grid grid-cols-2 gap-5">
+              <AdminField label="Acquired at">
+                <DateInput value={product.acquiredAt ?? ''} onChange={(value) => set('acquiredAt', value || undefined)} />
+              </AdminField>
+              <AdminField label="Bought from">
+                <input
+                  className={fieldClass()}
+                  placeholder="Marktplaats – seller name"
+                  value={product.acquiredFrom ?? ''}
+                  onChange={(event) => set('acquiredFrom', event.target.value || undefined)}
+                />
+              </AdminField>
+            </div>
             <div className="grid grid-cols-2 gap-5">
               <AdminField label="Sold at">
                 <DateInput value={product.soldAt ?? ''} onChange={(value) => set('soldAt', value || undefined)} />

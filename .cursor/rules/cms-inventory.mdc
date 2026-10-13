@@ -16,6 +16,15 @@ Check with `lsof -nP -iTCP:5173 -sTCP:LISTEN`.
 
 ## Adding a new product
 
+Every new card records where it was bought: `acquiredFrom`, the platform and the seller (`Marktplaats – <seller>`, `Vinted – <username>`, `Cardmarket – <username>`, or the person's name for a direct buy), next to `acquiredAt` and `cost`. The business's purchase records need it. If Timo did not say, ask before adding the card.
+
+Photos: use the ones Timo sends. If he sent none, look at the PSA cert number:
+
+- **Below 78,000,000:** psacard.com has no scans of the slab. Until around that cert number, PSA only imaged the higher service tiers. Do not ask: Timo photographs the card when it arrives. Add it as `concept` without `images`, and say the photos are still due.
+- **78,000,000 and up:** ask Timo where the photos are.
+
+With photos in hand:
+
 1. Put the slab photos in `seed/media/` as `<cert>_front.jpg` and `<cert>_back.jpg`, then `npm run cms:seed-media`.
 2. Add a row for each photo to `seed/cms-media.json` with `"folder": "Slabs"` — every product image belongs in the **Slabs** folder of the media library, never at the top level (`npm test` checks this).
 3. Add the product to `app/cms/seed-products.ts` (`images` are `/media/<cert>_front.jpg`, `/media/<cert>_back.jpg`), then sync as described above.
@@ -52,6 +61,7 @@ Admin saves already update **live D1 / website**, and a running dev server write
 
 ## Do not
 
+- Add a card without `acquiredFrom`.
 - Stop after editing `seed-products.ts` alone when no dev server is running.
 - Set `sold: true` for a card whose money has not arrived; that card is `reserved: true` until it has.
 - Edit a sold card's `images`, delete its photos from the media library, or re-add its full photos: the dev server keeps exactly the one small front photo, and puts that back.

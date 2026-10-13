@@ -45,7 +45,8 @@ const FIELD_ORDER: Array<keyof ProductRecord> = [
   'soldAt',
   'soldTime',
   'soldVia',
-  'acquiredAt'
+  'acquiredAt',
+  'acquiredFrom'
 ]
 
 /** Serialize inventory records as `app/cms/seed-products.ts` source. */

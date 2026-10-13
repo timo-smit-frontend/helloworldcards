@@ -47,6 +47,8 @@ export type InventoryProduct = Product & {
   soldVia?: SaleChannel
   /** ISO date `YYYY-MM-DD` when the card was bought. */
   acquiredAt?: string
+  /** Where the card was bought and from whom (platform and seller), for the purchase records. */
+  acquiredFrom?: string
   /** Cardmarket singles URL. Dashboard comps only; stripped from the public shop bundle. */
   cardmarketUrl?: string
   /** Cardmarket Reverse Holo filter. Dashboard comps only. */
@@ -88,6 +90,7 @@ export type ProductRecord = Omit<Product, 'slug' | 'images'> & {
   soldTime?: string
   soldVia?: SaleChannel
   acquiredAt?: string
+  acquiredFrom?: string
   grade?: number
   cardmarketUrl?: string
   reverseHolo?: boolean
@@ -135,6 +138,7 @@ export function toInventoryProduct(product: ProductRecord, slug: string): Invent
     ...(product.soldTime ? { soldTime: product.soldTime } : {}),
     ...(product.soldVia ? { soldVia: product.soldVia } : {}),
     ...(product.acquiredAt ? { acquiredAt: product.acquiredAt } : {}),
+    ...(product.acquiredFrom ? { acquiredFrom: product.acquiredFrom } : {}),
     ...(product.concept ? { concept: true } : {}),
     ...(product.cardmarketUrl ? { cardmarketUrl: product.cardmarketUrl } : {}),
     ...(product.reverseHolo ? { reverseHolo: true } : {}),

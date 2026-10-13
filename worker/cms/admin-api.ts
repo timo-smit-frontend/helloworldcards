@@ -90,6 +90,7 @@ function parseProduct(body: Record<string, unknown>, id: number): ProductRecord 
     ...(soldTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(soldTime) ? { soldTime } : {}),
     ...(soldVia && (SALE_CHANNELS as readonly string[]).includes(soldVia) ? { soldVia: soldVia as ProductRecord['soldVia'] } : {}),
     ...(asString(body.acquiredAt) ? { acquiredAt: asString(body.acquiredAt) } : {}),
+    ...(asString(body.acquiredFrom) ? { acquiredFrom: asString(body.acquiredFrom) } : {}),
     ...(asNumber(body.grade) != null ? { grade: asNumber(body.grade) } : {}),
     ...(asString(body.cardmarketUrl) ? { cardmarketUrl: asString(body.cardmarketUrl) } : {}),
     ...(asBool(body.reverseHolo) ? { reverseHolo: true } : {}),
