@@ -17,7 +17,7 @@ export default function Footer() {
   const menu = cms?.nav.footer.map((item) => ({ title: item.label, to: item.href })) ?? FALLBACK_MENU
 
   return (
-    <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 pb-16 text-site-gray-nurse lg:pb-24">
+    <footer className="max-lg:border-t border-site-mulled-wine max-lg:pt-8 text-site-gray-nurse pb-8">
       <div className="container-full">
         <div className="grid gap-14 lg:grid-cols-[minmax(180px,1fr)_auto] lg:items-start lg:gap-24 xl:gap-40">
           <Link to="/" className="block w-fit transition-opacity hover:opacity-80" aria-label={SITE_NAME}>

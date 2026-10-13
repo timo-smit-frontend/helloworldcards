@@ -36,10 +36,9 @@ Same structure, sections, bold and blank lines as the Marktplaats description (`
 
 Vinted's description field is a plain textarea, so bold is not rendered — type the text without the `**` markers, keep the blank lines between sections and the `•` bullets.
 
-Two things the Marktplaats ad has that a Vinted description does **not**:
+One thing the Marktplaats ad has that a Vinted description does **not**:
 
 - **No keyword line.** Marktplaats keeps its `Zoekwoorden:` line; Vinted gets none. The search terms have to come out of the text itself instead, so every description carries the Pokémon's name, its card number, the grade (`PSA 9`, `BGS 9.5 Gem Mint`) and the set in the intro and the Details bullets, and the closing line reads `We have several Pokemon cards and graded PSA and BGS cards for sale.` — plain, unaccented `Pokemon` next to `PSA`, so a search for *pokemon* or *psa* finds the listing without a keyword dump.
-- **No own-risk sentence.** The 📦 line is just `📦 Shipping or pickup possible.` — the Marktplaats wording about shipping being at the buyer's own risk is left off Vinted entirely.
 
 ### Frozen reference — Charizard (default / no pop)
 

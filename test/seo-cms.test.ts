@@ -170,7 +170,7 @@ describe('CMS SEO', () => {
     const seo = await seoFor('/privacy')
     const page = graph(seo).find((node) => node['@type'] === 'PrivacyPolicy')
 
-    expect(page).toMatchObject({ dateModified: '2026-09-25' })
+    expect(page).toMatchObject({ dateModified: '2026-10-13' })
   })
 
   it('noindexes unknown paths without a canonical URL', async () => {

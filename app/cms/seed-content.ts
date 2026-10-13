@@ -266,11 +266,11 @@ const privacyBlocks: CmsBlock[] = [
     description:
       'Hello World Cards is a small Pokémon card shop run by Timo. This page says what happens when you visit the site or send me a message, including through the contact form.',
     image: '/media/wooper.png',
-    updated: '25 September 2026',
+    updated: '13 October 2026',
     sections: [
       {
         title: 'Who I am',
-        body: `I'm Timo, and I run Hello World Cards. I list Pokémon cards here, on Marktplaats and on Vinted, and put the events I go to on the agenda. You can reach me at [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).`
+        body: `I'm Timo, and I run Hello World Cards. I list Pokémon cards here, on Marktplaats and on Vinted, and put the events I go to on the agenda. You can reach me at [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}). Hello World Cards is registered with the Dutch Chamber of Commerce (KVK) under number 42191936.`
       },
       {
         title: 'Messages you send me',
