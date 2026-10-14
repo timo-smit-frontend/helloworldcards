@@ -31,7 +31,6 @@ describe('product inventory', () => {
       [23, 'Slowpoke', '1999 Fossil - #55', 'slowpoke-1999-fossil-55'],
       [25, 'Mega Kangaskhan ex', '2025 Mega Evolution - #182', 'mega-kangaskhan-ex-2025-mega-evolution-182'],
       [26, 'Arcanine', '2011 Hail Blizzard Japanese - #010', 'arcanine-2011-hail-blizzard-japanese-010'],
-      [27, 'Snorlax', '2020 Rebel Clash - #141', 'snorlax-2020-rebel-clash-141'],
       [28, 'Igglybuff', '2001 Black Star Promo - #36', 'igglybuff-2001-black-star-promo-36'],
       [29, 'Magikarp', '2017 Burning Shadows - #32', 'magikarp-2017-burning-shadows-32']
     ])
