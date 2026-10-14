@@ -26,6 +26,7 @@ const FIELD_ORDER: Array<keyof ProductRecord> = [
   'title',
   'subtitle',
   'description',
+  'about',
   'images',
   'pokemonId',
   'price',

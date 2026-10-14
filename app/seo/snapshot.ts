@@ -1,7 +1,15 @@
-import { FEATURED_PRODUCT_COUNT, type CmsBlock, type CmsEvent, type PublicCmsPayload, type PublicProduct } from '../cms/types'
+import type { CmsBlock, CmsEvent, PublicCmsPayload, PublicProduct, PublicSoldProduct } from '../cms/types'
 import { productBuyLink } from '../database/products'
 import { escapeHtml } from './head'
-import { gradeLabel, languageLabel, productName, productSetLine, soldProductCopy } from './product'
+import {
+  SOLD_PRODUCT_LINK,
+  gradeLabel,
+  languageLabel,
+  productAboutSections,
+  productAboutTitle,
+  productName,
+  productSetLine
+} from './product'
 import { SITE_NAME } from './site'
 
 /**
@@ -104,10 +112,8 @@ function blockHtml(block: CmsBlock, payload: PublicCmsPayload, next: Headings): 
     case 'content_cta':
       return heading(next(), block.title) + markdown(block.description) + link(block.link?.url, block.link?.title)
     case 'content_products': {
-      // The featured slots on the home page are an invitation to buy: never a reserved card.
-      const products = block.random
-        ? payload.products.filter((product) => !product.reserved).slice(0, FEATURED_PRODUCT_COUNT)
-        : payload.products
+      // The home page's slider is an invitation to buy: every card for sale, never a reserved one.
+      const products = block.random ? payload.products.filter((product) => !product.reserved) : payload.products
       return heading(next(), block.title) + markdown(block.description) + productList(products)
     }
     case 'content_agenda':
@@ -137,19 +143,31 @@ function blockHtml(block: CmsBlock, payload: PublicCmsPayload, next: Headings): 
   }
 }
 
-function productHtml(product: PublicProduct, payload: PublicCmsPayload): string {
-  const buy = productBuyLink(product)
+/** The card's facts as a definition list, with its price or status last. */
+function cardFacts(product: Pick<PublicProduct, 'subtitle' | 'grader' | 'grade' | 'language' | 'year'>, status: [string, string]): string {
   const facts: Array<[string, string]> = [
     ['Card', productSetLine(product.subtitle)],
     ['Grade', gradeLabel(product)],
     ['Language', languageLabel(product.language)],
     ['Year', product.year != null ? String(product.year) : ''],
-    [product.reserved ? 'Status' : 'Price', productStatus(product)]
+    status
   ]
   const details = facts
     .filter(([, value]) => value)
     .map(([term, value]) => `<dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd>`)
     .join('')
+  return `<dl>${details}</dl>`
+}
+
+/** The card's longer story, in the sections it is written in. */
+function aboutHtml(product: Pick<PublicProduct, 'title' | 'about'>): string {
+  const sections = productAboutSections(product.about)
+  if (!sections.length) return ''
+  return `<section>${heading('h2', productAboutTitle(product))}${sections.map((section) => heading('h3', section.title) + markdown(section.body)).join('')}</section>`
+}
+
+function productHtml(product: PublicProduct, payload: PublicCmsPayload): string {
+  const buy = productBuyLink(product)
   const buyLinks = product.reserved
     ? `<p>${escapeHtml(buy.title)}</p>`
     : [
@@ -158,8 +176,18 @@ function productHtml(product: PublicProduct, payload: PublicCmsPayload): string 
       ].join('') || `<p>${escapeHtml(buy.title)}</p>`
 
   return (
-    `<article>${heading('h1', productName(product))}${markdown(product.description)}<dl>${details}</dl>${buyLinks}</article>` +
+    `<article>${heading('h1', productName(product))}${markdown(product.description)}` +
+    `${cardFacts(product, [product.reserved ? 'Status' : 'Price', productStatus(product)])}${buyLinks}${aboutHtml(product)}</article>` +
     `<section>${heading('h2', 'More from the shop')}${productList(byIds(payload.products, payload.similarProductIds))}</section>`
+  )
+}
+
+/** A card that has sold: what it was and its story, never what it sold for, and the way on to what is for sale. */
+function soldProductHtml(product: PublicSoldProduct, payload: PublicCmsPayload): string {
+  return (
+    `<article>${heading('h1', productName(product))}${markdown(product.description)}` +
+    `${cardFacts(product, ['Status', 'sold'])}${link(SOLD_PRODUCT_LINK.url, SOLD_PRODUCT_LINK.title)}${aboutHtml(product)}</article>` +
+    `<section>${heading('h2', 'Still for sale')}${productList(byIds(payload.products, payload.similarProductIds))}</section>`
   )
 }
 
@@ -169,13 +197,7 @@ function mainHtml(payload: PublicCmsPayload): string {
   }
 
   if (payload.soldProduct) {
-    const copy = soldProductCopy(payload.soldProduct)
-    return (
-      heading('h1', copy.title) +
-      markdown(copy.description) +
-      link('/products/', 'See all cards for sale') +
-      `<section>${heading('h2', 'Still for sale')}${productList(byIds(payload.products, payload.similarProductIds))}</section>`
-    )
+    return soldProductHtml(payload.soldProduct, payload)
   }
 
   if (payload.notFound || !payload.page) {

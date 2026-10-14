@@ -23,6 +23,7 @@ export default function ContentText({
   heading = 'h2',
   sections,
   updated,
+  centered = false,
   id = 'content-text'
 }: {
   title?: string
@@ -34,17 +35,28 @@ export default function ContentText({
   heading?: 'h1' | 'h2'
   sections?: ContentTextSection[]
   updated?: string
+  /** Without an image beside it, the text sits in the middle of the page instead of in the left half. */
+  centered?: boolean
   id?: string
 }) {
   const { ref, isFirst } = useLocationFinder()
   const Title = heading
+  // Subsections sit one level below the section's own heading.
+  const SectionTitle = heading === 'h1' ? 'h2' : 'h3'
   const hasSections = Boolean(sections?.length)
+  const centerText = centered && !image
 
   return (
     <section id={id} ref={ref} className={cn('section', isFirst && 'lg:mt-16! mt-12!')}>
       <div className="container-full">
-        <div className={cn('grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16', hasSections ? 'items-start' : 'items-stretch')}>
-          <div className="flex flex-col gap-8">
+        <div
+          className={cn(
+            'grid grid-cols-1 gap-10 lg:gap-16',
+            !centerText && 'lg:grid-cols-2',
+            hasSections ? 'items-start' : 'items-stretch'
+          )}
+        >
+          <div className={cn('flex flex-col gap-8', centerText && 'mx-auto w-full max-w-4xl')}>
             {isFirst && <Breadcrumbs />}
             <div className="flex flex-col gap-4 lg:gap-8">
               {(title || description) && (
@@ -70,15 +82,18 @@ export default function ContentText({
               )}
               {hasSections && (
                 <div className="flex flex-col gap-10 lg:gap-12">
-                  {sections?.map((section) => {
-                    const headingId = `content-text-${section.title.toLowerCase().replace(/\s+/g, '-')}`
+                  {sections?.map((section, index) => {
+                    // A section without a title is the lead-in before the first heading.
+                    const headingId = section.title ? `${id}-${section.title.toLowerCase().replace(/\s+/g, '-')}` : undefined
 
                     return (
-                      <Animated key={section.title} delay={300}>
+                      <Animated key={section.title || index} delay={300}>
                         <section className="flex flex-col gap-3" aria-labelledby={headingId}>
-                          <h2 id={headingId} className="title-xs">
-                            {section.title}
-                          </h2>
+                          {section.title && (
+                            <SectionTitle id={headingId} className="title-xs">
+                              {section.title}
+                            </SectionTitle>
+                          )}
                           <div className="content-m text-site-mantle [&_a]:underline [&_a]:underline-offset-4 [&_a]:transition-colors hover:[&_a]:text-site-envy">
                             {typeof section.body === 'string' ? <Markdown text={section.body} /> : section.body}
                           </div>

@@ -69,6 +69,11 @@ interface AnimatedProps {
   easing?: Easing
   duration?: Duration
   reveal?: 'scroll' | 'load'
+  /**
+   * Reveal when this says so instead of when the element itself scrolls into view: a slide
+   * that starts outside its slider comes in with the slider, not the moment it is slid to.
+   */
+  inView?: boolean
   className?: string
 }
 
@@ -79,6 +84,7 @@ export function Animated({
   easing = 'ease-in-out',
   duration = 500,
   reveal = 'scroll',
+  inView: revealWith,
   children,
   className
 }: AnimatedProps) {
@@ -88,7 +94,7 @@ export function Animated({
   const inView = useInView(ref, {
     once: true
   })
-  const shown = skipHide || inView
+  const shown = skipHide || (revealWith ?? inView)
 
   const animationClass = cn(
     shown &&

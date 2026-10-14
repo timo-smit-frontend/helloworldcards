@@ -8,6 +8,7 @@ import { handleLlms, handlePublicApi, handleSitemap } from '../worker/cms/public
 import { handleDashboardRequest } from '../worker/dashboard-api'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
+import type { PublicCmsPayload } from '../app/cms/types'
 import type { CmsDb } from '../worker/cms/db'
 
 const env = {
@@ -78,6 +79,29 @@ describe('CMS API', () => {
     const body = (await publicPage!.json()) as { notFound: boolean; page: unknown }
     expect(body.notFound).toBe(true)
     expect(body.page).toBeNull()
+  })
+
+  it('keeps a text block centered on the published page', async () => {
+    const db = createMemoryD1()
+    const token = await signIn(db as unknown as CmsDb)
+    await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/pages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` },
+        body: JSON.stringify({
+          path: '/story',
+          status: 'published',
+          title: 'Story',
+          blocks: [{ id: 'story', type: 'content_text', title: 'Story', description: 'Once upon a slab.', centered: true }]
+        })
+      }),
+      env,
+      { db }
+    )
+
+    const publicPage = await handlePublicApi(new Request('https://helloworldcards.com/api/public?path=/story'), env, { db })
+    const body = (await publicPage!.json()) as PublicCmsPayload
+    expect(body.page?.blocks[0]).toMatchObject({ type: 'content_text', centered: true })
   })
 
   it('rejects reserved product-detail paths', async () => {
@@ -227,6 +251,36 @@ describe('CMS API', () => {
       (product) => product.title === 'Ekans'
     )
     expect(shop).not.toHaveProperty('acquiredFrom')
+  })
+
+  it("keeps a card's story, and sends it with that card's own page only", async () => {
+    const db = createMemoryD1()
+    const token = await signIn(db as unknown as CmsDb)
+    const headers = { 'Content-Type': 'application/json', Cookie: `${SESSION_COOKIE}=${token}` }
+    const products = await handleAdminRequest(new Request(`${ADMIN}/api/admin/products`, { headers }), env, { db })
+    const list = (await products!.json()) as { products: Array<{ id: number; title: string }> }
+    const ekans = list.products.find((product) => product.title === 'Ekans')!
+    const about = '## The card\nA common from Team Rocket.\n\n## The grade\nPSA 9 Mint.'
+    const response = await handleAdminRequest(
+      new Request(`${ADMIN}/api/admin/products/${ekans.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...ekans, about: `  ${about}\n` })
+      }),
+      env,
+      { db }
+    )
+    expect(((await response!.json()) as { product: { about?: string } }).product.about).toBe(about)
+
+    const read = async (path: string) =>
+      (await (await handlePublicApi(new Request(`https://helloworldcards.com/api/public?path=${path}`), env, {
+        db
+      }))!.json()) as PublicCmsPayload
+    const page = await read('/products/ekans-2000-team-rocket-56')
+    expect(page.product?.about).toBe(about)
+    // Every page carries the shop's cards; their stories would only make each of those pages heavier.
+    expect(page.products.some((product) => 'about' in product)).toBe(false)
+    expect((await read('/products')).products.some((product) => 'about' in product)).toBe(false)
   })
 
   it('accepts a euro-formatted purchase cost', async () => {
@@ -891,11 +945,14 @@ describe('CMS API', () => {
     expect(xml).toContain('https://helloworldcards.com/privacy/')
     expect(xml).toContain('/products/ekans-2000-team-rocket-56/')
     expect(xml).toContain('<image:loc>https://helloworldcards.com/media/76645522_front.jpg</image:loc>')
+    // A sold card keeps its page, with the one small photo it keeps.
+    expect(xml).toContain('/products/charizard-2016-radiant-collection-rc5/')
+    expect(xml).toContain('<image:loc>https://helloworldcards.com/media/61958598_front-sold.webp</image:loc>')
     expect(xml).not.toContain('/dashboard')
     expect(xml).not.toContain('/admin')
   })
 
-  it('keeps draft pages and sold products out of the sitemap', async () => {
+  it('keeps draft pages out of the sitemap, and a card that sells in it', async () => {
     const db = createMemoryD1()
     const token = await signIn(db as unknown as CmsDb)
     await handleAdminRequest(
@@ -926,7 +983,7 @@ describe('CMS API', () => {
 
     const xml = await (await handleSitemap(new Request('https://helloworldcards.com/sitemap.xml'), env, { db }))!.text()
     expect(xml).not.toContain('/secret')
-    expect(xml).not.toContain('/products/ekans-2000-team-rocket-56/')
+    expect(xml).toContain('/products/ekans-2000-team-rocket-56/')
   })
 
   it('builds llms.txt from published pages, shop products, and events', async () => {
@@ -946,7 +1003,9 @@ describe('CMS API', () => {
     expect(text).toContain('[About](https://helloworldcards.com/about/)')
     expect(text).toContain('[Contact](https://helloworldcards.com/contact/)')
     expect(text).toContain('## Products')
-    expect(text).toContain('[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €90')
+    expect(text).toContain(
+      '[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €90'
+    )
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(
       '[Giratina V PSA 9](https://helloworldcards.com/products/giratina-v-2022-lost-origin-185/): 2022 Lost Origin #185. Reserved'

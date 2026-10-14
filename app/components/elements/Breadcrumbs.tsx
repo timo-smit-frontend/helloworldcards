@@ -38,7 +38,7 @@ function crumbsFromPath(pathname: string, pageTitle?: string, productTitle?: str
 export default function Breadcrumbs({ items, className }: { items?: BreadcrumbItem[]; className?: string }) {
   const { pathname } = useLocation()
   const cms = useCms()
-  const crumbs = items ?? crumbsFromPath(pathname, cms?.page?.title, cms?.product?.title)
+  const crumbs = items ?? crumbsFromPath(pathname, cms?.page?.title, (cms?.product ?? cms?.soldProduct)?.title)
 
   if (crumbs.length === 0) {
     return null

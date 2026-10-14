@@ -13,7 +13,8 @@ export const CMS_BLOCK_TYPES = [
 
 export type CmsBlockType = (typeof CMS_BLOCK_TYPES)[number]
 
-export const FEATURED_PRODUCT_COUNT = 4
+/** How many other cards a card's page suggests under "More from the shop". */
+export const SIMILAR_PRODUCT_COUNT = 4
 
 export const CMS_BLOCK_LABELS: Record<CmsBlockType, string> = {
   banner_figcaption: 'Banner with image and caption',
@@ -67,6 +68,8 @@ export type CmsBlock =
       link?: CmsLink
       sections?: CmsTextSection[]
       updated?: string
+      /** Without an image, the text sits in the middle of the page instead of in the left half. */
+      centered?: boolean
     }
   | {
       id: string
@@ -82,6 +85,7 @@ export type CmsBlock =
       type: 'content_products'
       title?: string
       description?: string
+      /** Every card that can be bought, in a new random order on each visit, as a slider instead of the catalogue. */
       random?: boolean
     }
   | {
@@ -210,6 +214,7 @@ export type PublicProduct = {
   title: string
   subtitle: string
   description: string
+  about?: string
   images: string[]
   pokemonId?: number
   price?: string | number
@@ -224,11 +229,14 @@ export type PublicProduct = {
 }
 
 /**
- * A card that has sold, as its old address still shows it: what it was, never what it
- * sold for. The page answers 410 Gone, so search engines drop it while a visitor with an
- * old link lands on the cards that are still for sale.
+ * A card that has sold, as its page keeps showing it: what it was, never what it sold for
+ * or where it was listed. The page stays up and indexed with the card's story and its one
+ * remaining photo, and sends a visitor on to the cards that are still for sale.
  */
-export type PublicSoldProduct = Pick<PublicProduct, 'id' | 'title' | 'subtitle' | 'slug' | 'images' | 'pokemonId' | 'grader' | 'grade'>
+export type PublicSoldProduct = Pick<
+  PublicProduct,
+  'id' | 'title' | 'subtitle' | 'description' | 'about' | 'slug' | 'images' | 'pokemonId' | 'language' | 'grader' | 'grade' | 'year'
+>
 
 export type PublicCmsPayload = {
   settings: CmsSettings

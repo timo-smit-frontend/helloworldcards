@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isShopListed, productBuyLink, toPublicProduct } from '~/database/products'
+import { productAboutSections } from '~/seo/product'
 import { listInventory, listShopProducts } from '../worker/cms/db'
 import { ensureSeeded } from '../worker/cms/seed'
 import { createMemoryD1 } from './helpers/memory-d1'
@@ -387,5 +388,37 @@ describe('product inventory', () => {
     const live = inventory.find((item) => item.id === 11)!
     expect(toPublicProduct({ ...live, price: '€40,50' }, live.slug).price).toBe('€40')
     expect(inventory.find((item) => item.id === 6)?.price).toBe('€40,50')
+  })
+})
+
+describe('card stories', () => {
+  it('splits a story into its sections, with any lead-in before the first heading', () => {
+    expect(productAboutSections(undefined)).toEqual([])
+    expect(productAboutSections('  \n')).toEqual([])
+    expect(productAboutSections('One line.')).toEqual([{ title: '', body: 'One line.' }])
+    expect(productAboutSections('Lead-in.\n\n## The card\nFirst.\n\nSecond.\n\n##   The grade  \nPSA 9.\n')).toEqual([
+      { title: '', body: 'Lead-in.' },
+      { title: 'The card', body: 'First.\n\nSecond.' },
+      { title: 'The grade', body: 'PSA 9.' }
+    ])
+    // Only a line that starts with two hashes and a space is a heading.
+    expect(productAboutSections('## Set\nNumber #56, not ##56.\n### Not a heading')).toEqual([
+      { title: 'Set', body: 'Number #56, not ##56.\n### Not a heading' }
+    ])
+  })
+
+  it('gives every card its own story, sold cards included: their pages stay up', async () => {
+    const { inventory } = await seededShop()
+    const stories = new Set<string>()
+    for (const card of inventory) {
+      const sections = productAboutSections(card.about)
+      expect(sections.filter((section) => section.title).length, card.title).toBeGreaterThanOrEqual(2)
+      expect(
+        sections.every((section) => section.body),
+        card.title
+      ).toBe(true)
+      stories.add(card.about!)
+    }
+    expect(stories.size).toBe(inventory.length)
   })
 })

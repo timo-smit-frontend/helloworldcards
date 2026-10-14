@@ -30,18 +30,12 @@ export async function handlePublicApi(request: Request, env: DashboardEnv, runti
 }
 
 /**
- * The published pages and shop products, plus what the llms documents add, read as one
- * batch. The seed check rides on the settings row that is part of the batch anyway.
+ * The published pages and every card with a page, plus what the llms documents add, read as
+ * one batch. The seed check rides on the settings row that is part of the batch anyway.
  */
 async function readSiteIndex(db: CmsDb) {
   const read = () =>
-    batchAll(db, [
-      db.prepare(SQL.settings),
-      db.prepare(SQL.pages),
-      db.prepare(SQL.shopInventory),
-      db.prepare(SQL.events),
-      db.prepare(SQL.faqs)
-    ])
+    batchAll(db, [db.prepare(SQL.settings), db.prepare(SQL.pages), db.prepare(SQL.inventory), db.prepare(SQL.events), db.prepare(SQL.faqs)])
 
   let rows = await read()
   let settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)
@@ -51,13 +45,13 @@ async function readSiteIndex(db: CmsDb) {
     settings = rowToSettings(rows[0].results[0] as SettingsRow | undefined)
   }
 
+  const inventory = (rows[2].results as ProductRow[]).map(rowToInventory)
   return {
     settings,
     pages: (rows[1].results as PageRow[]).map(rowToPage).filter((page) => page.status === 'published'),
-    products: (rows[2].results as ProductRow[])
-      .map(rowToInventory)
-      .filter(isShopListed)
-      .map((item) => toPublicProduct(item, item.slug)),
+    products: inventory.filter(isShopListed).map((item) => toPublicProduct(item, item.slug)),
+    // Sold cards are off the shop but keep their pages, marked sold.
+    soldProducts: inventory.filter((item) => !isShopListed(item)),
     events: rows[3].results as CmsEvent[],
     faqs: rows[4].results as CmsFaq[]
   }
@@ -78,11 +72,14 @@ export async function handleSitemap(request: Request, env: DashboardEnv, runtime
     return null
   }
 
-  const { pages, products } = await readSiteIndex(db)
+  const { pages, products, soldProducts } = await readSiteIndex(db)
   // Product photos ride along for Google Images, where a slab photo is often how a card is found.
   const entries = [
     ...pages.map((page) => ({ loc: canonicalUrl(page.path), images: [] as string[] })),
-    ...products.map((product) => ({ loc: canonicalUrl(`/products/${product.slug}`), images: product.images.map(toAbsoluteUrl) }))
+    ...[...products, ...soldProducts].map((product) => ({
+      loc: canonicalUrl(`/products/${product.slug}`),
+      images: product.images.map(toAbsoluteUrl)
+    }))
   ]
   const urls = entries.map(({ loc, images }) =>
     [

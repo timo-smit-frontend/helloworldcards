@@ -6,7 +6,7 @@ import ContentFaq from '~/components/flex/content/ContentFaq'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import FormContact from '~/components/flex/form/FormContact'
-import { FEATURED_PRODUCT_COUNT, type CmsBlock } from './types'
+import type { CmsBlock } from './types'
 import { useCms } from './context'
 
 export function CmsBlocks({ blocks }: { blocks: CmsBlock[] }) {
@@ -45,6 +45,7 @@ export function CmsBlocks({ blocks }: { blocks: CmsBlock[] }) {
                 link={block.link}
                 updated={block.updated}
                 sections={block.sections}
+                centered={block.centered}
               />
             )
           case 'content_cta':
@@ -64,7 +65,7 @@ export function CmsBlocks({ blocks }: { blocks: CmsBlock[] }) {
                 key={block.id}
                 title={block.title}
                 description={block.description}
-                random={block.random ? FEATURED_PRODUCT_COUNT : undefined}
+                featured={block.random}
                 products={products}
               />
             )

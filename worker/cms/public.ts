@@ -1,11 +1,12 @@
 import { isShopListed, toPublicProduct, type InventoryProduct } from '../../app/database/products'
 import {
-  FEATURED_PRODUCT_COUNT,
+  SIMILAR_PRODUCT_COUNT,
   type CmsBlock,
   type CmsEvent,
   type CmsPage,
   type CmsSettings,
   type PublicCmsPayload,
+  type PublicProduct,
   type PublicSoldProduct
 } from '../../app/cms/types'
 import type { CmsFaq, CmsNavItem } from '../../app/cms/types'
@@ -47,30 +48,45 @@ function resolveBlocks(blocks: CmsBlock[], events: CmsEvent[]): CmsBlock[] {
   })
 }
 
-/** Featured and "more from the shop" slots only show cards that can still be bought: never reserved, never sold. */
+/** "More from the shop" slots only show cards that can still be bought: never reserved, never sold. */
 function isFeaturable(product: Pick<InventoryProduct, 'sold' | 'reserved'>): boolean {
   return isShopListed(product) && product.reserved !== true
 }
 
-function similarIds(inventory: InventoryProduct[], excludeId: number, count = FEATURED_PRODUCT_COUNT): number[] {
+function similarIds(inventory: InventoryProduct[], excludeId: number, count = SIMILAR_PRODUCT_COUNT): number[] {
   return shuffle(inventory.filter((item) => item.id !== excludeId && isFeaturable(item)))
     .slice(0, count)
     .map((item) => item.id)
 }
 
+/** A card as a list shows it. Its story is only read on its own page, so it stays out of every other page's payload. */
+function toListedProduct(item: InventoryProduct): PublicProduct {
+  const product = toPublicProduct(item, item.slug)
+  Reflect.deleteProperty(product, 'about')
+  return product
+}
+
 const PRODUCT_PATH = /^\/products\/([^/]+)$/
 
-/** What a sold card's old address shows. The price on a sold record is what it sold for, so it stays on the books only. */
+/**
+ * What a sold card's page shows: the card and its story, as it was in the shop. The price
+ * on a sold record is what it sold for, so it stays on the books only, and the listings are
+ * gone.
+ */
 function toSoldProduct(item: InventoryProduct): PublicSoldProduct {
   return {
     id: item.id,
     title: item.title,
     subtitle: item.subtitle,
+    description: item.description,
+    ...(item.about ? { about: item.about } : {}),
     slug: item.slug,
     images: item.images,
     ...(item.pokemonId != null ? { pokemonId: item.pokemonId } : {}),
+    ...(item.language ? { language: item.language } : {}),
     ...(item.grader ? { grader: item.grader } : {}),
-    ...(item.grade != null ? { grade: item.grade } : {})
+    ...(item.grade != null ? { grade: item.grade } : {}),
+    ...(item.year != null ? { year: item.year } : {})
   }
 }
 
@@ -116,12 +132,8 @@ async function readPublicRows(db: CmsDb, path: string, slug: string | undefined)
   }
 }
 
-/**
- * A sold card's address answers 410 Gone: search engines drop it sooner than a 404, and
- * the page itself still shows a visitor with an old link the cards that are for sale.
- */
-export function publicPageStatus(payload: Pick<PublicCmsPayload, 'notFound' | 'soldProduct'>): number {
-  if (payload.soldProduct) return 410
+/** A sold card's page is a page like any other: it stays up, and stays in the index. */
+export function publicPageStatus(payload: Pick<PublicCmsPayload, 'notFound'>): number {
   return payload.notFound ? 404 : 200
 }
 
@@ -138,7 +150,7 @@ export async function buildPublicPayload(db: CmsDb, pathname: string): Promise<P
   }
 
   const { settings, nav, inventory, events, faqs, mediaCopy } = rows
-  const products = inventory.filter(isShopListed).map((item) => toPublicProduct(item, item.slug))
+  const products = inventory.filter(isShopListed).map(toListedProduct)
 
   const payload = {
     settings: settings!,

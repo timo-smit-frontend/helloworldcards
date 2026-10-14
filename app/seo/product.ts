@@ -68,16 +68,40 @@ export function productSeoDescription(product: PublicProduct): string {
   return fitSentences(`${lead}.`, product.description)
 }
 
-/** What a sold card's old address says, on the page and to crawlers alike. */
-export function soldProductCopy(product: PublicSoldProduct): { title: string; description: string } {
-  return {
-    title: `${product.title} has sold`,
-    description: `This ${product.title} (${product.subtitle}) has found a new owner. The cards below are still for sale.`
-  }
+/** A sold card's page says what it was the same way, sold where the price would be. */
+export function soldProductSeoDescription(product: PublicSoldProduct): string {
+  const lead = [productHeadline(product), productSetLine(product.subtitle), 'sold'].filter(Boolean).join(', ')
+  return fitSentences(`${lead}.`, product.description)
 }
 
-export function soldProductSeoDescription(product: PublicSoldProduct): string {
-  return `${productName(product)} has sold. See the graded Pokémon cards that are still for sale at Hello World Cards.`
+/** The button a sold card's page offers instead of a listing. */
+export const SOLD_PRODUCT_LINK = { url: '/products/', title: 'See all cards for sale' }
+
+export type ProductAboutSection = { title: string; body: string }
+
+/** The heading over a card's story: `About this Ekans`. */
+export function productAboutTitle(product: Pick<PublicProduct, 'title'>): string {
+  return `About this ${product.title}`
+}
+
+/**
+ * A card's story as the sections it is written in. A `## Heading` line starts a section;
+ * text before the first one is a section of its own, without a heading.
+ */
+export function productAboutSections(about: string | undefined): ProductAboutSection[] {
+  const sections: ProductAboutSection[] = []
+  let current: ProductAboutSection = { title: '', body: '' }
+  for (const line of (about ?? '').split('\n')) {
+    const heading = line.match(/^##\s+(.+?)\s*$/)
+    if (heading) {
+      sections.push(current)
+      current = { title: heading[1], body: '' }
+    } else {
+      current.body += `${line}\n`
+    }
+  }
+  sections.push(current)
+  return sections.map((section) => ({ title: section.title, body: section.body.trim() })).filter((section) => section.title || section.body)
 }
 
 function additionalProperties(product: PublicProduct): Array<Record<string, unknown>> {

@@ -27,30 +27,36 @@ function text(html: string): string {
 }
 
 describe('sold cards', () => {
-  it('keep their old address as a sold page with what is still for sale, never the sale price', async () => {
+  it('keep their page with the card and its story, never the sale price or the listings', async () => {
     const payload = await buildPublicPayload(createMemoryD1(), '/products/charizard-2016-radiant-collection-rc5')
 
     expect(payload.product).toBeNull()
     expect(payload.notFound).toBe(false)
-    expect(payload.soldProduct).toEqual({
+    expect(payload.soldProduct).toMatchObject({
       id: 3,
       title: 'Charizard',
       subtitle: '2016 Radiant Collection - #RC5',
       slug: 'charizard-2016-radiant-collection-rc5',
       images: ['/media/61958598_front-sold.webp'],
       pokemonId: 6,
+      language: 'english',
       grader: 'psa',
-      grade: 9
+      grade: 9,
+      year: 2016
     })
+    expect(payload.soldProduct?.description).toContain('Radiant Collection, number RC5/RC32.')
+    for (const field of ['price', 'cost', 'soldAt', 'soldVia', 'marktplaatsUrl', 'vintedUrl', 'cardmarketUrl']) {
+      expect(payload.soldProduct).not.toHaveProperty(field)
+    }
     expect(JSON.stringify(payload)).not.toContain('€115')
     expect(payload.similarProductIds.length).toBeGreaterThan(0)
     expect(payload.products.some((product) => product.slug === 'charizard-2016-radiant-collection-rc5')).toBe(false)
   })
 
-  it('answer 410 Gone, a missing page 404, and everything else 200', async () => {
+  it('answer 200 like any other page; only a missing page is a 404', async () => {
     const db = createMemoryD1()
 
-    expect(publicPageStatus(await buildPublicPayload(db, '/products/charizard-2016-radiant-collection-rc5'))).toBe(410)
+    expect(publicPageStatus(await buildPublicPayload(db, '/products/charizard-2016-radiant-collection-rc5'))).toBe(200)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/no-such-card'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/nowhere'))).toBe(404)
     expect(publicPageStatus(await buildPublicPayload(db, '/products/ekans-2000-team-rocket-56'))).toBe(200)
@@ -85,13 +91,39 @@ describe('page snapshot for crawlers without JavaScript', () => {
     expect(html).not.toContain('View on Marktplaats')
   })
 
-  it('says a sold card has sold and points to the cards still for sale', async () => {
+  it('writes a sold card as the card it was, marked sold, pointing to the cards still for sale', async () => {
     const { html } = await snapshotFor('/products/charizard-2016-radiant-collection-rc5')
 
-    expect(html).toContain('<h1>Charizard has sold</h1>')
+    expect(html).toContain('<h1>Charizard PSA 9 - 2016 Radiant Collection #RC5</h1>')
+    expect(text(html)).toContain('Radiant Collection, number RC5/RC32.')
+    expect(html).toContain('<dt>Status</dt><dd>sold</dd>')
     expect(html).toContain('<a href="/products/">See all cards for sale</a>')
     expect(html).toContain('<h2>Still for sale</h2>')
     expect(html).not.toContain('€115')
+    expect(html).not.toContain('<dt>Price</dt>')
+  })
+
+  it("writes the card's story in its sections, under the card", async () => {
+    const { payload } = await snapshotFor('/products/ekans-2000-team-rocket-56')
+    const html = buildPageSnapshot({
+      ...payload,
+      product: { ...payload.product!, about: 'Ekans & co.\n\n## The card\nA **1st Edition** print.\n\n## The grade\nPSA 9 Mint.' }
+    })
+
+    expect(html).toContain(
+      '<section><h2>About this Ekans</h2><p>Ekans &amp; co.</p><h3>The card</h3><p>A <strong>1st Edition</strong> print.</p><h3>The grade</h3><p>PSA 9 Mint.</p></section></article>'
+    )
+  })
+
+  it('lists every card for sale on the home page, never a reserved one', async () => {
+    const { payload, html } = await snapshotFor('/', { reserved: true })
+    const forSale = payload.products.filter((product) => !product.reserved)
+
+    expect(forSale.length).toBeGreaterThan(4)
+    for (const product of forSale) {
+      expect(html).toContain(`<a href="/products/${product.slug}/">`)
+    }
+    expect(html).not.toContain('/products/giratina-v-2022-lost-origin-185/')
   })
 
   it('lists every card in the shop on the products page, reserved ones as reserved', async () => {

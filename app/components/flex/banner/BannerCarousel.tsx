@@ -9,6 +9,7 @@ import SkeletonImage from '~/components/elements/SkeletonImage'
 import useLocationFinder from '~/hooks/useLocationFinder'
 import { imageTitleFor } from '~/services/imageCopy'
 import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
+import { SOLD_PHOTO_WIDTH } from '~/services/sold-photos'
 
 export default function BannerCarousel({
   title,
@@ -17,7 +18,8 @@ export default function BannerCarousel({
   description,
   images,
   pokemonId,
-  link
+  link,
+  sold = false
 }: {
   title?: string
   subtitle?: string
@@ -26,6 +28,8 @@ export default function BannerCarousel({
   images?: string[]
   pokemonId?: number
   link?: { url?: string; target?: string; title?: string }
+  /** A card that has sold: its one photo greyed out and marked sold, and "Sold" where the price would be. */
+  sold?: boolean
 }) {
   const { ref, isFirst } = useLocationFinder()
   const slides = images?.filter(Boolean) ?? []
@@ -35,16 +39,16 @@ export default function BannerCarousel({
     <section id="banner-carousel" ref={ref} className="lg:my-16 mt-12">
       <div className="container-full">
         <div className="grid grid-cols-1 gap-16 lg:grid-cols-2">
-          {(title || subtitle || description || price || link) && (
+          {(title || subtitle || description || price || sold || link) && (
             <div className="flex flex-col gap-8 lg:h-full lg:gap-0">
               {isFirst && <Breadcrumbs />}
               <Animated delay={100} reveal="load">
                 <div className="w-full shrink-0 lg:hidden">
-                  <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
+                  <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} sold={sold} />
                 </div>
               </Animated>
               <div className="flex flex-col justify-center gap-4 lg:flex-1 lg:gap-8">
-                {(title || subtitle || description || price) && (
+                {(title || subtitle || description || price || sold) && (
                   <div className="flex flex-col gap-2 lg:gap-4">
                     {(subtitle || title) && (
                       <Animated delay={100} reveal="load">
@@ -62,6 +66,11 @@ export default function BannerCarousel({
                     {price && (
                       <Animated delay={300} reveal="load">
                         <p className="content-xl font-semibold">{price}</p>
+                      </Animated>
+                    )}
+                    {sold && (
+                      <Animated delay={300} reveal="load">
+                        <p className="content-xl font-semibold tracking-[0.2em] text-site-mantle uppercase">Sold</p>
                       </Animated>
                     )}
                   </div>
@@ -92,7 +101,7 @@ export default function BannerCarousel({
           )}
           <Animated delay={400} reveal="load">
             <div className="max-lg:hidden">
-              <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} />
+              <BannerMedia images={slides} pokemonId={pokemonId} alt={alt} sold={sold} />
             </div>
           </Animated>
         </div>
@@ -101,12 +110,52 @@ export default function BannerCarousel({
   )
 }
 
-function BannerMedia({ images, pokemonId, alt }: { images: string[]; pokemonId?: number; alt: string }) {
+function BannerMedia({ images, pokemonId, alt, sold }: { images: string[]; pokemonId?: number; alt: string; sold: boolean }) {
+  if (sold) {
+    return <SoldMedia image={images[0]} pokemonId={pokemonId} alt={alt} />
+  }
+
   if (images.length === 0) {
     return <Pokemon variant="placeholder" id={pokemonId} className="h-100 w-full lg:h-120" />
   }
 
   return <BannerSlider images={images} alt={alt} />
+}
+
+/**
+ * A sold card keeps one small photo of its front, so there is nothing to slide through or
+ * enlarge: it stands on its own, greyed out the way a sold card is in the shop, marked sold.
+ */
+function SoldMedia({ image, pokemonId, alt }: { image?: string; pokemonId?: number; alt: string }) {
+  return (
+    <div className="relative flex items-center justify-center overflow-hidden rounded-panel bg-site-mid p-5 lg:p-8">
+      <div className="flex w-full justify-center opacity-75 grayscale-75">
+        {image ? (
+          <SkeletonImage
+            skeletonClassName="aspect-[5/7] w-full max-w-[calc(25rem*5/7)] lg:max-w-[calc(30rem*5/7)]"
+            src={image}
+            alt=""
+            title={imageTitleFor(image) ?? alt}
+            width={800}
+            height={1120}
+            aria-hidden
+            priority
+            sizes={PRODUCT_IMAGE_SIZES}
+            maxwidth={SOLD_PHOTO_WIDTH}
+            className="h-100 w-auto max-w-full min-w-min object-contain lg:h-120"
+          />
+        ) : (
+          <Pokemon variant="placeholder" id={pokemonId} className="h-100 w-full lg:h-120" />
+        )}
+      </div>
+      <span
+        aria-hidden
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-site-dark/90 px-6 py-2 text-lg font-semibold tracking-[0.2em] text-site-gray-nurse uppercase shadow-card ring-1 ring-site-mulled-wine"
+      >
+        Sold
+      </span>
+    </div>
+  )
 }
 
 const reduceMotionQuery = '(prefers-reduced-motion: reduce)'

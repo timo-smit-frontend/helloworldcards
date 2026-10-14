@@ -14,6 +14,11 @@ export type Product = {
   title: string
   subtitle: string
   description: string
+  /**
+   * The longer story under the card's banner: paragraphs of plain text with inline markdown,
+   * in sections that each start with a `## Heading` line.
+   */
+  about?: string
   images: string[]
   pokemonId?: number
   price?: string | number
@@ -113,6 +118,7 @@ export function toPublicProduct(product: ProductRecord, slug: string): Product {
     title: product.title,
     subtitle: product.subtitle,
     description: product.description,
+    ...(product.about ? { about: product.about } : {}),
     images: product.images ?? [],
     slug,
     ...(product.pokemonId != null ? { pokemonId: product.pokemonId } : {}),

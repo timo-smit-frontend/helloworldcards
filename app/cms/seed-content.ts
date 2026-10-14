@@ -110,7 +110,7 @@ const homeBlocks: CmsBlock[] = [
     description:
       "I'm Timo, a frontend developer who never quite grew out of Pokémon. Hello World is the first thing you print when you learn to code, so that's what the shop is called. My partner Sam, the Wooper fan, shares the hobby and comes along to events.",
     image: '/media/wooper.png',
-    link: { url: '/about/', title: 'More about the shop' }
+    link: { url: '/about/', title: 'More about Hello World Cards' }
   }),
   block({
     id: 'home-products',

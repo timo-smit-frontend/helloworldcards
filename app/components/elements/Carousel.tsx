@@ -1,6 +1,6 @@
 import * as React from 'react'
 import useEmblaCarousel, { type UseEmblaCarouselType } from 'embla-carousel-react'
-import { Pause, Play } from 'lucide'
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide'
 import { MorphIcon } from 'morphicons/react'
 import { cn } from '~/services/utils'
 
@@ -72,11 +72,11 @@ function Carousel({
   )
 }
 
-function CarouselContent({ className, ...props }: React.ComponentProps<'div'>) {
+function CarouselContent({ className, viewportClassName, ...props }: React.ComponentProps<'div'> & { viewportClassName?: string }) {
   const { carouselRef } = useCarousel()
 
   return (
-    <div ref={carouselRef} className="overflow-hidden">
+    <div ref={carouselRef} className={cn('overflow-hidden', viewportClassName)}>
       <div className={cn('flex', className)} {...props} />
     </div>
   )
@@ -164,4 +164,58 @@ function CarouselDots({ className }: { className?: string }) {
   )
 }
 
-export { Carousel, CarouselContent, CarouselItem, CarouselDots }
+const arrowClass =
+  'flex size-11 items-center justify-center rounded-full text-site-gray-nurse ring-1 ring-site-mulled-wine smooth enabled:cursor-pointer enabled:hover:text-site-envy enabled:hover:ring-site-envy disabled:cursor-not-allowed disabled:opacity-40'
+
+/** Previous and next buttons, each off at its end. When every slide fits, there is nothing to show. */
+function CarouselArrows({
+  className,
+  previousLabel = 'Previous slide',
+  nextLabel = 'Next slide'
+}: {
+  className?: string
+  previousLabel?: string
+  nextLabel?: string
+}) {
+  const { api } = useCarousel()
+  const [scroll, setScroll] = React.useState<{ previous: boolean; next: boolean } | null>(null)
+
+  React.useEffect(() => {
+    if (!api) return
+
+    const onChange = (emblaApi: CarouselApi) => {
+      if (!emblaApi) return
+      setScroll({ previous: emblaApi.canScrollPrev(), next: emblaApi.canScrollNext() })
+    }
+
+    onChange(api)
+    api.on('reInit', onChange)
+    api.on('select', onChange)
+
+    return () => {
+      api.off('reInit', onChange)
+      api.off('select', onChange)
+    }
+  }, [api])
+
+  if (scroll && !scroll.previous && !scroll.next) return null
+
+  return (
+    <div className={cn('flex items-center gap-2', className)}>
+      <button
+        type="button"
+        aria-label={previousLabel}
+        disabled={!scroll?.previous}
+        className={arrowClass}
+        onClick={() => api?.scrollPrev()}
+      >
+        <MorphIcon icon={ChevronLeft} size={22} strokeWidth={2.25} />
+      </button>
+      <button type="button" aria-label={nextLabel} disabled={!scroll?.next} className={arrowClass} onClick={() => api?.scrollNext()}>
+        <MorphIcon icon={ChevronRight} size={22} strokeWidth={2.25} />
+      </button>
+    </div>
+  )
+}
+
+export { Carousel, CarouselArrows, CarouselContent, CarouselItem, CarouselDots }

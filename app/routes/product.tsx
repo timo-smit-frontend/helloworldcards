@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
 import { useCms, useCmsLoading } from '~/cms/context'
+import type { PublicProduct } from '~/cms/types'
 import BannerCarousel from '~/components/flex/banner/BannerCarousel'
 import ContentProducts from '~/components/flex/content/ContentProducts'
 import ContentText from '~/components/flex/content/ContentText'
 import Layout from '~/components/layout/Layout'
 import { productBuyLink } from '~/database/products'
-import { soldProductCopy } from '~/seo/product'
+import { SOLD_PRODUCT_LINK, productAboutSections, productAboutTitle } from '~/seo/product'
 import { MARKTPLAATS_URL } from '~/services/contact'
 
 export default function Product() {
@@ -29,17 +30,20 @@ export default function Product() {
     )
   }
 
-  // An old link to a card that has sold: say so, and offer the cards that are still for sale.
+  // A card that has sold keeps its page: what it was, marked sold, and the cards that are still for sale.
   if (sold) {
     return (
       <Layout>
-        <ContentText
-          heading="h1"
-          {...soldProductCopy(sold)}
-          image={sold.images[0]}
-          alt={sold.title}
-          link={{ url: '/products/', title: 'See all cards for sale' }}
+        <BannerCarousel
+          title={sold.title}
+          subtitle={sold.subtitle}
+          description={sold.description}
+          images={sold.images}
+          pokemonId={sold.pokemonId}
+          link={SOLD_PRODUCT_LINK}
+          sold
         />
+        <ProductAbout product={sold} />
         <ContentProducts title="Still for sale" id={similarIds} products={shop} />
       </Layout>
     )
@@ -70,6 +74,7 @@ export default function Product() {
         images={product.images}
         pokemonId={product.pokemonId}
       />
+      <ProductAbout product={product} />
       <ContentText
         id="content-text-marktplaats"
         title="Also on Marktplaats and Vinted"
@@ -80,4 +85,12 @@ export default function Product() {
       <ContentProducts title="More from the shop" id={similarIds} products={shop} />
     </Layout>
   )
+}
+
+/** The card's longer story under its banner, in the sections it was written in. */
+function ProductAbout({ product }: { product: Pick<PublicProduct, 'title' | 'about'> }) {
+  const sections = useMemo(() => productAboutSections(product.about), [product.about])
+  if (!sections.length) return null
+
+  return <ContentText id="content-text-about" title={productAboutTitle(product)} sections={sections} centered />
 }

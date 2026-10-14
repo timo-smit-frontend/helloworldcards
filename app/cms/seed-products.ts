@@ -6,7 +6,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Mewtwo',
     subtitle: '2016 Evolutions - #51',
     description:
-      'A reverse holo from the 2016 XY Evolutions set, number 51/108. Evolutions reprints the original Base Set art with an XY-era reverse holo finish. This copy is graded PSA 9 Mint, cert 148651617. The PSA population is 1,857.',
+      'A reverse holo from the 2016 XY Evolutions set, number 51/108. Evolutions remade the Base Set cards in their original style, and this Mewtwo is by Ken Sugimori, like the Base Set holo it is based on. This copy is graded PSA 9 Mint, cert 148651617. The PSA population is 1,857.',
+    about:
+      '## The card\nMewtwo 51/108 comes from XY Evolutions, released on 2 November 2016 for Pokémon\'s 20th anniversary. Evolutions remade the Base Set cards in the Base Set card style, and nearly every card in it uses the original artwork from the classic sets. This Mewtwo is based on the Base Set holo, Mewtwo 10/102 from 1999, and like it is credited to Ken Sugimori.\n\nIt is not a straight copy. The 1999 card had 60 HP; this one has 130, with the attacks Psychic and Barrier, and a new Pokédex text: "A Pokémon whose genetic code was repeatedly recombined for research. It turned vicious as a result."\n\n## The reverse holo\nIn booster packs this Mewtwo is a non-holo rare. This copy is the reverse holo, with plain foil across the card around the artwork. Most XY-era sets gave their reverse holos a pattern of Energy symbols; Evolutions did not.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA\'s website](https://www.psacard.com/cert/148651617).',
     images: ['/media/148651617_front-sold.webp'],
     pokemonId: 150,
     price: '€65',
@@ -28,6 +30,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Silver Tempest - #185',
     description:
       'A Full Art from the 2022 Sword & Shield Silver Tempest set, number 185/195. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 76719295. The PSA population is 1,254.',
+    about:
+      "## The card\nLugia V 185/195 is the Full Art of the Lugia V in Silver Tempest, released on 11 November 2022. The set has three Lugia V cards: the regular print by Mitsuhiro Arita (138/195), this Full Art, and the Alternate Art by kawayoo (186/195). The Full Art is by 5ban Graphics, a group of artists at Creatures Inc. who like to make Pokémon look three-dimensional. Their name comes from the company's former address, in Gobancho, Tokyo.\n\n## Silver Tempest\nSilver Tempest was the twelfth and final main Sword & Shield expansion, with Lugia at its centre. Lugia's Pokédex entries say it can calm storms, and has been known to start one with a flap of its wings. The set was also the first to put VSTAR Powers on Trainer cards. In Japan the cards came out three weeks earlier, in Paradigm Trigger, where this Full Art is 109/098.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 76719295](https://www.psacard.com/cert/76719295) on PSA's website.",
     images: ['/media/76719295_front-sold.webp'],
     price: '€40',
     language: 'english',
@@ -46,7 +50,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Charizard',
     subtitle: '2016 Radiant Collection - #RC5',
     description:
-      'A holo from the 2016 XY Generations Radiant Collection, number RC5/RC32. Radiant Collection uses the classic Charizard art on a holographic foil. This copy is graded PSA 9 Mint, cert 61958598. The PSA population is 2,625.',
+      'A holo from the 2016 XY Generations Radiant Collection, number RC5/RC32. The art is by Akira Komayama, the last of three Radiant Collection cards that tell the story of a boy and his Charizard. This copy is graded PSA 9 Mint, cert 61958598. The PSA population is 2,625.',
+    about:
+      "## The card\nCharizard RC5/RC32 is from the Radiant Collection, a 32-card subset of Generations, the special expansion released on 22 February 2016 for Pokémon's 20th anniversary. It was only printed as a foil card. The Radiant Collection cards first came out in Japan, in the PokéKyun Collection.\n\nThe art is by Akira Komayama and tells a story across three cards. On Charmander, RC3, a young boy is teased by his mischievous Charmander. On Charmeleon, RC4, the older boy and his Charmeleon are deep in conversation. On this card the boy has become a young man, and his Charizard shields him from the snow. Instead of a Pokédex entry, each of the three carries the boy's own words. This one reads: \"No matter what happens, if we stick together, we can get past it. Forever and ever.\"\n\n## Generations\nGenerations was never sold in booster boxes: its packs only came in special anniversary products, such as the Elite Trainer Box and the Mythical Pokémon Collections. Its Radiant Collection was the second, after the one in Legendary Treasures in 2013.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/61958598).",
     images: ['/media/61958598_front-sold.webp'],
     pokemonId: 6,
     price: '€115',
@@ -67,6 +73,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2000 Team Rocket - #56',
     description:
       'A 1st Edition from the 2000 Team Rocket set, number 56/82. The 1st Edition stamp is on the original Wizards of the Coast print. This copy is graded PSA 9 Mint, cert 76645522. The PSA population is 879.',
+    about:
+      '## The card\nEkans 56/82 is a common from Team Rocket, the fifth main English expansion, released by Wizards of the Coast on 24 April 2000. The art is by Ken Sugimori, who also drew the original artwork for the Pokémon games, and shows a coiled Ekans with its mouth open, against a swirling orange background. It is a 50 HP Grass Pokémon with two attacks, Bite and Poison Sting.\n\nThis copy carries the 1st Edition stamp, which marks the first print run. Wizards printed a 1st Edition run of every set up to Neo Destiny except Base Set 2, and the Unlimited prints followed.\n\n## Team Rocket\nTeam Rocket introduced Dark Pokémon, and in this set Ekans evolves into Dark Arbok. It is a fitting card for the set: in the anime, Ekans was Jessie\'s first known Pokémon, from the second episode, "Pokémon Emergency!", until it evolved into Arbok. Team Rocket also had the first secret card numbered above the set total, Dark Raichu 83/82. And the name Ekans is "snake" spelled backwards.\n\n## The grade\nThe card is more than 25 years old, and PSA still graded it 9, Mint: a superb card with one minor flaw at most, such as slightly off-white borders or a small printing imperfection. Only Gem Mint 10 is higher. [Look up cert 76645522](https://www.psacard.com/cert/76645522) on PSA\'s website.',
     images: ['/media/76645522_front.jpg', '/media/76645522_back.jpg'],
     pokemonId: 23,
     price: '€55',
@@ -87,6 +95,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2025 White Flare Japanese - #140',
     description:
       'An Art Rare from the 2025 Scarlet & Violet White Flare Japanese set, number 140/086. Art Rares are the full-illustration prints from the Japanese set. This copy was graded BGS 9.5 Gem Mint on 3 September 2025, cert 18501427. Subgrades are centering 9.5, corners 10, edges 10, and surface 9.5. The Beckett population is 35.',
+    about:
+      '## The card\nZorua 140/086 is an Art Rare from White Flare, the Japanese set released on 6 June 2025 together with its twin, Black Bolt. The art is by Naoki Saito. The same illustration came out in English a few weeks later, in the English White Flare, as Illustration Rare 142/086; this copy is the Japanese print.\n\nZorua\'s Pokédex entry, from Pokémon Black, suits a Pokémon known for its illusions: "It changes into the forms of others to surprise them. Apparently, it often transforms into a silent child." Zorua and Zoroark were the first Pokémon of the Unova generation shown to the public, in February 2010.\n\n## Black Bolt and White Flare\nBetween them, the two sets cover all 156 Pokémon of Unova, and every Pokémon in them has an Art Rare or rarer version, 72 Art Rares in White Flare alone. White Flare is the Reshiram half, and the pair introduced a new top rarity, the Black White Rare. They were the last sets of the Scarlet & Violet era.\n\n## The grade\nBeckett graded this copy 9.5, Gem Mint, on 3 September 2025. A Beckett grade comes with four subgrades, and the overall grade leans most on the lowest of them. This copy has two perfect 10s, for corners and edges, and 9.5 for centering and surface.',
     images: ['/media/18501427_front.jpg', '/media/18501427_back.jpg'],
     pokemonId: 570,
     price: '€55',
@@ -106,6 +116,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Brilliant Stars - #165',
     description:
       'A Full Art from the 2022 Sword & Shield Brilliant Stars set, number 165/172. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 142991345. The PSA population is 369.',
+    about:
+      "## The card\nArceus V 165/172 is the Full Art of the Arceus V in Brilliant Stars, released on 25 February 2022. The art is by N-DESIGN Inc., who also drew the regular print (122/172); the Alternate Art, 166/172, is by kawayoo.\n\nThe card has 220 HP and two attacks: Trinity Charge, which finds up to three basic Energy in your deck and attaches them to your Pokémon V, and Power Edge for 130.\n\n## Brilliant Stars\nBrilliant Stars introduced Pokémon VSTAR, with Arceus at its centre. This Arceus V evolves into Arceus VSTAR, whose VSTAR Power, Starbirth, has the same Japanese name as the Japanese set the cards came from, Star Birth. Brilliant Stars was also the first set with a Trainer Gallery: Full Art cards that show Pokémon together with their trainers.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 142991345](https://www.psacard.com/cert/142991345) on PSA's website.",
     images: ['/media/142991345_front-sold.webp'],
     pokemonId: 493,
     price: '€40,50',
@@ -127,6 +139,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2025 Mega Evolution - #181',
     description:
       'A Special Illustration Rare from the 2025 Mega Evolution set, number 181/132. Special Illustration Rares are the full-art chase prints from the English set. This copy is graded PSA 9 Mint, cert 136389084. The PSA population is 4,479.',
+    about:
+      "## The card\nMega Latias ex 181/132 is a Special Illustration Rare from Mega Evolution, the first set of the Mega Evolution series, released on 26 September 2025. AKIRA EGAWA drew it: Mega Latias soaring over a city skyline at night, surrounded by coloured lines that show off its speed, with the same colours repeated in the highlights and shadows across its body. The regular print (100/132) and the Ultra Rare (163/132) are by 5ban Graphics.\n\nLatias does not evolve, so Mega Latias ex is a Basic Pokémon: a 280 HP Dragon type whose attack, Illusory Impulse, does 300 damage and discards all of its Energy.\n\n## Mega Evolution\nThe set brought Mega Evolution back to the card game, as Mega Evolution Pokémon ex that give up three Prize cards when they are Knocked Out. It has 188 cards, ten of them Special Illustration Rares. In Japan this art came out first, in Mega Symphonia, in August 2025.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/136389084).",
     images: ['/media/136389084_front.jpg', '/media/136389084_back.jpg'],
     pokemonId: 380,
     price: '€100',
@@ -146,6 +160,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Brilliant Stars - #TG05',
     description:
       'A Full Art from the 2022 Sword & Shield Brilliant Stars Trainer Gallery, number TG05/TG30. This is the Trainer Gallery print, not the regular set card. This copy is graded PSA 9 Mint, cert 142991337. The PSA population is 3,381.',
+    about:
+      "## The card\nZekrom TG05/TG30 is one of the Trainer Gallery cards in Brilliant Stars, released on 25 February 2022: Full Art cards that show a Pokémon together with a trainer. Here Zekrom shares the card with N, drawn by AKIRA EGAWA. The card came out in Japan first, as a Character Rare in VMAX Climax, in December 2021.\n\n## Zekrom and N\nN uses Zekrom in the final battle against him in Pokémon Black, and again in the first battle against him in Black 2. The card itself is a new illustration of the Zekrom from Vivid Voltage, with the same attacks.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/142991337).",
     images: ['/media/142991337_front-sold.webp'],
     pokemonId: 644,
     price: '€48',
@@ -166,6 +182,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2020 Shiny Star V Japanese - #197',
     description:
       'A Full Art from the 2020 Sword & Shield Shiny Star V Japanese set, number 197/190. This is the Full Art trainer, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 80573086. The PSA population is 5,748.',
+    about:
+      '## The card\nPoké Kid 197/190 is the Full Art version of the Supporter in Shiny Star V, a Japanese high class pack released on 20 November 2020. It is a secret card, numbered above the set\'s 190, with art by Sanosuke Sakuma. The Full Art shows a girl Poké Kid; the regular print, from the Sword & Shield base set, shows a boy and is drawn by Hitoshi Ariga.\n\nThe Japanese name, ポケモンごっこ, means something like "make-believe Pokémon". The card does one simple thing: search your deck for a Pokémon, show it and put it into your hand.\n\n## Shiny Star V\nWith 330 cards, 190 plus 140 secret cards, Shiny Star V was the largest Japanese set when it came out, and it is best known for its shiny Pokémon. Outside Japan it became Shining Fates, released in February 2021, where this card is 070/072.\n\n## The grade\nPSA graded this copy Gem Mint 10, the top of its scale: a virtually perfect card, with sharp corners, sharp focus and its full original gloss. The cert can be checked on [PSA\'s website](https://www.psacard.com/cert/80573086).',
     images: ['/media/80573086_front-sold.webp'],
     price: '€70',
     language: 'japanese',
@@ -184,7 +202,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Mega Gengar ex',
     subtitle: '2025 Phantasmal Flames - #056',
     description:
-      'A Mega Evolution ex from the 2025 Scarlet & Violet Phantasmal Flames set, number 056/094. Mega ex cards use the full-bleed art frame, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 154388302. The PSA population is 10,103.',
+      'A Mega Evolution Pokémon ex from the 2025 Mega Evolution Phantasmal Flames set, number 056/094. This is the regular set print, a Double Rare; the set has no full-art Mega Gengar ex. This copy is graded PSA 10 Gem Mint, cert 154388302. The PSA population is 10,103.',
+    about:
+      "## The card\nMega Gengar ex 056/094 is the regular print of Mega Gengar ex in Phantasmal Flames, the second main set of the Mega Evolution series, released on 14 November 2025. It is a Double Rare in the standard Pokémon ex frame, where the Pokémon breaks out of its illustration window; the yellow name and the rainbow banner mark it as a Mega. The art is by 5ban Graphics, and Pokémon's own article on the set describes it well: red, green and black energy swirls around Gengar, and its wicked grin says it is ready to cause mischief.\n\nIt is a 350 HP Darkness Pokémon that evolves from Haunter. Its Ability, Shadowy Concealment, means your opponent takes one Prize card fewer when one of your Darkness Pokémon is Knocked Out by an attack from their Pokémon ex. Its attack, Void Gale, does 230.\n\n## Phantasmal Flames\nThe set is led by Mega Charizard X ex and centres on Fire and Darkness Pokémon. It has no full-art Mega Gengar ex: those came later, in Ascended Heroes. In Japan this card came out first, in a starter set built around Mega Gengar ex.\n\n## The grade\nPSA graded this copy Gem Mint 10, the top of its scale: a virtually perfect card, with sharp corners, sharp focus and its full original gloss. The cert can be checked on [PSA's website](https://www.psacard.com/cert/154388302).",
     images: ['/media/154388302_front-sold.webp'],
     pokemonId: 94,
     price: '€80',
@@ -204,7 +224,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Mewtwo GX',
     subtitle: '2017 Shining Legends - #39',
     description:
-      'A Full Art from the 2017 Sun & Moon Shining Legends set, number 39/73. This is the Full Art GX, not the regular set print. This copy is graded PSA 9 Mint, cert 155373599. The PSA population is 1,397.',
+      'A holo GX from the 2017 Sun & Moon Shining Legends set, number 39/73. This is the regular set print of the Mewtwo GX, not the Full Art or the Rainbow Rare. This copy is graded PSA 9 Mint, cert 155373599. The PSA population is 1,397.',
+    about:
+      "## The card\nMewtwo GX 39/73 is the regular holo print of the Mewtwo-GX in Shining Legends, the special Sun & Moon expansion released on 6 October 2017. The art is by 5ban Graphics, the artists at Creatures Inc. known for their three-dimensional Pokémon. The same Mewtwo-GX was also printed as a Full Art (72/73) and a Rainbow Rare (76/73); this is the one in the regular frame.\n\nIt is a 190 HP card that ends in Psystrike-GX: 200 damage that ignores any effects on the opponent's Active Pokémon.\n\n## Shining Legends\nShining Legends was never sold in booster boxes; its packs only came inside special products. The set is named after its Shining Pokémon, cards that show a Pokémon in its rare shiny colours. In Japan it came out in July 2017, timed to the 20th Pokémon film, and gathered Legendary and Mythical Pokémon from the films.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/155373599).",
     images: ['/media/mtpx3u8t-155373599-front.jpg', '/media/mtpx3ud0-155373599-back.jpg'],
     pokemonId: 150,
     price: '€90',
@@ -223,7 +245,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Dragonite V',
     subtitle: '2022 Pokemon GO - #049',
     description:
-      'A Full Art from the 2022 Sword & Shield Pokemon GO set, number 049/078. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 155373625. The PSA population is 735.',
+      'A holo V from the 2022 Sword & Shield Pokemon GO set, number 049/078. This is the regular set print of the Dragonite V, not the Full Art (076/078). This copy is graded PSA 9 Mint, cert 155373625. The PSA population is 735.',
+    about:
+      "## The card\nDragonite V 049/078 is the regular print of the Dragonite V in the Pokémon GO set, released on 1 July 2022. The art is by kawayoo, who also drew the region maps for Pokémon Omega Ruby and Alpha Sapphire. The set has a Full Art of the same Dragonite V as well (076/078), and the Dragonite VSTAR this card evolves into is 050/078.\n\nIt attacks with Hyper Beam, which also discards an Energy from the opponent's Active Pokémon, and with Buster Tail, for 160.\n\n## Pokémon GO\nThe set was made for the mobile game, and most of its cards show a Pokémon GO logo in the artwork. Only the regular and Full Art prints of its Pokémon V and other rule-box Pokémon go without, so this one has none. Outside Japan the packs were only sold inside Pokémon GO products, never in booster boxes.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 155373625](https://www.psacard.com/cert/155373625) on PSA's website.",
     images: ['/media/mtpx3uh1-155373625-front-sold.webp'],
     pokemonId: 149,
     price: '€50',
@@ -243,7 +267,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Mega Gardevoir ex',
     subtitle: '2026 Black Star Promo - #032',
     description:
-      'A Black Star Promo from the 2026 Mega Evolution promo series, number 032, released in the ASC Premium Poster Collection. Promos come from the collection itself, not from a main set print run. This copy is graded PSA 10 Gem Mint, cert 167185846. The PSA population is 7,832.',
+      'A Black Star Promo from the 2026 Mega Evolution promo series, number 032, released in the Ascended Heroes Premium Poster Collection with Mega Gardevoir. Promos come from the collection itself, not from a main set print run. This copy is graded PSA 10 Gem Mint, cert 167185846. The PSA population is 7,832.',
+    about:
+      '## The card\nMega Gardevoir ex 032 is a Black Star Promo from the Mega Evolution series. It came in one product only: the Ascended Heroes Premium Poster Collection with Mega Gardevoir, released on 20 March 2026 with a poster and ten Ascended Heroes booster packs. The Mega Lucario version of the box has a different promo, 033.\n\nThe art, by Saboteri, is in the style of a Mega Attack Rare, which writes the Pokémon\'s attack in Japanese inside the artwork: here "Mega Symphonia", in katakana. In Japan it is a Mega Attack Rare in MEGA Dream ex. English booster packs do not have this art at all, so this promo is its only English print.\n\n## Mega Gardevoir ex\nIt is a 360 HP Psychic Pokémon that evolves from Kirlia. When the card was first shown, in February 2025, it was the first tournament-legal card with more than 340 HP. Its attack, Mega Symphonia, has the same name as the Japanese set Mega Gardevoir ex first came out in.\n\n## The grade\nPSA graded this copy Gem Mint 10, the top of its scale: a virtually perfect card, with sharp corners, sharp focus and its full original gloss. The cert can be checked on [PSA\'s website](https://www.psacard.com/cert/167185846).',
     images: ['/media/mtv6bukp-167185846-front-sold.webp'],
     pokemonId: 282,
     price: '€115',
@@ -263,7 +289,9 @@ export const seedProductRecords: ProductRecord[] = [
     title: 'Pikachu',
     subtitle: '2023 Crown Zenith - #160',
     description:
-      'A Full Art secret rare from the 2023 Sword & Shield Crown Zenith set, number 160/159. This is the Full Art secret rare, not the regular set print. This copy is graded PSA 9 Mint, cert 122301454. The PSA population is 23,981.',
+      "A Full Art secret rare from the 2023 Sword & Shield Crown Zenith set, number 160/159. It is the main set's only secret card, not the Galarian Gallery Pikachu. This copy is graded PSA 9 Mint, cert 122301454. The PSA population is 23,981.",
+    about:
+      "## The card\nPikachu 160/159 is the only secret card in the main set of Crown Zenith, the last special expansion of the Sword & Shield series, released on 20 January 2023. It is an etched Full Art by You Iribi. Around Pikachu are Pokémon from popular cards of the series' first two years, among them Crowned Sword Zacian, Gigantamax Rapid Strike Urshifu and Inteleon.\n\nThe card first came out in Japan, as a promo in the made-to-order Precious Collector Box, which shipped at the end of 2022. Its text is that of the Pikachu in the Pokémon GO set: 70 HP, and Wild Charge for 90.\n\n## Crown Zenith\nCrown Zenith was only sold in special products, never in booster boxes. Besides its 159 main cards and this one secret Pikachu, it has the 70-card Galarian Gallery. That has a Pikachu of its own, GG30, which is a different card.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/122301454).",
     images: ['/media/mu00djsz-122301454-front-sold.webp'],
     pokemonId: 25,
     price: '€100',
@@ -284,6 +312,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2000 Team Rocket - #65',
     description:
       'A 1st Edition from the 2000 Team Rocket set, number 65/82. This is the 1st Edition print, not the unlimited set print. This copy is graded PSA 9 Mint, cert 54094139. The PSA population is 1,418.',
+    about:
+      '## The card\nPsyduck 65/82 is a common from Team Rocket, released by Wizards of the Coast on 24 April 2000. Mitsuhiro Arita drew it: Psyduck clutching its head with its eyes shut, just as the Pokédex text on the card describes it, "as if it were suffering from a headache". Its first attack, Dizziness, draws a card, and costs a Psychic Energy although Psyduck is a Water Pokémon.\n\nThis copy is the 1st Edition print, from the set\'s first run. The card was printed again in Legendary Collection in 2002, as 88/110.\n\n## Team Rocket and Arita\nTeam Rocket introduced Dark Pokémon, and in this set Psyduck evolves into Dark Golduck, also drawn by Arita. Arita has worked on the card game since its prototype stage: he designed its first six Energy symbols and painted the Base Set Charizard.\n\n## The grade\nThe card is more than 25 years old, and PSA still graded it 9, Mint: a superb card with one minor flaw at most, such as slightly off-white borders or a small printing imperfection. Only Gem Mint 10 is higher. [Look up cert 54094139](https://www.psacard.com/cert/54094139) on PSA\'s website.',
     images: ['/media/mu86wg61-54094139-front.jpeg', '/media/mu86wmqu-54094139-back.jpeg'],
     pokemonId: 54,
     price: '€90',
@@ -308,6 +338,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2026 Ascended Heroes - #219',
     description:
       'An Illustration Rare from the 2026 Mega Evolution Ascended Heroes set, number 219/217. This is the Illustration Rare, not the regular set print. This copy is graded PSA 10 Gem Mint, cert 167185991. The PSA population is 917.',
+    about:
+      "## The card\nBeautifly 219/217 is an Illustration Rare from Ascended Heroes, released on 30 January 2026. The art is by Mori Yuu; the regular print, 013/217, is by Narumi Sato. In Japan the illustration came out first, as an Art Rare in MEGA Dream ex, in November 2025.\n\nBeautifly is one of the two Pokémon that Wurmple can end up as. The other is Dustox, and in this set their Illustration Rares sit side by side, at 219 and 220. Beautifly's Pokédex entry, from Pokémon X: \"Vibrantly patterned wings are its prominent feature. It sucks sweet flower nectar with its long mouth.\"\n\n## Ascended Heroes\nWith 295 cards, 217 plus 78 secret cards, Ascended Heroes was the largest English expansion when it came out, ahead of Fusion Strike's 284. It is the first special set of the Mega Evolution series, and the set that brought the Mega Attack Rare to English cards.\n\n## The grade\nPSA graded this copy Gem Mint 10, the top of its scale: a virtually perfect card, with sharp corners, sharp focus and its full original gloss. The cert can be checked on [PSA's website](https://www.psacard.com/cert/167185991).",
     images: ['/media/mu76kg6z-167185991-front.jpg', '/media/mu76keud-167185991-back.jpg'],
     pokemonId: 267,
     price: '€90',
@@ -327,6 +359,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Lost Origin - #185',
     description:
       'A Full Art from the 2022 Sword & Shield Lost Origin set, number 185/196. This is the Full Art V, not the regular set print. This copy is graded PSA 9 Mint, cert 150733735. The PSA population is 943.',
+    about:
+      "## The card\nGiratina V 185/196 is the Full Art of the Giratina V in Lost Origin, released on 9 September 2022. The set has three Giratina V cards: the regular print (130/196), this Full Art, and the Alternate Art by Shinji Kanda (186/196). The Full Art is by N-DESIGN Inc., a Japanese CG design company, with the embossed, etched finish of every English Full Art Pokémon V.\n\nIts first attack, Abyss Seeking, takes two of your top four cards and sends the rest to the Lost Zone, the mechanic the set was built around. Shred hits for 160 and ignores any effects on the opponent's Active Pokémon.\n\n## Lost Origin\nLost Origin brought back the Lost Zone, last seen in Cosmic Eclipse, with Origin Forme Giratina as its face. The cards came out in Japan first, in July 2022, in Lost Abyss, where this Full Art is 110/100.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/150733735).",
     images: ['/media/mu76kdmq-150733735-front.jpg', '/media/mu76kcvc-150733735-back.jpg'],
     pokemonId: 487,
     price: '€90',
@@ -346,6 +380,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Brilliant Stars - #TG02',
     description:
       'A Full Art from the 2022 Sword & Shield Brilliant Stars Trainer Gallery, number TG02/TG30. This is the Trainer Gallery print, not the regular set card. This copy is graded PSA 9 Mint, cert 159617048. The PSA population is 4,031.',
+    about:
+      "## The card\nVaporeon TG02/TG30 is a Trainer Gallery card from Brilliant Stars, released on 25 February 2022. The Trainer Gallery puts a Pokémon on a Full Art card together with a trainer, and this one pairs Vaporeon with Blue, the rival from the original Kanto games. The art is by Jiro Sasumo. The card came out in Japan first, as a Character Rare in VMAX Climax, in December 2021.\n\n## Vaporeon and Blue\nThe pairing goes back to Pokémon Yellow, where Blue can have a Vaporeon on his team. The card is a new illustration of the Vaporeon from Vivid Voltage, with the same Ability and attack.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 159617048](https://www.psacard.com/cert/159617048) on PSA's website.",
     images: ['/media/mueh4o9h-159617048-front.jpg', '/media/mueh4nju-159617048-back.jpg'],
     pokemonId: 134,
     price: '€55',
@@ -365,6 +401,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2023 Scarlet & Violet - #208',
     description:
       'An Illustration Rare from the 2023 Scarlet & Violet base set, number 208/198. This is the Illustration Rare, not the regular set print. This copy is graded PSA 9 Mint, cert 164273581. The PSA population is 912.',
+    about:
+      '## The card\nPachirisu 208/198 is an Illustration Rare from the Scarlet & Violet base set, released on 31 March 2023. The art is by zig: two Pachirisu rubbing their cheeks together among leaves, berries and grass. It matches the Pokédex text on the card, from Pokémon Violet: "A pair may be seen rubbing their cheek pouches together in an effort to share stored electricity."\n\nThe regular print of this Pachirisu, 068/198, is an uncommon with art by Naoki Saito. In Japan the Illustration Rare came out first, as an Art Rare in Violet ex.\n\n## Scarlet & Violet\nThis was the first set of the Scarlet & Violet era. It brought the new Pokémon ex, gave English cards grey borders instead of yellow, and was the first English set with Illustration Rares: full-art cards of Pokémon that are not ex, numbered after the main set. This Pachirisu is one of the first 24.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA\'s website](https://www.psacard.com/cert/164273581).',
     images: ['/media/mueh4por-164273581-front.jpg', '/media/mueh4oyy-164273581-back.jpg'],
     pokemonId: 417,
     price: '€50',
@@ -384,6 +422,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2026 Ascended Heroes - #232',
     description:
       'An Illustration Rare from the 2026 Mega Evolution Ascended Heroes set, number 232/217. This is the Illustration Rare, not the regular set print. This copy is graded PSA 9 Mint, cert 155019936. The PSA population is 991.',
+    about:
+      '## The card\nMarill 232/217 is an Illustration Rare from Ascended Heroes, released on 30 January 2026. The art is by Rond; the regular print, 083/217, is by Yoshimoto Yoshimon.\n\nIn Japan this illustration was never in booster packs. It came in the Start Deck 100 Battle Collection, a box that holds one of 102 different decks at random, as a fixed card in deck number 89, so getting it meant getting that one deck.\n\nMarill is a Psychic card here. In the games it is Water and Fairy, and since Sword & Shield the card game has filed Fairy Pokémon under Psychic. Its Pokédex entry, from Pokémon Violet: "The oil-filled tail functions as a buoy, so it\'s fine even in rivers with strong currents."\n\n## Ascended Heroes\nAscended Heroes is themed on Pokémon Legends: Z-A, and was the first special set of the Mega Evolution series and the first set outside Japan with regulation mark J. It was also the largest English expansion when it came out, with 295 cards.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA\'s website](https://www.psacard.com/cert/155019936).',
     images: ['/media/mueh4mvp-155019936-front.jpg', '/media/mueh4m8b-155019936-back.jpg'],
     pokemonId: 183,
     price: '€50',
@@ -403,6 +443,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2026 Perfect Order - #093',
     description:
       'An Illustration Rare from the 2026 Mega Evolution Perfect Order set, number 093/088. This is the Illustration Rare, not the regular set print. This copy is graded PSA 9 Mint, cert 166885290. The PSA population is 446.',
+    about:
+      '## The card\nDedenne 093/088 is an Illustration Rare from Perfect Order, released on 27 March 2026. The art is by HYOGONOSUKE; the regular print, 029/088, is by sowsow. In Japan the illustration came out first, in January 2026, as an Art Rare in Nihil Zero, where it is 085/080.\n\nDedenne is an Electric and Fairy Pokémon from Kalos, the region of Pokémon Legends: Z-A, and its Pokédex entry on this card comes from that game: "Its whiskers serve as antennas. By sending and receiving electrical waves, it can communicate with others over vast distances."\n\n## Perfect Order\nPerfect Order is the third main set of the Mega Evolution series and the first main set based on Pokémon Legends: Z-A, led by Mega Zygarde ex. It has 124 cards: 88, and 36 secret cards numbered above them.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 166885290](https://www.psacard.com/cert/166885290) on PSA\'s website.',
     images: ['/media/mueh4s27-166885290-front.jpg', '/media/mueh4qt8-166885290-back.jpg'],
     pokemonId: 702,
     price: '€45',
@@ -422,6 +464,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '1999 Fossil - #55',
     description:
       'A 1st Edition from the 1999 Fossil set, number 55/62. This is the 1st Edition print, not the unlimited set print. This copy is graded PSA 9 Mint, cert 54889204. The PSA population is 1,875.',
+    about:
+      '## The card\nSlowpoke 55/62 is a common from Fossil, the third main English expansion, released by Wizards of the Coast on 10 October 1999. It shows Slowpoke in a green field under a blue sky with white clouds. The art is by Miki Tanaka, her first Pokémon card, although the card itself credits "Miki Takano": the Fossil print has her name wrong.\n\nThe Pokédex text on the card is classic Slowpoke: "Incredibly slow and dopey. It takes 5 seconds for it to feel pain when under attack." Its attacks are Spacing Out and Scavenge, which brings back a Trainer card from the discard pile.\n\nThis copy is a 1st Edition, from the set\'s first print run.\n\n## Fossil\nFossil was built around Fossil Pokémon, on "an island where the Pokémon fossils have come to life!", as the box put it. Its holo rares include Aerodactyl, Kabutops and the three legendary birds, Articuno, Moltres and Zapdos.\n\n## The grade\nThe card is more than 25 years old, and PSA still graded it 9, Mint: a superb card with one minor flaw at most, such as slightly off-white borders or a small printing imperfection. Only Gem Mint 10 is higher. [Look up cert 54889204](https://www.psacard.com/cert/54889204) on PSA\'s website.',
     images: ['/media/mumlkvgz-54889204-front.jpg', '/media/mumlkus0-54889204-back.jpg'],
     pokemonId: 79,
     price: '€120',
@@ -442,6 +486,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2022 Silver Tempest - #138',
     description:
       'A holo V from the 2022 Sword & Shield Silver Tempest set, number 138/195. This is the regular set print of the Lugia V, not the Full Art or Alternate Art. This copy is graded PSA 9 Mint, cert 123801430. The PSA population is 4,435.',
+    about:
+      "## The card\nLugia V 138/195 is the regular print of the Lugia V in Silver Tempest, released on 11 November 2022, and the only one of its three versions drawn by Mitsuhiro Arita. The Full Art (185/195) and the Alternate Art (186/195) are by other artists. Arita's Lugia breaks through the surface of a stormy sea; as Pokémon's own article on the art of the set puts it, \"it's all but impossible to tell where the stormy skies end and where the roiling water begins\".\n\n## Mitsuhiro Arita\nArita has worked on the Pokémon card game since its prototype stage, before Pokémon Red and Green came out. He designed the first six Energy symbols, and he credits his Base Set Pikachu and Charizard with a big effect on his career.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/123801430).",
     images: ['/media/muk02wcc-123801430-front-sold.webp'],
     pokemonId: 249,
     price: '€69',
@@ -463,6 +509,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2025 Mega Evolution - #182',
     description:
       'A Special Illustration Rare from the 2025 Mega Evolution set, number 182/132. Special Illustration Rares are the full-art chase prints from the English set. This copy is graded PSA 9 Mint, cert 168318340. The PSA population is 3,539.',
+    about:
+      '## The card\nMega Kangaskhan ex 182/132 is a Special Illustration Rare from Mega Evolution, released on 26 September 2025. The art is by GOTO minori: Mega Kangaskhan and its child out on the town, perhaps running an errand together, caught up in a scuffle, drawn from a low angle that brings out the drama and the movement. The regular print (104/132) and the Ultra Rare (164/132) are by 5ban Graphics.\n\nThe errand is on the card itself. Its Ability, Run Errand, lets you draw two cards while it is in the Active Spot, and its attack, Rapid-Fire Combo, does 200 damage plus 50 for each heads, flipping until tails.\n\n## Mother and child\nIn the games, Mega Evolution leaves the mother as she is and makes the child grow, a child that is "feisty, hates to lose, and will boldly challenge its opponents to protect its mother". Mega Kangaskhan is also the only Pokémon in the games with the Ability Parental Bond.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 168318340](https://www.psacard.com/cert/168318340) on PSA\'s website.',
     images: ['/media/mumljfr8-168318340-front.jpg', '/media/mumljeb9-168318340-back.jpg'],
     pokemonId: 115,
     price: '€95',
@@ -482,6 +530,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2011 Hail Blizzard Japanese - #010',
     description:
       'A holo rare from the 2011 Black & White Hail Blizzard Japanese set, number 010/052. This is the 1st Edition print, with Mitsuhiro Arita artwork. This copy is graded PSA 9 Mint, cert 83741274. The PSA population is 28.',
+    about:
+      '## The card\nArcanine 010/052 is a holo rare from Hail Blizzard, a Japanese Black & White set released on 16 September 2011, together with its twin set, Psycho Drive. The art is by Mitsuhiro Arita. Like the other holos of the Black & White era, it has striped "tinsel" foil, which on the Japanese cards runs through the border as well.\n\nArcanine\'s Pokédex category on the card is "Legendary Pokémon", although Arcanine is not a Legendary. The text, from Pokémon Black and White, reads: "Its proud and regal appearance has captured the hearts of people since long ago."\n\n## Japanese 1st Edition\nThis copy is from the 1st Edition run: Japanese sets were printed in 1st Edition from 2001 until 2016. In English the card came out in Next Destinies, in February 2012, as 12/99, and there it is not a holo.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 83741274](https://www.psacard.com/cert/83741274) on PSA\'s website. Graded Japanese copies of this card are few, as the population above shows.',
     images: ['/media/muzucgdu-83741274-front.jpg', '/media/muzucfo2-83741274-back.jpg'],
     pokemonId: 59,
     price: '€65',
@@ -502,6 +552,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2020 Rebel Clash - #141',
     description:
       'A Cosmos Holo of number 141/192 from the 2020 Sword & Shield Rebel Clash set, with Eri Yamaki artwork. The booster print is a non-holo rare; this Cosmos Holo comes from the 2021 Snorlax Knockout tin. This copy is graded PSA 9 Mint, cert 134223443. The PSA population is 181, with only 43 graded higher.',
+    about:
+      "## The card\nSnorlax 141/192 comes from Rebel Clash, the second main Sword & Shield expansion, released on 1 May 2020. In booster packs it is a non-holo rare. This copy is the Cosmos Holo, which was not in packs: it came in the 2021 Mighty Mysterious Tin with Snorlax, often listed as the Snorlax Knockout Tin. The art is by Eri Yamaki.\n\nThe card plays the way Snorlax lives. Collect draws two cards, and Collapse hits for 120 and then puts Snorlax to sleep. Collapse first appeared on Rocket's Snorlax, in Gym Heroes.\n\n## Rebel Clash\nRebel Clash brought the VMAX forms of all three Galar starters, with Dragapult VMAX and Copperajah VMAX. In Japan this Snorlax is an uncommon; the English set made it a rare.\n\n## The grade\nPSA graded this copy 9, Mint: a superb card that may show one minor flaw, such as a slight printing imperfection or slightly off-white borders. Only Gem Mint 10 is higher. The cert can be checked on [PSA's website](https://www.psacard.com/cert/134223443).",
     images: ['/media/mv3zqppg-134223443-front.jpg', '/media/mv3zqosw-134223443-back.jpg'],
     pokemonId: 143,
     price: '€55',
@@ -525,6 +577,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2001 Black Star Promo - #36',
     description:
       'A Wizards of the Coast Black Star Promo, number 36, handed out through the Pokémon League in 2001, with Kagemaru Himeno artwork. Promos come from the League itself, not from a main set print run. This copy is graded PSA 9 Mint, cert 55894941. The PSA population is 677.',
+    about:
+      "## The card\nIgglybuff 36 is a Wizards of the Coast Black Star Promo, handed out through the Pokémon League in May 2001. Black Star Promos have a black star marked PROMO where the set symbol would be; Wizards numbered 53 of them between 1999 and 2003. The art, two Igglybuff by a large tree with musical notes in the air, is by Kagemaru Himeno, who paints in watercolour.\n\nAs a Baby Pokémon it has a trick of its own: when your opponent attacks while Igglybuff is Active, they flip a coin first, and on tails their turn ends. Its one attack is Good Night Song.\n\n## From the cinema\nThe card began in Japan, as one of two promos given to cinema-goers at the 2000 Pokémon film, Spell of the Unown. Igglybuff made its anime debut in the same programme, in the Pikachu short Pikachu & Pichu.\n\n## The grade\nThe card is more than 25 years old, and PSA still graded it 9, Mint: a superb card with one minor flaw at most, such as slightly off-white borders or a small printing imperfection. Only Gem Mint 10 is higher. [Look up cert 55894941](https://www.psacard.com/cert/55894941) on PSA's website.",
     images: ['/media/mv3zqt1e-55894941-front.jpg', '/media/mv3zqsb0-55894941-back.jpg'],
     pokemonId: 174,
     price: '€80',
@@ -544,6 +598,8 @@ export const seedProductRecords: ProductRecord[] = [
     subtitle: '2017 Burning Shadows - #32',
     description:
       'A reverse holo from the 2017 Sun & Moon Burning Shadows set, number 32/147. This copy is graded PSA 9 Mint, cert 57433655. The PSA population is 20, with only 9 graded higher.',
+    about:
+      '## The card\nMagikarp 32/147 is a common from Burning Shadows, the third main Sun & Moon expansion, released on 4 August 2017. This copy is the reverse holo, with the foil across the card around the artwork rather than on it. The illustration is by Yukiko Baba.\n\nIt is as modest as Magikarp gets: 30 HP and one attack, Splashing Dodge, for 10. The Pokédex text on the card, from Pokémon Sun, says it all: "Although weak and helpless, this Pokémon is incredibly fertile. They exist in such multitudes, you\'ll soon grow tired of seeing them."\n\n## Burning Shadows\nBurning Shadows is built around Necrozma, and its best-known card is the Rainbow Rare Charizard-GX, 150/147. The set has 169 cards: 147, and 22 secret rares numbered above them.\n\n## The grade\nThis copy is graded PSA 9, Mint, one step below Gem Mint 10. PSA gives a 9 to a superb card with no more than one minor flaw, such as a slight printing imperfection. [Look up cert 57433655](https://www.psacard.com/cert/57433655) on PSA\'s website. PSA has graded few copies of this reverse holo, as the population above shows.',
     images: [],
     pokemonId: 129,
     price: '€90',

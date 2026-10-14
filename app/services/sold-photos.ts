@@ -2,11 +2,11 @@ import type { ProductRecord } from '../database/products'
 import { BUILD_WIDTHS } from './responsiveImage'
 
 /**
- * A sold card is off the shop and its ads are gone, so nothing shows its photos any
- * more except the dashboard's sold list, which only ever asks for the smallest build
- * width. One photo of that width is all the card keeps: the front, as a WebP, under a
- * key that says so. The back and both full-size originals go, and with them a dozen
- * resizes apiece.
+ * A sold card is off the shop and its ads are gone, so all that still shows a photo of it
+ * is the dashboard's sold list and the card's own page, which shows the front greyed out
+ * and marked sold — neither needs more than the smallest build width. One photo of that
+ * width is all the card keeps: the front, as a WebP, under a key that says so. The back
+ * and both full-size originals go, and with them a dozen resizes apiece.
  */
 export const SOLD_PHOTO_WIDTH: number = BUILD_WIDTHS[0]
 

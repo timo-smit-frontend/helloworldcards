@@ -3,6 +3,7 @@ import { getSeoForPayload } from '~/seo/cms'
 import { getSeoForPath } from '~/seo/pages'
 import type { SeoPage } from '~/seo/pages'
 import { SITE_NAME } from '~/seo/site'
+import { PRODUCT_IMAGE_SIZES } from '~/services/responsiveImage'
 import { buildPublicPayload } from '../worker/cms/public'
 import { ensureSeeded } from '../worker/cms/seed'
 import { createMemoryD1 } from './helpers/memory-d1'
@@ -155,15 +156,18 @@ describe('CMS SEO', () => {
     expect(seo.description).not.toContain('€90')
   })
 
-  it('drops a sold card from the index without showing what it sold for', async () => {
+  it('keeps a sold card in the index, marked sold, without showing what it sold for', async () => {
     const seo = await seoFor('/products/charizard-2016-radiant-collection-rc5')
 
-    expect(seo.robots).toBe('noindex, follow')
-    expect(seo.canonical).toBeNull()
+    expect(seo.robots).toBe('index, follow')
+    expect(seo.canonical).toBe('https://helloworldcards.com/products/charizard-2016-radiant-collection-rc5/')
     expect(seo.title).toBe(`Charizard PSA 9 - 2016 Radiant Collection #RC5 (sold) | ${SITE_NAME}`)
-    expect(seo.description).toContain('has sold')
+    expect(seo.description).toMatch(/^Charizard PSA 9, 2016 Radiant Collection #RC5, sold\. A holo from the 2016 XY Generations/)
     expect(seo.description).not.toContain('€115')
+    expect(types(seo)).toEqual(expect.arrayContaining(['ItemPage', 'BreadcrumbList']))
     expect(types(seo)).not.toContain('Product')
+    // The one photo it keeps is 400 px wide: no larger resize to preload.
+    expect(seo.lcp).toEqual({ src: '/media/61958598_front-sold.webp', maxWidth: 400, sizes: PRODUCT_IMAGE_SIZES })
   })
 
   it('marks privacy as a PrivacyPolicy with the statement date', async () => {

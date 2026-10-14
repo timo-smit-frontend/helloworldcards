@@ -1701,6 +1701,13 @@ function BlockFields({ block, pagePath, onChange }: { block: CmsBlock; pagePath:
           <MediaPicker value={block.image ?? ''} onChange={(url) => patch({ image: url })} />
         </div>
       ) : null}
+      {block.type === 'content_text' ? (
+        <AdminCheck
+          label="Centered (without image)"
+          checked={block.centered === true}
+          onChange={(checked) => patch({ centered: checked || undefined })}
+        />
+      ) : null}
       {block.type === 'banner_figcaption' || block.type === 'content_cta' || block.type === 'content_text' ? (
         <AdminField label="Link URL">
           <input
@@ -2041,6 +2048,16 @@ function ProductEditor() {
                   className={textareaClass('sm:h-36')}
                   value={product.description ?? ''}
                   onChange={(event) => set('description', event.target.value)}
+                />
+              </AdminField>
+              <AdminField label="About this card">
+                <textarea
+                  className={textareaClass('sm:h-96')}
+                  placeholder={
+                    '## The card\nWhat it is, where it comes from and who drew it.\n\n## The grade\nWhat the slab says about this copy.'
+                  }
+                  value={product.about ?? ''}
+                  onChange={(event) => set('about', event.target.value)}
                 />
               </AdminField>
               <AdminField label="Pokédex number">

@@ -68,12 +68,14 @@ function parseProduct(body: Record<string, unknown>, id: number): ProductRecord 
   const grader = asString(body.grader)
   const soldTime = asString(body.soldTime)
   const soldVia = asString(body.soldVia)
+  const about = asString(body.about)?.trim()
   const cost = typeof body.cost === 'number' || typeof body.cost === 'string' ? parseListedPrice(body.cost) : undefined
   return {
     id,
     title: asString(body.title)?.trim() || 'Untitled',
     subtitle: asString(body.subtitle)?.trim() || '',
     description: asString(body.description)?.trim() || '',
+    ...(about ? { about } : {}),
     images: Array.isArray(body.images) ? body.images.filter((item): item is string => typeof item === 'string') : [],
     ...(asNumber(body.pokemonId) != null ? { pokemonId: asNumber(body.pokemonId) } : {}),
     ...(body.price != null && body.price !== '' ? { price: String(body.price) } : {}),

@@ -2,6 +2,7 @@ import type { PublicCmsPayload, CmsBlock, CmsFaq, CmsPage, CmsPerson, PublicProd
 import { upcomingEvents } from '../database/events'
 import { imageAltFor } from '../services/imageCopy'
 import { PRIORITY_IMAGE_SIZES, PRODUCT_IMAGE_SIZES, isLocalRasterSrc } from '../services/responsiveImage'
+import { SOLD_PHOTO_WIDTH } from '../services/sold-photos'
 import { HOME_URL, breadcrumbList, buildSeoPage, getSeoForPath, type SeoIdentity, type SeoPage } from './pages'
 import { productJsonLd, productName, productSeoDescription, soldProductSeoDescription } from './product'
 import { SITE_NAME, SITE_OWNER, SITE_URL, canonicalUrl } from './site'
@@ -58,7 +59,10 @@ function displayName(page: CmsPage): string {
   return page.title
 }
 
-function productBreadcrumbs(product: PublicProduct, path: string): Record<string, unknown> {
+function productBreadcrumbs(
+  product: Pick<PublicProduct, 'title' | 'subtitle' | 'grader' | 'grade'>,
+  path: string
+): Record<string, unknown> {
   const url = canonicalUrl(path)
 
   return {
@@ -180,17 +184,29 @@ function extraGraphForPage(
   return { extraGraph, webPageType, dateModified }
 }
 
-/** A sold card's old address: kept out of the index, but its links to the cards still for sale are followed. */
+/**
+ * A sold card's page stays in the index: someone looking for that card still finds what it
+ * was, and from there the cards that are for sale. No Product node: what a sold record says
+ * it cost is the sale price, which stays on the books, and a Product without an offer is an
+ * error in Search Console.
+ */
 function soldProductSeo(product: PublicSoldProduct, payload: PublicCmsPayload, identity: SeoIdentity): SeoPage {
+  const path = `/products/${product.slug}`
   const image = product.images[0] ?? payload.settings.siteImage
   return buildSeoPage({
-    path: `/products/${product.slug}`,
+    path,
     title: titleWithBrand(`${productName(product)} (sold)`),
     description: soldProductSeoDescription(product),
     image,
     imageAlt: altFor(image, payload, product.title),
-    robots: 'noindex, follow',
-    identity
+    type: 'product',
+    extraGraph: [productBreadcrumbs(product, path)],
+    webPageType: 'ItemPage',
+    identity,
+    lcp:
+      product.images[0] && isLocalRasterSrc(product.images[0])
+        ? { src: product.images[0], maxWidth: SOLD_PHOTO_WIDTH, sizes: PRODUCT_IMAGE_SIZES }
+        : undefined
   })
 }
 
