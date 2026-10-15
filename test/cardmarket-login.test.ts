@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { isOffersLoginWall, readCardmarketCredentials } from '../vite/cardmarket-login'
+import { cardmarketLoginUrl, isOffersLoginWall, readCardmarketCredentials, sessionStateFrom, type SessionSigns } from '../vite/cardmarket-login'
 
 const roots: string[] = []
 
@@ -60,5 +60,37 @@ describe('isOffersLoginWall', () => {
 
   it('leaves the ordinary button alone', () => {
     expect(isOffersLoginWall('Show more results')).toBe(false)
+  })
+})
+
+describe('sessionStateFrom', () => {
+  const none: SessionSigns = { logoutControl: false, passwordField: false, loginLink: false, loginButton: false, loginWall: false }
+
+  it('is logged in only with a logout control', () => {
+    expect(sessionStateFrom({ ...none, logoutControl: true })).toBe('in')
+  })
+
+  it('never takes a page with nothing to go on as logged in', () => {
+    expect(sessionStateFrom(none)).toBe('unknown')
+  })
+
+  it('is logged out on a header that only has a "Log in" button', () => {
+    expect(sessionStateFrom({ ...none, loginButton: true })).toBe('out')
+  })
+
+  it('believes the offers login wall over anything else on the page', () => {
+    expect(sessionStateFrom({ ...none, logoutControl: true, loginWall: true })).toBe('out')
+  })
+})
+
+describe('cardmarketLoginUrl', () => {
+  it('keeps the language and game of the page', () => {
+    expect(cardmarketLoginUrl('https://www.cardmarket.com/en/Pokemon/Products/Singles/Foo/Bar?language=1')).toBe(
+      'https://www.cardmarket.com/en/Pokemon/Login'
+    )
+  })
+
+  it('has nothing for a page outside a game', () => {
+    expect(cardmarketLoginUrl('https://www.cardmarket.com/')).toBeNull()
   })
 })

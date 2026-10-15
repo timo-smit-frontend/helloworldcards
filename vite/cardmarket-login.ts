@@ -62,27 +62,70 @@ function isCardmarketPage(url: string): boolean {
   }
 }
 
-type SessionState = 'in' | 'out'
+type SessionState = 'in' | 'out' | 'unknown'
+
+/** What the page shows of a session, gathered in one look. */
+export type SessionSigns = {
+  logoutControl: boolean
+  passwordField: boolean
+  loginLink: boolean
+  /** A link or button that just says "Log in", like the header's logged-out dropdown. */
+  loginButton: boolean
+  /** "Login to see more offers": Cardmarket itself saying this visitor is logged out. */
+  loginWall: boolean
+}
 
 /**
- * Logged in or out, from the page in front of us.
+ * Logged in, out, or not to be told from this page.
  *
- * A logout control settles it. Without one, a password field or a link to the login
- * page means the header is offering a login; a page with neither has nothing to log in
- * with and is taken as logged in.
+ * A logout control settles it as logged in. Anything offering a login settles it as out.
+ * A page with neither is unknown, never logged in: taking it as logged in is how a scan
+ * Chrome that had lost its session kept skipping the login and reading one page of offers.
  */
+export function sessionStateFrom(signs: SessionSigns): SessionState {
+  if (signs.loginWall) {
+    return 'out'
+  }
+  if (signs.logoutControl) {
+    return 'in'
+  }
+  if (signs.passwordField || signs.loginLink || signs.loginButton) {
+    return 'out'
+  }
+  return 'unknown'
+}
+
 async function sessionState(page: Page): Promise<SessionState> {
-  return await page
-    .evaluate(() => {
-      if (document.querySelector('a[href*="Logout" i], form[action*="Logout" i]')) {
-        return 'in' as const
+  const signs = await page
+    .evaluate((wall) => {
+      const loginLabel = /^(?:log\s*-?in|sign\s*-?in|inloggen|anmelden)$/i
+      const visible = (element: Element) => (element as HTMLElement).getClientRects().length > 0
+      return {
+        logoutControl: document.querySelector('a[href*="Logout" i], form[action*="Logout" i]') != null,
+        passwordField: document.querySelector('input[type="password"]') != null,
+        loginLink: document.querySelector('a[href*="/Login" i]') != null,
+        loginButton: Array.from(document.querySelectorAll('a, button')).some(
+          (element) => visible(element) && loginLabel.test((element as HTMLElement).innerText?.trim() ?? '')
+        ),
+        loginWall: new RegExp(wall, 'i').test(document.body?.innerText ?? '')
       }
-      if (document.querySelector('input[type="password"]')) {
-        return 'out' as const
-      }
-      return document.querySelector('a[href*="/Login" i]') ? ('out' as const) : ('in' as const)
-    })
-    .catch(() => 'in' as const)
+    }, OFFERS_LOGIN_WALL)
+    .catch(() => null)
+  return signs ? sessionStateFrom(signs) : 'unknown'
+}
+
+/** Cardmarket's own login page for the language and game of the page we are on. */
+export function cardmarketLoginUrl(pageUrl: string): string | null {
+  try {
+    const url = new URL(pageUrl)
+    const [language, game] = url.pathname.split('/').filter(Boolean)
+    if (!language || !game || !/^[a-z]{2}$/i.test(language)) {
+      return null
+    }
+    return `${url.origin}/${language}/${game}/Login`
+  } catch {
+    return null
+  }
 }
 
 /** Settles the page after a navigation: Cardmarket's bot check, waited out for a human to tick. */
@@ -136,9 +179,13 @@ async function submitLoginForm(page: Page, credentials: CardmarketCredentials): 
   return submitted
 }
 
-/** The login page the header links to, for a page that has no form of its own. */
+/**
+ * The login page, for a page that has no form of its own: the one the header links to,
+ * or Cardmarket's own when the header only has a button.
+ */
 async function openLoginPage(page: Page, settle: Settle): Promise<boolean> {
-  const href = await page.evaluate(() => document.querySelector<HTMLAnchorElement>('a[href*="/Login" i]')?.href ?? null).catch(() => null)
+  const linked = await page.evaluate(() => document.querySelector<HTMLAnchorElement>('a[href*="/Login" i]')?.href ?? null).catch(() => null)
+  const href = linked ?? cardmarketLoginUrl(page.url())
   if (!href || !isCardmarketPage(href)) {
     return false
   }
@@ -162,7 +209,7 @@ const HAND_LOGIN_WAIT_MS = 90_000
 async function waitForHandLogin(page: Page): Promise<boolean> {
   const deadline = Date.now() + HAND_LOGIN_WAIT_MS
   while (Date.now() < deadline) {
-    if ((await sessionState(page)) === 'in') {
+    if ((await sessionState(page)) !== 'out') {
       return true
     }
     await new Promise((resolve) => setTimeout(resolve, 1_000))
@@ -172,12 +219,17 @@ async function waitForHandLogin(page: Page): Promise<boolean> {
 
 async function logIn(page: Page, credentials: CardmarketCredentials, settle: Settle): Promise<void> {
   let submitted = await submitLoginForm(page, credentials)
-  if (!submitted && (await openLoginPage(page, settle))) {
-    submitted = await submitLoginForm(page, credentials)
+  if (!submitted) {
+    console.info('[cardmarket-login] No login form on this page, opening the login page')
+    if (await openLoginPage(page, settle)) {
+      submitted = await submitLoginForm(page, credentials)
+    }
   }
   if (submitted) {
     await settle(page)
-    if ((await sessionState(page)) === 'in') {
+    // Anything but a page still offering a login: the offers page read after this is
+    // what proves it, and one that is still walled off ends in an error.
+    if ((await sessionState(page)) !== 'out') {
       console.info('[cardmarket-login] Logged in to Cardmarket')
       return
     }
@@ -228,7 +280,9 @@ export async function ensureCardmarketLogin(
     await pending
     return
   }
-  if (!isCardmarketPage(page.url()) || (!required && (await sessionState(page)) === 'in')) {
+  // A warmup logs in only on a page that offers one. Without that it waits for the
+  // offers page: the login wall there is the proof, and comes back here as `required`.
+  if (!isCardmarketPage(page.url()) || (!required && (await sessionState(page)) !== 'out')) {
     return
   }
 

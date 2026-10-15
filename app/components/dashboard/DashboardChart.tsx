@@ -333,10 +333,15 @@ export default function DashboardChart({ ledger, period }: { ledger: Ledger; per
         </tbody>
       </table>
 
-      <dl className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-8 sm:grid-cols-3 2xl:grid-cols-6">
         <Stat label="Sold" value={`${totals.cardsSold}`} />
         <Stat label="In stock" value={`${totals.cardsInStock}`} />
         <Stat label="Avg. sell time" value={formatSellTime(totals.averageDaysToSell)} />
+        <Stat
+          label="Avg. profit"
+          value={totals.averageProfit == null ? '—' : formatSignedEuros(totals.averageProfit)}
+          tone={totals.averageProfit == null ? 'text-site-mantle' : moneyTone(totals.averageProfit)}
+        />
         <Stat label="Realized" value={formatSignedEuros(totals.realizedProfit)} tone={moneyTone(totals.realizedProfit)} />
         <Stat label="Still to gain" value={formatEuros(totals.potential)} tone="text-site-envy" />
       </dl>

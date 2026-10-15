@@ -81,12 +81,10 @@ export function summarizeLedger(items: LedgerItem[], period: LedgerPeriod, now =
 
   const soldCost = soldItems.reduce((total, item) => total + (item.spending ?? 0), 0)
   const soldRevenue = soldItems.reduce((total, item) => total + (item.listed ?? 0), 0)
-  const realizedProfit = soldItems.reduce((total, item) => {
-    if (item.spending == null || item.listed == null) {
-      return total
-    }
-    return total + (item.listed - item.spending)
-  }, 0)
+  const soldProfits = soldItems.flatMap((item) =>
+    item.spending == null || item.listed == null ? [] : [item.listed - item.spending]
+  )
+  const realizedProfit = soldProfits.reduce((total, profit) => total + profit, 0)
 
   const stockCost = stockItems.reduce((total, item) => total + (item.spending ?? 0), 0)
   const potential = stockItems.reduce((total, item) => total + (item.listed ?? 0), 0)
@@ -107,6 +105,7 @@ export function summarizeLedger(items: LedgerItem[], period: LedgerPeriod, now =
     realizedMargin: margin(realizedProfit, soldCost),
     potentialProfit,
     potentialMargin: margin(potentialProfit, stockCost),
-    averageDaysToSell: average(soldItems.map(daysToSell).filter((days) => days != null))
+    averageDaysToSell: average(soldItems.map(daysToSell).filter((days) => days != null)),
+    averageProfit: average(soldProfits)
   }
 }

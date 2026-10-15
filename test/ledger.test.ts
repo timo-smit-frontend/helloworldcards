@@ -148,6 +148,7 @@ describe('summarizeLedger', () => {
     expect(totals.potentialProfit).toBe(50)
     expect(totals.potentialMargin).toBe(50 / 70)
     expect(totals.averageDaysToSell).toBe((172 + 183) / 2)
+    expect(totals.averageProfit).toBe(45 / 2)
   })
 
   it('scopes spent and sold to this month and keeps potential as current stock', () => {
@@ -163,6 +164,14 @@ describe('summarizeLedger', () => {
     expect(totals.potentialProfit).toBe(50)
     expect(totals.potentialMargin).toBe(50 / 70)
     expect(totals.averageDaysToSell).toBe(172)
+    expect(totals.averageProfit).toBe(30)
+  })
+
+  it('leaves sold cards without a cost or price out of the average profit', () => {
+    const unpriced: LedgerItem = { ...items[2], id: 7, spending: null }
+
+    expect(summarizeLedger([unpriced], 'all', now).averageProfit).toBeNull()
+    expect(summarizeLedger([...items, unpriced], 'all', now).averageProfit).toBe(45 / 2)
   })
 
   it('leaves sold cards without a purchase date out of the average sell time', () => {
