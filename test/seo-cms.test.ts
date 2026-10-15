@@ -108,21 +108,21 @@ describe('CMS SEO', () => {
   })
 
   it('describes a card for sale as a Product with an in-stock offer', async () => {
-    const seo = await seoFor('/products/mewtwo-gx-2017-shining-legends-39')
+    const seo = await seoFor('/products/slowpoke-1999-fossil-55')
     const product = graph(seo).find((node) => node['@type'] === 'Product')
 
     expect(product).toMatchObject({
-      '@id': 'https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/#product',
-      name: 'Mewtwo GX PSA 9 - 2017 Shining Legends #39',
+      '@id': 'https://helloworldcards.com/products/slowpoke-1999-fossil-55/#product',
+      name: 'Slowpoke PSA 9 - 1999 Fossil #55',
       brand: { '@type': 'Brand', name: 'Pokémon' },
       image: [
-        'https://helloworldcards.com/media/mtpx3u8t-155373599-front.jpg',
-        'https://helloworldcards.com/media/mtpx3ud0-155373599-back.jpg'
+        'https://helloworldcards.com/media/mumlkvgz-54889204-front.jpg',
+        'https://helloworldcards.com/media/mumlkus0-54889204-back.jpg'
       ],
       offers: {
         '@type': 'Offer',
-        url: 'https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/',
-        price: '90.00',
+        url: 'https://helloworldcards.com/products/slowpoke-1999-fossil-55/',
+        price: '120.00',
         priceCurrency: 'EUR',
         availability: 'https://schema.org/InStock',
         itemCondition: 'https://schema.org/UsedCondition',
@@ -132,7 +132,7 @@ describe('CMS SEO', () => {
     expect(product?.additionalProperty).toEqual([
       { '@type': 'PropertyValue', name: 'Grade', value: 'PSA 9' },
       { '@type': 'PropertyValue', name: 'Language', value: 'English' },
-      { '@type': 'PropertyValue', name: 'Year', value: 2017 }
+      { '@type': 'PropertyValue', name: 'Year', value: 1999 }
     ])
   })
 

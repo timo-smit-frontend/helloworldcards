@@ -65,13 +65,13 @@ describe('sold cards', () => {
 
 describe('page snapshot for crawlers without JavaScript', () => {
   it('writes a product page with its name, story, price, listings and links to other cards', async () => {
-    const { payload, html } = await snapshotFor('/products/mewtwo-gx-2017-shining-legends-39')
+    const { payload, html } = await snapshotFor('/products/slowpoke-1999-fossil-55')
 
-    expect(html).toContain('<h1>Mewtwo GX PSA 9 - 2017 Shining Legends #39</h1>')
-    expect(text(html)).toContain('Shining Legends set, number 39/73.')
-    expect(html).toContain('<dt>Price</dt><dd>€90</dd>')
+    expect(html).toContain('<h1>Slowpoke PSA 9 - 1999 Fossil #55</h1>')
+    expect(text(html)).toContain('Fossil set, number 55/62.')
+    expect(html).toContain('<dt>Price</dt><dd>€120</dd>')
     expect(html).toContain('<dt>Grade</dt><dd>PSA 9</dd>')
-    expect(html).toContain('<a href="https://www.marktplaats.nl/seller/view/m2440339127">View on Marktplaats</a>')
+    expect(html).toContain('<a href="https://www.marktplaats.nl/seller/view/m2448075737">View on Marktplaats</a>')
     // The card's own listing, whichever it is today: every relist gives it a new one.
     const vintedUrl = payload.product?.vintedUrl
     expect(vintedUrl).toMatch(/^https:\/\/www\.vinted\.nl\/items\/\d+$/)
@@ -133,7 +133,7 @@ describe('page snapshot for crawlers without JavaScript', () => {
     for (const product of payload.products) {
       expect(html).toContain(`<a href="/products/${product.slug}/">`)
     }
-    expect(html).toContain('Mewtwo GX PSA 9 - 2017 Shining Legends #39</a>, €90')
+    expect(html).toContain('Slowpoke PSA 9 - 1999 Fossil #55</a>, €120')
     expect(html).toContain('Giratina V PSA 9 - 2022 Lost Origin #185</a>, reserved')
   })
 

@@ -97,10 +97,12 @@ describe('product inventory', () => {
       [8, 'vinted'],
       [9, 'vinted'],
       [10, 'vinted'],
+      [11, 'vinted'],
       [12, 'vinted'],
       [13, 'vinted'],
       [14, 'marktplaats'],
       [15, 'vinted'],
+      [16, 'vinted'],
       [24, 'marktplaats'],
       [27, 'vinted']
     ])
@@ -328,9 +330,9 @@ describe('product inventory', () => {
 
   it('uses a Marktplaats buy link when the listing URL is set', async () => {
     const { products } = await seededShop()
-    const product = products.find((item) => item.slug === 'mewtwo-gx-2017-shining-legends-39')
+    const product = products.find((item) => item.slug === 'slowpoke-1999-fossil-55')
     expect(productBuyLink(product!)).toEqual({
-      url: 'https://www.marktplaats.nl/seller/view/m2440339127',
+      url: 'https://www.marktplaats.nl/seller/view/m2448075737',
       title: 'View on Marktplaats',
       target: '_blank'
     })
@@ -373,7 +375,7 @@ describe('product inventory', () => {
 
   it('strips private fields when converting inventory to a public product', async () => {
     const { inventory } = await seededShop()
-    const live = inventory.find((item) => item.id === 11)!
+    const live = inventory.find((item) => item.id === 23)!
     const publicProduct = toPublicProduct(live, live.slug)
     expect('cost' in publicProduct).toBe(false)
     expect('concept' in publicProduct).toBe(false)
@@ -384,7 +386,7 @@ describe('product inventory', () => {
 
   it('rounds cents down on the website but keeps them on the books', async () => {
     const { inventory } = await seededShop()
-    const live = inventory.find((item) => item.id === 11)!
+    const live = inventory.find((item) => item.id === 23)!
     expect(toPublicProduct({ ...live, price: '€40,50' }, live.slug).price).toBe('€40')
     expect(inventory.find((item) => item.id === 6)?.price).toBe('€40,50')
   })

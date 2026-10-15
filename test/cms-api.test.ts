@@ -1004,7 +1004,7 @@ describe('CMS API', () => {
     expect(text).toContain('[Contact](https://helloworldcards.com/contact/)')
     expect(text).toContain('## Products')
     expect(text).toContain(
-      '[Mewtwo GX PSA 9](https://helloworldcards.com/products/mewtwo-gx-2017-shining-legends-39/): 2017 Shining Legends #39. €90'
+      '[Slowpoke PSA 9](https://helloworldcards.com/products/slowpoke-1999-fossil-55/): 1999 Fossil #55. €120'
     )
     // Reserved has sold: the sale price never reaches the site.
     expect(text).toContain(

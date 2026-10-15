@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CACHE_VERSION } from '../app/services/deal-finder/cache'
 import type { VintedRelistService } from '../app/services/vinted-relist'
 import { handleDashboardRequest, memoryCardmarketStore, memoryDealFinderStore, type CmsSync } from '../worker/dashboard-api'
+import { ensureSeeded } from '../worker/cms/seed'
 import { SESSION_COOKIE } from '../worker/session'
 import { createMemoryD1 } from './helpers/memory-d1'
 
@@ -216,6 +217,10 @@ describe('dashboard API', () => {
           `
       }
     })
+
+    // A PSA 10 in stock, whichever ones have sold: Gem Mint is searched at Mint, the rest at Near Mint.
+    await ensureSeeded(runtime.db)
+    await runtime.db.prepare('UPDATE products SET grade = 10 WHERE id = 23').run()
 
     const scan = await handleDashboardRequest(
       new Request('https://example.com/dashboard/cardmarket/scan', { method: 'POST', headers: { Cookie: `${SESSION_COOKIE}=${token}` } }),
